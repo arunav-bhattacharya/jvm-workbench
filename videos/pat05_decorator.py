@@ -1,355 +1,800 @@
 from fg import *
 import fg
 
-# ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
+# Spoken forms only (captions keep the written words). fg.py is shared, so these live here.
+fg.SAY[:0] = [
+    (r"\b0\.50\b", "fifty cents"), (r"\b(\d+)\.00\b", r"\1"), (r"\b1,100\b", "eleven hundred"),
+    (r"\bperKm\b", "per K M"), (r"\bplusFixed\b", "plus fixed"), (r"\bheavySurcharge\b", "heavy surcharge"),
+    (r"\bcappedAt\b", "capped at"), (r"\bcents of d\b", "cents of D"), (r"\bBB-1250\b", "B B twelve fifty"),
+    (r"\bDataOutputStream\b", "data output stream"), (r"\bBufferedOutputStream\b", "buffered output stream"),
+    (r"\bGZIPOutputStream\b", "G zip output stream"), (r"\bkg\b", "kilograms"),
+]
 
 
-class Beat(VoiceScene):
-    """VoiceScene plus: say= (the voice reads a different spelling than the caption shows), captions split
-    only where a new sentence starts, and seq() to start animations at a given sentence of the line."""
+# ---- local helpers (the same look as the rest of the patterns track) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
-
-    def _speak(self, text, say):
-        path, dur = voice(say or text)
+    def say(self, key):
+        text = N[key]
+        path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        return dur
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
 
-    def beat(self, text, *anims, run_time=None, after=0.25, say=None):
-        dur = self._speak(text, say)
-        if anims:
-            rt = min(run_time if run_time else max(0.8, dur * 0.55), max(0.5, dur))
-            self.play(*anims, run_time=rt)
-            rest = dur - rt
-        else:
-            rest = dur
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def seq(self, text, plan=(), after=0.25, say=None):
-        """plan: (sentence index, [animations], run_time); each starts no earlier than its sentence."""
-        dur = self._speak(text, say)
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        starts, t = [], 0.0
-        for x in sents:
-            starts.append(t); t += dur * len(x) / total
-        now = 0.0
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now); now = starts[idx]
-            self.play(*anims, run_time=rt); now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
-        if after:
-            self.wait(after)
+    def predict(self, secs=2.4, pos=(6.4, -3.3), edge=RIGHT):
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def wipe(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
 
 
-def cline(text, size=24, color=WHITE):
-    t = Text("|" + text, font=MONO, font_size=size, color=color, disable_ligatures=True)
-    t.src = text
-    return t
-
-
-def code(lines, size=24, color=WHITE):
-    pitch = M("|", size).height * 1.65
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        t = cline(ln, size, color)
-        t.shift(np.array([0, -i * pitch, 0]) - t[0].get_center())
-        g.add(t)
-    for t in g:
-        t.remove(t[0])
-    return g
-
-
-def one(text, size=24, color=WHITE):
-    t = cline(text, size, color)
-    t.remove(t[0])
-    return t
-
-
-def part(t, sub, nth=0):
-    i = -1
-    for _ in range(nth + 1):
-        i = t.src.index(sub, i + 1)
-    return VGroup(*t[i:i + len(sub)])
-
-
-def mark(m, color=WHITE, hold=0.6):
-    u = Line(m.get_corner(DL) + DOWN * 0.09, m.get_corner(DR) + DOWN * 0.09, color=color, stroke_width=4)
-    return Succession(Create(u, run_time=0.45), Wait(hold), FadeOut(u, run_time=0.35))
-
-
-def flash(r, color=YELLOW_M):
-    return ShowPassingFlash(r.copy().set_fill(opacity=0).set_stroke(color, 7), time_width=0.6)
-
-
-def fill_of(color, k=0.10):
+def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-class Stack:
-    """Nested boxes: box i sits inside box i-1, below its title band. Box 0 is the outside layer."""
-
-    def __init__(self, n, top, bh, w0, ins=0.3, gap=0.16, cx=0.0):
-        self.n, self.top, self.bh, self.w0, self.ins, self.gap, self.cx = n, top, bh, w0, ins, gap, cx
-
-    def y(self, i):
-        return self.top - i * self.bh - self.bh / 2
-
-    def left(self, i):
-        return self.cx - (self.w0 / 2 - i * self.ins)
-
-    def right(self, i):
-        return self.cx + (self.w0 / 2 - i * self.ins)
-
-    def boxes(self, colors):
-        inner_bottom = self.top - self.n * self.bh
-        g = VGroup()
-        for i in range(self.n):
-            t = self.top - i * self.bh
-            b = inner_bottom - (self.n - 1 - i) * self.gap
-            r = RoundedRectangle(corner_radius=0.12, width=self.w0 - 2 * i * self.ins, height=t - b,
-                                 stroke_color=colors[i], stroke_width=3)
-            r.set_fill(fill_of(colors[i]), opacity=1).move_to([self.cx, (t + b) / 2, 0]).set_z_index(i)
-            g.add(r)
-        return g
-
-    def label(self, i, name, desc, color, size=24, dsize=22, mono=True):
-        nm = (M if mono else T)(name, size, color)
-        nm.move_to([self.left(i) + 0.3 + nm.width / 2, self.y(i), 0])
-        g = VGroup(nm)
-        if desc:
-            g.add(T(desc, dsize, GREY_B).next_to(nm, RIGHT, buff=0.35))
-        return g.set_z_index(20)
-
-    def value(self, i, text, color=GREEN_M, size=24):
-        v = M(text, size, color)
-        return v.move_to([self.right(i) - 0.3 - v.width / 2, self.y(i), 0]).set_z_index(20)
+# track colours (the small town and its corner shop), plus one colour per price rule in this video
+SHOP, PRICE, BAD, OK = TEAL_M, GOLD_M, RED_M, GREEN_M
+KM, FIX, HEAVY, CAP = GOLD_M, BLUE_M, PURPLE_M, YELLOW_M
+LOGC, RETRY, LINE = PURPLE_M, BLUE_M, GREY_A
+PAPER, INK = "#EDE6D6", "#161616"
 
 
-STREAM = [("DataOutputStream", "typed writes"), ("BufferedOutputStream", "buffering"),
-          ("GZIPOutputStream", "compression"), ("out", "the real stream")]
-FEE = [("cappedAt(500)", "at most 5.00", PURPLE_M),
-       ('crossBorder("DE", 100)', "+1% if not from DE", GOLD_M),
-       ("plusFixed(30)", "+0.30", TEAL_M),
-       ("percent(290)", "2.9% of the amount", BLUE_M)]
-LANE = 2.2
+def person(color, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-class Pat05Decorator(Beat):
-    """pat-05 section 0: a decorator has the same interface, adds one behavior, forwards the call; order matters."""
+def who(color, name, s=1.1, size=22):
+    p = person(color, s)
+    return VGroup(p, T(name, size, color).next_to(p, DOWN, buff=0.12))
+
+
+def shop(s=1.0, color=SHOP):
+    b = Rectangle(width=2.4, height=1.6).set_stroke(color, 3).set_fill(dim(color, 0.18), 1)
+    aw = VGroup(*[Rectangle(width=0.4, height=0.32).set_stroke(color, 1.5).set_fill(color if i % 2 == 0 else dim(color, 0.3), 1)
+                  for i in range(6)]).arrange(RIGHT, buff=0).next_to(b, UP, buff=0)
+    win = Rectangle(width=1.0, height=0.6).set_stroke(color, 2).set_fill(BLACK, 1).move_to(b.get_center() + LEFT * 0.45 + DOWN * 0.1)
+    door = Rectangle(width=0.5, height=0.9).set_stroke(color, 2).set_fill(BLACK, 1).move_to(b.get_bottom() + RIGHT * 0.65 + UP * 0.45)
+    sign = T("corner shop", 22, color).next_to(aw, UP, buff=0.1)
+    return VGroup(b, aw, win, door, sign).scale(s)
+
+
+def teapot(s=1.0, color=TEAL_M):
+    body = Ellipse(width=1.0, height=0.7).set_stroke(color, 3).set_fill(dim(color, 0.4), 1)
+    lid = Ellipse(width=0.42, height=0.16).set_stroke(color, 2.5).set_fill(dim(color, 0.6), 1).move_to(body.get_top() + DOWN * 0.02)
+    knob = Dot(radius=0.06, color=color).next_to(lid, UP, buff=0)
+    spout = Polygon([0.42, 0.0, 0], [0.82, 0.32, 0], [0.86, 0.26, 0], [0.45, -0.18, 0]).set_stroke(color, 2.5).set_fill(dim(color, 0.4), 1)
+    handle = Arc(radius=0.24, start_angle=PI / 2, angle=PI, color=color, stroke_width=4).move_to([-0.6, 0.02, 0])
+    return VGroup(handle, spout, body, lid, knob).scale(s)
+
+
+def parcel(s=1.0):
+    """Box [0], gift paper [1] with stripes [2], ribbon [3]."""
+    box = Square(1.3).set_stroke(PRICE, 3).set_fill(dim(PRICE, 0.3), 1)
+    pap = Square(1.3).set_stroke(FIX, 3).set_fill(dim(FIX, 0.4), 1)
+    stripes = VGroup(*[Line([-0.65 + k * 0.33, -0.65, 0], [-0.65 + k * 0.33 + 0.4, 0.65, 0], stroke_width=2, color=dim(FIX, 0.8))
+                       for k in range(4)])
+    stripes.move_to(pap)
+    rib = VGroup(Line([0, -0.65, 0], [0, 0.65, 0], stroke_width=6, color=HEAVY), Line([-0.65, 0, 0], [0.65, 0, 0], stroke_width=6, color=HEAVY))
+    bow = VGroup(Ellipse(width=0.42, height=0.24).set_stroke(HEAVY, 3).set_fill(dim(HEAVY, 0.6), 1).rotate(25 * DEGREES).move_to([-0.2, 0.78, 0]),
+                 Ellipse(width=0.42, height=0.24).set_stroke(HEAVY, 3).set_fill(dim(HEAVY, 0.6), 1).rotate(-25 * DEGREES).move_to([0.2, 0.78, 0]))
+    return VGroup(box, VGroup(pap, stripes), VGroup(rib, bow)).scale(s)
+
+
+def bike(color=GREY_B, s=1.0):
+    w1 = Circle(radius=0.28).set_stroke(color, 3)
+    w2 = Circle(radius=0.28).set_stroke(color, 3).shift(RIGHT * 1.0)
+    frame = VMobject(stroke_color=color, stroke_width=3).set_points_as_corners([[0, 0, 0], [0.45, 0.4, 0], [1.0, 0, 0], [0.5, 0, 0], [0, 0, 0]])
+    return VGroup(w1, w2, frame).scale(s)
+
+
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def titled(code, title, color=GREY_B):
+    h = T(title, 22, color).next_to(code, UP, buff=0.22).align_to(code, LEFT)
+    return VGroup(h, code)
+
+
+def part(t, s, nth=0):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    flat = re.sub(r"\s", "", t.text)
+    i = -1
+    for _ in range(nth + 1):
+        i = flat.index(k, i + 1)
+    return t[i:i + len(k)]
+
+
+def term(lines, size=22, title="output", color=GREY_A):
+    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.5, height=t.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
+    t.move_to(r)
+    h = T(title, 20, GREY_B).next_to(r, UP, buff=0.1).align_to(r, LEFT)
+    return VGroup(r, t, h)
+
+
+def rule_row(text, size=28, color=WHITE):
+    return VGroup(tick(True, 0.15), T(text, size, color)).arrange(RIGHT, buff=0.2)
+
+
+def vchip(text, color, size=24, h=0.52):
+    t = M(text, size, WHITE)
+    r = RoundedRectangle(corner_radius=0.1, width=t.width + 0.32, height=h).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    return VGroup(r, t.move_to(r))
+
+
+def paper(lines, size=20, pad=0.16, color=INK):
+    t = M("\n".join(lines), size, color)
+    r = Rectangle(width=t.width + 2 * pad, height=t.height + 2 * pad).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    t.move_to(r)
+    return VGroup(r, t)
+
+
+# the four price rules, inside out: (code, what it adds, colour)
+LAYERS = [("perKm(50)", "0.50 per km", KM), ("plusFixed(200)", "+ 2.00 to start", FIX),
+          ("heavySurcharge(5_000, 300)", "+ 3.00 if over 5 kg", HEAVY), ("cappedAt(800)", "at most 8.00", CAP)]
+SWAPPED = [LAYERS[0], LAYERS[1], LAYERS[3], LAYERS[2]]
+W0, DW, H0, DH = 2.6, 2.4, 0.9, 1.1
+
+
+def onion(layers, cy=0.55):
+    """Nested layers: [k] = VGroup(rect, name, rule). Layer 0 is the parcel in the middle."""
+    g = VGroup()
+    for k, (name, rule, col) in enumerate(layers):
+        w, h = W0 + k * DW, H0 + k * DH
+        r = RoundedRectangle(corner_radius=0.14, width=w, height=h).set_stroke(col, 3).set_fill(dim(col, 0.10 + 0.03 * (3 - k)), 1)
+        r.move_to([0, cy, 0])
+        if k == 0:
+            nm = M(name, 24, WHITE).move_to(r.get_center() + UP * 0.14)
+            ru = T(rule, 20, col).move_to(r.get_center() + DOWN * 0.22)
+        else:
+            nm = M(name, 22, col).move_to(r.get_top() + DOWN * 0.28).align_to(r, LEFT).shift(RIGHT * 0.22)
+            ru = T(rule, 22, col).move_to(r.get_top() + DOWN * 0.28).align_to(r, RIGHT).shift(LEFT * 0.22)
+        g.add(VGroup(r, nm, ru))
+    # draw the outer layers first so the inner ones sit on top
+    for k in range(len(layers)):
+        g[k].set_z_index(k * -1 + 4)
+    return g
+
+
+def band_x(k):
+    """x of the middle of layer k's left band (k >= 1); layer 0's centre for k = 0."""
+    if k == 0:
+        return -0.75
+    return -(W0 + (k - 0.5) * DW) / 2
+
+
+# every spoken line, in order
+N = {
+    "open": "A customer at the corner shop buys a teapot as a present. The shopkeeper puts it in a box, wraps the box in "
+            "gift paper, and ties a ribbon around it.",
+    "rider": "Then the rider from Pedal Post, the town's bike courier, weighs it, scans the label, and rides off, quite "
+             "unmoved by the bow. A wrapped parcel is still a parcel. The courier handles it exactly as before.",
+    "shyq": "Here's a question that's easy to be shy about. If each layer of wrapping just passes the parcel on, does it "
+            "matter what order the layers go in? Hold on to that. We'll answer it with real numbers.",
+    "rules": "The shop charges for every parcel it sends. 0.50 for each kilometer. 2.00 to start. 3.00 more for a parcel "
+             "over 5 kilograms. And never more than 8.00 in all.",
+    "pain": "The easy way is one big method that knows all four rules. But these rules change often. Every change means "
+            "opening that one method, and hoping the other three still work.",
+    "wish": "Wouldn't it be nice if each rule were a piece we could add, remove, or move, without touching the others?",
+    "wrap": "That's the gift wrap again. Give each rule its own small layer that wraps the rule before it. In the middle "
+            "sits the parcel: the price per kilometer. Around it, a layer that adds 2.00 to start. Then one for heavy "
+            "parcels. And the cap on the outside.",
+    "map": "Let's map it. The parcel in the middle is the first rule, perKm. Each sheet of paper is one more rule. And the "
+           "courier is the code that asks for the price. It only talks to the outside, and it can't tell how many layers "
+           "there are, because every layer answers the same one question: what do you cost?",
+    "trace": "Let's watch one question travel. A 12 kilogram parcel, going 20 kilometers. The question goes in, layer by "
+             "layer, all the way to the middle. 20 kilometers at 0.50 makes 10.00.",
+    "trace2": "On the way back out, each layer adds its rule. Plus 2.00 to start: 12.00. It's heavy, so plus 3.00: 15.00. "
+              "And the cap says: no more than 8.00. So the courier hears 8.00.",
+    "pq": "Your turn. Two more parcels, both going 4 kilometers. One weighs 2 kilograms, the other weighs 12. What does "
+          "each one cost? Pause and guess.",
+    "pa": "The light one: 2.00 plus 4 times 0.50, so 4.00. The heavy one also pays the 3.00: 7.00. Neither one reaches "
+          "8.00, so the cap lets both answers through untouched.",
+    "code": "Here it is in code. Each rule is a small method that returns a new price, wrapped around the old one. In Java, "
+            "it's a default method on the interface. In Kotlin, an extension function. Read the chain from the inside "
+            "out: perKm is the parcel, and each call adds one layer.",
+    "code2": "The tricky part is the bare cents of d, inside the layer. It means: first, ask the price I'm wrapped around. "
+             "Then apply my one rule. The price inside is never changed.",
+    "bq": "Now, back to our question. Let's move the cap one place in, so it sits inside the heavy parcel rule. Both chains "
+          "compile, and both read sensibly. Same parcel: 12 kilograms, 20 kilometers. Does anything change? Pause and "
+          "guess.",
+    "break": "Watch the way out. 10.00. Plus 2.00 is 12.00. Now the cap comes first: down to 8.00. And then the heavy "
+             "parcel rule lands on top: 11.00.",
+    "break2": "Well. That's 1,100 cents, for a parcel the shop promised would never cost more than 800. The same four "
+              "pieces, two of them swapped, and a different price.",
+    "joke": "A cap on the inside should really be called capped, for now. It caps what it sees, and every layer outside "
+            "it still gets a say.",
+    "joke2": "Jokes aside, the gift wrap predicted this. A ribbon tied under the paper is hidden. The outer layer has the "
+             "last word.",
+    "breaks": "And here the picture breaks. Paper can only add. A layer of code can also take away, as the cap does. It "
+              "could even decide not to ask the parcel inside at all.",
+    "name": "Now the name. An object with the same interface as the object it wraps, which does one extra thing and "
+            "passes the call on, is called a decorator. Each rule here is a decorator.",
+    "stack": "Decorators wrap behavior too, not just arithmetic. Big Blue Vans has a booking line that's busy twice, and "
+             "then books, as booking lines tend to be. One decorator, Logging, writes down every call it sees. Another, "
+             "Retrying, tries up to three times.",
+    "stack_q": "Put them together, in both orders. How many log lines does each order write? Pause and guess.",
+    "stack_a": "With Retrying outside, Logging sits inside the loop, and sees every attempt: 3 lines. With Logging "
+               "outside, it sees only the one booking that came back: 1 line. The same booking, BB-1250, both times.",
+    "stack2": "So the inner layer sees every try, and the outer layer sees one answer. Neither order is wrong. They "
+              "answer different questions.",
+    "jdk": "The JDK has stacked decorators like this for decades. A DataOutputStream, around a BufferedOutputStream, "
+           "around a GZIPOutputStream: three wrappers around one stream, a place where bytes go, such as a file. Each "
+           "wrapper adds one thing: typed writes, buffering, compression.",
+    "guard": "So, three rules. One: the order of the layers is part of the behavior, so pin it in a test, as the lab's "
+             "tests pin all three prices. Two: keep each layer to one extra thing, so it can move. Three: when a layer "
+             "takes away, like the cap, ask which layers should come after it.",
+    "moral": "So, does the order of the wrapping matter? Yes. Every layer passes the call on, but the outer one has the "
+             "last word. The same four pieces gave 8.00 one way, and 11.00 the other.",
+    "check": "Quick check. Say the log feeds a chart of how many bookings the shop makes. Which order do you want?",
+    "check_a": "Logging outside: one line per booking. To see how often the line is busy, put it inside, where both busy "
+               "signals show up.",
+}
+
+
+class Pat05Decorator(Narrated):
+    """pat-05, section 0: decorators around a delivery price. The teapot in a box, gift paper and ribbon, and the
+    rider who handles it as one parcel; the shy question (does the order matter?); the four rules and the wish; the
+    layers mapped; one question in and the answer out (10.00, 12.00, 15.00, 8.00); predict 4.00 and 7.00; the code;
+    move the cap in: 800 vs 1,100 cents; 'capped, for now'; where the picture breaks; the name; Logging and Retrying
+    around Big Blue Vans' busy line (DecoratorStack's real output: 3 and 1 log lines); JDK streams; rules; moral; check."""
 
     def construct(self):
-        self.title_card("Decorator", "same interface, one more behavior")
+        self.title_card("Decorators", "wrap the same interface, and the order of the layers decides")
 
-        S = Stack(4, top=2.05, bh=0.8, w0=11.4)
-        boxes = S.boxes([GREY_B] * 4)
-        names = VGroup(*[S.label(i, n, None, WHITE) for i, (n, _) in enumerate(STREAM)])
-        descs = VGroup(*[T(d, 22, GREY_B).next_to(names[i], RIGHT, buff=0.35).set_z_index(20) for i, (_, d) in enumerate(STREAM)])
-        scode = one("new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(out)))", 22, GREY_A).move_to(UP * 3.05)
+        # ================= the teapot, wrapped =================
+        FL = -1.6
+        floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
+        sh = shop(0.95).move_to([-4.4, FL + 1.05, 0])
+        cust = who(GREY_A, "customer", 1.0, 20).move_to([-1.9, FL + 0.62, 0])
+        tp = teapot(1.0).move_to([0.6, FL + 0.55, 0])
+        pc = parcel(1.0).move_to([0.6, FL + 0.66, 0])
+        self.say("open")
+        self.play(Create(floor), FadeIn(sh), run_time=0.8)
+        self.play(FadeIn(cust, shift=RIGHT * 0.2), FadeIn(tp, shift=DOWN * 0.2), run_time=0.7)
+        self.at_text("puts it in a box", lead=0.2)
+        self.play(FadeOut(tp), FadeIn(pc[0]), run_time=0.6)
+        self.at_text("wraps the box", lead=0.2)
+        self.play(FadeIn(pc[1]), run_time=0.6)
+        self.at_text("ties a ribbon", lead=0.2)
+        self.play(Create(pc[2][0]), run_time=0.5)
+        self.play(FadeIn(pc[2][1], scale=0.6), run_time=0.4)
+        self.hold()
 
-        def wrap(i):
-            return AnimationGroup(FadeIn(boxes[i], scale=1.04), FadeIn(names[i]))
+        rider = who(SHOP, "Pedal Post", 1.0, 20)
+        bk = bike(GREY_B, 0.9)
+        rg = VGroup(bk, rider)
+        rider.next_to(bk, UP, buff=-0.05)
+        rg.move_to([4.6, FL + 0.75, 0])
+        scan = T("scan", 20, GREY_B)
+        self.say("rider")
+        self.play(FadeIn(rg, shift=LEFT * 0.4), run_time=0.8)
+        self.at_text("weighs it", lead=0.2)
+        self.play(pc.animate.shift(UP * 0.15), rate_func=there_and_back, run_time=0.6)
+        self.at_text("scans the label", lead=0.2)
+        beam = Line(rider[0].get_left() + LEFT * 0.1, pc.get_right() + RIGHT * 0.05, stroke_width=3, color=BAD)
+        self.play(Create(beam), run_time=0.3)
+        self.play(FadeOut(beam), run_time=0.3)
+        self.at_text("unmoved", lead=0.5)
+        self.play(pc.animate.scale(0.55).next_to(bk, UP, buff=0.05).shift(RIGHT * 0.75 + DOWN * 0.05), run_time=0.8)
+        self.at(1)
+        still = T("a wrapped parcel is still a parcel", 28, WHITE).move_to([0, 2.3, 0])
+        self.play(FadeIn(still, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        self.seq("Java's own streams are built in layers. Start with the real stream. "
-                 "Wrap it in a GZIPOutputStream, then a BufferedOutputStream, then a DataOutputStream.",
-                 [(0, [FadeIn(scode, shift=DOWN * 0.15)], 0.8),
-                  (1, [wrap(3), FadeIn(descs[3])], 0.7),
-                  (2, [wrap(2)], 0.7), (2, [wrap(1)], 0.7), (2, [wrap(0)], 0.7)],
-                 say="Java's own streams are built in layers. Start with the real stream. "
-                     "Wrap it in a G zip output stream, then a buffered output stream, then a data output stream.")
+        # ================= the shy question =================
+        shy = T("a question that's easy to be shy about", 26, GREY_B).move_to([0, 2.5, 0])
+        q1 = T("Each layer just passes the parcel on.", 36)
+        q2 = T("So does the order of the layers matter?", 36, YELLOW_M)
+        qg = VGroup(q1, q2).arrange(DOWN, buff=0.45).move_to([0, 0.3, 0])
+        self.say("shyq")
+        self.play(FadeIn(shy), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(q1, shift=UP * 0.1), run_time=0.6)
+        self.at_text("does it", lead=0.3)
+        self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0.4)
+        self.wipe()
 
-        note = T("every layer is an OutputStream", 26, GREY_B).move_to(DOWN * 2.45)
-        bytes_dot = Dot(radius=0.09, color=YELLOW_M).move_to([LANE, 2.4, 0]).set_z_index(30)
-        self.seq("Each wrapper is an OutputStream too. Each one adds one behavior: typed writes, buffering, compression. "
-                 "Then it passes the bytes on to the stream it wraps.",
-                 [(0, [FadeIn(note, shift=UP * 0.15)], 0.7),
-                  (1, [FadeIn(descs[0])], 0.5), (1, [FadeIn(descs[1])], 0.5), (1, [FadeIn(descs[2])], 0.5),
-                  (2, [FadeIn(bytes_dot, run_time=0.2)], 0.2),
-                  (2, [Succession(*[AnimationGroup(bytes_dot.animate.move_to([LANE, S.y(i), 0]), flash(boxes[i]))
-                                    for i in range(4)])], 2.4),
-                  (2, [FadeOut(bytes_dot)], 0.3)])
+        # ================= the four rules, one big method =================
+        card_t = T("Delivery prices", 30, PRICE)
+        rows = VGroup(*[T(t, 28, c) for t, c in [("0.50 for each km", KM), ("2.00 to start", FIX),
+                                                 ("3.00 more over 5 kg", HEAVY), ("never more than 8.00", CAP)]])
+        rows.arrange(DOWN, aligned_edge=LEFT, buff=0.3)
+        card = VGroup(card_t, rows).arrange(DOWN, buff=0.4, aligned_edge=LEFT)
+        card_r = SurroundingRectangle(card, buff=0.35, color=PRICE, stroke_width=2.5, corner_radius=0.12).set_fill(dim(PRICE, 0.08), 1)
+        cardg = VGroup(card_r, card).move_to([-3.4, 0.3, 0])
+        self.say("rules")
+        self.play(FadeIn(card_r), FadeIn(card_t), run_time=0.6)
+        for i in range(4):
+            self.at(i + 1)
+            self.play(FadeIn(rows[i], shift=RIGHT * 0.1), run_time=0.45)
+        self.hold()
 
-        self.beat("That is the decorator pattern. A decorator has the same interface as the object it wraps. "
-                  "It does one extra thing, and forwards the call. The caller can't tell how many layers there are.",
-                  Indicate(note, color=WHITE, scale_factor=1.06), run_time=1.2)
+        big = RoundedRectangle(corner_radius=0.12, width=4.6, height=3.6).set_stroke(GREY_B, 2.5).set_fill("#101010", 1)
+        big.move_to([3.3, 0.2, 0])
+        bigt = M("price(parcel)", 24, GREY_A).next_to(big.get_top(), DOWN, buff=0.25)
+        tangle = VGroup(*[M(s, 20, GREY_B) for s in ("if (km ...) ...", "if (start ...) ...", "if (heavy ...) ...",
+                                                      "if (over cap ...) ...")]).arrange(DOWN, aligned_edge=LEFT, buff=0.22)
+        tangle.next_to(bigt, DOWN, buff=0.3)
+        self.say("pain")
+        self.play(FadeIn(big), FadeIn(bigt), run_time=0.6)
+        self.play(LaggedStart(*[TransformFromCopy(rows[i], tangle[i]) for i in range(4)], lag_ratio=0.2), run_time=1.2)
+        self.at(1)
+        self.play(Wiggle(tangle, scale_value=1.05), run_time=0.9)
+        self.at(2)
+        pen = T("editing...", 22, BAD).next_to(big, DOWN, buff=0.2)
+        self.play(FadeIn(pen), big.animate.set_stroke(BAD), run_time=0.5)
+        self.hold()
 
-        # ---- the same shape for fees
-        fboxes = S.boxes([c for _, _, c in FEE])
-        flabels = VGroup(*[S.label(i, n, d, c) for i, (n, d, c) in enumerate(FEE)])
-        fcode = one('standard = percent(290).plusFixed(30).crossBorder("DE", 100).cappedAt(500)', 22, WHITE).move_to(UP * 3.05)
-        for (n, _, c) in FEE:
-            part(fcode, n).set_color(c)
-        self.seq("Fees fit the same shape, because a fee is a base rule plus adjustments.",
-                 [(0, [FadeOut(note), ReplacementTransform(scode, fcode),
-                       *[Transform(boxes[i], fboxes[i]) for i in range(4)],
-                       *[FadeOut(VGroup(names[i], descs[i])) for i in range(4)],
-                       *[FadeIn(flabels[i]) for i in range(4)]], 1.6)])
-        self.seq("The base rule is 2.9 percent of the amount. Then each adjustment wraps it. "
-                 "Add 30 cents. Add 1 percent more for a payment from outside Germany. Then cap the fee at 5 euros.",
-                 [(0, [flash(boxes[3], BLUE_M), Indicate(flabels[3][0], color=BLUE_M, scale_factor=1.08)], 1.0),
-                  (2, [flash(boxes[2], TEAL_M), Indicate(flabels[2][0], color=TEAL_M, scale_factor=1.08)], 1.0),
-                  (3, [flash(boxes[1], GOLD_M), Indicate(flabels[1][0], color=GOLD_M, scale_factor=1.06)], 1.0),
-                  (4, [flash(boxes[0], PURPLE_M), Indicate(flabels[0][0], color=PURPLE_M, scale_factor=1.08)], 1.0)])
-        self.seq("Each call in the chain wraps everything to its left. So the last one, cappedAt, ends up on the outside.",
-                 [(0, [mark(part(fcode, "percent(290)"), BLUE_M, 0.1)], 0.8),
-                  (0, [mark(part(fcode, "plusFixed(30)"), TEAL_M, 0.1)], 0.8),
-                  (0, [mark(part(fcode, 'crossBorder("DE", 100)'), GOLD_M, 0.1)], 0.8),
-                  (1, [mark(part(fcode, "cappedAt(500)"), PURPLE_M, 0.4), flash(boxes[0], PURPLE_M)], 1.2)])
+        wish = T("Wish: each rule a piece we can add, remove or move.", 30, OK).move_to([0, -3.0, 0])
+        fit(wish, 12.4)
+        self.say("wish")
+        self.play(FadeOut(pen), FadeIn(wish, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---- a call travels in, the result travels back out
-        caller = chip("standard.feeMinor(p)", WHITE, size=22, mono=True).move_to([LANE, 2.5, 0])
-        pay = T("p: 1,000.00 EUR, from France", 24, GREY_B)
-        pay.move_to([caller.get_left()[0] - 0.35 - pay.width / 2, 2.5, 0])
-        call = Dot(radius=0.1, color=YELLOW_M).move_to(caller.get_bottom()).set_z_index(30)
+        # ================= the layers =================
+        on = onion(LAYERS)
+        self.say("wrap")
+        self.at(1)
+        self.play(FadeIn(on[0], scale=0.9), run_time=0.7)
+        self.at(2)
+        self.play(Indicate(on[0][1], color=KM, scale_factor=1.15), run_time=0.7)
+        self.at(3)
+        self.play(FadeIn(on[1]), run_time=0.7)
+        self.at(4)
+        self.play(FadeIn(on[2]), run_time=0.7)
+        self.at(5)
+        self.play(FadeIn(on[3]), run_time=0.7)
+        self.hold()
 
-        self.seq("Now charge a French payment of 1,000 euros. The call goes to the outside layer first. "
-                 "Each layer calls the one it wraps, all the way in to the base rule.",
-                 [(0, [FadeIn(caller), FadeIn(pay)], 0.8),
-                  (1, [FadeIn(call, run_time=0.2)], 0.2),
-                  (1, [call.animate.move_to([LANE, S.y(0), 0]), flash(boxes[0])], 0.7),
-                  (2, [Succession(*[AnimationGroup(call.animate.move_to([LANE, S.y(i), 0]), flash(boxes[i]))
-                                    for i in (1, 2, 3)])], 2.1)])
+        caller = who(SHOP, "courier", 1.0, 20).move_to([-6.0, 0.35, 0])
+        mapr = VGroup(*[VGroup(T(a, 22, GREY_A), M("->", 20, GREY_B), T(b, 22, c)).arrange(RIGHT, buff=0.2)
+                        for a, b, c in [("the parcel", "the first rule, perKm", KM), ("each sheet of paper", "one more rule", FIX),
+                                        ("the courier", "the code that asks the price", SHOP)]])
+        mapr.arrange(RIGHT, buff=0.55)
+        fit(mapr, 12.6).move_to([0, -2.55, 0])
+        same = T("every layer answers one question:  what do you cost?", 26, WHITE).move_to([0, -3.25, 0])
+        self.say("map")
+        self.play(FadeIn(mapr[0], shift=UP * 0.1), Indicate(on[0][1], color=KM, scale_factor=1.1), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(mapr[1], shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(mapr[2], shift=UP * 0.1), FadeIn(caller, shift=RIGHT * 0.2), run_time=0.7)
+        self.at(4)
+        self.play(FadeIn(same, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(mapr), FadeOut(same), run_time=0.5)
 
-        res = Dot(radius=0.1, color=GREEN_M).move_to([LANE, S.y(3), 0]).set_z_index(30)
-        vals1 = [S.value(3, "29.00"), S.value(2, "+0.30 = 29.30"), S.value(1, "+10.00 = 39.30"), S.value(0, "cap: 5.00")]
-        out1 = M("= 5.00", 26, GREEN_M).next_to(caller, RIGHT, buff=0.3)
-        self.seq("The base rule returns 29 euros. On the way back out, each layer does its one thing: 29.30, then 39.30. "
-                 "The cap comes last, so the fee is 5 euros.",
-                 [(0, [FadeOut(call, run_time=0.2), FadeIn(res, run_time=0.2), FadeIn(vals1[0])], 0.7),
-                  (1, [res.animate.move_to([LANE, S.y(2), 0]), FadeIn(vals1[1])], 0.7),
-                  (1, [res.animate.move_to([LANE, S.y(1), 0]), FadeIn(vals1[2])], 0.7),
-                  (2, [res.animate.move_to([LANE, S.y(0), 0]), FadeIn(vals1[3])], 0.7),
-                  (2, [res.animate.move_to(caller.get_bottom()), FadeIn(out1, shift=LEFT * 0.15)], 0.7),
-                  (2, [FadeOut(res)], 0.3)],
-                 say="The base rule returns twenty-nine euros. On the way back out, each layer does its one thing: "
-                     "twenty-nine thirty, then thirty-nine thirty. The cap comes last, so the fee is five euros.")
+        # ================= one question travels in, the answer comes out =================
+        Y = 0.12
+        qchip = vchip("12 kg, 20 km", SHOP, 22).move_to([-5.95, 1.3, 0])
+        tally = VGroup()
+        tally_y = -2.55
 
-        # ---- swap two layers
-        fcode2 = one('standard = percent(290).plusFixed(30).cappedAt(500).crossBorder("DE", 100)', 22, WHITE).move_to(fcode)
-        for (n, _, c) in FEE:
-            part(fcode2, n).set_color(c)
-        l0_to = flabels[0].copy().shift([S.ins, -S.bh, 0])
-        l1_to = flabels[1].copy().shift([-S.ins, S.bh, 0])
-        self.seq("Now move cappedAt in front of crossBorder. Same layers, in a different order.",
-                 [(0, [FadeOut(VGroup(*vals1)), FadeOut(out1),
-                       Transform(fcode, fcode2),
-                       flabels[0].animate.move_to(l0_to), flabels[1].animate.move_to(l1_to),
-                       boxes[0].animate.set_stroke(GOLD_M).set_fill(fill_of(GOLD_M), opacity=1),
-                       boxes[1].animate.set_stroke(PURPLE_M).set_fill(fill_of(PURPLE_M), opacity=1)], 1.8)])
+        def tally_add(txt, col):
+            c = vchip(txt, col, 26)
+            if len(tally):
+                arr = M("->", 24, GREY_B).next_to(tally[-1], RIGHT, buff=0.18)
+                tally.add(arr)
+            c.next_to(tally[-1] if len(tally) else ORIGIN, RIGHT, buff=0.18)
+            tally.add(c)
+            tally.move_to([0, tally_y, 0])
+            return c
 
-        res2 = Dot(radius=0.1, color=GREEN_M).move_to([LANE, S.y(3), 0]).set_z_index(30)
-        vals2 = [S.value(3, "29.00"), S.value(2, "+0.30 = 29.30"), S.value(1, "cap: 5.00"), S.value(0, "+10.00 = 15.00", RED_M)]
-        out2 = M("= 15.00", 26, RED_M).next_to(caller, RIGHT, buff=0.3)
-        self.seq("Run the same payment. 29, then 29.30. The cap brings it down to 5. "
-                 "Then the surcharge lands after the cap, and the fee is 15 euros.",
-                 [(0, [FadeIn(res2), FadeIn(vals2[0])], 0.6),
-                  (1, [res2.animate.move_to([LANE, S.y(2), 0]), FadeIn(vals2[1])], 0.7),
-                  (2, [res2.animate.move_to([LANE, S.y(1), 0]), FadeIn(vals2[2])], 0.7),
-                  (3, [res2.animate.move_to([LANE, S.y(0), 0]), FadeIn(vals2[3])], 0.7),
-                  (3, [res2.animate.move_to(caller.get_bottom()), FadeIn(out2, shift=LEFT * 0.15)], 0.7),
-                  (3, [FadeOut(res2)], 0.3)],
-                 say="Run the same payment. Twenty-nine, then twenty-nine thirty. The cap brings it down to five. "
-                     "Then the surcharge lands after the cap, and the fee is fifteen euros.")
+        self.say("trace")
+        self.play(FadeIn(qchip, shift=DOWN * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(qchip.animate.move_to([band_x(3), Y, 0]), run_time=0.6)
+        self.at(2)
+        for k in (2, 1):
+            self.play(qchip.animate.move_to([band_x(k), Y, 0]), Indicate(on[k][0], color=LAYERS[k][2], scale_factor=1.0), run_time=0.55)
+        self.play(qchip.animate.move_to([0, -0.05, 0]).scale(0.8), run_time=0.5)
+        self.at(3)
+        v = vchip("10.00", KM, 24).move_to([0, -0.05, 0])
+        self.play(FadeOut(qchip), FadeIn(v, scale=1.2), run_time=0.5)
+        steps = [tally_add("10.00", KM)]
+        self.play(FadeIn(tally[0], shift=UP * 0.1), run_time=0.4)
+        self.hold()
 
-        cmp_a = VGroup(M("cappedAt last:", 24, PURPLE_M), M("5.00", 26, GREEN_M)).arrange(RIGHT, buff=0.25)
-        cmp_b = VGroup(M("cappedAt before crossBorder:", 24, PURPLE_M), M("15.00", 26, RED_M)).arrange(RIGHT, buff=0.25)
-        cmp = VGroup(cmp_a, cmp_b).arrange(RIGHT, buff=1.0).move_to(DOWN * 2.45)
-        cmp.scale(min(1, 12 / cmp.width))
-        self.beat("Both chains compile. Only a test with a large cross-border payment tells them apart.",
-                  FadeIn(cmp, shift=UP * 0.15), run_time=1.0)
-        self.play(FadeOut(VGroup(boxes, flabels, fcode, caller, pay, out2, cmp, *vals2)), run_time=0.7)
-        self.remove(call, res, res2)
+        self.say("trace2")
+        outs = [("12.00", FIX, 1), ("15.00", HEAVY, 2), ("8.00", CAP, 3)]
+        for i, (txt, col, k) in enumerate(outs):
+            self.at(i + 1)
+            nv = vchip(txt, col, 24).move_to([band_x(k), Y, 0])
+            self.play(v.animate.move_to([band_x(k), Y, 0]), run_time=0.5)
+            self.play(Transform(v, nv), Indicate(on[k][2], color=col, scale_factor=1.12), run_time=0.5)
+            c = tally_add(txt, col)
+            self.play(FadeIn(tally[-2]), FadeIn(c, shift=UP * 0.1), run_time=0.35)
+        self.at(4)
+        self.play(v.animate.next_to(caller, UP, buff=0.12), run_time=0.6)
+        self.play(Indicate(tally[-1], color=CAP, scale_factor=1.15), run_time=0.6)
+        self.hold()
 
-        # ---- behavior decorators: retry and logging
-        A = Stack(3, top=1.75, bh=0.75, w0=5.8, cx=-3.35)
-        B = Stack(3, top=1.75, bh=0.75, w0=5.8, cx=3.35)
-        ab = A.boxes([WHITE, WHITE, GREY_B])
-        bb = B.boxes([WHITE, WHITE, GREY_B])
-        al = VGroup(A.label(0, "retry, 3 attempts", None, WHITE, 24, mono=False), A.label(1, "logging", None, WHITE, 24, mono=False),
-                    A.label(2, "charge", None, GREY_B, 24, mono=False))
-        bl = VGroup(B.label(0, "logging", None, WHITE, 24, mono=False), B.label(1, "retry, 3 attempts", None, WHITE, 24, mono=False),
-                    B.label(2, "charge", None, GREY_B, 24, mono=False))
-        ha = T("retry outside logging", 26, GREY_B).move_to([A.cx, 2.6, 0])
-        hb = T("logging outside retry", 26, GREY_B).move_to([B.cx, 2.6, 0])
-        ax, bx = A.right(2) - 0.6, B.right(2) - 0.6
+        # ================= predict two more parcels =================
+        self.play(FadeOut(tally), FadeOut(v), run_time=0.4)
+        p1 = VGroup(T("2 kg, 4 km", 26, WHITE), T("?", 30, YELLOW_M)).arrange(RIGHT, buff=0.35)
+        p2 = VGroup(T("12 kg, 4 km", 26, WHITE), T("?", 30, YELLOW_M)).arrange(RIGHT, buff=0.35)
+        pg = VGroup(p1, p2).arrange(RIGHT, buff=1.6).move_to([0, -2.6, 0])
+        self.say("pq")
+        self.at(1)
+        self.play(FadeIn(p1, shift=UP * 0.1), FadeIn(p2, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.predict(2.6)
 
-        def logline(stack, k):
-            return M("log: charge", 22, YELLOW_M).move_to([stack.cx, -1.35 - 0.42 * k, 0])
+        a1 = vchip("4.00", OK, 26).move_to(p1[1])
+        a2 = vchip("7.00", OK, 26).move_to(p2[1])
+        through = T("the cap lets both through", 22, CAP).move_to([0, -3.3, 0])
+        self.say("pa")
+        self.play(Transform(p1[1], a1), run_time=0.5)
+        self.at(1)
+        self.play(Transform(p2[1], a2), Indicate(on[2][2], color=HEAVY, scale_factor=1.12), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(through), Indicate(on[3][2], color=CAP, scale_factor=1.12), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        alog = [logline(A, k) for k in range(3)]
-        blog = [logline(B, 0)]
-        asum = T("3 log lines", 26, YELLOW_M).move_to([A.cx, -2.85, 0])
-        bsum = T("1 log line", 26, YELLOW_M).move_to([B.cx, -2.85, 0])
+        # ================= the code =================
+        java = code_block(["default DeliveryFee plusFixed(long fixed) {", "    return d -> cents(d) + fixed;", "}", "",
+                           "DeliveryFee standard = DeliveryFee.perKm(50)", "        .plusFixed(200)",
+                           "        .heavySurcharge(5_000, 300)", "        .cappedAt(800);"], 22)
+        kt = code_block(["fun DeliveryFee.plusFixed(fixed: Long) =", "    DeliveryFee { d -> cents(d) + fixed }", "", "",
+                         "val standard = perKm(50)", "    .plusFixed(200)", "    .heavySurcharge(5_000, 300)",
+                         "    .cappedAt(800)"], 22)
+        fit(java, 6.3)
+        fit(kt, 6.0)
+        jg = titled(java, "Java: a default method").move_to([-3.25, 0.6, 0])
+        kg = titled(kt, "Kotlin: an extension function").move_to([3.45, 0.6, 0]).align_to(jg, UP)
+        for c, i0 in ((java, 4), (kt, 4)):
+            part(c[i0], "perKm(50)").set_color(KM)
+            part(c[i0 + 1], "plusFixed(200)").set_color(FIX)
+            part(c[i0 + 2], "heavySurcharge(5_000,300)").set_color(HEAVY)
+            part(c[i0 + 3], "cappedAt(800)").set_color(CAP)
+        self.say("code")
+        self.play(FadeIn(jg, shift=UP * 0.1), FadeIn(kg, shift=UP * 0.1), run_time=0.9)
+        self.at(1)
+        bj = SurroundingRectangle(java[0:3], buff=0.1, color=FIX, stroke_width=2.5, corner_radius=0.06)
+        bk_ = SurroundingRectangle(kt[0:2], buff=0.1, color=FIX, stroke_width=2.5, corner_radius=0.06)
+        self.play(Create(bj), Create(bk_), run_time=0.7)
+        self.at(4)
+        cj = SurroundingRectangle(java[4:8], buff=0.1, color=GREY_B, stroke_width=2, corner_radius=0.06)
+        ck = SurroundingRectangle(kt[4:8], buff=0.1, color=GREY_B, stroke_width=2, corner_radius=0.06)
+        self.play(FadeOut(bj), FadeOut(bk_), Create(cj), Create(ck), run_time=0.6)
+        self.at_text("perKm is the parcel", lead=0.3)
+        for k, col in enumerate((KM, FIX, HEAVY, CAP)):
+            self.play(Indicate(java[4 + k], color=col, scale_factor=1.04), Indicate(kt[4 + k], color=col, scale_factor=1.04), run_time=0.45)
+        self.hold()
 
-        def attempt_a(k):
-            d = Dot(radius=0.09, color=YELLOW_M).move_to([ax, 2.1, 0]).set_z_index(30)
-            return Succession(FadeIn(d, run_time=0.05), d.animate(run_time=0.35).move_to([ax, A.y(0), 0]),
-                              AnimationGroup(d.animate(run_time=0.35).move_to([ax, A.y(1), 0]), FadeIn(alog[k], run_time=0.35)),
-                              d.animate(run_time=0.35).move_to([ax, A.y(2), 0]), FadeOut(d, run_time=0.1))
+        cdj = part(java[1], "cents(d)")
+        cdk = part(kt[1], "cents(d)")
+        n1 = T("1. ask the price I'm wrapped around", 24, GREY_A)
+        n2 = T("2. apply my one rule", 24, FIX)
+        ng = VGroup(n1, n2).arrange(RIGHT, buff=0.8).move_to([0, -2.85, 0])
+        fit(ng, 12.4)
+        self.say("code2")
+        self.play(FadeOut(cj), FadeOut(ck), cdj.animate.set_color(YELLOW_M), cdk.animate.set_color(YELLOW_M), run_time=0.5)
+        self.play(Indicate(cdj, color=YELLOW_M, scale_factor=1.25), Indicate(cdk, color=YELLOW_M, scale_factor=1.25), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(n1, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(n2, shift=UP * 0.1), part(java[1], "+fixed").animate.set_color(FIX),
+                  part(kt[1], "+fixed").animate.set_color(FIX), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        bd = Dot(radius=0.09, color=YELLOW_M).move_to([bx, 2.1, 0]).set_z_index(30)
+        # ================= break it: move the cap one place in =================
+        on = onion(LAYERS)
+        caller = who(SHOP, "courier", 1.0, 20).move_to([-6.0, 0.35, 0])
+        self.add(on, caller)
+        self.play(FadeIn(Group(on, caller)), run_time=0.01)
+        on2 = onion(SWAPPED)
+        self.say("bq")
+        self.at(1)
+        self.play(Transform(on, on2), run_time=1.4)
+        self.at(2)
+        both = T("both compile, both read sensibly", 24, GREY_B).move_to([0, -2.4, 0])
+        self.play(FadeIn(both), run_time=0.5)
+        self.at(3)
+        qchip = vchip("12 kg, 20 km", SHOP, 22).next_to(caller, UP, buff=0.12)
+        self.play(FadeIn(qchip, shift=DOWN * 0.1), run_time=0.5)
+        self.hold(after=0)
+        self.predict(2.6)
 
-        def hop_b():
-            d = Dot(radius=0.09, color=YELLOW_M).move_to([bx, B.y(1), 0]).set_z_index(30)
-            return Succession(FadeIn(d, run_time=0.05), d.animate(run_time=0.35).move_to([bx, B.y(2), 0]), FadeOut(d, run_time=0.1))
+        tally = VGroup()
+        self.say("break")
+        self.play(FadeOut(both), FadeOut(qchip), run_time=0.3)
+        v = vchip("10.00", KM, 24).move_to([0, -0.05, 0])
+        self.play(FadeIn(v, scale=1.2), run_time=0.4)
+        c = tally_add("10.00", KM)
+        self.play(FadeIn(c, shift=UP * 0.1), run_time=0.3)
+        outs = [("12.00", FIX, 1), ("8.00", CAP, 2), ("11.00", BAD, 3)]
+        for i, (txt, col, k) in enumerate(outs):
+            self.at(i + 1)
+            nv = vchip(txt, col, 24).move_to([band_x(k), Y, 0])
+            self.play(v.animate.move_to([band_x(k), Y, 0]), run_time=0.45)
+            self.play(Transform(v, nv), Indicate(on[k][2], color=SWAPPED[k][2], scale_factor=1.12), run_time=0.5)
+            c = tally_add(txt, col)
+            self.play(FadeIn(tally[-2]), FadeIn(c, shift=UP * 0.1), run_time=0.35)
+        self.play(v.animate.next_to(caller, UP, buff=0.12), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        self.seq("Behavior decorators have the same issue. Put retry outside logging, and every attempt is logged. "
-                 "Swap them, and you log one call, however many attempts it took.",
-                 [(0, [FadeIn(VGroup(ab, al, ha)), FadeIn(VGroup(bb, bl, hb))], 1.0),
-                  (1, [Succession(*[attempt_a(k) for k in range(3)])], 3.6),
-                  (1, [FadeIn(asum, shift=UP * 0.1)], 0.4),
-                  (2, [FadeIn(bd, run_time=0.05)], 0.05),
-                  (2, [bd.animate.move_to([bx, B.y(0), 0])], 0.35),
-                  (2, [bd.animate.move_to([bx, B.y(1), 0]), FadeIn(blog[0])], 0.35),
-                  (2, [FadeOut(bd, run_time=0.1), Succession(hop_b(), hop_b(), hop_b())], 1.6),
-                  (2, [FadeIn(bsum, shift=UP * 0.1)], 0.4)])
-        self.beat("Pick the order you want, and pin it in a test.",
-                  Indicate(VGroup(asum, bsum), color=WHITE, scale_factor=1.06), run_time=1.0)
-        self.play(FadeOut(VGroup(ab, al, ha, bb, bl, hb, asum, bsum, *alog, *blog)), run_time=0.7)
+        out = term(["...heavySurcharge(5_000, 300).cappedAt(800)   ->   800 cents",
+                    "...cappedAt(800).heavySurcharge(5_000, 300)   -> 1,100 cents"], 24, "the same parcel, two orders (from the lesson)")
+        fit(out, 12.4).move_to([0, 1.3, 0])
+        part(out[1][0], "800cents").set_color(OK)
+        part(out[1][1], "1,100cents").set_color(BAD)
+        promise = T("promised: never more than 8.00", 28, CAP).move_to([0, -0.6, 0])
+        self.say("break2")
+        self.play(FadeIn(out), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(promise, shift=UP * 0.1), Indicate(part(out[1][1], "1,100cents"), color=BAD, scale_factor=1.15), run_time=0.8)
+        self.at(2)
+        swap = T("same four pieces, two swapped, a different price", 26, GREY_A).move_to([0, -1.6, 0])
+        self.play(FadeIn(swap, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---- Java and Kotlin
-        jv = code(["interface FeeCalculator {",
-                   "    long feeMinor(Payment p);",
-                   "    default FeeCalculator cappedAt(long cap) {",
-                   "        return p -> Math.min(feeMinor(p), cap);",
-                   "    }",
-                   "}"], 24)
-        kt = code(["fun interface FeeCalculator {",
-                   "    fun feeMinor(p: Payment): Long",
-                   "}",
-                   "fun FeeCalculator.cappedAt(cap: Long) =",
-                   "    FeeCalculator { p -> minOf(feeMinor(p), cap) }"], 24)
-        part(jv[2], "cappedAt").set_color(PURPLE_M)
-        part(kt[3], "cappedAt").set_color(PURPLE_M)
-        jh = T("Java", 26, GREY_B)
-        kh = T("Kotlin", 26, GREY_B)
-        kt.next_to(jv, DOWN, buff=0.75).align_to(jv, LEFT)
-        block = VGroup(jv, kt)
-        jh.next_to(jv[0], LEFT, buff=0.7)
-        kh.next_to(kt[0], LEFT, buff=0.7).align_to(jh, LEFT)
-        allc = VGroup(block, jh, kh)
-        allc.scale(min(1, 12.4 / allc.width)).move_to(ORIGIN)
-        self.beat("In Java, each decorator is a default method on the interface. It returns a new lambda, and that lambda is a FeeCalculator too.",
-                  FadeIn(VGroup(jv, jh), shift=UP * 0.15), run_time=1.2)
-        self.seq("The lambda calls feeMinor on the calculator it wraps. Then it does its one extra thing, here the cap.",
-                 [(0, [mark(part(jv[3], "feeMinor(p)"), WHITE, 0.8)], 1.6),
-                  (1, [mark(part(jv[3], "Math.min("), PURPLE_M, 0.8)], 1.6)])
-        self.seq("In Kotlin, the decorator is an extension function on a fun interface. "
-                 "Either way, each call returns a new calculator, and the one it wraps stays as it was.",
-                 [(0, [FadeIn(VGroup(kt, kh), shift=UP * 0.15)], 1.0),
-                  (0, [mark(part(kt[4], "feeMinor(p)"), WHITE, 0.5)], 1.3),
-                  (1, [mark(part(kt[3], "FeeCalculator.cappedAt"), PURPLE_M, 0.8)], 1.6)])
-        self.wait(0.8)
+        # ================= light moment: capped, for now =================
+        cw = M("cappedAt", 60, CAP).move_to([-2.6, 1.3, 0])
+        strike = Line(cw.get_left() + LEFT * 0.1, cw.get_right() + RIGHT * 0.1, stroke_width=5, color=BAD)
+        nw = T("capped, for now", 56, GREY_A).move_to([2.9, 1.3, 0])
+        self.say("joke")
+        self.play(FadeIn(cw), run_time=0.5)
+        self.at_text("capped, for now", lead=0.3)
+        self.play(Create(strike), Write(nw), run_time=1.0)
+        self.hold()
+
+        # the ribbon under the paper
+        pc = parcel(1.3).move_to([-3.0, -1.6, 0])
+        rib_under = pc[2]
+        pc2 = parcel(1.3).move_to([3.0, -1.6, 0])
+        pc2[2].set_z_index(3)
+        hid = T("ribbon under the paper: hidden", 22, GREY_B).next_to(pc, DOWN, buff=0.25)
+        last = T("the outer layer has the last word", 22, OK).next_to(pc2, DOWN, buff=0.25)
+        self.say("joke2")
+        pc[1].set_z_index(2)
+        self.play(FadeIn(pc[0]), FadeIn(rib_under), FadeIn(pc2), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(pc[1]), FadeIn(hid), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(last), Indicate(pc2[2], color=HEAVY, scale_factor=1.1), run_time=0.7)
+        self.hold()
+        self.wipe()
+
+        # ================= where the picture breaks =================
+        b1 = VGroup(T("paper", 28, FIX), T("can only add", 28, WHITE)).arrange(DOWN, buff=0.2)
+        b2 = VGroup(T("a layer of code", 28, CAP), T("can add, take away,", 28, WHITE), T("or skip the inside", 28, WHITE)).arrange(DOWN, buff=0.2)
+        bg = VGroup(b1, b2).arrange(RIGHT, buff=2.0).move_to([0, 0.6, 0])
+        ex = VGroup(vchip("plusFixed: + 2.00", FIX, 24), vchip("cappedAt: down to 8.00", CAP, 24)).arrange(RIGHT, buff=0.6).move_to([0, -1.9, 0])
+        self.say("breaks")
+        self.play(FadeIn(b1, shift=UP * 0.1), FadeIn(ex[0]), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(b2[0:2], shift=UP * 0.1), FadeIn(ex[1]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(b2[2], shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= the name =================
+        nm = T("decorator", 60, YELLOW_M).move_to([0, 2.0, 0])
+        d1 = rule_row("the same interface as the object it wraps", 28)
+        d2 = rule_row("does one extra thing", 28)
+        d3 = rule_row("passes the call on", 28)
+        dg = VGroup(d1, d2, d3).arrange(DOWN, aligned_edge=LEFT, buff=0.35).move_to([0, -0.4, 0])
+        self.say("name")
+        self.at_text("An object", lead=0.2)
+        self.play(FadeIn(d1, shift=RIGHT * 0.1), run_time=0.5)
+        self.at_text("which does", lead=0.2)
+        self.play(FadeIn(d2, shift=RIGHT * 0.1), run_time=0.5)
+        self.at_text("passes the call", lead=0.2)
+        self.play(FadeIn(d3, shift=RIGHT * 0.1), run_time=0.5)
+        self.at_text("is called", lead=0.2)
+        self.play(Write(nm), run_time=0.8)
+        self.hold()
+        self.wipe()
+
+        # ================= behavior stacks: Logging and Retrying =================
+        def stack(outer, inner, cx):
+            o = RoundedRectangle(corner_radius=0.14, width=5.6, height=2.5).set_stroke(outer[1], 3).set_fill(dim(outer[1], 0.1), 1)
+            i = RoundedRectangle(corner_radius=0.12, width=4.0, height=1.55).set_stroke(inner[1], 3).set_fill(dim(inner[1], 0.16), 1)
+            ln = RoundedRectangle(corner_radius=0.1, width=2.3, height=0.6).set_stroke(LINE, 2.5).set_fill("#151515", 1)
+            g = VGroup(o, i, ln).move_to([cx, 1.2, 0])
+            i.move_to(o.get_center() + DOWN * 0.22)
+            ln.move_to(i.get_center() + DOWN * 0.18)
+            ot = M(outer[0], 22, outer[1]).move_to(o.get_top() + DOWN * 0.26)
+            it = M(inner[0], 22, inner[1]).move_to(i.get_top() + DOWN * 0.24)
+            lt = T("Big Blue Vans line", 20, LINE).move_to(ln)
+            return VGroup(o, i, ln, ot, it, lt)
+
+        L = stack(("Retrying", RETRY), ("Logging", LOGC), -3.35)
+        R = stack(("Logging", LOGC), ("Retrying", RETRY), 3.35)
+        ttl = VGroup(M("Retrying(Logging(line))", 22, GREY_A).next_to(L, UP, buff=0.2),
+                     M("Logging(Retrying(line))", 22, GREY_A).next_to(R, UP, buff=0.2))
+        self.say("stack")
+        self.play(FadeIn(L[2]), FadeIn(L[5]), run_time=0.5)
+        self.at_text("busy twice", lead=0.3)
+        b1_ = vchip("busy", BAD, 20).next_to(L[2], RIGHT, buff=0.1)
+        self.play(FadeIn(b1_), run_time=0.3)
+        self.play(FadeOut(b1_), run_time=0.3)
+        self.at_text("One decorator", lead=0.3)
+        self.play(FadeIn(L[1]), FadeIn(L[4]), run_time=0.6)
+        self.at_text("Another", lead=0.3)
+        self.play(FadeIn(L[0]), FadeIn(L[3]), run_time=0.6)
+        self.hold()
+
+        self.say("stack_q")
+        self.play(FadeIn(ttl[0]), FadeIn(R), FadeIn(ttl[1]), run_time=0.8)
+        logL = paper(["log:"], 20).move_to([-3.35, -1.15, 0])
+        logR = paper(["log:"], 20).move_to([3.35, -1.15, 0])
+        self.play(FadeIn(logL), FadeIn(logR), run_time=0.4)
+        self.hold(after=0)
+        self.predict(2.6)
+
+        def entry(log, n):
+            e = M("book 1250", 20, INK)
+            e.next_to(log, DOWN, buff=0.08 + 0.36 * n).align_to(log, LEFT).shift(RIGHT * 0.16)
+            bg_ = Rectangle(width=2.0, height=0.36).set_stroke(GREY_B, 1).set_fill(PAPER, 1).move_to(e).align_to(log, LEFT)
+            return VGroup(bg_, e)
+
+        def attempt(S, ok):
+            d = Dot(radius=0.09, color=YELLOW_M).move_to(S[0].get_left() + RIGHT * 0.3 + DOWN * 0.4)
+            res = vchip("BB-1250" if ok else "busy", OK if ok else BAD, 20).next_to(S[2], RIGHT, buff=0.1)
+            return d, res
+
+        self.say("stack_a")
+        # left: every attempt passes Logging
+        for n, ok in enumerate((False, False, True)):
+            d, res = attempt(L, ok)
+            e = entry(logL, n)
+            self.play(FadeIn(d, run_time=0.1))
+            self.play(d.animate.move_to(L[2].get_left() + RIGHT * 0.2), FadeIn(e), run_time=0.45)
+            self.play(FadeOut(d), FadeIn(res), run_time=0.25)
+            self.play(FadeOut(res), run_time=0.2)
+        cl = T("3 lines", 26, LOGC).next_to(logL, RIGHT, buff=0.3).shift(DOWN * 0.4)
+        self.play(FadeIn(cl), run_time=0.4)
+        self.at(1)
+        # right: Logging sees one call, Retrying tries three times inside it
+        e = entry(logR, 0)
+        d0 = Dot(radius=0.09, color=YELLOW_M).move_to(R[0].get_left() + RIGHT * 0.3 + UP * 0.55)
+        self.play(FadeIn(d0, run_time=0.1))
+        self.play(d0.animate.move_to(R[1].get_left() + RIGHT * 0.3 + UP * 0.2), FadeIn(e), run_time=0.45)
+        self.play(FadeOut(d0), run_time=0.15)
+        for ok in (False, False, True):
+            d = Dot(radius=0.09, color=YELLOW_M).move_to(R[1].get_left() + RIGHT * 0.3 + DOWN * 0.2)
+            res = vchip("BB-1250" if ok else "busy", OK if ok else BAD, 20).next_to(R[2], RIGHT, buff=0.1)
+            self.play(FadeIn(d, run_time=0.1))
+            self.play(d.animate.move_to(R[2].get_left() + RIGHT * 0.2), run_time=0.35)
+            self.play(FadeOut(d), FadeIn(res), run_time=0.2)
+            self.play(FadeOut(res), run_time=0.15)
+        cr = T("1 line", 26, LOGC).next_to(logR, RIGHT, buff=0.3)
+        self.play(FadeIn(cr), run_time=0.4)
+        self.at(2)
+        out = term(["Retrying(Logging(line)): BB-1250, log lines: 3",
+                    "Logging(Retrying(line)): BB-1250, log lines: 1"], 22, "DecoratorStack, real output")
+        fit(out, 12.4).move_to([0, -2.75, 0])
+        self.play(FadeIn(out, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        sum1 = T("inner layer: sees every try", 26, LOGC)
+        sum2 = T("outer layer: sees one answer", 26, OK)
+        sg = VGroup(sum1, sum2).arrange(RIGHT, buff=1.0).move_to([0, -2.75, 0])
+        self.say("stack2")
+        self.play(FadeOut(out), FadeIn(sum1, shift=UP * 0.1), run_time=0.5)
+        self.at_text("and the outer", lead=0.3)
+        self.play(FadeIn(sum2, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= the JDK does it too =================
+        js = [("DataOutputStream", "typed writes", BLUE_M), ("BufferedOutputStream", "buffering", PURPLE_M),
+              ("GZIPOutputStream", "compression", TEAL_M), ("out", "the file", GREY_A)]
+        rects = VGroup()
+        for k, (nme, what, col) in enumerate(js):
+            w, h = 10.4 - k * 2.6, 4.4 - k * 1.1
+            r = RoundedRectangle(corner_radius=0.14, width=w, height=h).set_stroke(col, 3).set_fill(dim(col, 0.1), 1).move_to([0, 0.35, 0])
+            if k < 3:
+                tl = VGroup(M(nme, 22, col), T(what, 22, GREY_A)).arrange(RIGHT, buff=0.3).move_to(r.get_top() + DOWN * 0.28)
+            else:
+                tl = VGroup(M(nme, 24, col)).move_to(r)
+            rects.add(VGroup(r, tl))
+        code = M("new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(out)))", 22, GREY_A)
+        fit(code, 12.4).move_to([0, -2.6, 0])
+        self.say("jdk")
+        self.play(FadeIn(code), run_time=0.6)
+        self.at_text("A DataOutputStream", lead=0.2)
+        for k in range(4):
+            self.play(FadeIn(rects[k][0]), FadeIn(rects[k][1][0]), run_time=0.45)
+        self.at_text("Each", lead=0.3)
+        for k in range(3):
+            self.play(FadeIn(rects[k][1][1], shift=UP * 0.05), run_time=0.4)
+        self.hold()
+        self.wipe()
+
+        # ================= rules =================
+        gq = T("Three rules", 34).move_to([0, 2.6, 0])
+        rules = VGroup(rule_row("The order of the layers is behavior. Pin it in a test."),
+                       rule_row("Keep each layer to one extra thing, so it can move."),
+                       rule_row("When a layer takes away, ask which layers come after it."))
+        rules.arrange(DOWN, aligned_edge=LEFT, buff=0.45).move_to([0, 0.4, 0])
+        fit(rules, 12.4)
+        self.say("guard")
+        self.play(FadeIn(gq), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(rules[0], shift=RIGHT * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(rules[1], shift=RIGHT * 0.1), run_time=0.5)
+        self.at(5)
+        self.play(FadeIn(rules[2], shift=RIGHT * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= moral and a check =================
+        mq = T("Does the order of the wrapping matter?", 34)
+        m1 = T("Yes. Every layer passes the call on, but the outer one has the last word.", 28, WHITE)
+        m2 = VGroup(vchip("8.00", OK, 26), T("one way,", 28, GREY_A), vchip("11.00", BAD, 26), T("the other", 28, GREY_A)).arrange(RIGHT, buff=0.25)
+        mg = VGroup(mq, m1, m2).arrange(DOWN, buff=0.35).move_to(UP * 1.9)
+        fit(mg, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+
+        qc = VGroup(T("Check:", 28, YELLOW_M), T("the log feeds a chart of bookings. Which order?", 28)).arrange(RIGHT, buff=0.25)
+        fit(qc, 12.4).move_to(DOWN * 0.6)
+        self.say("check")
+        self.play(FadeIn(qc, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.predict(2.6)
+        ans = M("Logging(Retrying(line))", 28, OK)
+        ansl = T("one line per booking", 24, GREY_A)
+        ag = VGroup(ans, ansl).arrange(DOWN, buff=0.2).move_to(DOWN * 2.2)
+        self.say("check_a")
+        self.play(FadeIn(ag, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.wait(2.5)
