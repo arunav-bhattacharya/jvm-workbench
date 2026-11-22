@@ -195,6 +195,12 @@ def drawer(s=1.0):
     return VGroup(front, knob, lab).scale(s)
 
 
+def sticker(text, color=OK, size=22, mono=False):
+    t = (M if mono else T)(text, size, WHITE)
+    r = RoundedRectangle(corner_radius=0.06, width=t.width + 0.36, height=t.height + 0.26).set_stroke(color, 3).set_fill(dim(color, 0.3), 1)
+    return VGroup(r, t.move_to(r))
+
+
 def pencil(s=1.0):
     body = Rectangle(width=1.0, height=0.14).set_stroke(GREY_B, 1.5).set_fill("#C9A227", 1)
     tip = Polygon(body.get_right() + UP * 0.07, body.get_right() + DOWN * 0.07, body.get_right() + RIGHT * 0.22).set_stroke(GREY_B, 1.5).set_fill("#E8D3A0", 1)

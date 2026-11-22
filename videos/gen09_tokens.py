@@ -225,18 +225,17 @@ N = {
     "open": "In the last lesson, a second clerk stood at the storeroom door. Before each label was torn off, the clerk "
             "copied one word onto a note: apples. Today we pick up that note and look at it closely.",
     "index": "The shop's office keeps a card index, a small drawer of cards. Each card is filed under a note that names a "
-             "tool, like Scale or Label printer. The card says where to find that tool.",
+             "tool, like Scale or Label printer.",
     "shelves": "Then the shop opens a second shelf. One shelf holds apples, and one holds lemons. But on a one-word note, "
                "both are just Shelf. We file the apple shelf, then the lemon shelf. How many cards are in the drawer now? "
                "Pause and guess.",
     "shelves_a": "One. The second card pushed the first one out, and nobody noticed. Nobody, until someone fetched lemons "
                  "for an apple order. Somewhere, a customer is biting into a very sour apple pie.",
     "shelves_b": "So the point is this. The note had room for one word, and one word wasn't enough. In code, that one-word "
-                 "note is a KClass. And the trap is easy to fall into, because for plain classes, a class behaves exactly "
-                 "like a type.",
+                 "note is a KClass.",
     "shyq": "Here's a question that's easy to be shy about. Kotlin has KClass. Java has Class. And then there's something "
             "called KType. Aren't those three names for the same thing?",
-    "familiar": "Let's start from what we already know. Earlier in this track, we pulled classes and types apart. The class "
+    "familiar": "Let's start from what we already know: a class is not a type. The class "
                 "String backs two types: String, and String?, which may also be null. The class List backs List<String>, "
                 "List<Int>, and many more.",
     "erase": "Then came erasure. The compiler checks each type argument, the real type in the angle brackets, and then "
@@ -253,7 +252,7 @@ N = {
     "code": "Here's the lesson's demo, in Kotlin. k is a KClass, c is a Class, and t is a KType. Then it asks two questions. "
             "Do an ArrayList of String and an ArrayList of Int share a class? And is String the same type as String?",
     "predict": "Same class? Same type? Pause and guess.",
-    "show": "Here's what it printed. Share a class: true. One class, ArrayList, backs both. Same type: false, and false. "
+    "show": "Here's what it printed. Share a class: true. Same type: false, and false. "
             "The nullable String is a different type, and so is a list of ints. And the KType knows its parts: its "
             "classifier is List::class, it has one argument, and nullable is true.",
     "apology": "Notice one odd thing. Two lines end with a little apology: Kotlin reflection is not available. It may be "
@@ -265,22 +264,21 @@ N = {
                "can't I just ask a box for its full type?",
     "break": "Watch the arrows. From an object at run time, x::class reaches the KClass, and x.javaClass reaches the Class. "
              "Nothing reaches the KType. A KType comes from code: the compiler writes it down at a call site, where it "
-             "still knows the type. typeOf is how you ask it to.",
+             "still knows the type.",
     "break2": "And here the clerk picture breaks a little. A real clerk could copy the full label onto every note. Kotlin "
               "writes a KType only where you ask for one, and it never stores it inside the object.",
     "choose": "So, to pick the right one, ask what you want to know. What kind of thing is this? That's a question about a "
               "class, and a KClass or a Class answers it. A list of what? May it be null? Those are questions about a "
               "type, and only a KType can answer them.",
     "name": "Now the name for all this. The part of the library that lets code inspect classes while the program runs is "
-            "called reflection. KClass, Class and KType are three of its objects.",
+            "called reflection.",
     "guard": "One guardrail. You can't ask for the class of a whole type. Write Shelf<Apple>::class, and the compiler says: "
              "only classes are allowed on the left-hand side of a class literal. A class literal is the double colon "
              "class you write in code.",
     "guard2": "So here's the rule of thumb. Key a container by KClass when the things in it are plain, like the scale and "
               "the label printer. Key it by KType when they are generic, like a shelf of apples.",
     "payoff": "Back to the drawer. File the shelves under typeOf<Shelf<Apple>>() and typeOf<Shelf<Lemon>>(), and the two "
-              "cards sit side by side. The lemons finally get a card of their own. The last section of the lesson builds "
-              "exactly that.",
+              "cards sit side by side. The lemons finally get a card of their own.",
     "moral": "So, are KClass, Class and KType the same thing? Two of them are: one note, on Kotlin's paper or on Java's. "
              "The third is the whole label. Objects know their class. Only code knows full types.",
     "check": "Quick check. Take String, and the nullable String. Do they have the same class? Do they have the same type?",
@@ -303,13 +301,13 @@ class Gen09Tokens(Narrated):
         FL = -1.6
         floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
         dr = door(2.8, 1.4).move_to([-1.0, FL + 1.4, 0])
-        clerk = who(CLERK, "clerk", 1.1, 22).move_to([0.6, FL + 0.7, 0])
+        clerk = who(CLERK, "clerk", 1.1, 22).move_to([1.5, FL + 0.7, 0])
         bx = crate(2.4, 1.6, ["Box of", "apples"], 22).move_to([-4.0, FL + 0.8, 0])
         note = paper(["apples"], 24).move_to([2.9, 1.3, 0])
         self.say("open")
         self.play(Create(floor), Create(dr), FadeIn(clerk), FadeIn(bx), run_time=0.9)
         self.at(1)
-        self.play(bx.animate.move_to([-1.0 + 0.7, FL + 0.8, 0]), run_time=0.9)
+        self.play(bx.animate.move_to([-1.0, FL + 0.8, 0]), run_time=0.9)
         self.play(FadeIn(note, shift=RIGHT * 0.4), Indicate(clerk[0], color=CLERK, scale_factor=1.15), run_time=0.8)
         self.play(FadeOut(bx[3], shift=DOWN * 0.3), run_time=0.5)
         self.at(2)
@@ -326,7 +324,6 @@ class Gen09Tokens(Narrated):
         self.at(1)
         self.play(FadeIn(c1, shift=DOWN * 0.4), run_time=0.6)
         self.play(FadeIn(c2, shift=DOWN * 0.4), run_time=0.6)
-        self.at(2)
         self.play(Indicate(c1[3], color=INK, scale_factor=1.1), Indicate(c2[3], color=INK, scale_factor=1.1), run_time=0.8)
         self.hold()
 
@@ -412,9 +409,9 @@ class Gen09Tokens(Narrated):
         ht = T("types", 24, GREY_B).move_to([-0.6, hc.get_y(), 0])
         self.say("familiar")
         self.play(FadeIn(hc), FadeIn(ht), run_time=0.5)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(cs), LaggedStart(*[AnimationGroup(GrowArrow(a), FadeIn(b)) for a, b in zip(a1, ts1)], lag_ratio=0.4), run_time=1.2)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(cl_), LaggedStart(*[AnimationGroup(GrowArrow(a), FadeIn(b)) for a, b in zip(a2, ts2)], lag_ratio=0.35), run_time=1.4)
         self.hold()
 
@@ -529,10 +526,10 @@ class Gen09Tokens(Narrated):
         self.play(FadeIn(out[0]), FadeIn(out[2]), FadeIn(ln[0:3]), run_time=0.6)
         self.at(1)
         self.play(FadeIn(ln[3], shift=RIGHT * 0.1), part(ln[3], "true").animate.set_color(OK), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(ln[4], shift=RIGHT * 0.1), FadeIn(ln[5], shift=RIGHT * 0.1), run_time=0.6)
         self.play(part(ln[5], "false,false").animate.set_color(BAD), run_time=0.4)
-        self.at(5)
+        self.at(4)
         self.play(FadeIn(ln[6], shift=RIGHT * 0.1), run_time=0.6)
         self.hold()
 
@@ -588,9 +585,9 @@ class Gen09Tokens(Narrated):
         a2t = M("x.javaClass", 20, GREY_A).next_to(a2.get_center(), RIGHT, buff=0.15)
         nope = DashedLine(obj.get_left() + UP * 0.1, kt_.get_bottom() + DOWN * 0.05, dash_length=0.1, stroke_width=2.5, color=BAD)
         nx = tick(False, 0.2).move_to(nope.get_center())
-        comp = VGroup(person(CLERK, 0.9), T("the compiler writes it, at a call site", 22, CLERK)).arrange(RIGHT, buff=0.2)
+        comp = VGroup(person(CLERK, 0.9), T("the compiler writes it, at a call site", 26, CLERK)).arrange(RIGHT, buff=0.2)
         comp.next_to(kt_, UP, buff=0.3)
-        fit(comp, 5.8).align_to(kt_, LEFT)
+        fit(comp, 6.4).align_to(kt_, LEFT)
         self.say("break")
         self.play(FadeIn(kt_), FadeIn(kc_), FadeIn(jc_), FadeIn(obj), FadeOut(bq), run_time=0.8)
         self.at(1)
@@ -602,7 +599,6 @@ class Gen09Tokens(Narrated):
         self.play(FadeIn(nx), run_time=0.3)
         self.at(3)
         self.play(FadeIn(comp, shift=DOWN * 0.1), run_time=0.7)
-        self.at(4)
         self.play(Indicate(kt_[2][0], color=LABEL_C, scale_factor=1.08), run_time=0.8)
         self.hold()
 
