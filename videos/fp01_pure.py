@@ -174,8 +174,8 @@ def spoon(color=HIDDEN, s=1.0):
 
 
 def bag(left, until, s=1.0):
-    r = RoundedRectangle(corner_radius=0.14, width=1.9, height=1.5).set_stroke(GOLD_M, 3).set_fill(dim(GOLD_M, 0.15), 1)
-    top = Polygon([-0.95, 0.75, 0], [-0.75, 0.98, 0], [0.75, 0.98, 0], [0.95, 0.75, 0]).set_stroke(GOLD_M, 3)
+    r = RoundedRectangle(corner_radius=0.14, width=2.8, height=1.6).set_stroke(GOLD_M, 3).set_fill(dim(GOLD_M, 0.15), 1)
+    top = Polygon([-1.4, 0.8, 0], [-1.2, 1.03, 0], [1.2, 1.03, 0], [1.4, 0.8, 0]).set_stroke(GOLD_M, 3)
     top.set_fill(dim(GOLD_M, 0.25), 1)
     t1 = T("flour, 1 kg bag", 20, GOLD_M)
     t2 = T(left, 22, WHITE)
@@ -490,9 +490,9 @@ class Fp01Pure(Narrated):
             g.arrange(DOWN, aligned_edge=LEFT, buff=0.12)
         tst.arrange(DOWN, aligned_edge=LEFT, buff=0.15)
         code = VGroup(jv, kt, tst).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
-        fit(code, 12.4).move_to([0, -1.9, 0])
+        fit(code, 12.4).move_to([0, -1.65, 0])
         self.say("test2")
-        self.play(FadeOut(nothing), VGroup(pb, ins, ain, po, aout).animate.scale(0.75).move_to([0, 2.55, 0]), run_time=0.8)
+        self.play(FadeOut(nothing), VGroup(pb, ins, ain, po, aout).animate.scale(0.75).move_to([0, 2.6, 0]), run_time=0.8)
         self.play(FadeIn(jv), FadeIn(kt), run_time=0.7)
         self.at(1)
         self.play(FadeIn(tst), run_time=0.7)

@@ -1,328 +1,550 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form).
-fg.SAY += [(r"\bfeeFor\b", "fee for"), (r"\bandThen\b", "and then")]
+# Spoken forms only (captions keep the written words).
+fg.SAY[:0] = [
+    (r"\bbuildList\b", "build list"), (r"\bgramsFor\b", "grams for"), (r"\bIOException\b", "I O exception"),
+    (r"\bmillilitres\b", "milliliters"), (r"\bsite\.fetch\b", "site dot fetch"), (r"\btakeEgg\b", "take egg"),
+]
 
-# ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
+# every spoken line, in order
+N = {
+    "open": "Picture a friend who is good in the kitchen. You hand them any recipe card, and they hand back a new one. "
+            "The same, but for six people. The same, but vegan. The same, and if it burns, try again. They don't need "
+            "to know what the recipe makes. They change the card, not the dinner.",
+    "shyq": "Here's a question that's easy to be shy about. A method's parameters are values: numbers, strings, lists. "
+            "How do you pass in a thing to do? And why would you ever want to?",
+    "pain": "Look at three places in a recipe app that call something flaky. A flaky call fails now and then, for "
+            "reasons outside your code, like a website that is slow to answer and times out. So each place wraps its "
+            "call in the same retry loop: try up to three times, then give up.",
+    "pain2": "The three loops are the same, except for one line. The first copy was convenient. The third is a habit. "
+             "And when someone finds a bug in it, they'll fix exactly one of the three.",
+    "wish": "Wouldn't it be nice to write the loop once, and pass in the one line that changes? Here's the obvious "
+            "try: a retry method that takes the fetch as a plain argument.",
+    "wish_q": "Look at that call. How many times can the fetch run?",
+    "wish_a": "Once, and before retry even starts. An argument is a value, so the fetch runs first, and retry is handed "
+              "the page. If that one call times out, retry never gets a chance. What we need to pass in is the work "
+              "itself, not its answer.",
+    "map": "That's the friend from the start. You hand over a card: the work. The friend decides when to follow it, "
+           "and how often. And the friend never needs to know what the card makes: a page, a price list, or the "
+           "weather.",
+    "name": "A function that takes a function as a parameter, or returns one, is called a higher-order function. Here's "
+            "retry written as one. The work arrives as block, a function that takes nothing and returns a T. The loop "
+            "calls block up to times times, and hands back the first answer. If every try fails, it gives up with "
+            "the last error attached.",
+    "code": "Java needs an interface for the parameter, here a Supplier, and calls it with get. Kotlin has a real "
+            "function type, and calls block like any other function.",
+    "demo_q": "The lesson's demo has a fake website that times out twice, and then answers. With retry three, how many "
+              "calls reach the site?",
+    "demo_a": "Three. Two timeouts, then the page. And neither retry nor the website knows what a recipe is.",
+    "timed": "The demo wraps it in a second friend, timed, which runs any block and reports how long it took. A friend "
+             "around a friend, around the card. It printed 41 milliseconds, on a busy machine. Most of that is the "
+             "JVM running brand new code for the first time.",
+    "down": "Now a site that stays down for five calls. retry tries three times, and gives up with a clear message: "
+            "gave up after 3 attempts, and the last cause, site timeout on call 3.",
+    "one": "Change it to retry one, and it says: gave up after 1 attempts. That message never expected to be used this "
+           "way. A little bad grammar is a small price for writing the loop once.",
+    "trail": "One more thing makes this pleasant in Kotlin. When the last parameter is a function, you can write the "
+             "lambda after the parentheses. That's called a trailing lambda. So the call reads like a keyword: retry "
+             "three, then the work in braces. That's why repeat, use and buildList look built in. They're ordinary "
+             "functions in a nice coat.",
+    "checked": "Java has one more hurdle: checked exceptions, the ones the compiler makes you catch or declare, like "
+               "IOException. Supplier's get can't throw one, so retrying file or network code needs a Callable, and "
+               "a throws clause on retry. Kotlin has no checked exceptions, so one function type fits every call.",
+    "breaks": "Here the friend picture breaks. A real friend would read the card, and notice when trying again is a "
+              "bad idea. retry never reads it. It runs whatever you hand it, up to three times. Remember the fridge "
+              "from the first lesson of this track? A call that takes an egg, retried after a failure, may take a "
+              "second egg. Retry is safe for a call that only reads, like fetching a page.",
+    "rule": "So the rule: when code differs by one call, pass the call in, and write the loop once. Keep the shape of "
+            "the work, like retrying it or timing it, apart from the work itself.",
+    "bridge": "And the friend can also hand back a new card. Ask gramsFor for honey, and it hands back a converter, "
+              "from the measuring jug to the kitchen scale: 250 millilitres of honey is 355 grams. That's the next "
+              "part of the lesson.",
+    "moral": "So, how do you pass in a thing to do? You pass a function. The friend holds the loop, you hold the "
+             "work, and neither needs to know the other's business.",
+    "check": "Quick check. timed wraps retry, around a site that times out twice. How many timing lines get printed?",
+    "check_a": "One. timed wraps the whole retry, so it times all three calls together.",
+}
 
 
-class Beat(VoiceScene):
-    """VoiceScene plus: say= (the voice reads a different spelling than the caption shows), captions split
-    only where a new sentence starts, seq() to start animations at a given sentence, and ask() for a
-    question followed by a silent pause so the viewer can predict."""
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
-
-    def _speak(self, text, say):
-        path, dur = voice(say or text)
+    def say(self, key):
+        text = N[key]
+        path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        return dur
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
 
-    def beat(self, text, *anims, run_time=None, after=0.25, say=None):
-        dur = self._speak(text, say)
-        if anims:
-            rt = min(run_time if run_time else max(0.8, dur * 0.55), max(0.5, dur))
-            self.play(*anims, run_time=rt)
-            rest = dur - rt
-        else:
-            rest = dur
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def seq(self, text, plan=(), after=0.25, say=None):
-        """plan: (sentence index, [animations], run_time); each starts no earlier than its sentence."""
-        dur = self._speak(text, say)
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        starts, t = [], 0.0
-        for x in sents:
-            starts.append(t); t += dur * len(x) / total
-        now = 0.0
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now); now = starts[idx]
-            self.play(*anims, run_time=rt); now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
-        if after:
-            self.wait(after)
+    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
 
-    def ask(self, text, *anims, pause=1.6, say=None, run_time=None):
-        """A question, then silence so the viewer can predict before the answer appears."""
-        self.beat(text, *anims, after=pause, say=say, run_time=run_time)
+    def wipe(self, rt=0.7):
+        self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
 
 
-def cline(text, size=24, color=WHITE):
-    t = Text("|" + text, font=MONO, font_size=size, color=color, disable_ligatures=True)
-    t.src = text
-    return t
-
-
-def code(lines, size=24, color=WHITE):
-    pitch = M("|", size).height * 1.65
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        t = cline(ln, size, color)
-        t.shift(np.array([0, -i * pitch, 0]) - t[0].get_center())
-        g.add(t)
-    for t in g:
-        t.remove(t[0])
-    return g
-
-
-def part(t, sub, nth=0):
-    i = -1
-    for _ in range(nth + 1):
-        i = t.src.index(sub, i + 1)
-    return VGroup(*t[i:i + len(sub)])
-
-
-def mark(m, color=WHITE, hold=0.6):
-    u = Line(m.get_corner(DL) + DOWN * 0.09, m.get_corner(DR) + DOWN * 0.09, color=color, stroke_width=4)
-    return Succession(Create(u, run_time=0.45), Wait(hold), FadeOut(u, run_time=0.35))
-
-
-def chain(m, *steps):
-    """Several changes of one mobject in a row, inside one Succession. Each target is built from the one
-    before it (several m.animate builders on one mobject would all share the last target)."""
-    cur, anims = m, []
-    for fn, rt in steps:
-        cur = cur.copy()
-        fn(cur)
-        anims.append(Transform(m, cur, run_time=rt))
-    return Succession(*anims)
-
-
-def moved(m, where):
-    """Move m to an absolute place (safe to build next to other moves of m)."""
-    return Transform(m, m.copy().move_to(where))
-
-
-def xfade(old, new, rt=None):
-    """Swap one label or token for another by cross-fading (a Transform between different glyphs smears)."""
-    kw = {"run_time": rt} if rt else {}
-    return AnimationGroup(FadeOut(old), FadeIn(new), **kw)
-
-
-def fill_of(color, k=0.12):
+def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def tok(text, color, size=28):
-    """A value token: a small filled chip with monospace text."""
-    t = M(text, size, WHITE)
-    r = RoundedRectangle(corner_radius=0.1, width=t.width + 0.36, height=max(0.66, t.height + 0.34), stroke_color=color, stroke_width=3)
-    r.set_fill(fill_of(color, 0.35), opacity=1)
-    return VGroup(r, t.move_to(r))
+# one colour per thing, for the whole fp track (a recipe book and a kitchen scale)
+CARD, ARG, OUT, HIDDEN, EFFECT, COOK, PURE = TEAL_M, BLUE_M, GREEN_M, RED_M, PURPLE_M, BLUE_M, YELLOW_M
+PAPER = "#EDE6D6"
 
 
+def person(color=COOK, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def machine(label, color=WHITE, w=None, h=0.9, size=26):
-    b = mbox(label, color, w=w, h=h, size=size)
-    b.set_z_index(5)
-    return b
+def recipe_card(title, lines, w=3.4, size=24):
+    r = RoundedRectangle(corner_radius=0.1, width=w, height=0.75 + 0.48 * len(lines)).set_stroke(CARD, 3)
+    r.set_fill(dim(CARD, 0.12), 1)
+    head = T(title, 30, CARD).move_to(r.get_top() + DOWN * 0.38)
+    rule = Line(LEFT * (w / 2 - 0.25), RIGHT * (w / 2 - 0.25), stroke_width=1.5, color=CARD).next_to(head, DOWN, buff=0.12)
+    rows = VGroup(*[T(l, size, GREY_A) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.16)
+    rows.next_to(rule, DOWN, buff=0.2).align_to(r.get_left() + RIGHT * 0.35, LEFT)
+    return VGroup(r, head, rule, rows)
 
 
-def loop_icon(r=0.28, color=GREY_B):
-    a = Arc(radius=r, start_angle=PI * 0.6, angle=-PI * 1.7, stroke_width=3, color=color)
-    a.add_tip(tip_length=0.14, tip_width=0.14)
-    return a
+def pancakes(n, color=GOLD_M, s=1.0):
+    g = VGroup(*[Ellipse(width=1.3, height=0.26).set_stroke(color, 2.5).set_fill(dim(color, 0.4), 1) for _ in range(n)])
+    g.arrange(UP, buff=-0.1)
+    return g.scale(s)
 
 
-def feed(tokens, box, out, out_pos, rt_in=0.6, rt_out=0.5):
-    """Tokens slide under the box and vanish; the result slides out to out_pos."""
-    out.move_to(box.get_center()).set_z_index(1)
-    for t in tokens:
-        t.set_z_index(1)
-    return Succession(
-        AnimationGroup(*[t.animate.move_to(box.get_center()) for t in tokens], run_time=rt_in),
-        AnimationGroup(*[FadeOut(t) for t in tokens], FadeIn(out), run_time=0.05),
-        out.animate(run_time=rt_out).move_to(out_pos))
+def clock(color=HIDDEN, s=1.0):
+    face = Circle(radius=0.38).set_stroke(color, 3).set_fill(dim(color, 0.18), 1)
+    h1 = Line(ORIGIN, UP * 0.24, stroke_width=3, color=color)
+    h2 = Line(ORIGIN, RIGHT * 0.17 + DOWN * 0.1, stroke_width=3, color=color)
+    return VGroup(face, h1, h2).scale(s)
 
 
-class Fp03Hof(Beat):
-    """fp-03 section 0 (with sections 1 and 2): a function that takes a function (retry), one that returns a
-    function (feeFor), and two small functions composed into one pipeline."""
+def kitchen_scale(text, color=HIDDEN, s=1.0):
+    plate = RoundedRectangle(corner_radius=0.06, width=1.3, height=0.14).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    base = RoundedRectangle(corner_radius=0.1, width=1.1, height=0.55).set_stroke(color, 3).set_fill(dim(color, 0.15), 1)
+    base.next_to(plate, DOWN, buff=0.06)
+    disp = RoundedRectangle(corner_radius=0.04, width=0.7, height=0.3).set_stroke(color, 2).set_fill(BLACK, 1).move_to(base)
+    t = M(text, 18, color).move_to(disp)
+    return VGroup(plate, base, disp, t).scale(s)
+
+
+def spoon(color=HIDDEN, s=1.0):
+    bowl_ = Ellipse(width=0.36, height=0.24).set_stroke(color, 2.5).set_fill(dim(GOLD_M, 0.6), 1)
+    handle = Line(ORIGIN, RIGHT * 0.7, stroke_width=4, color=color).next_to(bowl_, RIGHT, buff=0)
+    return VGroup(bowl_, handle).rotate(0.4).scale(s)
+
+
+def bag(left, until, s=1.0):
+    r = RoundedRectangle(corner_radius=0.14, width=2.8, height=1.6).set_stroke(GOLD_M, 3).set_fill(dim(GOLD_M, 0.15), 1)
+    top = Polygon([-1.4, 0.8, 0], [-1.2, 1.03, 0], [1.2, 1.03, 0], [1.4, 0.8, 0]).set_stroke(GOLD_M, 3)
+    top.set_fill(dim(GOLD_M, 0.25), 1)
+    t1 = T("flour, 1 kg bag", 20, GOLD_M)
+    t2 = T(left, 22, WHITE)
+    t3 = T(until, 20, GREY_A)
+    tx = VGroup(t1, t2, t3).arrange(DOWN, buff=0.1).move_to(r)
+    return VGroup(r, top, tx).scale(s)
+
+
+def fn_box(label, w=4.2, h=1.1, color=CARD, size=28):
+    r = RoundedRectangle(corner_radius=0.14, width=w, height=h).set_stroke(color, 3).set_fill(dim(color, 0.12), 1)
+    return VGroup(r, M(label, size, color).move_to(r))
+
+
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def cross(m, s=0.2, buff=0.22):
+    return tick(False, s).next_to(m, RIGHT, buff=buff)
+
+
+def check(m, s=0.2, buff=0.22):
+    return tick(True, s).next_to(m, RIGHT, buff=buff)
+
+
+def part_of(t, s):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    i = re.sub(r"\s", "", t.text).index(k)
+    return t[i:i + len(k)]
+
+
+FRIEND, WORK, SITE = GREEN_M, CARD, GREY_A
+
+
+def website(s=1.0):
+    r = RoundedRectangle(corner_radius=0.1, width=2.2, height=1.6).set_stroke(SITE, 3).set_fill(dim(SITE, 0.1), 1)
+    bar = Line(r.get_corner(UL) + DOWN * 0.35 + RIGHT * 0.05, r.get_corner(UR) + DOWN * 0.35 + LEFT * 0.05, stroke_width=2, color=SITE)
+    dots = VGroup(*[Dot(radius=0.04, color=SITE) for _ in range(3)]).arrange(RIGHT, buff=0.08)
+    dots.move_to(r.get_corner(UL) + DOWN * 0.18 + RIGHT * 0.3)
+    t = T("recipe website", 20, SITE).move_to(r.get_center() + DOWN * 0.2)
+    return VGroup(r, bar, dots, t).scale(s)
+
+
+def loop_box(call, w=3.8):
+    r = RoundedRectangle(corner_radius=0.12, width=w, height=2.2).set_stroke(GREY_B, 2.5).set_fill(BLACK, 1)
+    l1 = T("up to 3 times:", 22, GREY_B)
+    l2 = M(call, 22, WORK)
+    l3 = T("on a timeout, try again", 22, GREY_B)
+    l4 = T("then give up", 22, GREY_B)
+    g = VGroup(l1, l2, l3, l4).arrange(DOWN, aligned_edge=LEFT, buff=0.18).move_to(r)
+    l2.shift(RIGHT * 0.3)
+    return VGroup(r, g)
+
+
+class Fp03Hof(Narrated):
+    """fp-03, section 0: passing in the part that changes. The kitchen friend who changes any card; three copies of
+    one retry loop; the plain-argument try that runs the fetch once, before retry starts; retry as a higher-order
+    function in Kotlin and Java; the demo (two timeouts, then the page; timed around it; gave up after 3 attempts;
+    the retry(1) message); trailing lambdas; checked exceptions; where the picture breaks (retry never reads the
+    card: the egg); the rule; gramsFor as the bridge; a check."""
 
     def construct(self):
-        self.title_card("Functions in, functions out", "higher-order functions")
+        self.title_card("Hand over the work", "higher-order functions: functions in")
 
-        # ---------- the problem: the same loop three times ----------
-        calls = ["issuer.authorize(payment)", "ledger.post(entry)", 'fx.rate("EURUSD")']
-        rows = VGroup()
-        for i, c in enumerate(calls):
-            fr = RoundedRectangle(corner_radius=0.14, width=9.4, height=1.2, stroke_color=GREY_B, stroke_width=2.5)
-            ic = loop_icon().move_to(fr.get_left() + RIGHT * 0.55)
-            lb = T("try up to 3 times", 26, GREY_A).next_to(ic, RIGHT, buff=0.3)
-            ch = tok(c, GOLD_M, 24).move_to(fr.get_right() + LEFT * 2.35).set_z_index(3)
-            rows.add(VGroup(fr, ic, lb, ch))
-        rows.arrange(DOWN, buff=0.4).move_to([0, 0.1, 0])
-        self.seq("Three places in a payment service call something flaky: the card issuer, the ledger, and the FX rate service.",
-                 [(0, [LaggedStart(*[FadeIn(VGroup(r[0], r[1], r[2])) for r in rows], lag_ratio=0.2)], 1.2),
-                  (0, [LaggedStart(*[FadeIn(r[3], shift=LEFT * 0.2) for r in rows], lag_ratio=0.5)], 2.0)],
-                 say="Three places in a payment service call something flaky: the card issuer, the ledger, and the F X rate service.")
-        self.seq("Each call sits inside the same loop: try up to three times, then give up. Only the call in the middle changes.",
-                 [(0, [*[Indicate(VGroup(r[1], r[2]), color=WHITE, scale_factor=1.04) for r in rows]], 1.0),
-                  (1, [*[Indicate(r[3], color=GOLD_M, scale_factor=1.08) for r in rows]], 1.0)])
-        self.ask("How do you write that loop once, when the part that changes is a call?")
+        # ================= the friend =================
+        you = person(COOK, 1.1).move_to([-5.2, 0.2, 0])
+        fr = person(FRIEND, 1.3).move_to([0, 0.2, 0])
+        fr_l = T("a friend in the kitchen", 24, FRIEND).next_to(fr, DOWN, buff=0.25)
+        c0 = recipe_card("Pancakes", ["serves 4"], w=2.4, size=22).move_to([-3.2, 0.3, 0])
+        outs = VGroup(recipe_card("Pancakes", ["for 6 people"], w=2.8, size=22),
+                      recipe_card("Pancakes", ["vegan"], w=2.8, size=22),
+                      recipe_card("Pancakes", ["if it burns, try again"], w=2.8, size=22)).arrange(DOWN, buff=0.25)
+        outs.move_to([4.4, 0.2, 0])
+        dinner = T("they change the card, not the dinner", 28, FRIEND).move_to([0, -2.9, 0])
+        self.say("open")
+        self.play(FadeIn(you), FadeIn(fr), FadeIn(fr_l), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(c0, shift=RIGHT * 0.2), run_time=0.5)
+        self.play(c0.animate.move_to(fr).scale(0.5).set_opacity(0), run_time=0.8)
+        for i in range(3):
+            self.at(i + 2)
+            self.play(FadeIn(outs[i], shift=RIGHT * 0.3), run_time=0.6)
+        self.at(5)
+        self.play(FadeIn(dinner), run_time=0.6)
+        self.hold()
 
-        # ---------- functions in: retry ----------
-        rm = RoundedRectangle(corner_radius=0.16, width=8.0, height=2.3, stroke_color=WHITE, stroke_width=3).set_fill(fill_of(WHITE, 0.1), 1)
-        rm_t = M("retry(3, block)", 28, WHITE).move_to(rm.get_top() + DOWN * 0.42)
-        sock = DashedVMobject(RoundedRectangle(corner_radius=0.1, width=5.0, height=0.85, stroke_color=GOLD_M, stroke_width=2.5), num_dashes=40)
-        sock.move_to(rm.get_center() + DOWN * 0.3 + RIGHT * 0.9)
-        sock_l = M("block", 24, GOLD_M).next_to(sock, LEFT, buff=0.3)
-        ric = loop_icon(0.24, WHITE).next_to(rm_t, LEFT, buff=0.3)
-        retry = VGroup(rm, rm_t, sock, sock_l, ric).move_to([-1.0, 1.1, 0])
-        issuer = rows[0][3]
-        spare = VGroup(rows[1][3], rows[2][3])
-        self.seq("Pass the call in, as a function. retry owns the loop. The call arrives as block, and retry decides when to run it.",
-                 [(0, [FadeOut(VGroup(*[VGroup(r[0], r[1], r[2]) for r in rows])), FadeIn(retry),
-                       spare.animate.arrange(RIGHT, buff=0.6).move_to([-1.0, -2.9, 0]).set_opacity(0.45)], 1.0),
-                  (0, [issuer.animate.move_to(sock)], 0.8),
-                  (2, [Indicate(sock_l, color=GOLD_M, scale_factor=1.15)], 0.8)])
+        q = T("How do you pass in a thing to do?", 34).move_to([0, -2.9, 0])
+        self.say("shyq")
+        self.at(2)
+        self.play(FadeOut(dinner), FadeIn(q, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        self.wipe()
 
-        att = VGroup(*[tok(t, c, 22) for t, c in (("1: timeout", RED_M), ("2: timeout", RED_M), ("3: auth_pay_42", GREEN_M))])
-        att.arrange(RIGHT, buff=0.35).move_to([-1.0, -0.75, 0])
-        for a in att:
-            a.set_opacity(0)
-        out_ar = Arrow(rm.get_right(), [4.0, 1.1, 0], buff=0.1, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.15)
-        res = tok("auth_pay_42", GREEN_M, 24)
+        # ================= three copies of one loop =================
+        boxes = VGroup(loop_box('site.fetch("pancakes")'), loop_box("shop.prices(basket)"), loop_box("weather.today()"))
+        boxes.arrange(RIGHT, buff=0.4).move_to([0, 0.2, 0])
+        fit(boxes, 12.6)
+        fl = T("flaky: fails now and then, for reasons outside your code", 26, GREY_A).move_to([0, 2.6, 0])
+        self.say("pain")
+        self.at(1)
+        self.play(FadeIn(fl), run_time=0.6)
+        self.at(2)
+        self.play(LaggedStart(*[FadeIn(b, shift=UP * 0.15) for b in boxes], lag_ratio=0.3), run_time=1.5)
+        self.hold()
+        same = T("the same loop, three times; one line differs", 28, HIDDEN).move_to([0, -2.4, 0])
+        bug = T("a bug fix lands in one of the three", 26, GREY_A).next_to(same, DOWN, buff=0.2)
+        self.say("pain2")
+        self.play(*[Indicate(b[1][1], color=WORK) for b in boxes], FadeIn(same), run_time=1.1)
+        self.at(3)
+        self.play(FadeIn(bug), boxes[1][0].animate.set_stroke(OUT), run_time=0.7)
+        self.hold()
+        self.wipe()
 
-        def attempt(k):
-            return Succession(Indicate(issuer, color=GOLD_M, scale_factor=1.06, run_time=0.45), att[k].animate(run_time=0.3).set_opacity(1))
+        # ================= the obvious try: a plain argument =================
+        call = M('retry(3, site.fetch("pancakes"))', 32).move_to([0, 1.8, 0])
+        self.say("wish")
+        self.at(1)
+        self.play(FadeIn(call, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        self.say("wish_q")
+        self.play(Indicate(part_of(call, 'site.fetch("pancakes")'), color=WORK), run_time=1.0)
+        self.hold(after=0)
+        self.predict()
+        site = website(0.9).move_to([4.6, -0.9, 0])
+        step1 = T("1. the fetch runs first", 26, WORK).move_to([-3.4, 0.2, 0])
+        pg = chip("a page", WORK, 26).move_to([-3.4, -0.7, 0])
+        step2 = T("2. retry gets the answer, not the work", 26, GREY_A).move_to([-3.4, -1.7, 0])
+        once = T("runs once, before retry starts", 28, HIDDEN).move_to([0, -3.0, 0])
+        a1 = Arrow(part_of(call, 'site.fetch("pancakes")').get_bottom(), site.get_left(), buff=0.15, stroke_width=3, color=WORK)
+        self.say("wish_a")
+        self.play(FadeIn(site), GrowArrow(a1), FadeIn(step1), run_time=0.8)
+        self.play(FadeIn(pg, shift=LEFT * 0.2), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(step2), run_time=0.5)
+        self.play(FadeIn(once), run_time=0.5)
+        self.at(3)
+        need = T("pass in the work itself, not its answer", 30, FRIEND).move_to([0, 2.9, 0])
+        self.play(FadeIn(need, shift=DOWN * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        self.seq("Here the issuer times out twice. retry runs block again, and the third try returns an authorization.",
-                 [(0, [attempt(0)], 0.75), (0, [attempt(1)], 0.75),
-                  (1, [attempt(2)], 0.75), (1, [GrowArrow(out_ar), FadeIn(res.move_to([5.25, 1.1, 0]), shift=RIGHT * 0.2)], 0.6)])
-        hof = T("a function that takes a function: a higher-order function", 28, WHITE).move_to([0, -1.9, 0])
-        new_row = VGroup(issuer.copy(), spare[1].copy()).arrange(RIGHT, buff=0.6).move_to([-1.0, -2.9, 0])
-        self.seq("The ledger call plugs into the same socket. A function that takes a function is a higher-order function.",
-                 [(0, [FadeOut(VGroup(att, res, out_ar)),
-                       Transform(issuer, issuer.copy().move_to(new_row[0]).set_opacity(0.45)),
-                       Transform(spare[1], spare[1].copy().move_to(new_row[1])),
-                       Transform(spare[0], spare[0].copy().move_to(sock).set_opacity(1))], 1.0),
-                  (1, [FadeIn(hof, shift=UP * 0.1)], 0.7)])
-        self.play(FadeOut(VGroup(retry, issuer, spare, hof)), run_time=0.6)
+        # ================= map: the friend is retry =================
+        fr2 = person(FRIEND, 1.3).move_to([-0.6, 0.3, 0])
+        fr2_l = M("retry", 28, FRIEND).next_to(fr2, DOWN, buff=0.25)
+        card = recipe_card("the work", ["a function: block"], w=3.0, size=22).move_to([-4.6, 0.3, 0])
+        loop = Arc(radius=0.9, start_angle=-0.3, angle=TAU * 0.85).set_stroke(FRIEND, 3).add_tip(tip_length=0.2)
+        loop.move_to(fr2.get_center() + UP * 0.1)
+        loop_l = T("when, and how often", 24, FRIEND).next_to(loop, UP, buff=0.15)
+        mk = VGroup(chip("a page", WORK, 24), chip("a price list", WORK, 24), chip("the weather", WORK, 24)).arrange(DOWN, buff=0.25)
+        mk.move_to([4.2, 0.3, 0])
+        mk_l = T("never needs to know which", 24, GREY_A).next_to(mk, DOWN, buff=0.25)
+        self.say("map")
+        self.play(FadeIn(fr2), FadeIn(fr2_l), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(card, shift=RIGHT * 0.2), run_time=0.6)
+        self.at(2)
+        self.play(Create(loop), FadeIn(loop_l), run_time=1.0)
+        self.at(3)
+        self.play(LaggedStart(*[FadeIn(m) for m in mk], lag_ratio=0.3), FadeIn(mk_l), run_time=1.2)
+        self.hold()
+        self.wipe()
 
-        # ---------- functions out: feeFor ----------
-        fac = machine("feeFor(country)", WHITE, w=4.0, h=1.1, size=28).move_to([-2.0, 1.9, 0])
-        nl = tok("NL", TEAL_M, 28).move_to([-5.6, 1.9, 0])
-        f_ar = Arrow(nl.get_right(), fac.get_left(), buff=0.12, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.15)
-        dutch = machine("dutch", BLUE_M, w=2.6, h=1.0, size=28)
-        pocket = RoundedRectangle(corner_radius=0.08, width=2.6, height=0.6, stroke_color=TEAL_M, stroke_width=2.5).set_fill(fill_of(TEAL_M, 0.15), 1)
-        pk = M("bps = 140", 22, WHITE)
-        prod = VGroup(dutch, pocket, pk)
-        pocket.next_to(dutch, DOWN, buff=0); pk.move_to(pocket)
-        prod.move_to(fac.get_center()).set_z_index(1)
-        pocket.set_z_index(1); pk.set_z_index(1); dutch.set_z_index(1)
-        PROD = np.array([0.3, -0.85, 0])
-        self.seq("It works the other way too. feeFor takes a country, and hands back a fee function.",
-                 [(1, [FadeIn(fac), FadeIn(nl), GrowArrow(f_ar)], 0.7),
-                  (1, [nl.animate.move_to(fac.get_center()).set_opacity(0)], 0.6),
-                  (1, [prod.animate.move_to(PROD + DOWN * 0.3)], 1.0)])
-        self.remove(nl)
-        for m in (dutch, pocket, pk):
-            m.set_z_index(5)
-        a_in = tok("100,000", BLUE_M, 26).move_to([-3.6, -0.85, 0])
-        in_ar = Arrow([-2.6, -0.85, 0], dutch.get_left() + DOWN * 0.0, buff=0.12, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.15)
-        out_ar2 = Arrow(dutch.get_right(), [3.4, -0.85, 0], buff=0.12, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.15)
-        fee1 = tok("1,400", GREEN_M, 26)
-        self.seq("It looks up the Dutch rate once. The function it returns keeps that number, and prices every payment after that.",
-                 [(0, [Circumscribe(VGroup(pocket, pk), color=TEAL_M, buff=0.08)], 0.9),
-                  (1, [FadeIn(a_in), GrowArrow(in_ar), GrowArrow(out_ar2)], 0.6),
-                  (1, [feed([a_in], dutch, fee1, [4.3, -0.85, 0])], 1.2)])
-        self.play(FadeOut(VGroup(fac, f_ar, prod, in_ar, out_ar2, fee1)), run_time=0.6)
+        # ================= name it, and the code =================
+        nm = T("a higher-order function", 40, PURE).move_to([0, 3.0, 0])
+        nd = T("takes a function as a parameter, or returns one", 26, GREY_A).next_to(nm, DOWN, buff=0.2)
+        hl = {"block": WORK, "retry": FRIEND}
+        kc = code_block(["fun <T> retry(times: Int, block: () -> T): T {", "    var last: Exception? = null",
+                         "    repeat(times) {", "        try { return block() } catch (e: Exception) { last = e }", "    }",
+                         '    throw IllegalStateException("gave up after $times attempts", last)', "}"], 24, hl)
+        kg = VGroup(T("Kotlin", 22, GREY_B), kc).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        fit(kg, 12.2).move_to([0, -0.6, 0])
+        self.say("name")
+        self.play(Write(nm), run_time=0.9)
+        self.play(FadeIn(nd), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(kg, shift=UP * 0.1), run_time=0.8)
+        self.at(2)
+        self.play(Indicate(part_of(kc[0], "block: () -> T"), color=WORK), run_time=1.0)
+        self.at(3)
+        self.play(Indicate(kc[3], color=WORK, scale_factor=1.03), run_time=1.0)
+        self.at(4)
+        self.play(Indicate(kc[5], color=HIDDEN, scale_factor=1.03), run_time=1.0)
+        self.hold()
+        self.wipe()
 
-        # ---------- functions combined: a pipeline ----------
-        XS = [-3.2, 0.2, 3.6]
-        specs = [("+25", "addSchemeFee"), ("-10%", "loyaltyDiscount"), ("cap 1,000", "capAtTenEuros")]
-        ms = VGroup()
-        for (lab, nm), x in zip(specs, XS):
-            m = machine(lab, GOLD_M, w=2.0, h=1.0, size=26).move_to([x, 0.6, 0])
-            n = M(nm, 20, GREY_B).next_to(m, DOWN, buff=0.22)
-            ms.add(VGroup(m, n))
-        self.seq("Small functions also snap together. Add a 25-cent scheme fee, take 10 percent off, cap at 10 euros.",
-                 [(1, [FadeIn(ms[0])], 0.5), (1, [FadeIn(ms[1])], 0.5), (1, [FadeIn(ms[2])], 0.5)])
+        jv = VGroup(T("Java", 22, GREY_B), M("static <T> T retry(int times, Supplier<T> block)", 24),
+                    M("... return block.get(); ...", 24, GREY_A), M('retry(3, () -> site.fetch("pancakes"))', 24, WORK))
+        kt = VGroup(T("Kotlin", 22, GREY_B), M("fun <T> retry(times: Int, block: () -> T): T", 24),
+                    M("... return block() ...", 24, GREY_A), M('retry(3) { site.fetch("pancakes") }', 24, WORK))
+        for g in (jv, kt):
+            g.arrange(DOWN, aligned_edge=LEFT, buff=0.18)
+        cc = VGroup(jv, kt).arrange(DOWN, aligned_edge=LEFT, buff=0.55)
+        fit(cc, 12.2).move_to([0, 0.3, 0])
+        self.say("code")
+        self.play(FadeIn(jv, shift=UP * 0.1), run_time=0.7)
+        self.play(Indicate(part_of(jv[2], "block.get()"), color=WORK), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(kt, shift=UP * 0.1), run_time=0.7)
+        self.play(Indicate(part_of(kt[2], "block()"), color=WORK), run_time=0.8)
+        self.hold()
+        self.wipe()
 
-        def run_pipe(order, values, y=0.6):
-            v = tok(values[0], BLUE_M, 24).move_to([-5.45, y, 0])
-            anims = [FadeIn(v, run_time=0.3)]
-            cur = v
-            for k, mi in enumerate(order):
-                m = ms[mi][0]
-                nxt = tok(values[k + 1], BLUE_M if k < 2 else GREEN_M, 24)
-                anims.append(feed([cur], m, nxt, [XS[k] + 1.7 if k < 2 else 5.85, y, 0], rt_in=0.45, rt_out=0.4))
-                cur = nxt
-            return cur, Succession(*anims)
+        # ================= the demo =================
+        st = website(1.0).move_to([4.3, 0.6, 0])
+        rt = VGroup(RoundedRectangle(corner_radius=0.14, width=3.0, height=1.1).set_stroke(FRIEND, 3).set_fill(dim(FRIEND, 0.12), 1),
+                    M("retry(3) { ... }", 24, FRIEND))
+        rt[1].move_to(rt[0])
+        rt.move_to([-3.8, 0.6, 0])
+        self.say("demo_q")
+        self.play(FadeIn(rt), FadeIn(st), run_time=0.7)
+        self.hold(after=0)
+        self.predict()
+        ys = [1.2, 0.6, 0.0]
+        calls = VGroup(*[Arrow([-2.2, y, 0], [3.1, y, 0], buff=0, stroke_width=3, color=WORK) for y in ys])
+        marks = VGroup(tick(False, 0.18).move_to([0.45, ys[0] + 0.3, 0]), tick(False, 0.18).move_to([0.45, ys[1] + 0.3, 0]),
+                       tick(True, 0.2).move_to([0.45, ys[2] + 0.3, 0]))
+        lbl = VGroup(T("call 1: timeout", 22, HIDDEN), T("call 2: timeout", 22, HIDDEN), T("call 3: the page", 22, OUT))
+        for l, y in zip(lbl, ys):
+            l.move_to([1.6, y + 0.28, 0])
+        out = VGroup(M("  attempt 1 failed: site timeout on call 1", 22, GREY_A), M("  attempt 2 failed: site timeout on call 2", 22, GREY_A),
+                     M("result: page:pancakes after 3 calls", 22, OUT)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        out.move_to([0, -1.9, 0])
+        self.say("demo_a")
+        for i in range(3):
+            self.play(GrowArrow(calls[i]), FadeIn(lbl[i]), run_time=0.5)
+        self.play(FadeIn(out), run_time=0.6)
+        self.hold()
 
-        last, pipe = run_pipe([0, 1, 2], ["1,200", "1,225", "1,102", "1,000"])
-        brace = SurroundingRectangle(ms, buff=0.25, corner_radius=0.15, color=WHITE, stroke_width=2)
-        price_l = M("price", 30, WHITE).next_to(brace, UP, buff=0.2)
-        self.seq("Feed each result into the next. That's composition: three functions become one pipeline, price. 1,200 cents comes out as 1,000.",
-                 [(0, [pipe], 3.2), (1, [Create(brace), FadeIn(price_l)], 0.8)])
-        self.ask("Move the cap to the front. Same price?",
-                 FadeOut(last), FadeOut(brace), FadeOut(price_l),
-                 ms[2].animate.move_to([XS[0], ms[2].get_center()[1], 0]),
-                 ms[0].animate.move_to([XS[1], ms[0].get_center()[1], 0]),
-                 ms[1].animate.move_to([XS[2], ms[1].get_center()[1], 0]), run_time=1.2)
-        ms2 = VGroup(ms[2], ms[0], ms[1])
-        ms = ms2
-        last2, pipe2 = run_pipe([0, 1, 2], ["1,200", "1,000", "1,025", "922"])
-        order_l = T("the order is part of the result", 28, GOLD_M).move_to([0, -2.2, 0])
-        self.seq("No. 922. The order is part of the result.",
-                 [(0, [pipe2], 3.0), (2, [FadeIn(order_l, shift=UP * 0.1)], 0.6)])
-        self.play(FadeOut(VGroup(ms, last2, order_l)), run_time=0.6)
+        tm = RoundedRectangle(corner_radius=0.2, width=4.0, height=2.0).set_stroke(GOLD_M, 3).move_to(rt)
+        tm_l = M("timed", 24, GOLD_M).next_to(tm, UP, buff=0.12)
+        tline = M('  fetch with retry took 41.14 ms', 22, GOLD_M).next_to(out[1], DOWN, buff=0.15).align_to(out, LEFT)
+        self.say("timed")
+        self.play(Create(tm), FadeIn(tm_l), run_time=0.8)
+        self.at(2)
+        self.play(out[2].animate.shift(DOWN * (tline.height + 0.15)), FadeIn(tline), run_time=0.7)
+        self.at(3)
+        self.play(Indicate(tline, color=GOLD_M, scale_factor=1.04), run_time=0.8)
+        self.hold()
+        self.wipe()
 
-        # ---------- code: Java and Kotlin ----------
-        jv = code(["String auth = retry(3, () -> issuer.authorize(payment));",
-                   "Function<Long, Long> price = addSchemeFee",
-                   "        .andThen(loyaltyDiscount).andThen(capAtTenEuros);"], 22)
-        kt = code(["val auth = retry(3) { issuer.authorize(payment) }",
-                   "infix fun <A, B, C> ((A) -> B).andThen(next: (B) -> C): (A) -> C =",
-                   "    { a -> next(this(a)) }",
-                   "val price = addSchemeFee andThen loyaltyDiscount andThen capAtTenEuros"], 22)
-        part(jv[0], "() -> issuer.authorize(payment)").set_color(GOLD_M)
-        part(kt[0], "{ issuer.authorize(payment) }").set_color(GOLD_M)
-        jcol = VGroup(T("Java", 24, GREY_B), jv).arrange(DOWN, aligned_edge=LEFT, buff=0.22)
-        kcol = VGroup(T("Kotlin", 24, GREY_B), kt).arrange(DOWN, aligned_edge=LEFT, buff=0.22)
-        pair = VGroup(jcol, kcol).arrange(DOWN, aligned_edge=LEFT, buff=0.55)
-        pair.scale(min(1, 12.4 / pair.width, 6.6 / pair.height)).move_to(ORIGIN)
-        self.seq("In code, the call goes in as a lambda. Java's Function has andThen built in. "
-                 "Kotlin's function types don't, so you write it in one line.",
-                 [(0, [FadeIn(pair, shift=UP * 0.15)], 1.0),
-                  (0, [mark(part(jv[0], "() -> issuer.authorize(payment)"), GOLD_M, 0.3), mark(part(kt[0], "{ issuer.authorize(payment) }"), GOLD_M, 0.3)], 1.1),
-                  (1, [mark(part(jv[2], ".andThen(loyaltyDiscount)"), WHITE, 0.5)], 1.3),
-                  (2, [mark(kt[1], WHITE, 0.8)], 1.6)])
-        self.play(FadeOut(pair), run_time=0.6)
+        dn = VGroup(T("a site that is down for five calls", 26, GREY_B),
+                    M("  attempt 3 failed: site timeout on call 3", 24, GREY_A),
+                    M("result: gave up after 3 attempts", 24, HIDDEN),
+                    M("        (last cause: site timeout on call 3)", 24, HIDDEN)).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
+        fit(dn, 12.2).move_to([0, 1.4, 0])
+        self.say("down")
+        self.play(FadeIn(dn[0]), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(dn[1:]), run_time=0.8)
+        self.hold()
+        r1 = VGroup(M("retry(1) { ... }", 26, FRIEND), M("IllegalStateException: gave up after 1 attempts", 24, HIDDEN))
+        r1.arrange(DOWN, aligned_edge=LEFT, buff=0.2)
+        fit(r1, 12.2).move_to([0, -1.4, 0])
+        gr = T("1 attempts", 28, GOLD_M).next_to(r1, DOWN, buff=0.35)
+        self.say("one")
+        self.play(FadeIn(r1[0]), run_time=0.5)
+        self.play(FadeIn(r1[1]), run_time=0.6)
+        self.at(1)
+        self.play(Indicate(part_of(r1[1], "1 attempts"), color=GOLD_M), run_time=1.0)
+        self.hold()
+        self.wipe()
 
-        # ---------- the rule, then a check ----------
-        rule = VGroup(T("Write the shape of the work once,", 32),
-                      T("and pass in the part that changes as a function.", 32)).arrange(DOWN, buff=0.22).move_to([0, 2.55, 0])
-        self.beat("The rule: write the shape of the work once, and pass in the part that changes as a function.",
-                  FadeIn(rule, shift=UP * 0.1), run_time=1.2)
-        tm = RoundedRectangle(corner_radius=0.16, width=6.8, height=2.0, stroke_color=WHITE, stroke_width=3).set_fill(fill_of(WHITE, 0.1), 1)
-        tm_t = M('timed("auth", block)', 26, WHITE).move_to(tm.get_top() + DOWN * 0.4)
-        tsock = DashedVMobject(RoundedRectangle(corner_radius=0.1, width=5.3, height=0.8, stroke_color=GOLD_M, stroke_width=2.5), num_dashes=34)
-        tsock.move_to(tm.get_center() + DOWN * 0.3)
-        tq = M("?", 36, GREY_B).move_to(tsock)
-        tim = VGroup(tm, tm_t, tsock).move_to([0, -0.6, 0])
-        tq.move_to(tsock)
-        self.ask("Quick check. timed runs a block and logs how long it took. Is it higher-order?",
-                 FadeIn(tim), FadeIn(tq), run_time=0.9)
-        blk = tok("issuer.authorize(payment)", GOLD_M, 24).move_to([0, -2.9, 0]).set_z_index(3)
-        self.seq("Yes. It takes the block as a function.",
-                 [(1, [FadeOut(tq), FadeIn(blk)], 0.4), (1, [blk.animate.move_to(tsock)], 0.8)])
-        self.wait(0.8)
+        # ================= trailing lambda; checked exceptions =================
+        tl = M('retry(3) { site.fetch("pancakes") }', 34).move_to([0, 2.0, 0])
+        br = SurroundingRectangle(part_of(tl, '{ site.fetch("pancakes") }'), color=WORK, buff=0.1)
+        br_l = T("a trailing lambda: after the parentheses", 26, WORK).next_to(tl, DOWN, buff=0.4)
+        lib = VGroup(M("repeat(3) { ... }", 26), M("file.use { ... }", 26), M("buildList { ... }", 26)).arrange(RIGHT, buff=0.7)
+        lib.move_to([0, -0.4, 0])
+        coat = T("ordinary functions in a nice coat", 28, GOLD_M).move_to([0, -1.4, 0])
+        self.say("trail")
+        self.play(FadeIn(tl), run_time=0.6)
+        self.at(1)
+        self.play(Create(br), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(br_l), run_time=0.5)
+        self.at(4)
+        self.play(LaggedStart(*[FadeIn(x, shift=UP * 0.1) for x in lib], lag_ratio=0.3), run_time=1.0)
+        self.at(5)
+        self.play(FadeIn(coat), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        ce = VGroup(T("Java, for file or network code", 24, GREY_B), M("static <T> T retry(int times, Callable<T> block) throws Exception", 24))
+        ck = VGroup(T("Kotlin: no checked exceptions", 24, GREY_B), M("fun <T> retry(times: Int, block: () -> T): T", 24))
+        for g in (ce, ck):
+            g.arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        cg = VGroup(ce, ck).arrange(DOWN, aligned_edge=LEFT, buff=0.6)
+        fit(cg, 12.2).move_to([0, 0.6, 0])
+        cdef = T("checked exception: one the compiler makes you catch or declare, like IOException", 24, GREY_A)
+        fit(cdef, 12.2).move_to([0, 2.8, 0])
+        self.say("checked")
+        self.play(FadeIn(cdef), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(ce), run_time=0.7)
+        self.play(Indicate(part_of(ce[1], "throws Exception"), color=HIDDEN), run_time=0.8)
+        self.at(2)
+        self.play(FadeIn(ck), run_time=0.7)
+        self.hold()
+        self.wipe()
+
+        # ================= where the picture breaks =================
+        fr3 = person(FRIEND, 1.2).move_to([-4.8, 0.6, 0])
+        fr3_l = M("retry", 26, FRIEND).next_to(fr3, DOWN, buff=0.2)
+        nr = T("never reads the card", 26, HIDDEN).next_to(fr3_l, DOWN, buff=0.2)
+        safe = VGroup(M('site.fetch("pancakes")', 26, WORK), T("only reads: safe to try again", 24, OUT)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+        safe.move_to([1.6, 1.4, 0])
+        egg = VGroup(M("fridge.takeEgg()", 26, WORK), T("takes an egg: a retry may take a second one", 24, HIDDEN)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+        egg.move_to([1.6, -0.6, 0]).align_to(safe, LEFT)
+        eggs = VGroup(*[Ellipse(width=0.36, height=0.48).set_stroke(GOLD_M, 2.5).set_fill(dim(GOLD_M, 0.35), 1) for _ in range(2)])
+        eggs.arrange(RIGHT, buff=0.2).next_to(egg, DOWN, buff=0.3).align_to(egg, LEFT)
+        self.say("breaks")
+        self.play(FadeIn(fr3), FadeIn(fr3_l), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(nr), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(egg), run_time=0.6)
+        self.at(5)
+        self.play(FadeIn(eggs[0]), run_time=0.4)
+        self.play(FadeIn(eggs[1]), Indicate(eggs[1], color=HIDDEN), run_time=0.7)
+        self.at(6)
+        self.play(FadeIn(safe), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= rule and bridge =================
+        rule = T("When code differs by one call, pass the call in.", 32, FRIEND).move_to([0, 2.5, 0])
+        rule2 = T("Write the loop once.", 32, FRIEND).next_to(rule, DOWN, buff=0.2)
+        shape = T("the shape (retry, time) apart from the work", 26, GREY_A).next_to(rule2, DOWN, buff=0.3)
+        self.say("rule")
+        self.play(FadeIn(rule), run_time=0.6)
+        self.play(FadeIn(rule2), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(shape), run_time=0.5)
+        self.hold()
+        g1 = M('gramsFor("honey")', 26, FRIEND).move_to([-4.2, -0.9, 0])
+        g2 = M("(Int) -> Int", 26, WORK).move_to([-0.2, -0.9, 0])
+        ga = Arrow(g1.get_right(), g2.get_left(), buff=0.2, stroke_width=3, color=GREY_B)
+        g3 = T("250 ml of honey: 355 g", 28, GOLD_M).move_to([3.9, -0.9, 0])
+        ga2 = Arrow(g2.get_right(), g3.get_left(), buff=0.2, stroke_width=3, color=GREY_B)
+        jug = T("from the measuring jug to the kitchen scale", 24, GREY_A).move_to([0, -2.0, 0])
+        self.say("bridge")
+        self.play(FadeIn(g1), run_time=0.5)
+        self.at(1)
+        self.play(GrowArrow(ga), FadeIn(g2), run_time=0.7)
+        self.at_text("from the measuring", lead=0.3)
+        self.play(FadeIn(jug), run_time=0.5)
+        self.at_text("250", lead=0.3)
+        self.play(GrowArrow(ga2), FadeIn(g3), run_time=0.7)
+        self.hold()
+        self.wipe()
+
+        # ================= moral and a check =================
+        mq = T("How do you pass in a thing to do? Pass a function.", 32).move_to(UP * 2.4)
+        m1 = T("The friend holds the loop. You hold the work.", 34, FRIEND).move_to(UP * 1.5)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        qq = M('timed("fetch") { retry(3) { site.fetch("pancakes") } }', 26)
+        fit(qq, 12.2).move_to(DOWN * 0.4)
+        qh = T("Check: the site times out twice. How many timing lines?", 28, PURE).next_to(qq, UP, buff=0.3)
+        self.say("check")
+        self.play(FadeIn(qh), FadeIn(qq, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.4, pos=(6.4, -3.25), edge=RIGHT)
+        ans = T("one: timed wraps the whole retry, all three calls", 28, GOLD_M).move_to(DOWN * 2.2)
+        self.say("check_a")
+        self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
+        self.wait(2.5)

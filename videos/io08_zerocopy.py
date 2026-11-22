@@ -319,8 +319,8 @@ class Io08ZeroCopy(Narrated):
         kz = zone(12.6, 3.6, KERN, "the kernel").move_to([0, -1.55, 0])
         buf = box("your buffer", PROG, size=24).move_to([0.0, 2.0, 0])
         pcache = VGroup(box("page cache", SACK, size=24), T("the file's pages", 20, GREY_A)).arrange(DOWN, buff=0.12).move_to([-3.5, -1.2, 0])
-        sbuf = VGroup(box("socket send buffer", ZERO, size=24), T("leaves for the network", 20, GREY_A)).arrange(DOWN, buff=0.12).move_to([2.6, -1.2, 0])
-        nic = box("network card", GREY_B, size=22).move_to([5.3, -2.75, 0])
+        sbuf = VGroup(box("socket send buffer", ZERO, size=24), T("leaves for the network", 20, GREY_A)).arrange(DOWN, buff=0.12).move_to([3.0, -1.2, 0])
+        nic = box("network card", GREY_B, size=22).move_to([4.95, -2.6, 0])
         self.say("setup")
         self.play(FadeIn(pz), FadeIn(kz), run_time=0.7)
         self.at(1)
@@ -328,7 +328,7 @@ class Io08ZeroCopy(Narrated):
         self.at(2)
         self.play(FadeIn(pcache), run_time=0.5)
         self.at_text("our packed", lead=0.3)
-        sk2 = sack(SACK, 0.55).next_to(pcache, LEFT, buff=0.2)
+        sk2 = sack(SACK, 0.55).next_to(pcache, LEFT, buff=0.8)
         self.play(FadeIn(sk2), run_time=0.5)
         self.hold()
         up = Arrow(pcache[0].get_top(), buf.get_left() + LEFT * 0.05, buff=0.1, stroke_width=4, color=COPY, max_tip_length_to_length_ratio=0.08)
@@ -382,7 +382,7 @@ class Io08ZeroCopy(Narrated):
         self.at(3)
         self.play(FadeIn(zn), run_time=0.6)
         self.hold()
-        mp = VGroup(T("packed sacks", 22, CARD).next_to(sk2, DOWN, buff=0.15),
+        mp = VGroup(T("packed sacks", 22, CARD).next_to(sk2, UP, buff=0.15),
                     T("the van", 22, CARD).next_to(sbuf, DOWN, buff=0.15),
                     T("the counter", 22, CARD).next_to(buf, RIGHT, buff=0.3))
         self.say("map")

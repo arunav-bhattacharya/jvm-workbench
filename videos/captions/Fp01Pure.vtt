@@ -1,185 +1,381 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:04.135
-Here is a fee function.
+00:00:02.700 --> 00:00:04.973
+Picture a recipe card for pancakes.
 
 2
-00:00:04.135 --> 00:00:07.193
-You hand it an amount, and it hands back the fee.
+00:00:04.973 --> 00:00:09.323
+200 grams of flour, two eggs, 300 millilitres of milk, makes eight.
 
 3
-00:00:07.400 --> 00:00:10.847
-A test passes in 200.00 and expects 3.00.
+00:00:09.323 --> 00:00:14.842
+Follow it with the same ingredients, and you get the same eight pancakes, every time.
 
 4
-00:00:10.847 --> 00:00:13.621
-At ten in the morning, it passes.
+00:00:14.842 --> 00:00:19.452
+And the kitchen ends up the way you found it, apart from a pan to wash.
 
 5
-00:00:13.833 --> 00:00:17.573
-At five in the afternoon, the nightly build gets 4.00.
+00:00:19.667 --> 00:00:22.320
+Now picture a second cook with the same card.
 
 6
-00:00:17.800 --> 00:00:19.387
-Same amount, same code.
+00:00:22.320 --> 00:00:26.331
+She glances at the clock, and makes half a batch, because it's late.
 
 7
-00:00:19.387 --> 00:00:21.803
-Where did the extra euro come from?
+00:00:26.331 --> 00:00:29.810
+She weighs the flour on a scale someone left set to ounces.
 
 8
-00:00:23.300 --> 00:00:25.069
-It reads the wall clock.
+00:00:29.810 --> 00:00:32.464
+And she eats a spoonful of batter on the way.
 
 9
-00:00:25.069 --> 00:00:28.753
-After the 16:00 cut-off, it adds a late surcharge.
+00:00:32.464 --> 00:00:35.295
+Same card, same ingredients, different pancakes.
 
 10
-00:00:28.967 --> 00:00:33.091
-It also reads a global rate table that can change at any time.
+00:00:35.500 --> 00:00:38.638
+So here's a question that's easy to be shy about.
 
 11
-00:00:33.300 --> 00:00:36.037
-And every call writes a line to the audit log.
+00:00:38.638 --> 00:00:40.559
+My function has one parameter.
 
 12
-00:00:36.267 --> 00:00:38.195
-The signature shows one input.
+00:00:40.559 --> 00:00:42.992
+How can it have more inputs than that?
 
 13
-00:00:38.195 --> 00:00:40.894
-The clock and the rates are hidden inputs.
+00:00:42.992 --> 00:00:44.977
+And why would a test even care?
 
 14
-00:00:40.894 --> 00:00:46.036
-The log line is a side effect: something the call does besides return its value.
+00:00:45.900 --> 00:00:48.146
+Here's a small piece of a recipe app.
 
 15
-00:00:46.200 --> 00:00:47.352
-Now take them out.
+00:00:48.146 --> 00:00:52.881
+Before you cook, it looks in the cupboard and tells you how much flour to buy.
 
 16
-00:00:47.352 --> 00:00:51.959
-The time and the rates come in as values, and the caller writes the log.
+00:00:52.881 --> 00:00:56.523
+The shop only sells whole bags of one kilo, so it rounds up.
 
 17
-00:00:51.959 --> 00:00:53.943
-Every input is now a parameter.
+00:00:56.733 --> 00:00:57.773
+Now look inside.
 
 18
-00:00:54.133 --> 00:00:57.305
-At 15:59 it gives 3.00.
+00:00:57.773 --> 00:01:03.490
+It takes the bag from Cupboard, a global object that any part of the program can change.
 
 19
-00:00:57.305 --> 00:00:59.373
-At 16:00, 4.00.
+00:01:03.490 --> 00:01:09.596
+It asks LocalDate.now() for today's date, and a bag past its best-before date counts as empty.
 
 20
-00:00:59.967 --> 00:01:02.696
-Run it again tonight, or on eight threads.
+00:01:09.596 --> 00:01:12.325
+And it writes a line on the shopping list.
 
 21
-00:01:02.696 --> 00:01:03.671
-What comes out?
+00:01:12.325 --> 00:01:16.223
+Two inputs and one output that the signature never mentions.
 
 22
-00:01:05.167 --> 00:01:06.521
-4.00, every time.
+00:01:17.133 --> 00:01:18.052
+Now a test.
 
 23
-00:01:06.521 --> 00:01:09.468
-The real clock can spin all it likes.
+00:01:18.052 --> 00:01:24.904
+The bag in the cupboard has 700 grams left, and it's good until the 31st of March.
 
 24
-00:01:09.700 --> 00:01:11.284
-That is a pure function.
+00:01:24.904 --> 00:01:30.335
+We need 1500 grams, so 800 are missing, and we buy one bag: 1000.
 
 25
-00:01:11.284 --> 00:01:13.989
-Its result depends only on its arguments.
+00:01:30.335 --> 00:01:34.931
+The test expects 1000, and it passes all through March.
 
 26
-00:01:13.989 --> 00:01:16.760
-And calling it changes nothing outside it.
+00:01:35.133 --> 00:01:36.639
+Nobody touches the code.
 
 27
-00:01:17.667 --> 00:01:20.367
-Here is a smaller fee function.
+00:01:36.639 --> 00:01:39.776
+What does the same test say on the first of April?
 
 28
-00:01:20.367 --> 00:01:22.544
-20,000 cents in, 300 out.
+00:01:42.767 --> 00:01:43.449
+It fails.
 
 29
-00:01:22.733 --> 00:01:25.550
-This line calls it twice and adds the answers.
+00:01:43.449 --> 00:01:44.360
+It got 2000.
 
 30
-00:01:25.550 --> 00:01:28.549
-Could you call it once, and use the answer twice?
+00:01:44.360 --> 00:01:51.338
+On the first of April the bag is past its date, so it counts as empty, and we need two bags.
 
 31
-00:01:30.033 --> 00:01:30.469
-Yes.
+00:01:51.338 --> 00:01:53.007
+The test didn't break.
 
 32
-00:01:30.469 --> 00:01:35.913
-Swap each call for its value: 300 plus 300 is 600.
+00:01:53.007 --> 00:01:54.448
+Its flour went off.
 
 33
-00:01:37.133 --> 00:01:39.292
-Now a call that charges a card.
+00:01:55.367 --> 00:01:56.549
+Order matters too.
 
 34
-00:01:39.292 --> 00:01:43.611
-Store the receipt in c, and put c in a list twice: one charge.
+00:01:56.549 --> 00:02:02.463
+In the lesson's demo, a second test puts a new bag in the cupboard and never takes it out.
 
 35
-00:01:43.800 --> 00:01:45.082
-Now inline c.
+00:02:02.463 --> 00:02:07.917
+Run the two tests in the other order, and the first one fails: expected 800, got 0.
 
 36
-00:01:45.082 --> 00:01:46.757
-How many charges?
+00:02:07.917 --> 00:02:11.991
+And the line that broke it isn't even in the test that failed.
 
 37
-00:01:48.233 --> 00:01:48.510
-Two.
+00:02:12.900 --> 00:02:14.712
+The usual fixes add machinery.
 
 38
-00:01:48.510 --> 00:01:52.663
-The customer paid twice, and nothing in the code warned you.
+00:02:14.712 --> 00:02:17.309
+A fake clock that always says the same day.
 
 39
-00:01:53.467 --> 00:01:56.790
-This swap has a name: referential transparency.
+00:02:17.309 --> 00:02:19.845
+A reset of the cupboard before every test.
 
 40
-00:01:56.790 --> 00:01:58.557
-Only pure calls allow it.
+00:02:19.845 --> 00:02:21.476
+Clearing the list after it.
 
 41
-00:01:59.367 --> 00:02:04.195
-In Java and Kotlin, these two totals always agree, because fee is pure.
+00:02:21.476 --> 00:02:24.555
+That's a lot of babysitting for one small function.
 
 42
-00:02:05.000 --> 00:02:11.684
-The rule: a pure function takes everything as parameters, and gives everything back as its return value.
+00:02:24.555 --> 00:02:27.937
+Wouldn't it be nice to just hand it everything it needs?
 
 43
-00:02:11.900 --> 00:02:17.204
-Quick check: isExpired compares a card's expiry with YearMonth.now().
+00:02:28.867 --> 00:02:31.460
+Let's go back to the two cooks and map it.
 
 44
-00:02:17.204 --> 00:02:17.588
-Pure?
+00:02:31.460 --> 00:02:33.004
+The card is the function.
 
 45
-00:02:19.067 --> 00:02:19.770
-Not pure.
+00:02:33.004 --> 00:02:35.473
+The ingredients on it are its arguments.
 
 46
-00:02:19.770 --> 00:02:22.429
-The clock is a hidden input again.
+00:02:35.473 --> 00:02:37.573
+The pancakes are the return value.
+
+47
+00:02:37.573 --> 00:02:41.833
+The clock, and the scale left on ounces, are inputs nobody passed in.
+
+48
+00:02:41.833 --> 00:02:46.464
+And eating the batter, like writing the shopping list, changes the kitchen.
+
+49
+00:02:47.367 --> 00:02:49.078
+Now we can give it a name.
+
+50
+00:02:49.078 --> 00:02:51.315
+A pure function follows two rules.
+
+51
+00:02:51.315 --> 00:02:57.501
+One: its result depends only on its arguments, so the same values always give the same answer.
+
+52
+00:02:57.501 --> 00:03:00.330
+Two: calling it changes nothing outside it.
+
+53
+00:03:00.330 --> 00:03:03.357
+Break either rule, and the function is impure.
+
+54
+00:03:03.567 --> 00:03:10.828
+Anything a call does besides handing back its value is a side effect: writing a file, printing, changing a field.
+
+55
+00:03:10.828 --> 00:03:17.383
+And anything it reads that can change, like the clock, a random number or a global, is a hidden input.
+
+56
+00:03:18.300 --> 00:03:19.397
+Let's try three.
+
+57
+00:03:19.397 --> 00:03:22.620
+gramsFor turns cups into grams with a constant.
+
+58
+00:03:22.620 --> 00:03:26.118
+isFresh compares a bag's date with LocalDate.now().
+
+59
+00:03:26.118 --> 00:03:30.644
+And totalGrams sorts the list you gave it, then adds up the grams.
+
+60
+00:03:30.644 --> 00:03:32.221
+Which of them are pure?
+
+61
+00:03:35.200 --> 00:03:36.175
+Only the first.
+
+62
+00:03:36.175 --> 00:03:38.970
+isFresh reads the calendar, a hidden input.
+
+63
+00:03:38.970 --> 00:03:43.780
+And totalGrams returns the right total, but it reorders the caller's list.
+
+64
+00:03:43.780 --> 00:03:46.705
+The answer is right, and it's still not pure.
+
+65
+00:03:46.705 --> 00:03:48.460
+That one bites in practice.
+
+66
+00:03:49.367 --> 00:03:50.525
+So here's the fix.
+
+67
+00:03:50.525 --> 00:03:53.162
+Move every input into the parameter list.
+
+68
+00:03:53.162 --> 00:03:57.215
+gramsToBuy takes the grams you need, the bag, and today's date.
+
+69
+00:03:57.215 --> 00:04:00.624
+Nothing is read from outside, and nothing is written.
+
+70
+00:04:00.624 --> 00:04:04.227
+The grams come back as the return value, and that's all.
+
+71
+00:04:04.433 --> 00:04:06.527
+Now the test is plain values.
+
+72
+00:04:06.527 --> 00:04:12.590
+The 31st of March gives 1000, the first of April gives 2000, two lines side by side.
+
+73
+00:04:12.590 --> 00:04:15.261
+No fake clock, no reset, no clean up.
+
+74
+00:04:15.261 --> 00:04:21.036
+Run them in any order, even on eight threads at once, because nothing is shared.
+
+75
+00:04:21.267 --> 00:04:23.455
+The calendar can turn all it likes.
+
+76
+00:04:23.455 --> 00:04:25.393
+This test brought its own date.
+
+77
+00:04:25.393 --> 00:04:31.207
+So the point really is: a function that reads only its arguments is tested with plain values.
+
+78
+00:04:32.133 --> 00:04:34.607
+The card picture breaks in one place.
+
+79
+00:04:34.607 --> 00:04:40.492
+A real recipe never gives exactly the same pancakes twice, because eggs and pans differ.
+
+80
+00:04:40.492 --> 00:04:44.972
+A pure function gives the same value every time, to the last digit.
+
+81
+00:04:44.972 --> 00:04:47.179
+That's stronger than any kitchen.
+
+82
+00:04:48.100 --> 00:04:49.211
+One honest limit.
+
+83
+00:04:49.211 --> 00:04:53.067
+Kotlin has no pure keyword, and neither compiler checks it.
+
+84
+00:04:53.067 --> 00:05:01.497
+The clues are in the signature: plain values in, a real return type instead of Unit or void, and no clock, file or logger inside.
+
+85
+00:05:01.497 --> 00:05:05.744
+And a real app still has to read the cupboard and write the list.
+
+86
+00:05:05.744 --> 00:05:09.339
+The end of the lesson pushes that work out to the edge.
+
+87
+00:05:10.267 --> 00:05:13.774
+So, how can a function have more inputs than parameters?
+
+88
+00:05:13.774 --> 00:05:16.341
+By peeking, at the clock and at a global.
+
+89
+00:05:16.341 --> 00:05:19.535
+A pure function doesn't peek, and it doesn't touch.
+
+90
+00:05:19.535 --> 00:05:20.725
+Pass everything in.
+
+91
+00:05:20.933 --> 00:05:21.828
+Quick check.
+
+92
+00:05:21.828 --> 00:05:27.269
+portion divides the grams by four, and also adds one to a shared counter.
+
+93
+00:05:27.269 --> 00:05:28.164
+Pure or not?
+
+94
+00:05:31.133 --> 00:05:31.743
+Not pure.
+
+95
+00:05:31.743 --> 00:05:36.352
+The portion is right, but bumping a shared counter is a side effect.

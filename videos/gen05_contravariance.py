@@ -273,7 +273,7 @@ N = {
             "arrow between the fruit. And a type that only takes values in is called a consumer. So the compiler isn't "
             "being contrary. It's being contravariant.",
     "java": "Java has no in on a declaration. Its Bin stays invariant, so the method says it where the type is used, "
-            "with a wildcard: Bin<? super Apple>. Read it as: a bin for Apple, or for a type above it, such as Fruit. "
+            "with a wildcard, written question mark super Apple. Read it as: a bin for Apple, or for a type above it, such as Fruit. "
             "Leave it out, and javac says: Bin<Fruit> cannot be converted to Bin<Apple>.",
     "guard": "And the guardrail. Only make the in promise if it's true. T may appear in parameters, where values go in. "
              "Not in return types, and not in a val, where values come out. And the consumer you'll meet most often "
@@ -658,11 +658,11 @@ class Gen05Contravariance(Narrated):
         self.play(FadeIn(jg, shift=UP * 0.1), FadeIn(kg, shift=UP * 0.1), run_time=0.8)
         self.at(1)
         self.play(part(kc[0], "<inT>")[1:3].animate.set_color(OK), run_time=0.5)
-        self.at(2)
+        self.at_text("question mark", lead=0.4)
         self.play(part(jc[1], "Bin<?superApple>").animate.set_color(OK), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(rd, shift=UP * 0.1), run_time=0.6)
-        self.at(4)
+        self.at(3)
         self.play(part(jc[3], "Bin<Apple>strict=compost;").animate.set_color(BAD), FadeIn(er, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.wipe()
