@@ -220,10 +220,10 @@ def website(s=1.0):
     return VGroup(r, bar, dots, t).scale(s)
 
 
-def loop_box(call, w=3.8):
+def loop_box(call, w=4.3):
     r = RoundedRectangle(corner_radius=0.12, width=w, height=2.2).set_stroke(GREY_B, 2.5).set_fill(BLACK, 1)
     l1 = T("up to 3 times:", 22, GREY_B)
-    l2 = M(call, 22, WORK)
+    l2 = M(call, 20, WORK)
     l3 = T("on a timeout, try again", 22, GREY_B)
     l4 = T("then give up", 22, GREY_B)
     g = VGroup(l1, l2, l3, l4).arrange(DOWN, aligned_edge=LEFT, buff=0.18).move_to(r)
@@ -246,10 +246,10 @@ class Fp03Hof(Narrated):
         fr = person(FRIEND, 1.3).move_to([0, 0.2, 0])
         fr_l = T("a friend in the kitchen", 24, FRIEND).next_to(fr, DOWN, buff=0.25)
         c0 = recipe_card("Pancakes", ["serves 4"], w=2.4, size=22).move_to([-3.2, 0.3, 0])
-        outs = VGroup(recipe_card("Pancakes", ["for 6 people"], w=2.8, size=22),
-                      recipe_card("Pancakes", ["vegan"], w=2.8, size=22),
-                      recipe_card("Pancakes", ["if it burns, try again"], w=2.8, size=22)).arrange(DOWN, buff=0.25)
-        outs.move_to([4.4, 0.2, 0])
+        outs = VGroup(recipe_card("Pancakes", ["for 6 people"], w=3.4, size=22),
+                      recipe_card("Pancakes", ["vegan"], w=3.4, size=22),
+                      recipe_card("Pancakes", ["if it burns, try again"], w=3.4, size=22)).arrange(DOWN, buff=0.25)
+        outs.move_to([4.5, 0.2, 0])
         dinner = T("they change the card, not the dinner", 28, FRIEND).move_to([0, -2.9, 0])
         self.say("open")
         self.play(FadeIn(you), FadeIn(fr), FadeIn(fr_l), run_time=0.7)
@@ -320,7 +320,7 @@ class Fp03Hof(Narrated):
 
         # ================= map: the friend is retry =================
         fr2 = person(FRIEND, 1.3).move_to([-0.6, 0.3, 0])
-        fr2_l = M("retry", 28, FRIEND).next_to(fr2, DOWN, buff=0.25)
+        fr2_l = M("retry", 28, FRIEND).next_to(fr2, DOWN, buff=0.75)
         card = recipe_card("the work", ["a function: block"], w=3.0, size=22).move_to([-4.6, 0.3, 0])
         loop = Arc(radius=0.9, start_angle=-0.3, angle=TAU * 0.85).set_stroke(FRIEND, 3).add_tip(tip_length=0.2)
         loop.move_to(fr2.get_center() + UP * 0.1)

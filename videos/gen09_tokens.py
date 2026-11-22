@@ -1,393 +1,723 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form). Applied in order, before fg's own.
+# Spoken forms only (captions keep the written words). fg.py is shared, so these live here.
 fg.SAY[:0] = [
-    (r"typeOf<(\w+)<(\w+)>\?>\(\)", r"type of nullable \1 of \2"), (r"typeOf<(\w+)<(\w+)>>\(\)", r"type of \1 of \2"),
-    (r"typeOf<(\w+)\?>\(\)", r"type of nullable \1"), (r"typeOf<(\w+)>\(\)", r"type of \1"), (r"\btypeOf\b", "type of"),
-    (r"(\w+)<(\w+)>::class", r"\1 of \2 colon colon class"), (r"(\w+)<(\w+)>\?", r"nullable \1 of \2"),
-    (r"(\w+)<(\w+)>", r"\1 of \2"), (r"(\w+)::class", r"\1 colon colon class"), (r"(?<!\w)::class", "colon colon class"),
-    (r"\bString\?", "nullable String"), (r"\bx\.javaClass\b", "x dot java class"),
-    (r"(?<![\w])\.java\b", "dot java"), (r"(?<![\w])\.kotlin\b", "dot kotlin"),
-    (r"\bKClass\b", "K class"), (r"\bKTypes\b", "K types"), (r"\bKType\b", "K type"),
-    (r"\bArrayList\b", "array list"), (r"\bPaymentGateway\b", "Payment Gateway"), (r"\bFraudCheck\b", "Fraud Check"),
-    (r"\bTypeReference\b", "Type Reference"), (r"\bsubclass\b", "sub class"), (r"\bsuperclass\b", "super class"),
+    (r"typeOf<(\w+)<(\w+)>>\(\)", r"type of \1 of \2"),
+    (r"\b([A-Z][A-Za-z]*)<([A-Za-z]+)\?>", r"\1 of nullable \2"),
+    (r"\b([A-Z][A-Za-z]*)<([A-Za-z]+)<([A-Za-z]+)>>", r"\1 of \2 of \3"),
+    (r"\b([A-Z][A-Za-z]*)<([A-Za-z]+)>", r"\1 of \2"),
+    (r"::class\.java\b", " colon colon class dot java"), (r"::class\b", " colon colon class"),
+    (r"\bString\.class\b", "String dot class"), (r"\bx\.javaClass\b", "x dot java class"),
+    (r"\bkotlin\.String\b", "kotlin dot String"), (r"\bkotlin-reflect\b", "kotlin reflect"), (r"\btoString\b", "to string"),
+    (r"\bKClass\b", "K class"), (r"\bKType\b", "K type"), (r"\btypeOf\b", "type of"), (r"\bArrayList\b", "array list"),
+    (r"\bString\?", "nullable String"), (r"\bGradle\b", "Gradle"),
 ]
 
-# ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
 
-CLS_C = GOLD_M                      # a class: the stamp on an object, KClass, Class
-STR_C, INT_C = BLUE_M, TEAL_M       # type arguments String, Int
-PAY_C, REF_C = GREEN_M, PURPLE_M    # type arguments Payment, Refund
-TYP_C = WHITE                       # a full type (KType)
-BAD_C = RED_M
+# ---- local helpers ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-
-class Beat(VoiceScene):
-    """VoiceScene plus captions split only where a new sentence starts, and seq() to start animations
-    at a given sentence of the line."""
-
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
-
-    def seq(self, text, plan=(), after=0.25):
-        """plan: (sentence index, [animations] or a function returning them, run_time)."""
+    def say(self, key):
+        text = N[key]
         path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        sents = [x for x in _SENT.split(text.strip()) if x]
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
         total = sum(len(x) for x in sents) or 1
-        starts, t = [], 0.0
+        self._st = []
         for x in sents:
-            starts.append(t); t += dur * len(x) / total
-        assert all(i < len(starts) for i, _, _ in plan), "plan index past the last sentence"
-        now = 0.0
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now); now = starts[idx]
-            if callable(anims):
-                anims = anims()
-            self.play(*anims, run_time=rt); now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
         if after:
             self.wait(after)
 
+    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
 
-class Pulse(Transform):
-    """Indicate for filled chips: grows and recolours outlines only, so fills and text stay readable."""
-
-    def __init__(self, mobject, color=WHITE, scale_factor=1.08, **kwargs):
-        self.pulse_color, self.pulse_scale = color, scale_factor
-        kwargs.setdefault("rate_func", there_and_back)
-        super().__init__(mobject, **kwargs)
-
-    def create_target(self):
-        t = self.mobject.copy().scale(self.pulse_scale)
-        for sm in t.family_members_with_points():
-            if sm.get_stroke_width() > 0:
-                sm.set_stroke(color=self.pulse_color)
-        return t
+    def wipe(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
 
 
-def one(text, size=26, color=WHITE):
-    """One mono line; glyph i is character i (spaces kept, ligatures off)."""
-    t = Text("|" + text, font=MONO, font_size=size, color=color, disable_ligatures=True)
-    t.remove(t[0])
-    t.src = text
-    return t
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def part(t, sub, nth=0):
-    i = -1
-    for _ in range(nth + 1):
-        i = t.src.index(sub, i + 1)
-    return VGroup(*t[i:i + len(sub)])
+# one colour per thing, for the whole generics track (the fruit shop storeroom)
+BOX, BACK, COUNTER, CLERK, APPLE, LEMON, NUM, BAD, OK = GOLD_M, BLUE_M, TEAL_M, PURPLE_M, GREEN_M, YELLOW_M, BLUE_M, RED_M, GREEN_M
+PAPER, INK, PEN = "#EDE6D6", "#161616", "#1E4F9C"   # box labels: paper, printed ink, handwriting
 
 
-def paint(t, sub, color):
-    i = t.src.find(sub)
-    while i >= 0:
-        VGroup(*t[i:i + len(sub)]).set_color(color)
-        i = t.src.find(sub, i + 1)
-    return t
+def person(color, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def code(lines, size=24):
-    """Mono lines, left aligned, leading spaces kept. lines: str or (str, {substring: colour})."""
-    pitch = M("|", size).height * 1.6
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        txt, cols = ln if isinstance(ln, tuple) else (ln, {})
-        t = Text("|" + txt, font=MONO, font_size=size, disable_ligatures=True)
-        t.shift(np.array([0, -i * pitch, 0]) - t[0].get_center())
-        t.src = "|" + txt
-        for sub, c in cols.items():
-            paint(t, sub, c)
-        g.add(t)
-    for t in g:
-        t.remove(t[0])
-        t.src = t.src[1:]
+def who(color, name, s=1.1, size=22):
+    p = person(color, s)
+    return VGroup(p, T(name, size, color).next_to(p, DOWN, buff=0.12))
+
+
+def paper(lines, size=20, pad=0.16, color=INK):
+    t = M("\n".join(lines), size, color)
+    r = Rectangle(width=t.width + 2 * pad, height=t.height + 2 * pad).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    t.move_to(r)
+    return VGroup(r, t)
+
+
+def crate(w=2.2, h=1.5, label=None, size=20, color=BOX):
+    """A cardboard storeroom box: body [0], lid [1], tape [2], optional paper label [3]."""
+    body = Rectangle(width=w, height=h).set_stroke(color, 3).set_fill(dim(color, 0.26), 1)
+    lid = Rectangle(width=w, height=0.2).set_stroke(color, 3).set_fill(dim(color, 0.42), 1).move_to(body.get_top() + DOWN * 0.1)
+    tape = Rectangle(width=0.3, height=0.36).set_stroke(width=0).set_fill(dim(color, 0.7), 1).move_to(body.get_top() + DOWN * 0.18)
+    g = VGroup(body, lid, tape)
+    if label:
+        g.add(paper(label, size).move_to(body.get_center() + DOWN * 0.1))
     return g
 
 
-def typed(cls, arg, color, size=26, q=False):
-    """A type written as text: class part in gold, argument in its colour, optional '?'."""
-    s = f"{cls}<{arg}>" + ("?" if q else "")
-    t = one(s, size, WHITE)
-    part(t, cls).set_color(CLS_C)
-    part(t, f"<{arg}>").set_color(color)
-    return t
+def apple(r=0.2):
+    a = Circle(radius=r).set_stroke(APPLE, 2.5).set_fill(dim(APPLE, 0.55), 1)
+    stem = Line(a.get_top(), a.get_top() + UP * r * 0.45 + RIGHT * r * 0.12, stroke_width=3, color="#8B5A2B")
+    leaf = Ellipse(width=r * 0.6, height=r * 0.3).set_stroke(APPLE, 1.5).set_fill(APPLE, 1)
+    leaf.rotate(25 * DEGREES).move_to(a.get_top() + UP * r * 0.3 + RIGHT * r * 0.38)
+    return VGroup(a, stem, leaf)
 
 
-def frame(m, color, w=None, h=None, buff=0.22):
-    r = RoundedRectangle(corner_radius=0.1, width=w or m.width + 2 * buff, height=h or m.height + 2 * buff,
-                         stroke_color=color, stroke_width=2.5)
-    r.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(color), 0.10), 1).move_to(m)
-    return r
+def lemon(r=0.2):
+    l = Ellipse(width=r * 2.5, height=r * 1.8).set_stroke(LEMON, 2.5).set_fill(dim(LEMON, 0.55), 1)
+    tip = Dot(radius=r * 0.12, color=LEMON).move_to(l.get_right())
+    return VGroup(l, tip)
 
 
-# ---- layout
-SX0, SX1 = -1.7, 5.9                  # registry slots
-SXC, SDIV, KEY_L, VAL_X = (SX0 + SX1) / 2, 3.1, -1.45, 4.5
-SROW = [1.45, 0.55, -0.35, -1.25]
-IN_X, IN_Y = -4.45, -1.55             # where a registration arrives
-
-KT_X, KT_Y = -4.3, [2.05, 1.15, 0.25]   # KType column (top to bottom)
-KC = np.array([0.2, 1.2, 0])            # KClass box
-CJ = np.array([4.85, 1.2, 0])           # Class box
-BW, BH, CW = 3.0, 1.7, 3.2
-OBJ_Y, OA_X, OB_X = -2.15, 0.0, 3.4     # the two objects
+def vchip(text, color, size=26, h=0.56):
+    """A value travelling into or out of a box: a small rounded chip with monospace text."""
+    t = M(text, size, WHITE)
+    r = RoundedRectangle(corner_radius=0.1, width=t.width + 0.36, height=h).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    return VGroup(r, t.move_to(r))
 
 
-def slot(i):
-    r = RoundedRectangle(corner_radius=0.1, width=SX1 - SX0, height=0.74, stroke_color=GREY_B, stroke_width=2)
-    r.move_to([SXC, SROW[i], 0])
-    d = Line([SDIV, SROW[i] - 0.3, 0], [SDIV, SROW[i] + 0.3, 0], stroke_color=GREY_D, stroke_width=2)
-    return VGroup(r, d)
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
 
 
-def key_at(m, i):
-    return m.move_to([KEY_L + m.width / 2, SROW[i], 0])
+def titled(code, title, color=GREY_B):
+    h = T(title, 22, color).next_to(code, UP, buff=0.22).align_to(code, LEFT)
+    return VGroup(h, code)
 
 
-def val_chip(text, color):
-    return chip(text, color, 26)
+def part(t, s, nth=0):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    flat = re.sub(r"\s", "", t.text)
+    i = -1
+    for _ in range(nth + 1):
+        i = flat.index(k, i + 1)
+    return t[i:i + len(k)]
 
 
-class Gen09Tokens(Beat):
-    """gen-09 s0: a class is not a type and an object only knows its class; KClass and Class are two views
-    of that class; only a KType, written by the compiler at a call site, keeps the type arguments."""
+def term(lines, size=20, title="output", color=GREY_A):
+    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.5, height=t.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
+    t.move_to(r)
+    h = T(title, 20, GREY_B).next_to(r, UP, buff=0.1).align_to(r, LEFT)
+    return VGroup(r, t, h)
+
+
+def err_line(text, size=22):
+    """A compiler message: red 'error:' then the message in light grey."""
+    return VGroup(M("error:", size, BAD), M(text, size, GREY_A)).arrange(RIGHT, buff=0.15)
+
+
+def door(h=2.6, w=1.5, color=GREY_B):
+    l = Line(ORIGIN, UP * h, stroke_width=4, color=color)
+    r = Line(RIGHT * w, RIGHT * w + UP * h, stroke_width=4, color=color)
+    top = Line(UP * h, RIGHT * w + UP * h, stroke_width=4, color=color)
+    return VGroup(l, r, top)
+
+
+def rule_row(text, size=28, color=WHITE):
+    return VGroup(tick(True, 0.15), T(text, size, color)).arrange(RIGHT, buff=0.2)
+
+
+def cross_by(m, s=0.2, buff=0.22):
+    return tick(False, s).next_to(m, RIGHT, buff=buff)
+
+
+def check_by(m, s=0.2, buff=0.22):
+    return tick(True, s).next_to(m, RIGHT, buff=buff)
+
+
+
+# ---- this video's own pictures ----
+NOTE_C, JAVA_C, LABEL_C = TEAL_M, BLUE_M, GOLD_M     # KClass: the note, Class: Java's paper, KType: the whole label
+
+
+def index_card(tab, lines=None, color=GREY_B, w=2.5, size=20):
+    """An index card: a paper card with a tab on top that says what it is filed under."""
+    body = Rectangle(width=w, height=1.25).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    tt = M(tab, size, INK)
+    tabr = Rectangle(width=tt.width + 0.3, height=0.42).set_stroke(color, 2.5).set_fill(dim(color, 0.6), 1)
+    tabr.next_to(body, UP, buff=0).align_to(body, LEFT).shift(RIGHT * 0.15)
+    tt.move_to(tabr).set_color(WHITE)
+    g = VGroup(body, tabr, tt)
+    if lines:
+        g.add(M("\n".join(lines), 18, INK).move_to(body))
+    return g
+
+
+def drawer(w=7.6, h=1.9):
+    base = Line([-w / 2, 0, 0], [w / 2, 0, 0], stroke_width=4, color=GREY_B)
+    l = Line([-w / 2, 0, 0], [-w / 2, h, 0], stroke_width=4, color=GREY_B)
+    r = Line([w / 2, 0, 0], [w / 2, h, 0], stroke_width=4, color=GREY_B)
+    front = Rectangle(width=w, height=0.55).set_stroke(GREY_B, 3).set_fill("#1c1c1c", 1).move_to([0, -0.27, 0])
+    knob = RoundedRectangle(corner_radius=0.06, width=0.8, height=0.16).set_stroke(GREY_A, 2).move_to(front)
+    return VGroup(base, l, r, front, knob)
+
+
+def shelf(kind, n=3):
+    board = Rectangle(width=2.4, height=0.14).set_stroke(GREY_B, 2).set_fill("#3a2a1a", 1)
+    fr = VGroup(*[(apple if kind == "apple" else lemon)(0.2) for _ in range(n)]).arrange(RIGHT, buff=0.18)
+    fr.next_to(board, UP, buff=0.04)
+    return VGroup(board, fr)
+
+
+def objbox(title, lines, color, w=3.6, size=22):
+    r = RoundedRectangle(corner_radius=0.12, width=w, height=2.2).set_stroke(color, 3).set_fill(dim(color, 0.14), 1)
+    t = T(title, 26, color)
+    ls = VGroup(*[M(x, size, WHITE) for x in lines]).arrange(DOWN, buff=0.14)
+    g = VGroup(t, ls).arrange(DOWN, buff=0.25).move_to(r)
+    fit(g, w - 0.3)
+    return VGroup(r, t, ls)
+
+
+N = {
+    "open": "In the last lesson, a second clerk stood at the storeroom door. Before each label was torn off, the clerk "
+            "copied one word onto a note: apples. Today we pick up that note and look at it closely.",
+    "index": "The shop's office keeps a card index, a small drawer of cards. Each card is filed under a note that names a "
+             "tool, like Scale or Label printer. The card says where to find that tool.",
+    "shelves": "Then the shop opens a second shelf. One shelf holds apples, and one holds lemons. But on a one-word note, "
+               "both are just Shelf. We file the apple shelf, then the lemon shelf. How many cards are in the drawer now? "
+               "Pause and guess.",
+    "shelves_a": "One. The second card pushed the first one out, and nobody noticed. Nobody, until someone fetched lemons "
+                 "for an apple order. Somewhere, a customer is biting into a very sour apple pie.",
+    "shelves_b": "So the point is this. The note had room for one word, and one word wasn't enough. In code, that one-word "
+                 "note is a KClass. And the trap is easy to fall into, because for plain classes, a class behaves exactly "
+                 "like a type.",
+    "shyq": "Here's a question that's easy to be shy about. Kotlin has KClass. Java has Class. And then there's something "
+            "called KType. Aren't those three names for the same thing?",
+    "familiar": "Let's start from what we already know. Earlier in this track, we pulled classes and types apart. The class "
+                "String backs two types: String, and String?, which may also be null. The class List backs List<String>, "
+                "List<Int>, and many more.",
+    "erase": "Then came erasure. The compiler checks each type argument, the real type in the angle brackets, and then "
+             "drops it. So while the program runs, a box on the shelf still knows it's a box. It no longer knows what its "
+             "label said.",
+    "kclass": "So a running program gets three different objects. The first is a KClass. It describes a class, like "
+              "String::class or List::class. It has no type arguments, and it's never nullable. This is our one-word note.",
+    "class": "The second is a Class, Java's object for the same class. In Java you write String.class, and in Kotlin, "
+             "String::class.java. It's the same note, written on Java's paper.",
+    "ktype": "The third is a KType. It describes a full type: the class, its type arguments, and whether it may be null. "
+             "You get one from typeOf. This is the whole label: a list of strings, or nothing.",
+    "map": "Let's map it. The one-word note is a KClass. The same note on Java's paper is a Class. The whole label is a "
+           "KType. And the box on the shelf is the object itself, which only remembers its class.",
+    "code": "Here's the lesson's demo, in Kotlin. k is a KClass, c is a Class, and t is a KType. Then it asks two questions. "
+            "Do an ArrayList of String and an ArrayList of Int share a class? And is String the same type as String?",
+    "predict": "Same class? Same type? Pause and guess.",
+    "show": "Here's what it printed. Share a class: true. One class, ArrayList, backs both. Same type: false, and false. "
+            "The nullable String is a different type, and so is a list of ints. And the KType knows its parts: its "
+            "classifier is List::class, it has one argument, and nullable is true.",
+    "apology": "Notice one odd thing. Two lines end with a little apology: Kotlin reflection is not available. It may be "
+               "the most polite message you'll ever see, and it isn't even an error.",
+    "apology2": "Nothing is broken. To print Kotlin names, like kotlin.String, toString needs an extra library called "
+                "kotlin-reflect. A Gradle project leaves it out unless you ask for it. So Kotlin falls back to Java names, "
+                "and says so.",
+    "break_q": "Now let's be skeptical. If the clerk could copy one word onto a note, why not copy the whole label? Why "
+               "can't I just ask a box for its full type?",
+    "break": "Watch the arrows. From an object at run time, x::class reaches the KClass, and x.javaClass reaches the Class. "
+             "Nothing reaches the KType. A KType comes from code: the compiler writes it down at a call site, where it "
+             "still knows the type. typeOf is how you ask it to.",
+    "break2": "And here the clerk picture breaks a little. A real clerk could copy the full label onto every note. Kotlin "
+              "writes a KType only where you ask for one, and it never stores it inside the object.",
+    "choose": "So, to pick the right one, ask what you want to know. What kind of thing is this? That's a question about a "
+              "class, and a KClass or a Class answers it. A list of what? May it be null? Those are questions about a "
+              "type, and only a KType can answer them.",
+    "name": "Now the name for all this. The part of the library that lets code inspect classes while the program runs is "
+            "called reflection. KClass, Class and KType are three of its objects.",
+    "guard": "One guardrail. You can't ask for the class of a whole type. Write Shelf<Apple>::class, and the compiler says: "
+             "only classes are allowed on the left-hand side of a class literal. A class literal is the double colon "
+             "class you write in code.",
+    "guard2": "So here's the rule of thumb. Key a container by KClass when the things in it are plain, like the scale and "
+              "the label printer. Key it by KType when they are generic, like a shelf of apples.",
+    "payoff": "Back to the drawer. File the shelves under typeOf<Shelf<Apple>>() and typeOf<Shelf<Lemon>>(), and the two "
+              "cards sit side by side. The lemons finally get a card of their own. The last section of the lesson builds "
+              "exactly that.",
+    "moral": "So, are KClass, Class and KType the same thing? Two of them are: one note, on Kotlin's paper or on Java's. "
+             "The third is the whole label. Objects know their class. Only code knows full types.",
+    "check": "Quick check. Take String, and the nullable String. Do they have the same class? Do they have the same type?",
+    "check_a": "Same class. The demo printed true: a nullable String is backed by the class String. But different types, "
+               "because a KType counts nullability.",
+}
+
+
+class Gen09Tokens(Narrated):
+    """gen-09, section 0: the office card index and the two shelves that fight over one card; class vs type and erasure
+    recalled; the three objects (KClass the one-word note, Class the same note on Java's paper, KType the whole label),
+    mapped; ClassVsTypeDemo's real output and its polite apology; arrows from an object reach only its class; where the
+    clerk picture breaks; which question each object answers; reflection named; Shelf<Apple>::class refused; KClass keys
+    for plain things, KType keys for generic ones; the two shelves get two cards; moral; a check."""
 
     def construct(self):
-        self.title_card("KClass, Class and KType", "a class is not a type")
+        self.title_card("KClass, Class and KType", "the one-word note and the whole label")
 
-        # ---------------- the problem: a registry keyed by class
-        reg_t = T("registry", 30).move_to([SXC, 2.65, 0])
-        hk = T("key: a class", 24, GREY_B).move_to([(SX0 + SDIV) / 2, 2.1, 0])
-        hv = T("service", 24, GREY_B).move_to([VAL_X, 2.1, 0])
-        slots = [slot(i) for i in range(3)]
-        keys = [key_at(one("PaymentGateway", 26, CLS_C), 0), key_at(one("FraudCheck", 26, CLS_C), 1)]
-        vals = [val_chip("gateway", GREY_B).move_to([VAL_X, SROW[0], 0]), val_chip("fraud check", GREY_B).move_to([VAL_X, SROW[1], 0])]
-        self.seq("A payment service keeps a registry that maps a class to a service. "
-                 "PaymentGateway gets a slot, and so does FraudCheck.",
-                 [(0, [FadeIn(reg_t)], 0.6), (0, [FadeIn(hk), FadeIn(hv)], 0.6),
-                  (1, [LaggedStart(*[AnimationGroup(Create(slots[i]), FadeIn(keys[i]), FadeIn(vals[i])) for i in range(2)],
-                                   lag_ratio=0.5)], 1.6)])
+        # ================= callback: the clerk's note =================
+        FL = -1.6
+        floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
+        dr = door(2.8, 1.4).move_to([-1.0, FL + 1.4, 0])
+        clerk = who(CLERK, "clerk", 1.1, 22).move_to([0.6, FL + 0.7, 0])
+        bx = crate(2.4, 1.6, ["Box of", "apples"], 22).move_to([-4.0, FL + 0.8, 0])
+        note = paper(["apples"], 24).move_to([2.9, 1.3, 0])
+        self.say("open")
+        self.play(Create(floor), Create(dr), FadeIn(clerk), FadeIn(bx), run_time=0.9)
+        self.at(1)
+        self.play(bx.animate.move_to([-1.0 + 0.7, FL + 0.8, 0]), run_time=0.9)
+        self.play(FadeIn(note, shift=RIGHT * 0.4), Indicate(clerk[0], color=CLERK, scale_factor=1.15), run_time=0.8)
+        self.play(FadeOut(bx[3], shift=DOWN * 0.3), run_time=0.5)
+        self.at(2)
+        self.play(note.animate.scale(1.6).move_to([3.4, 1.2, 0]), run_time=0.8)
+        self.hold()
+        self.wipe()
 
-        def arrival(arg, color, name):
-            t = typed("Repository", arg, color, 26).move_to([IN_X, IN_Y, 0])
-            v = val_chip(name, color).next_to(t, DOWN, buff=0.3)
-            return t, v
+        # ================= the card index =================
+        drw = drawer().move_to([0, -2.0, 0])
+        c1 = index_card("Scale", ["shelf 2,", "by the till"], NOTE_C).move_to([-2.0, -0.6, 0])
+        c2 = index_card("Label printer", ["office desk"], NOTE_C).move_to([1.5, -0.6, 0])
+        self.say("index")
+        self.play(FadeIn(drw), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(c1, shift=DOWN * 0.4), run_time=0.6)
+        self.play(FadeIn(c2, shift=DOWN * 0.4), run_time=0.6)
+        self.at(2)
+        self.play(Indicate(c1[3], color=INK, scale_factor=1.1), Indicate(c2[3], color=INK, scale_factor=1.1), run_time=0.8)
+        self.hold()
 
-        t1, v1 = arrival("Payment", PAY_C, "payments repo")
-        k1 = part(t1, "Repository")
-        k1_home = key_at(k1.copy(), 2).get_center()
-        self.seq("Now register a Repository<Payment>. Its key is its class, and the class is just Repository.",
-                 [(0, [FadeIn(t1, shift=RIGHT * 0.2), FadeIn(v1, shift=RIGHT * 0.2)], 0.8),
-                  (1, [FadeOut(part(t1, "<Payment>"), shift=DOWN * 0.5)], 0.8),
-                  (1, [Create(slots[2]), k1.animate.move_to(k1_home), v1.animate.move_to([VAL_X, SROW[2], 0])], 1.2)])
+        sa = shelf("apple").move_to([-4.0, 2.2, 0])
+        sl = shelf("lemon").move_to([4.0, 2.2, 0])
+        na = paper(["Shelf"], 22).next_to(sa, DOWN, buff=0.15)
+        nl = paper(["Shelf"], 22).next_to(sl, DOWN, buff=0.15)
+        ca = index_card("Shelf", ["apples"], NOTE_C).move_to([-4.0, 0.2, 0])
+        cl = index_card("Shelf", ["lemons"], NOTE_C).move_to([4.0, 0.2, 0])
+        slot = [-0.3, -0.6, 0]
+        self.say("shelves")
+        self.play(FadeOut(c1), FadeOut(c2), run_time=0.4)
+        self.play(FadeIn(sa, shift=DOWN * 0.2), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(sl, shift=DOWN * 0.2), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(na), FadeIn(nl), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(ca, shift=DOWN * 0.2), run_time=0.4)
+        self.play(ca.animate.move_to(slot), run_time=0.7)
+        self.play(FadeIn(cl, shift=DOWN * 0.2), run_time=0.4)
+        self.at(4)
+        self.hold(after=0)
+        self.predict(2.4, pos=(6.4, -3.3), edge=RIGHT)
 
-        t2, v2 = arrival("Refund", REF_C, "refunds repo")
-        k2 = part(t2, "Repository")
-        self.seq("Then register a Repository<Refund>. What does the registry hold now?",
-                 [(0, [FadeIn(t2, shift=RIGHT * 0.2), FadeIn(v2, shift=RIGHT * 0.2)], 0.8),
-                  (0, [FadeOut(part(t2, "<Refund>"), shift=DOWN * 0.5)], 0.8)], after=1.9)
+        self.say("shelves_a")
+        self.play(cl.animate.move_to(slot), ca.animate.shift(LEFT * 3.2 + DOWN * 0.1).set_opacity(0.35), run_time=1.0)
+        one = T("cards in the drawer: 1", 26, BAD).move_to([0, 1.25, 0])
+        self.play(FadeIn(one), run_time=0.4)
+        self.at(1)
+        self.play(FadeOut(ca), run_time=0.6)
+        self.at(2)
+        order = paper(["apple order"], 22).move_to([4.3, -0.3, 0])
+        got = lemon(0.28).next_to(order, DOWN, buff=0.3)
+        self.play(FadeIn(order, shift=LEFT * 0.2), run_time=0.5)
+        self.play(FadeIn(got, shift=UP * 0.2), run_time=0.5)
+        self.at(3)
+        pie = T("a very sour apple pie", 24, LEMON).next_to(got, DOWN, buff=0.2)
+        self.play(FadeIn(pie), run_time=0.5)
+        self.hold()
 
-        gone = T("replaced, no error", 26, BAD_C).move_to([SXC, SROW[3], 0])
-        def land():
-            self.remove(k2)
-            return [Indicate(k1, color=BAD_C, scale_factor=1.15)]
-        self.seq("One repository. The second key is the same Repository, so it replaced the first, and nothing complained.",
-                 [(0, [k2.animate.move_to(k1_home), v2.animate.move_to([VAL_X, SROW[3] - 0.1, 0])], 1.0),
-                  (1, land, 0.6),
-                  (1, [v1.animate.shift(RIGHT * 0.6).set_opacity(0), v2.animate.move_to([VAL_X, SROW[2], 0]),
-                       slots[2][0].animate.set_stroke(BAD_C)], 0.9),
-                  (1, [FadeIn(gone)], 0.6)])
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
+        pt = VGroup(T("one word on the note:", 28, GREY_A), M("Shelf", 30, NOTE_C), T("wasn't enough", 28, GREY_A)).arrange(RIGHT, buff=0.2)
+        pt2 = VGroup(T("in code, the one-word note is a", 28, GREY_A), M("KClass", 30, NOTE_C)).arrange(RIGHT, buff=0.2)
+        ptg = VGroup(pt, pt2).arrange(DOWN, buff=0.25).move_to([0, -0.3, 0])
+        self.say("shelves_b")
+        self.play(FadeOut(VGroup(order, got, pie, one, cl, drw)), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(pt, shift=UP * 0.1), Indicate(na, color=WHITE), Indicate(nl, color=WHITE), run_time=0.8)
+        self.at(2)
+        self.play(FadeIn(pt2, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------------- one class, many types
-        kc_box = RoundedRectangle(corner_radius=0.14, width=BW, height=BH, stroke_color=CLS_C, stroke_width=3).move_to(KC)
-        kc_box.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(CLS_C), 0.10), 1)
-        kc_lbl = fit(T("class ArrayList", 28, CLS_C), BW - 0.35).move_to(KC)
-        specs = [("Int", INT_C, False), ("String", STR_C, True), ("String", STR_C, False)]
-        tys = [typed("ArrayList", a, c, 26, q).move_to([KT_X, y, 0]) for (a, c, q), y in zip(specs, KT_Y)]
-        fan = [Line([KT_X + 2.0, t.get_center()[1], 0], [KC[0] - BW / 2 - 0.05, KC[1] + 0.4 * (1 - i), 0],
-                    stroke_color=GREY_B, stroke_width=2.5) for i, t in enumerate(tys)]
-        code_lbl = T("types, in your code", 24, GREY_B).move_to([KT_X, 2.9, 0])
-        self.seq("The key lost Payment because a class is not a type. "
-                 "One class, ArrayList, backs many types: ArrayList<String>, ArrayList<String>? and ArrayList<Int>.",
-                 [(1, [Create(kc_box), FadeIn(kc_lbl)], 0.9),
-                  (1, [LaggedStart(*[AnimationGroup(Create(fan[i]), FadeIn(tys[i], shift=RIGHT * 0.2)) for i in (2, 1, 0)],
-                                   lag_ratio=0.6)], 2.6)])
-        self.seq("The types live in your code. The compiler checks them, then erases the type arguments.",
-                 [(0, [FadeIn(code_lbl)], 0.6),
-                  (1, [LaggedStart(*[Pulse(part(t, a), c, 1.15) for t, (a, c, _) in
-                                     zip(tys, [("<Int>", INT_C, 0), ("<String>", STR_C, 0), ("<String>", STR_C, 0)])],
-                                   lag_ratio=0.25)], 1.2)])
+        # ================= the shy question =================
+        shy = T("a question that's easy to be shy about", 26, GREY_B).move_to([0, 2.5, 0])
+        q = VGroup(M("KClass", 40, NOTE_C), M("Class", 40, JAVA_C), M("KType", 40, LABEL_C)).arrange(RIGHT, buff=1.0)
+        q2 = T("Three names for the same thing?", 38).move_to([0, -1.2, 0])
+        q.move_to([0, 0.4, 0])
+        self.say("shyq")
+        self.play(FadeIn(shy), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(q[0], shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(q[1], shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(q[2], shift=UP * 0.1), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0.4)
+        self.wipe()
 
-        # ---------------- objects at run time carry only their class
-        def obj(x, arg, color, content):
-            new = typed("ArrayList", arg, color, 26).move_to([x, OBJ_Y, 0])
-            new_g = VGroup(new, one("()", 26).next_to(new, RIGHT, buff=0.02))
-            new_g.move_to([x, OBJ_Y, 0])
-            box_ = RoundedRectangle(corner_radius=0.12, width=2.9, height=1.2, stroke_color=GREY_A, stroke_width=2.5)
-            box_.set_fill("#111111", 1).move_to([x, OBJ_Y, 0])
-            stamp = one("class ArrayList", 24, CLS_C).move_to([x, OBJ_Y + 0.27, 0])
-            body = one(content, 24, color).move_to([x, OBJ_Y - 0.28, 0])
-            return new_g, VGroup(box_, stamp, body)
+        # ================= what we know: classes back types; erasure =================
+        cs = mbox("class String", NOTE_C, size=24).move_to([-4.3, 1.7, 0])
+        ts1 = VGroup(mbox("String", WHITE, size=24), mbox("String?", WHITE, size=24)).arrange(DOWN, buff=0.3).move_to([-0.6, 1.7, 0])
+        cl_ = mbox("class List", NOTE_C, size=24).move_to([-4.3, -1.2, 0])
+        ts2 = VGroup(mbox("List<String>", WHITE, size=24), mbox("List<Int>", WHITE, size=24), mbox("List<Apple>?", WHITE, size=24))
+        ts2.arrange(DOWN, buff=0.25).move_to([-0.6, -1.2, 0])
+        for b in list(ts1) + list(ts2):
+            b[0].stretch_to_fit_width(2.9)
+        a1 = VGroup(*[Arrow(cs.get_right(), b.get_left(), buff=0.12, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.12) for b in ts1])
+        a2 = VGroup(*[Arrow(cl_.get_right(), b.get_left(), buff=0.12, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.12) for b in ts2])
+        hc = T("classes", 24, GREY_B).next_to(cs, UP, buff=0.35)
+        ht = T("types", 24, GREY_B).move_to([-0.6, hc.get_y(), 0])
+        self.say("familiar")
+        self.play(FadeIn(hc), FadeIn(ht), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(cs), LaggedStart(*[AnimationGroup(GrowArrow(a), FadeIn(b)) for a, b in zip(a1, ts1)], lag_ratio=0.4), run_time=1.2)
+        self.at(3)
+        self.play(FadeIn(cl_), LaggedStart(*[AnimationGroup(GrowArrow(a), FadeIn(b)) for a, b in zip(a2, ts2)], lag_ratio=0.35), run_time=1.4)
+        self.hold()
 
-        na, oa = obj(OA_X, "String", STR_C, '["pay_1"]')
-        nb, ob = obj(OB_X, "Int", INT_C, "[42]")
-        rt_lbl = T("objects, at run time", 24, GREY_B).move_to([-3.3, OBJ_Y - 0.4, 0])
+        ebox = crate(2.4, 1.6, ["List<String>"], 20).move_to([4.4, 0.3, 0])
+        ek = T("at run time", 24, GREY_B).next_to(ebox, UP, buff=0.35)
+        knows = VGroup(T("still knows:", 22, GREY_B), M("List", 24, NOTE_C)).arrange(RIGHT, buff=0.2).next_to(ebox, DOWN, buff=0.35)
+        forgot = VGroup(T("forgot:", 22, GREY_B), M("<String>", 24, BAD)).arrange(RIGHT, buff=0.2).next_to(knows, DOWN, buff=0.2)
+        self.say("erase")
+        self.play(FadeIn(ebox), FadeIn(ek), run_time=0.6)
+        self.at(1)
+        self.play(Indicate(ebox[3], color=WHITE, scale_factor=1.1), run_time=0.7)
+        self.play(FadeOut(ebox[3], shift=DOWN * 0.4), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(knows, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(forgot, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        def drop(n, arg):
-            return [FadeOut(part(n[0], f"<{arg}>"), shift=DOWN * 0.45)]
+        # ================= the three objects =================
+        kt_ = objbox("KType: the whole label", ["typeOf<List<String>?>()", "arguments: [String]", "nullable: true"], LABEL_C, 4.0)
+        kc_ = objbox("KClass: the note", ["List::class", "no arguments", "never nullable"], NOTE_C, 3.4)
+        jc_ = objbox("Class", ["java.util.List", "the same note,", "on Java's paper"], JAVA_C, 3.2)
+        kt_.move_to([-4.45, 1.5, 0])
+        kc_.move_to([0.0, 1.5, 0])
+        jc_.move_to([4.6, 1.5, 0])
+        cla = Arrow(kt_.get_right(), kc_.get_left(), buff=0.06, stroke_width=3, color=LABEL_C, max_tip_length_to_length_ratio=0.25)
+        clt = T("classifier", 20, GREY_B).move_to([cla.get_center()[0], kt_.get_top()[1] + 0.25, 0])
+        j1 = Arrow(kc_.get_right() + UP * 0.3, jc_.get_left() + UP * 0.3, buff=0.05, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.25)
+        j2 = Arrow(jc_.get_left() + DOWN * 0.3, kc_.get_right() + DOWN * 0.3, buff=0.05, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.25)
+        j1t = M(".java", 18, GREY_A).next_to(j1, UP, buff=0.05)
+        j2t = M(".kotlin", 18, GREY_A).next_to(j2, DOWN, buff=0.05)
+        snote = paper(["List"], 22).next_to(kc_, DOWN, buff=0.3)
+        slab = paper(["a list of strings, or nothing"], 20).next_to(kt_, DOWN, buff=0.3)
+        self.say("kclass")
+        self.at(1)
+        self.play(FadeIn(kc_, shift=UP * 0.1), run_time=0.7)
+        self.at(4)
+        self.play(FadeIn(snote, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.say("class")
+        self.play(FadeIn(jc_, shift=LEFT * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(GrowArrow(j1), FadeIn(j1t), GrowArrow(j2), FadeIn(j2t), run_time=0.8)
+        self.hold()
+        self.say("ktype")
+        self.play(FadeIn(kt_, shift=RIGHT * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(GrowArrow(cla), FadeIn(clt), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(slab, shift=UP * 0.1), run_time=0.5)
+        self.hold()
 
-        def swap(n, o):
-            return [FadeOut(VGroup(part(n[0], "ArrayList"), n[1])), FadeIn(o)]
-        self.seq("So at run time, an object carries only its class. "
-                 "An ArrayList<String> and an ArrayList<Int> get the same stamp: class ArrayList.",
-                 [(0, [FadeIn(rt_lbl), FadeIn(na, shift=UP * 0.15), FadeIn(nb, shift=UP * 0.15)], 0.8),
-                  (1, drop(na, "String") + drop(nb, "Int"), 0.7), (1, swap(na, oa) + swap(nb, ob), 0.8),
-                  (1, [Pulse(oa[1], WHITE, 1.12), Pulse(ob[1], WHITE, 1.12)], 0.8)])
+        rows = [("the one-word note", "KClass", NOTE_C), ("the same note, on Java's paper", "Class", JAVA_C),
+                ("the whole label", "KType", LABEL_C), ("the box on the shelf", "the object: knows only its class", WHITE)]
+        mp = VGroup(*[VGroup(T(a, 24, GREY_A), M("->", 22, GREY_B), M(b, 24, c)).arrange(RIGHT, buff=0.25) for a, b, c in rows])
+        mp.arrange(DOWN, aligned_edge=LEFT, buff=0.16).move_to([0, -2.35, 0])
+        fit(mp, 12.4)
+        self.say("map")
+        self.at(1)
+        self.play(FadeIn(mp[0], shift=RIGHT * 0.1), Indicate(kc_[1], color=NOTE_C), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(mp[1], shift=RIGHT * 0.1), Indicate(jc_[1], color=JAVA_C), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(mp[2], shift=RIGHT * 0.1), Indicate(kt_[1], color=LABEL_C), run_time=0.6)
+        self.at(4)
+        self.play(FadeIn(mp[3], shift=RIGHT * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        up_a = Arrow([OA_X + 0.2, OBJ_Y + 0.62, 0], [KC[0] - 0.25, KC[1] - BH / 2 - 0.02, 0], buff=0.05, stroke_width=3,
-                     color=CLS_C, max_tip_length_to_length_ratio=0.1)
-        up_b = Arrow([OB_X - 0.6, OBJ_Y + 0.62, 0], [KC[0] + 0.45, KC[1] - BH / 2 - 0.02, 0], buff=0.05, stroke_width=3,
-                     color=CLS_C, max_tip_length_to_length_ratio=0.1)
-        up_l = one("x::class", 22, CLS_C).move_to([0.92, -0.62, 0])
-        same = one("a::class == b::class   // true", 24).move_to([1.7, -3.2, 0])
-        paint(same, "// true", GREEN_M)
-        self.seq("Ask either one with x::class, and you get the same answer.",
-                 [(0, [GrowArrow(up_a), GrowArrow(up_b), FadeIn(up_l)], 1.0), (0, [FadeIn(same)], 0.6)])
+        # ================= the demo: predict, then show =================
+        kt = code_block(["val k: KClass<String> = String::class",
+                         "val c: Class<String> = String::class.java",
+                         "val t: KType = typeOf<List<String>?>()", "",
+                         "ArrayList<String>()::class == ArrayList<Int>()::class",
+                         "typeOf<String>() == typeOf<String?>()"], 22)
+        for i, col in ((0, NOTE_C), (1, JAVA_C), (2, LABEL_C)):
+            part(kt[i], ["k", "c", "t"][i]).set_color(col)
+        jv = code_block(["Class<String> c = String.class;",
+                         "// no KType: the closest is a Type read from a declaration",
+                         "Type t = Shop.class.getDeclaredField(\"varieties\").getGenericType();"], 22)
+        kg = titled(kt, "Kotlin: ClassVsTypeDemo")
+        jg = titled(jv, "Java")
+        cg = VGroup(kg, jg).arrange(DOWN, buff=0.45, aligned_edge=LEFT)
+        fit(cg, 12.4).move_to([0, 0.3, 0])
+        self.say("code")
+        self.play(FadeIn(kg, shift=UP * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(LaggedStart(*[Indicate(kt[i], color=c, scale_factor=1.03) for i, c in ((0, NOTE_C), (1, JAVA_C), (2, LABEL_C))],
+                              lag_ratio=0.4), run_time=1.4)
+        self.play(FadeIn(jg, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(Indicate(kt[4], color=WHITE, scale_factor=1.03), run_time=0.8)
+        self.at(4)
+        self.play(Indicate(kt[5], color=WHITE, scale_factor=1.03), run_time=0.8)
+        self.hold()
+        self.say("predict")
+        self.hold(after=0)
+        self.predict(2.6, pos=(6.4, -3.3), edge=RIGHT)
+        self.wipe()
 
-        # ---------------- KClass and Class: two views of one class
-        kc_new = VGroup(T("KClass", 30, CLS_C), one("ArrayList::class", 22), T("Kotlin's view", 22, GREY_B)).arrange(DOWN, buff=0.16)
-        kc_new.move_to(KC)
-        cj_box = kc_box.copy().stretch_to_fit_width(CW).move_to(CJ)
-        cj_lbl = VGroup(T("Class", 30, CLS_C), one("java.util.ArrayList", 22), T("Java's view", 22, GREY_B)).arrange(DOWN, buff=0.16)
-        fit(cj_lbl, CW - 0.3).move_to(CJ)
-        jc = Arrow([OB_X + 0.75, OBJ_Y + 0.62, 0], [CJ[0], CJ[1] - BH / 2 - 0.02, 0], buff=0.05, stroke_width=3, color=CLS_C,
-                   max_tip_length_to_length_ratio=0.1)
-        jc_l = one("x.javaClass", 22, CLS_C).move_to([5.3, -1.15, 0])
-        self.seq("That answer is a KClass, Kotlin's object for a class. Java's is a Class, from x.javaClass.",
-                 [(0, [Transform(kc_lbl, kc_new)], 0.8),
-                  (1, [Create(cj_box), FadeIn(cj_lbl)], 0.8), (1, [GrowArrow(jc), FadeIn(jc_l)], 0.8)])
+        out = term(["KClass: class java.lang.String (Kotlin reflection is not available)",
+                    "Class:  class java.lang.String",
+                    "KType:  java.util.List<java.lang.String>? (Kotlin reflection is not available)",
+                    "ArrayList<String> and ArrayList<Int> share a class: true",
+                    "String? is backed by the class String: true",
+                    "but the types differ: false, false",
+                    "classifier is List::class: true, arguments: 1, nullable: true"], 21, "ClassVsTypeDemo, real output")
+        fit(out, 12.4).move_to([0, 0.9, 0])
+        ln = out[1]
+        self.say("show")
+        self.play(FadeIn(out[0]), FadeIn(out[2]), FadeIn(ln[0:3]), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(ln[3], shift=RIGHT * 0.1), part(ln[3], "true").animate.set_color(OK), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(ln[4], shift=RIGHT * 0.1), FadeIn(ln[5], shift=RIGHT * 0.1), run_time=0.6)
+        self.play(part(ln[5], "false,false").animate.set_color(BAD), run_time=0.4)
+        self.at(5)
+        self.play(FadeIn(ln[6], shift=RIGHT * 0.1), run_time=0.6)
+        self.hold()
 
-        gap_l, gap_r = KC[0] + BW / 2 + 0.08, CJ[0] - CW / 2 - 0.08
-        to_j = Arrow([gap_l, KC[1] + 0.3, 0], [gap_r, KC[1] + 0.3, 0], buff=0, stroke_width=3, color=GREY_A,
-                     max_tip_length_to_length_ratio=0.25)
-        to_k = Arrow([gap_r, KC[1] - 0.3, 0], [gap_l, KC[1] - 0.3, 0], buff=0, stroke_width=3, color=GREY_A,
-                     max_tip_length_to_length_ratio=0.25)
-        j_l = one(".java", 22).next_to(to_j, UP, buff=0.08)
-        k_l = one(".kotlin", 22).next_to(to_k, DOWN, buff=0.08)
-        views = T("two views of one class", 28, CLS_C).move_to([(KC[0] + CJ[0]) / 2, 2.95, 0])
-        noargs = T("no type arguments, never nullable", 24, GREY_B).move_to([(KC[0] + CJ[0]) / 2, 2.45, 0])
-        self.seq("They're two views of one class. On the JVM every KClass wraps a Class, and .java and .kotlin convert between them. "
-                 "Neither has type arguments, and neither is ever nullable.",
-                 [(0, [FadeIn(views), Pulse(kc_box, CLS_C, 1.04), Pulse(cj_box, CLS_C, 1.04)], 0.8),
-                  (1, [GrowArrow(to_j), FadeIn(j_l)], 0.6), (1, [GrowArrow(to_k), FadeIn(k_l)], 0.6),
-                  (2, [FadeIn(noargs)], 0.7)])
+        ap = VGroup(part(ln[0], "(Kotlinreflectionisnotavailable)"), part(ln[2], "(Kotlinreflectionisnotavailable)"))
+        polite = T("a polite apology, not an error", 26, GOLD_M).move_to([0, -2.2, 0])
+        self.say("apology")
+        self.at(1)
+        self.play(*[a.animate.set_color(GOLD_M) for a in ap], run_time=0.6)
+        self.play(*[Indicate(a, color=GOLD_M, scale_factor=1.06) for a in ap], run_time=0.8)
+        self.at(2)
+        self.play(FadeIn(polite, shift=UP * 0.1), run_time=0.5)
+        self.hold()
 
-        # ---------------- KType keeps what KClass drops
-        kfr = [frame(t, TYP_C, w=3.85, h=0.68) for t in tys]
-        for f in kfr:
-            f.set_z_index(-1)
-        kt_head = T("KType", 30, TYP_C).move_to([KT_X, 3.1, 0])
-        kt_sub = T("class + arguments + nullable", 22, GREY_B).move_to([KT_X, 2.68, 0])
-        self.seq("The full type is a third object, a KType. It holds the class, the type arguments, and whether the type is nullable.",
-                 [(0, [FadeOut(code_lbl), FadeIn(kt_head), *[Create(f) for f in kfr]], 0.9),
-                  (1, [FadeIn(kt_sub)], 0.5),
-                  (1, [LaggedStart(Pulse(part(tys[2], "ArrayList"), CLS_C, 1.12), Pulse(part(tys[2], "<String>"), STR_C, 1.12),
-                                   Pulse(part(tys[1], "?"), WHITE, 1.5), lag_ratio=0.6)], 1.8)])
-        cl_l = T("classifier", 22, GREY_B).move_to([-1.72, -0.1, 0])
-        self.seq("These three KTypes are all different, but their classifier is the same KClass.",
-                 [(0, [LaggedStart(*[Pulse(f, TYP_C, 1.05) for f in kfr], lag_ratio=0.3)], 1.0),
-                  (0, [FadeIn(cl_l), *[ShowPassingFlash(l.copy().set_stroke(CLS_C, 6), time_width=0.6) for l in fan]], 1.0)])
+        why = VGroup(T("Kotlin names like", 24, GREY_A), M("kotlin.String", 24, WHITE), T("need the", 24, GREY_A),
+                     M("kotlin-reflect", 24, NOTE_C), T("library", 24, GREY_A)).arrange(RIGHT, buff=0.15)
+        why2 = T("A Gradle project leaves it out, so Kotlin prints Java names and says so.", 24, GREY_A)
+        wg = VGroup(why, why2).arrange(DOWN, buff=0.2).move_to([0, -2.9, 0])
+        fit(wg, 12.4)
+        self.say("apology2")
+        self.play(polite.animate.shift(UP * 0.35), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(why, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(why2, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        no_path = DashedLine([OA_X - 1.3, OBJ_Y + 0.62, 0], [KT_X + 1.6, KT_Y[2] - 0.42, 0], dash_length=0.1,
-                             stroke_width=2.5, color=GREY_B)
-        no_x = tick(False, 0.22).move_to(no_path.get_center())
-        tof = one("typeOf<ArrayList<String>>()", 22)
-        paint(tof, "ArrayList", CLS_C); paint(tof, "<String>", STR_C)
-        tof.move_to([-4.2, -1.3, 0])
-        tof_ar = Arrow(tof.get_top() + UP * 0.05, [-4.2, KT_Y[2] - 0.36, 0], buff=0.04, stroke_width=3, color=TYP_C,
-                       max_tip_length_to_length_ratio=0.3)
-        tof_l = T("written at a call site", 22, GREY_B).next_to(tof, DOWN, buff=0.18)
-        self.seq("And no object can hand you a KType. The compiler writes one down where it still knows the type, "
-                 "at a call site: typeOf<ArrayList<String>>().",
-                 [(0, [Create(no_path)], 0.7), (0, [Create(no_x)], 0.4),
-                  (1, [FadeIn(tof, shift=UP * 0.1)], 0.7), (1, [GrowArrow(tof_ar), FadeIn(tof_l)], 0.7)], after=0.4)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
+        # ================= break the wrong model: ask an object for its full type =================
+        bq = VGroup(T("Why not ask a box for its", 34), T("full type?", 34, LABEL_C)).arrange(RIGHT, buff=0.2).move_to([0, 2.6, 0])
+        self.say("break_q")
+        self.at(1)
+        self.play(FadeIn(bq[0]), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(bq[1]), run_time=0.5)
+        self.hold()
 
-        # ---------------- the registry, keyed by KType
-        reg_t2 = T("registry", 30).move_to([SXC, 2.65, 0])
-        hk2 = T("key: a KType", 24, GREY_B).move_to([(SX0 + SDIV) / 2, 2.1, 0])
-        hv2 = T("service", 24, GREY_B).move_to([VAL_X, 2.1, 0])
-        slots2 = [slot(i) for i in range(4)]
-        keys2 = [key_at(one("PaymentGateway", 26, CLS_C), 0), key_at(one("FraudCheck", 26, CLS_C), 1),
-                 key_at(typed("Repository", "Payment", PAY_C, 26), 2), key_at(typed("Repository", "Refund", REF_C, 26), 3)]
-        kfr2 = [frame(k, TYP_C, buff=0.1).set_stroke(width=1.5).set_fill(opacity=0) for k in keys2]
-        vals2 = [val_chip("gateway", GREY_B), val_chip("fraud check", GREY_B), val_chip("payments repo", PAY_C),
-                 val_chip("refunds repo", REF_C)]
-        for i, v in enumerate(vals2):
-            v.move_to([VAL_X, SROW[i], 0])
-        base = VGroup(reg_t2, hk2, hv2, *[VGroup(slots2[i], kfr2[i], keys2[i], vals2[i]) for i in range(2)])
-        self.seq("So key the registry by KType, and the two repositories get two slots.",
-                 [(0, [FadeIn(base)], 0.8),
-                  (0, [LaggedStart(*[AnimationGroup(Create(slots2[i]), FadeIn(kfr2[i]), FadeIn(keys2[i], shift=RIGHT * 0.2),
-                                                    FadeIn(vals2[i], shift=RIGHT * 0.2)) for i in (2, 3)], lag_ratio=0.6)], 1.6),
-                  (0, [Pulse(VGroup(kfr2[2], kfr2[3]), TYP_C, 1.05)], 0.7)], after=0.5)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
+        kt_ = objbox("KType", ["typeOf<List<String>?>()", "the whole label"], LABEL_C, 4.0)
+        kc_ = objbox("KClass", ["List::class", "the note"], NOTE_C, 3.2)
+        jc_ = objbox("Class", ["java.util.List", "Java's paper"], JAVA_C, 3.2)
+        for b in (kt_, kc_, jc_):
+            b[0].stretch_to_fit_height(1.6)
+            VGroup(b[1], b[2]).move_to(b[0])
+        kt_.move_to([-4.3, 0.6, 0])
+        kc_.move_to([0.6, 0.6, 0])
+        jc_.move_to([4.6, 0.6, 0])
+        obj = VGroup(RoundedRectangle(corner_radius=0.1, width=4.6, height=0.8).set_stroke(GREY_B, 2.5).set_fill("#151515", 1),
+                     M('an object at run time: listOf("Gala")', 22, GREY_A)).move_to([2.6, -2.3, 0])
+        obj[1].move_to(obj[0])
+        fit(obj, 5.6)
+        a1 = Arrow(obj.get_top() + LEFT * 1.2, kc_.get_bottom(), buff=0.08, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.12)
+        a2 = Arrow(obj.get_top() + RIGHT * 1.2, jc_.get_bottom(), buff=0.08, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.12)
+        a1t = M("x::class", 20, GREY_A).next_to(a1.get_center(), LEFT, buff=0.15)
+        a2t = M("x.javaClass", 20, GREY_A).next_to(a2.get_center(), RIGHT, buff=0.15)
+        nope = DashedLine(obj.get_left() + UP * 0.1, kt_.get_bottom() + DOWN * 0.05, dash_length=0.1, stroke_width=2.5, color=BAD)
+        nx = tick(False, 0.2).move_to(nope.get_center())
+        comp = VGroup(person(CLERK, 0.9), T("the compiler writes it, at a call site", 22, CLERK)).arrange(RIGHT, buff=0.2)
+        comp.next_to(kt_, UP, buff=0.3)
+        fit(comp, 5.8).align_to(kt_, LEFT)
+        self.say("break")
+        self.play(FadeIn(kt_), FadeIn(kc_), FadeIn(jc_), FadeIn(obj), FadeOut(bq), run_time=0.8)
+        self.at(1)
+        self.play(GrowArrow(a1), FadeIn(a1t), run_time=0.6)
+        self.at_text("x.javaClass", lead=0.3)
+        self.play(GrowArrow(a2), FadeIn(a2t), run_time=0.6)
+        self.at(2)
+        self.play(Create(nope), run_time=0.6)
+        self.play(FadeIn(nx), run_time=0.3)
+        self.at(3)
+        self.play(FadeIn(comp, shift=DOWN * 0.1), run_time=0.7)
+        self.at(4)
+        self.play(Indicate(kt_[2][0], color=LABEL_C, scale_factor=1.08), run_time=0.8)
+        self.hold()
 
-        # ---------------- the code
-        note = T("a is an ArrayList<String>, b an ArrayList<Int> (Integer in Java)", 22, GREY_B)
-        jt = T("Java", 24, GREY_B)
-        jc_ = code([("Class<String> c = String.class;", {"String.class": CLS_C}),
-                    ("a.getClass() == b.getClass()                  // true", {"// true": GREEN_M}),
-                    ("Type t = new TypeRef<List<String>>() {}.type; // a full type", {"<List<String>>": STR_C})], 24)
-        kt = T("Kotlin", 24, GREY_B)
-        kc_ = code([("val k: KClass<String> = String::class", {"String::class": CLS_C}),
-                    ("val c: Class<String> = k.java", {"k.java": CLS_C}),
-                    ("a::class == b::class                          // true", {"// true": GREEN_M}),
-                    ("val t: KType = typeOf<List<String>>()         // a full type", {"typeOf<List<String>>()": STR_C})], 24)
-        jg = VGroup(jt, jc_).arrange(DOWN, buff=0.18, aligned_edge=LEFT)
-        kg = VGroup(kt, kc_).arrange(DOWN, buff=0.18, aligned_edge=LEFT)
-        stack = VGroup(note, jg, kg).arrange(DOWN, buff=0.45, aligned_edge=LEFT)
-        fit(stack, 12.4).move_to([0, 0.35, 0])
-        jnote = T("Java has no KType. TypeRef is a super type token you write yourself.", 22, GREY_B)
-        knote = T("KType and typeOf are Kotlin only.", 22, GREY_B)
-        foot = VGroup(jnote, knote).arrange(DOWN, buff=0.12).move_to([0, -3.0, 0])
-        self.seq("Java has Class, but no KType. Its closest answer is a super type token: an anonymous subclass whose "
-                 "declared superclass keeps the type. Kotlin has all three.",
-                 [(0, [FadeIn(note), FadeIn(jg, shift=UP * 0.1)], 0.9), (1, [FadeIn(jnote)], 0.6),
-                  (2, [FadeIn(kg, shift=UP * 0.1), FadeIn(knote)], 0.9)], after=0.8)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+        br = VGroup(T("where the picture breaks:", 24, GREY_B),
+                    T("a real clerk could copy the full label; Kotlin never stores a KType in the object", 24, GREY_A))
+        br.arrange(DOWN, buff=0.12).move_to([0, -3.05, 0])
+        fit(br, 12.4)
+        self.say("break2")
+        self.play(VGroup(kt_, kc_, jc_, obj, a1, a2, a1t, a2t, nope, nx, comp).animate.shift(UP * 0.35), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(br, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------------- rule and check
-        rule = VGroup(T("An object knows only its class.", 32),
-                      T("KClass and Class are two views of that class.", 32, CLS_C),
-                      T("Only a KType keeps the type arguments,", 32),
-                      T("and only the compiler can write one.", 32)).arrange(DOWN, buff=0.2).move_to([0, 1.7, 0])
-        fit(rule, 12.4)
-        self.seq("The rule: an object knows only its class. KClass and Class are two views of that class. "
-                 "Only a KType keeps the type arguments, and only the compiler can write one.",
-                 [(0, [FadeIn(rule[0], shift=UP * 0.1)], 0.6), (1, [FadeIn(rule[1], shift=UP * 0.1)], 0.6),
-                  (2, [FadeIn(rule[2], shift=UP * 0.1)], 0.6), (2, [FadeIn(rule[3], shift=UP * 0.1)], 0.6)])
-        chk = T("Check: do String and String? have the same class? The same type?", 28).move_to([0, -1.0, 0])
-        fit(chk, 12.4)
-        self.seq("Quick check. Do String and String? have the same class? Do they have the same type?",
-                 [(0, [FadeIn(chk, shift=UP * 0.1)], 0.8)], after=2.0)
-        ans = VGroup(T("Same class: String::class.", 28, CLS_C),
-                     T("Different types: a KType counts nullability.", 28, CLS_C)).arrange(DOWN, buff=0.15).move_to([0, -2.4, 0])
-        fit(ans, 12.4)
-        self.seq("Same class: String::class. Different types, because a KType counts nullability.",
-                 [(0, [FadeIn(ans[0], shift=UP * 0.1)], 0.6), (1, [FadeIn(ans[1], shift=UP * 0.1)], 0.6)])
-        self.wait(0.8)
+        # ================= which one answers which question =================
+        r1 = VGroup(T('"What kind of thing is this?"', 30), M("->", 26, GREY_B), M("KClass / Class", 28, NOTE_C)).arrange(RIGHT, buff=0.3)
+        r2 = VGroup(T('"A list of what?  May it be null?"', 30), M("->", 26, GREY_B), M("KType", 28, LABEL_C)).arrange(RIGHT, buff=0.3)
+        rr = VGroup(r1, r2).arrange(DOWN, buff=0.6, aligned_edge=LEFT).move_to([0, 0.9, 0])
+        fit(rr, 12.4)
+        self.say("choose")
+        self.at(1)
+        self.play(FadeIn(r1[0], shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(r1[1:], shift=RIGHT * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(r2[0], shift=UP * 0.1), run_time=0.5)
+        self.at(5)
+        self.play(FadeIn(r2[1:], shift=RIGHT * 0.1), run_time=0.5)
+        self.hold()
+
+        nm = VGroup(T("reflection:", 30, YELLOW_M), T("code that inspects classes and types while the program runs", 28)).arrange(RIGHT, buff=0.25)
+        fit(nm, 12.4).move_to([0, -1.7, 0])
+        self.say("name")
+        self.at(1)
+        self.play(FadeIn(nm, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        self.wipe()
+
+        # ================= the guardrail =================
+        bad = M("val k = Shelf<Apple>::class", 28, WHITE).move_to([0, 2.4, 0])
+        part(bad, "Shelf<Apple>").set_color(APPLE)
+        e1 = err_line("Only classes are allowed on the left-hand side of a class literal.", 22)
+        fit(e1, 12.4).next_to(bad, DOWN, buff=0.35)
+        lit = VGroup(T("class literal:", 24, GREY_B), M("Name::class", 24, NOTE_C), T("written in code", 24, GREY_B)).arrange(RIGHT, buff=0.2)
+        lit.next_to(e1, DOWN, buff=0.3)
+        self.say("guard")
+        self.play(FadeIn(bad, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(Indicate(part(bad, "Shelf<Apple>"), color=APPLE, scale_factor=1.15), run_time=0.7)
+        self.at_text("only classes", lead=0.3)
+        self.play(FadeIn(e1, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(lit, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+
+        g1 = rule_row("plain things (the scale, the label printer): key by KClass", 26)
+        g2 = rule_row("generic things (a shelf of apples): key by KType", 26)
+        gg = VGroup(g1, g2).arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([0, -1.85, 0])
+        fit(gg, 12.4)
+        self.say("guard2")
+        self.at(1)
+        self.play(FadeIn(g1, shift=RIGHT * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(g2, shift=RIGHT * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= payoff: two cards =================
+        drw = drawer().move_to([0, -2.1, 0])
+        sa = shelf("apple").move_to([-4.0, 2.3, 0])
+        sl = shelf("lemon").move_to([4.0, 2.3, 0])
+        ca = index_card("typeOf<Shelf<Apple>>()", ["apples"], LABEL_C, 3.6, 18).move_to([-2.0, -0.7, 0])
+        cl = index_card("typeOf<Shelf<Lemon>>()", ["lemons"], LABEL_C, 3.6, 18).move_to([2.0, -0.7, 0])
+        two = T("cards in the drawer: 2", 26, OK).move_to([0, 1.25, 0])
+        self.say("payoff")
+        self.play(FadeIn(drw), FadeIn(sa), FadeIn(sl), run_time=0.7)
+        self.play(FadeIn(ca, shift=DOWN * 0.4), run_time=0.7)
+        self.play(FadeIn(cl, shift=DOWN * 0.4), run_time=0.7)
+        self.play(FadeIn(two), run_time=0.4)
+        self.at(1)
+        self.play(Indicate(cl[1], color=LABEL_C, scale_factor=1.1), Indicate(sl[1], color=LEMON, scale_factor=1.1), run_time=0.9)
+        self.hold()
+        self.wipe()
+
+        # ================= moral and a check =================
+        mq = T("Three names for the same thing?", 32, GREY_A)
+        m1 = VGroup(M("KClass", 30, NOTE_C), T("and", 30), M("Class", 30, JAVA_C), T(": one note, on two kinds of paper", 30)).arrange(RIGHT, buff=0.2)
+        m2 = VGroup(M("KType", 30, LABEL_C), T(": the whole label", 30)).arrange(RIGHT, buff=0.2)
+        m3 = T("Objects know their class. Only code knows full types.", 32, YELLOW_M)
+        mg = VGroup(mq, m1, m2, m3).arrange(DOWN, buff=0.3).move_to([0, 1.7, 0])
+        fit(mg, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        qc = VGroup(T("Check:", 28, YELLOW_M), M("String", 28, WHITE), T("and", 28), M("String?", 28, WHITE)).arrange(RIGHT, buff=0.2)
+        qc2 = T("Same class? Same type?", 28)
+        qg2 = VGroup(qc, qc2).arrange(DOWN, buff=0.2).move_to([0, -1.1, 0])
+        self.say("check")
+        self.play(FadeIn(qg2, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
+        self.predict(2.6, pos=(6.4, -3.3), edge=RIGHT)
+        a1 = VGroup(T("same class:", 24, GREY_B), M("String? is backed by the class String: true", 22, OK)).arrange(RIGHT, buff=0.2)
+        a2 = VGroup(T("different types:", 24, GREY_B), T("a KType counts nullability", 24, LABEL_C)).arrange(RIGHT, buff=0.2)
+        ag = VGroup(a1, a2).arrange(DOWN, buff=0.2).move_to([0, -2.55, 0])
+        fit(ag, 12.4)
+        self.say("check_a")
+        self.play(FadeIn(a1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(a2, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.wait(2.5)

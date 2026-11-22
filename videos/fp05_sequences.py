@@ -1,374 +1,741 @@
 from fg import *
+import fg
 
-# ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Za-z0-9\"'(])")
+# Spoken forms only (captions keep the written words).
+fg.SAY[:0] = [
+    (r"\basSequence\b", "as sequence"), (r"\bfirstOrNull\b", "first or null"), (r"\bminByOrNull\b", "min by or null"),
+    (r"\bsortedBy\b", "sorted by"), (r"\btoList\b", "to list"), (r"\bTakeSequence\b", "take sequence"),
+    (r"\bTransformingSequence\b", "transforming sequence"), (r"\bFilteringSequence\b", "filtering sequence"),
+    (r"\bc([1-5])\b", r"C \1"),
+]
+
+# every spoken line, in order
+N = {
+    "open": "Picture an evening with a thick recipe book. You read the first recipe and ask: can I make this with what's "
+            "in the fridge? No, so you turn the page. At the first yes, you close the book and start cooking. Nobody "
+            "checks every recipe first, and then picks the first match.",
+    "shyq": "Here's a question that's easy to be shy about. A chain of map and filter reads so nicely. Can it do more "
+            "work than I asked for? And what does asSequence change?",
+    "app": "Here's the recipe app. Its book holds a million recipes. To pick tonight's dinner, it asks a matching "
+           "service, a program on another computer, to rate each recipe from 0 to 100. Each question takes about 2 "
+           "milliseconds.",
+    "chain": "The search is a chain from the last lesson. map gives each recipe its score, filter keeps 90 or more, and "
+             "firstOrNull takes the first one. It reads well, and the answer is right.",
+    "bill": "But the first good match is recipe number 518, and this chain still asks about all million. That's about 33 "
+            "minutes, for an answer that was ready after one second. Right answer. Wrong bill.",
+    "eager": "Here's why. On a List, map and filter are eager. Each step loops over everything, writes every result into a "
+             "brand new list, and only then does the next step start.",
+    "tray": "Let's shrink it to one tray, with our cookies from the last lesson. Five cookies, c1 to c5, and c1, c3 and "
+            "c5 are golden. We want two golden cookies for a lunchbox. So: filter the golden ones, map each one to its "
+            "grams, and take 2.",
+    "list_q": "Each lambda prints a line when it runs. On a List, in what order do the lines come out?",
+    "list_a": "filter runs on all five cookies first. Then map runs on c1, c3 and c5. Eight calls, and the lunchbox holds "
+              "45 and 50 grams. Poor c5 got weighed for a lunchbox that was already full.",
+    "line": "Now picture a kitchen line with two helpers. One checks each cookie's color. The next one weighs it. With a "
+            "list, the checker goes through the whole tray before the weigher even starts.",
+    "line2": "With a sequence, the first cookie walks down the whole line, checked and then weighed, before the second "
+             "cookie leaves the tray. And when the lunchbox is full, the line stops.",
+    "map": "Let's map it. A cookie is one item. The two helpers are the steps, filter and map. The lunchbox is take 2, "
+           "and toList is the one who asks for it. The cookies left on the tray are items nobody looks at.",
+    "seq_q": "Same chain, with asSequence in front. What prints now?",
+    "seq_a": "First: built TakeSequence, nothing has run yet. Then filter c1, map c1. filter c2, not golden. filter c3, "
+             "map c3. Five calls, and the lunchbox is full. c4 and c5 are never touched.",
+    "lazy_joke": "Look at that first line again. The sequence is in no hurry at all. It wrote down the plan, and it will wait "
+                 "all evening for someone to ask. So the point really is: nothing runs until something asks.",
+    "name": "Now the names. A sequence is a lazy chain of steps: no work until a result is wanted, and then only what "
+            "that result needs. map and filter are intermediate operations: they add a step to the plan. toList, first or "
+            "sum are terminal operations: they ask for items, and the work starts.",
+    "book": "Back to the recipe book, and the lesson's demo, which counts the calls. The List chain asks the service a "
+            "million times. The sequence asks 518 times, and stops. Stopping as soon as the answer is known is called "
+            "short circuiting. And firstOrNull with a lambda is one plain loop that also stops at 518.",
+    "inside": "How does it stop? Each step on a sequence is a small wrapper around the step before. filter makes a "
+              "FilteringSequence, map a TransformingSequence, take a TakeSequence. toList asks the last wrapper for an "
+              "item, and it asks the one before it, back to the tray. One cookie gets pulled up the whole line.",
+    "inside_code": "Here's the heart of the map wrapper in Kotlin, next to the same idea by hand in Java. Get the next item from "
+                   "the step before, and run the lambda on it. Java's stream works the same way, one item at a time, and its "
+                   "demo prints the same counts. The price: lambdas are objects again, and numbers get boxed.",
+    "sort_q": "Now let's break the picture. Put sortedBy in front of firstOrNull. The service still runs 518 times. But how "
+              "many recipes does the sequence pull out of the book?",
+    "sort_a": "All 1,000,000. sortedBy can't hand out the smallest item until it has seen every item, so it pulls the whole "
+              "book into a list and sorts it. No helper can tell the lightest cookie by looking at one cookie. If you only "
+              "need the smallest, minByOrNull reads once and sorts nothing.",
+    "guard": "So, should every chain be a sequence? No. For a short chain over a few hundred items, a list is fine, and "
+             "easier to debug. Reach for a sequence when the input is big, a step is slow, or you need only the first few. "
+             "And put the step that can stop at the end.",
+    "moral": "So, can a nice chain do more work than you asked for? On a List, yes: each step finishes the whole tray. A "
+             "sequence sends one cookie down the whole line, and stops when the lunchbox is full.",
+    "check": "Quick check. In the List chain, move take 2 up, right after the tray. How many filter lines print, and "
+             "what goes in the lunchbox?",
+    "check_a": "Two filter lines, c1 and c2, and the lunchbox holds only 45. That's a different question, so a different "
+               "answer. Laziness only changes how much work runs.",
+}
 
 
-class Beat(VoiceScene):
-    """VoiceScene plus: say= (the voice reads a different spelling than the caption shows), captions split
-    only where a new sentence starts, and seq() to start animations at a given sentence of the line."""
 
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-    def _speak(self, text, say):
-        path, dur = voice(say or text)
+    def say(self, key):
+        text = N[key]
+        path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        return dur
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
 
-    def beat(self, text, *anims, run_time=None, after=0.25, say=None):
-        dur = self._speak(text, say)
-        if anims:
-            rt = min(run_time if run_time else max(0.8, dur * 0.55), max(0.5, dur))
-            self.play(*anims, run_time=rt)
-            rest = dur - rt
-        else:
-            rest = dur
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def seq(self, text, plan=(), after=0.25, say=None):
-        """plan: (sentence index, [animations], run_time); each starts no earlier than its sentence."""
-        dur = self._speak(text, say)
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        starts, t = [], 0.0
-        for x in sents:
-            starts.append(t); t += dur * len(x) / total
-        now = 0.0
-        for idx, anims, rt in plan:
-            if idx >= len(starts):
-                print(f"SEQ WARNING: sentence {idx} of {len(starts)} in: {text[:60]}")
-                idx = len(starts) - 1
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now); now = starts[idx]
-            self.play(*anims, run_time=rt); now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
-        if after:
-            self.wait(after)
+    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def wipe(self, rt=0.7):
+        self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
 
 
-def code(lines, size=24, color=WHITE, pitch=1.6, t2c=None):
-    """Code lines, left aligned, indentation kept (a hidden '|' anchors each line)."""
-    step = M("|", size).height * pitch
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        t = Text("|" + ln, font=MONO, font_size=size, color=color, t2c=t2c or {}, disable_ligatures=True)
-        t.shift(np.array([0, -i * step, 0]) - t[0].get_center())
-        t.remove(t[0])
-        g.add(t)
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
+
+
+# one colour per thing, for the whole fp track (a recipe book and a kitchen scale)
+CARD, ARG, OUT, HIDDEN, EFFECT, COOK, PURE = TEAL_M, BLUE_M, GREEN_M, RED_M, PURPLE_M, BLUE_M, YELLOW_M
+PAPER = "#EDE6D6"
+
+def person(color=COOK, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
+
+
+def recipe_card(title, lines, w=3.4, size=24):
+    r = RoundedRectangle(corner_radius=0.1, width=w, height=0.75 + 0.48 * len(lines)).set_stroke(CARD, 3)
+    r.set_fill(dim(CARD, 0.12), 1)
+    head = T(title, 30, CARD).move_to(r.get_top() + DOWN * 0.38)
+    rule = Line(LEFT * (w / 2 - 0.25), RIGHT * (w / 2 - 0.25), stroke_width=1.5, color=CARD).next_to(head, DOWN, buff=0.12)
+    rows = VGroup(*[T(l, size, GREY_A) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.16)
+    rows.next_to(rule, DOWN, buff=0.2).align_to(r.get_left() + RIGHT * 0.35, LEFT)
+    return VGroup(r, head, rule, rows)
+
+
+def fn_box(label, w=4.2, h=1.1, color=CARD, size=28):
+    r = RoundedRectangle(corner_radius=0.14, width=w, height=h).set_stroke(color, 3).set_fill(dim(color, 0.12), 1)
+    return VGroup(r, M(label, size, color).move_to(r))
+
+
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def labelled(lang, block, size=22):
+    return VGroup(T(lang, size, GREY_B), block).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+
+
+def cross(m, s=0.2, buff=0.22):
+    return tick(False, s).next_to(m, RIGHT, buff=buff)
+
+
+def check(m, s=0.2, buff=0.22):
+    return tick(True, s).next_to(m, RIGHT, buff=buff)
+
+
+def part_of(t, s):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    i = re.sub(r"\s", "", t.text).index(k)
+    return t[i:i + len(k)]
+
+
+def kitchen_scale(text, color=HIDDEN, s=1.0):
+    plate = RoundedRectangle(corner_radius=0.06, width=1.3, height=0.14).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    base = RoundedRectangle(corner_radius=0.1, width=1.1, height=0.55).set_stroke(color, 3).set_fill(dim(color, 0.15), 1)
+    base.next_to(plate, DOWN, buff=0.06)
+    disp = RoundedRectangle(corner_radius=0.04, width=0.7, height=0.3).set_stroke(color, 2).set_fill(BLACK, 1).move_to(base)
+    t = M(text, 18, color).move_to(disp)
+    return VGroup(plate, base, disp, t).scale(s)
+
+
+# ---- this video's pictures ----
+GOLDEN, RAWC, BURNT = GOLD_M, GREY_A, "#B5653A"
+FIL, MAPC, ASK, BOOK = BLUE_M, GREEN_M, YELLOW_M, TEAL_M
+TRAY = [("c1", 45, "golden"), ("c2", 90, "raw"), ("c3", 50, "golden"), ("c4", 80, "burnt"), ("c5", 30, "golden")]
+
+
+def cookie(status, r=0.36):
+    if status == "golden":
+        c = Circle(radius=r).set_stroke(GOLDEN, 3).set_fill(dim(GOLDEN, 0.45), 1)
+    elif status == "raw":
+        c = VGroup(Circle(radius=r).set_stroke(width=0).set_fill(dim(RAWC, 0.25), 1),
+                   DashedVMobject(Circle(radius=r), num_dashes=18).set_stroke(RAWC, 3))
+    else:
+        c = Circle(radius=r).set_stroke(BURNT, 3).set_fill(dim(BURNT, 0.55), 1)
+    chips = VGroup(*[Dot(radius=0.04, color=GREY_E if status != "raw" else GREY_C).move_to([dx, dy, 0])
+                     for dx, dy in ((-0.15, 0.1), (0.12, 0.16), (0.02, -0.15), (0.2, -0.05))]).scale(r / 0.42)
+    return VGroup(c, chips)
+
+
+def cookie_tag(i, r=0.36, grams=True):
+    cid, gr, st = TRAY[i]
+    col = {"golden": GOLDEN, "raw": RAWC, "burnt": BURNT}[st]
+    ck = cookie(st, r)
+    lbl = M(cid, 22, col).next_to(ck, DOWN, buff=0.1)
+    g = VGroup(ck, lbl)
+    if grams:
+        g.add(T(f"{gr} g", 20, GREY_A).next_to(lbl, DOWN, buff=0.05))
     return g
 
 
-def marble(n, color, r=0.3):
-    c = Circle(radius=r, stroke_width=0).set_fill(color, opacity=1)
-    return VGroup(c, T(str(n), 26, BLACK).move_to(c)).set_z_index(3)
+def book_icon(text="1,000,000 recipes", s=1.0):
+    cover = RoundedRectangle(corner_radius=0.08, width=1.5, height=1.9).set_stroke(BOOK, 3).set_fill(dim(BOOK, 0.15), 1)
+    pages = VGroup(*[Line([-0.55, y, 0], [0.55, y, 0], stroke_width=1.5, color=dim(BOOK, 0.8)) for y in (0.45, 0.2, -0.05, -0.3)])
+    pages.move_to(cover)
+    lbl = T(text, 22, BOOK).next_to(cover, DOWN, buff=0.15)
+    return VGroup(cover, pages, lbl).scale(s)
 
 
-def amount(v):
-    return chip(str(v), YELLOW_M, size=24, mono=True).set_z_index(3)
+def lunchbox(w=1.9, h=1.0):
+    r = RoundedRectangle(corner_radius=0.14, width=w, height=h).set_stroke(GREEN_M, 3).set_fill(dim(GREEN_M, 0.1), 1)
+    handle = ArcBetweenPoints(r.get_top() + LEFT * 0.35, r.get_top() + RIGHT * 0.35, angle=-PI * 0.9).set_stroke(GREEN_M, 3)
+    return VGroup(r, handle)
 
 
-def flash_line(a, b, color, rt=1.0):
-    return ShowPassingFlash(Line(a, b, stroke_width=6, color=color), time_width=0.5, run_time=rt)
+def grid(title, xs, label_x, ys, color=GREY_B):
+    """Rows c1..c5 at ys, two columns (filter, map) at xs. Returns (group, cell centres)."""
+    g = VGroup(T(title, 26, color).move_to([(xs[0] + xs[1]) / 2 - 0.4, ys[0] + 0.95, 0]))
+    g.add(M("filter", 22, FIL).move_to([xs[0], ys[0] + 0.5, 0]), M("map", 22, MAPC).move_to([xs[1], ys[0] + 0.5, 0]))
+    for i, y in enumerate(ys):
+        cid, gr, st = TRAY[i]
+        col = {"golden": GOLDEN, "raw": RAWC, "burnt": BURNT}[st]
+        g.add(VGroup(cookie(st, 0.17).move_to([label_x - 0.55, y, 0]), M(cid, 22, col).move_to([label_x, y, 0])))
+    cells = [[np.array([x, y, 0]) for x in xs] for y in ys]
+    return g, cells
 
 
-def dot_run(a, b, color, run_time):
-    d = Dot(radius=0.08, color=color).move_to(a).set_z_index(30)
-    return Succession(FadeIn(d, run_time=0.05), d.animate(run_time=run_time, rate_func=smooth).move_to(b),
-                      FadeOut(d, run_time=0.12))
+def cell(p, n, color):
+    r = RoundedRectangle(corner_radius=0.08, width=0.62, height=0.36).set_stroke(color, 2.5).set_fill(dim(color, 0.25), 1).move_to(p)
+    return VGroup(r, T(str(n), 22, WHITE).move_to(r))
 
 
-# the five payments from the lesson, one colour per status for the whole video
-TXN = {1: (1500, "settled"), 2: (9900, "pending"), 3: (2000, "settled"), 4: (12000, "failed"), 5: (700, "settled")}
-SCOL = {"settled": GREEN_M, "pending": GOLD_M, "failed": RED_M}
-XS = [-2.6, -1.3, 0.0, 1.3, 2.6]
-PAY_Y, FIL_Y, MAP_Y, TAKE_Y, RES_Y = 2.25, 0.85, -0.5, -1.85, -2.95
-LAB_X, CON_X = -6.3, 4.1
-FIL_C, MAP_C, TAKE_C = BLUE_M, TEAL_M, PURPLE_M
+def empty_cell(p):
+    return RoundedRectangle(corner_radius=0.08, width=0.62, height=0.36).set_stroke(GREY_D, 1.5).move_to(p)
 
 
-def stage(name, desc, color, y):
-    return VGroup(M(name, 26, color), T(desc, 22, GREY_B)).arrange(DOWN, aligned_edge=LEFT, buff=0.1
-                                                                   ).move_to([LAB_X, y, 0], aligned_edge=LEFT)
-
-
-def guide(y):
-    return DashedLine([XS[0] - 0.75, y, 0], [XS[-1] + 0.75, y, 0], dash_length=0.06, stroke_width=1.5, color=GREY_D)
-
-
-def brackets(n, y):
-    return VGroup(M("[", 40, GREY_B).move_to([XS[0] - 0.78, y, 0]), M("]", 40, GREY_B).move_to([XS[n - 1] + 0.78, y, 0]))
-
-
-class Console:
-    def __init__(self):
-        self.lines = []
-        self.head = T("printed", 24, GREY_B).move_to([CON_X, 2.75, 0], aligned_edge=LEFT)
-
-    def add(self, text, color=WHITE):
-        m = M(text, 22, color).move_to([CON_X, 2.3 - 0.37 * len(self.lines), 0], aligned_edge=LEFT)
-        self.lines.append(m)
-        return m
-
-    def clear(self):
-        g = VGroup(*self.lines)
-        self.lines = []
-        return g
-
-
-class Fp05Sequences(Beat):
-    """fp-05 section 1: a List chain runs each step over every element and builds a new list (horizontal);
-    a Sequence pulls one element through the whole chain (vertical) and stops early; sorted() is a barrier."""
+class Fp05Sequences(Narrated):
+    """fp-05, section 1: a sequence sends one item at a time down the whole line. The recipe book and the first yes;
+    the app's million-recipe search (2 ms each, match at 518, 33 minutes); eager List steps; the tray c1..c5 and the
+    lunchbox, List order (8 calls) vs Sequence order (5 calls, built TakeSequence) from OrderDemo; the kitchen line
+    with a checker and a weigher, mapped; lazy, intermediate, terminal, short-circuiting named; ScanCount's
+    1,000,000 vs 518; the wrappers and next(); sortedBy breaks the line (pulled 1,000,000); the guardrail; Java's
+    stream; the moral; a check from the Try it."""
 
     def construct(self):
-        self.title_card("Lists and sequences", "the order in which the steps run")
+        self.title_card("One cookie down the whole line", "how a Sequence does its work")
 
-        # ---------------- the problem: a million authorizations ----------------
-        BX0, BX1, BY = -6.0, 6.0, 0.2
-        bar = Rectangle(width=BX1 - BX0, height=0.4, stroke_color=GREY_B, stroke_width=2).set_fill(BLACK, 1).move_to([0, BY, 0])
-        bar_lab = T("1,000,000 authorizations", 28).next_to(bar, UP, buff=0.3).align_to(bar, LEFT)
-        x518 = BX0 + 0.12
-        bad = Line([x518, BY - 0.35, 0], [x518, BY + 0.35, 0], stroke_width=5, color=RED_M)
-        bad_lab = T("the first bad one: number 518", 26, RED_M).move_to([x518 - 0.1, BY - 0.75, 0], aligned_edge=LEFT)
-        tk = ValueTracker(0)
-        sweep = always_redraw(lambda: Rectangle(width=max(0.001, (BX1 - BX0) * tk.get_value() / 1e6), height=0.4,
-                                                stroke_width=0).set_fill(TEAL_M, 0.55).move_to([BX0, BY, 0], aligned_edge=LEFT))
-        counter = always_redraw(lambda: VGroup(T("risk model calls:", 28, GREY_B), M(f"{int(tk.get_value()):,}", 30, TEAL_M)
-                                               ).arrange(RIGHT, buff=0.25).move_to([0, -1.6, 0]))
-        t33 = VGroup(T("2 ms each:", 28, GREY_B), T("33 minutes", 30, TEAL_M)).arrange(RIGHT, buff=0.25).move_to([0, -2.4, 0])
-        t1 = T("the answer was there after about one second", 26, RED_M).move_to([0, -3.1, 0])
-        self.seq("A fraud job wants the first bad authorization out of a million: number 518. "
-                 "The risk model takes 2 milliseconds a call, yet a List chain calls it a million times. "
-                 "33 minutes, for an answer that was there after one second.",
-                 [(0, [FadeIn(bar), FadeIn(bar_lab)], 0.8),
-                  (0, [Create(bad), FadeIn(bad_lab)], 0.7),
-                  (1, [FadeIn(sweep), FadeIn(counter)], 0.3),
-                  (1, [tk.animate.set_value(1_000_000)], 3.2),
-                  (2, [FadeIn(t33, shift=UP * 0.1)], 0.6),
-                  (2, [FadeIn(t1, shift=UP * 0.1), Indicate(bad, color=RED_M)], 0.8)],
-                 say="A fraud job wants the first bad authorization out of a million: number five hundred eighteen. "
-                     "The risk model takes 2 milliseconds a call, yet a List chain calls it a million times. "
-                     "Thirty-three minutes, for an answer that was there after one second.")
-        sweep.clear_updaters(); counter.clear_updaters()
-        hook = VGroup(bar, bar_lab, bad, bad_lab, sweep, counter, t33, t1)
-        self.play(FadeOut(hook), run_time=0.6)
+        # ================= the recipe book, the first yes =================
+        bk = book_icon("a thick recipe book").move_to([-4.2, 0.4, 0])
+        cook = person(COOK, 1.3).move_to([-1.6, 0.2, 0])
+        pg = VGroup(T("recipe 1: can I make it?", 28), T("recipe 2: can I make it?", 28), T("recipe 3: can I make it?", 28))
+        for p in pg:
+            p.move_to([2.6, 1.2, 0])
+        no = [T("no, turn the page", 26, HIDDEN), T("no, turn the page", 26, HIDDEN), T("yes! close the book, cook", 26, OUT)]
+        for n_ in no:
+            n_.move_to([2.6, 0.45, 0])
+        notl = T("nobody checks all the recipes first", 28, GREY_A).move_to([0, -2.4, 0])
+        self.say("open")
+        self.play(FadeIn(bk, shift=UP * 0.15), FadeIn(cook), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(pg[0]), run_time=0.4)
+        self.at(2)
+        self.play(FadeIn(no[0]), run_time=0.4)
+        self.play(FadeOut(no[0]), ReplacementTransform(pg[0], pg[1]), run_time=0.5)
+        self.play(FadeIn(no[1]), run_time=0.3)
+        self.play(FadeOut(no[1]), ReplacementTransform(pg[1], pg[2]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(no[2]), Indicate(bk[0], color=OUT, scale_factor=1.05), run_time=0.8)
+        self.at(4)
+        self.play(FadeIn(notl, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------------- five payments, three steps ----------------
-        src = {i: marble(i, SCOL[TXN[i][1]]).move_to([XS[i - 1], PAY_Y, 0]) for i in TXN}
-        pay_lab = T("payments", 26).move_to([LAB_X, PAY_Y, 0], aligned_edge=LEFT)
-        legend = VGroup(*[VGroup(Dot(radius=0.08, color=SCOL[s]), T(s, 22, GREY_B)).arrange(RIGHT, buff=0.12)
-                          for s in ("settled", "pending", "failed")]).arrange(RIGHT, buff=0.35)
-        legend.next_to(VGroup(*src.values()), UP, buff=0.3)
-        st = {"f": stage("filter", "keep settled", FIL_C, FIL_Y), "m": stage("map", "to its amount", MAP_C, MAP_Y),
-              "t": stage("take(2)", "the first two", TAKE_C, TAKE_Y)}
-        guides = VGroup(guide(FIL_Y), guide(MAP_Y), guide(TAKE_Y))
-        self.seq("To see why, shrink it to five payments. The green ones are settled. "
-                 "The chain keeps the settled ones, turns each into its amount, and takes the first two.",
-                 [(0, [FadeIn(pay_lab), LaggedStart(*[FadeIn(m, shift=DOWN * 0.15) for m in src.values()], lag_ratio=0.15)], 1.0),
-                  (1, [FadeIn(legend)], 0.5),
-                  (2, [FadeIn(st["f"]), Create(guides[0])], 0.6),
-                  (2, [FadeIn(st["m"]), Create(guides[1])], 0.6),
-                  (2, [FadeIn(st["t"]), Create(guides[2])], 0.6)])
+        q = T("My chain of map and filter reads so nicely.", 32).move_to([0, 0.8, 0])
+        q2 = T("Can it do more work than I asked for?", 32, ASK).move_to([0, 0.0, 0])
+        q3 = M("What does asSequence() change?", 30, CARD).move_to([0, -0.9, 0])
+        self.say("shyq")
+        self.at(1)
+        self.play(FadeIn(q, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(q3, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------------- the List chain: horizontal ----------------
-        con = Console()
-        head = T("List: one step at a time, for every payment", 28).move_to([-1.0, 3.2, 0])
-        self.play(FadeOut(legend), FadeIn(head), FadeIn(con.head), run_time=0.6)
-        cp = {i: src[i].copy() for i in src}
-        crosses = {}
-        plan = [(0, [flash_line([XS[0] - 0.75, FIL_Y, 0], [XS[-1] + 0.75, FIL_Y, 0], FIL_C, 1.2)], 1.2)]
-        for i in TXN:
-            plan.append((1, [cp[i].animate.move_to([XS[i - 1], FIL_Y, 0]), src[i].animate.set_opacity(0.35),
-                             FadeIn(con.add(f"filter {i}"))], 0.42))
-            if TXN[i][1] != "settled":
-                crosses[i] = tick(False, 0.2).move_to(cp[i]).set_z_index(5)
-                plan.append((1, [FadeIn(crosses[i], scale=1.3), cp[i].animate.set_opacity(0.3)], 0.25))
-        keep = [1, 3, 5]
-        fb = brackets(3, FIL_Y)
-        plan.append((1, [FadeOut(VGroup(*crosses.values(), cp[2], cp[4])),
-                         *[cp[i].animate.move_to([XS[k], FIL_Y, 0]) for k, i in enumerate(keep)], FadeIn(fb)], 0.6))
-        self.seq("On a List, each step runs over every payment, and builds a new list before the next step starts. "
-                 "filter checks all five, and keeps 1, 3 and 5.", plan)
+        # ================= the app, the chain, the bill =================
+        bk2 = book_icon("1,000,000 recipes").move_to([-4.6, 1.3, 0])
+        svc = fn_box("matching service", w=4.0, h=1.0, color=HIDDEN, size=26).move_to([2.4, 1.5, 0])
+        svn = T("rates 0 to 100, about 2 ms a question", 24, GREY_A).next_to(svc, DOWN, buff=0.2)
+        a1 = Arrow(bk2[0].get_right(), svc.get_left(), buff=0.25, stroke_width=3, color=GREY_B)
+        self.say("app")
+        self.play(FadeIn(bk2, shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(GrowArrow(a1), FadeIn(svc), run_time=0.8)
+        self.at(3)
+        self.play(FadeIn(svn), run_time=0.5)
+        self.hold()
 
-        am = {i: amount(TXN[i][0]).move_to([XS[k], MAP_Y, 0]) for k, i in enumerate(keep)}
-        mb = brackets(3, MAP_Y)
-        plan = []
-        for k, i in enumerate(keep):
-            c = cp[i].copy()
-            plan.append((0, [c.animate.move_to([XS[k], MAP_Y, 0]), FadeIn(con.add(f"map {i}"))], 0.4))
-            plan.append((0, [ReplacementTransform(c, am[i])], 0.3))
-        plan.append((0, [FadeIn(mb)], 0.3))
-        tk_am = [am[1].copy(), am[3].copy()]
-        tb = brackets(2, TAKE_Y)
-        res = VGroup(T("result", 24, GREY_B), M("[1500, 2000]", 26)).arrange(RIGHT, buff=0.25).move_to([LAB_X, RES_Y, 0], aligned_edge=LEFT)
-        calls8 = T("8 calls", 28, WHITE).move_to([CON_X, -0.95, 0], aligned_edge=LEFT)
-        plan += [(0, [tk_am[0].animate.move_to([XS[0], TAKE_Y, 0]), tk_am[1].animate.move_to([XS[1], TAKE_Y, 0]), FadeIn(tb)], 0.7),
-                 (0, [FadeIn(res)], 0.5),
-                 (1, [FadeIn(calls8, shift=UP * 0.1)], 0.5),
-                 (2, [flash_line([XS[0] - 0.75, y, 0], [XS[-1] + 0.75, y, 0], c, 1.0) for y, c in
-                      ((FIL_Y, FIL_C), (MAP_Y, MAP_C), (TAKE_Y, TAKE_C))], 1.0)]
-        self.seq("Then map runs on all three, and take keeps the first two. "
-                 "Eight calls, and a new list after every step. People call this horizontal.", plan)
+        ch = code_block(["book.map { it to matchScore(it) }",
+                         "    .filter { (_, score) -> score >= 90 }",
+                         "    .map { (recipe, _) -> recipe }",
+                         "    .firstOrNull()"], 24)
+        ch.move_to([0, -1.75, 0])
+        self.say("chain")
+        self.play(FadeIn(ch[0]), run_time=0.5)
+        self.at_text("filter keeps", lead=0.3)
+        self.play(FadeIn(ch[1:3]), run_time=0.4)
+        self.at_text("and firstOrNull", lead=0.3)
+        self.play(FadeIn(ch[3]), run_time=0.4)
+        self.hold()
 
-        # ---------------- the Sequence: vertical ----------------
-        list_stuff = VGroup(*[cp[i] for i in keep], fb, *am.values(), mb, *tk_am, tb, res, calls8)
-        head2 = T("Sequence: one payment at a time, through every step", 28).move_to([-0.6, 3.2, 0])
-        fit(head2, 9.4)
-        self.play(FadeOut(list_stuff), FadeOut(con.clear()), *[src[i].animate.set_opacity(1) for i in src],
-                  Transform(head, head2), run_time=0.8)
-        built = M("built TakeSequence, nothing has run yet", 22, GREY_B).move_to([LAB_X, RES_Y, 0], aligned_edge=LEFT)
-        ask = VGroup(M("toList()", 26, YELLOW_M), T("asks for the result", 24, GREY_B)).arrange(RIGHT, buff=0.25
-                                                                                              ).move_to([LAB_X, RES_Y, 0], aligned_edge=LEFT)
-        self.seq("Now put asSequence in front. Building the chain runs nothing. "
-                 "The work starts when toList asks for a result. Which lines print now?",
-                 [(1, [FadeIn(built)], 0.6),
-                  (2, [ReplacementTransform(built, ask)], 0.7)],
-                 say="Now put as-sequence in front. Building the chain runs nothing. "
-                     "The work starts when to-list asks for a result. Which lines print now?")
-        self.wait(2.2)
+        cnt = VGroup(T("questions asked:", 26, GREY_A), M("1,000,000", 30, HIDDEN)).arrange(RIGHT, buff=0.25)
+        cnt.move_to([2.4, -0.2, 0])
+        tm = T("1,000,000 x 2 ms = 2,000 s, about 33 minutes", 28, HIDDEN).next_to(cnt, DOWN, buff=0.25)
+        m518 = T("first match: recipe 518, ready after about 1 s", 24, OUT).next_to(bk2, DOWN, buff=0.3).shift(RIGHT * 1.1)
+        bill = T("Right answer. Wrong bill.", 34, GOLD_M).move_to([0, -3.1, 0])
+        self.say("bill")
+        self.play(FadeIn(m518), run_time=0.6)
+        self.at_text("still asks", lead=0.3)
+        self.play(FadeOut(ch), FadeIn(cnt), travel(a1, HIDDEN, 0.6), run_time=0.9)
+        self.at(1)
+        self.play(FadeIn(tm, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(bill, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        def pull(i, rt=0.7):
-            x = XS[i - 1] - 0.5
-            return dot_run([x, TAKE_Y, 0], [x, PAY_Y, 0], YELLOW_M, rt)
+        # ================= eager steps =================
+        bx = [box("book", BOOK, w=2.0), box("map", MAPC, w=1.7), box("list of 1,000,000 pairs", GREY_B, w=3.6, size=24),
+              box("filter", FIL, w=1.7), box("a new list", GREY_B, w=2.2, size=24)]
+        top = VGroup(bx[0], bx[1], bx[2]).arrange(RIGHT, buff=0.6).move_to([0, 1.3, 0])
+        bot = VGroup(bx[3], bx[4], box("firstOrNull: element 0", ASK, w=3.6, size=24)).arrange(RIGHT, buff=0.6).move_to([0, -0.6, 0])
+        ars = VGroup(edge_arrow(bx[0], bx[1]), edge_arrow(bx[1], bx[2]), edge_arrow(bot[0], bot[1]), edge_arrow(bot[1], bot[2]))
+        down = Arrow(bx[2].get_bottom(), bot[0].get_top() + RIGHT * 0.2, buff=0.12, stroke_width=3, color=GREY_B)
+        eg = T("eager: each step does its whole job, then the next one starts", 28, GREY_A).move_to([0, -2.4, 0])
+        fit(eg, 12.4)
+        self.say("eager")
+        self.play(FadeIn(bx[0]), run_time=0.4)
+        self.at(1)
+        self.play(GrowArrow(ars[0]), FadeIn(bx[1]), run_time=0.6)
+        self.at_text("writes every", lead=0.3)
+        self.play(GrowArrow(ars[1]), FadeIn(bx[2]), run_time=0.6)
+        self.at_text("and only then", lead=0.3)
+        self.play(GrowArrow(down), FadeIn(bot[0]), GrowArrow(ars[2]), FadeIn(bot[1]), run_time=0.8)
+        self.play(GrowArrow(ars[3]), FadeIn(bot[2]), run_time=0.6)
+        self.play(FadeIn(eg), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        s = {i: src[i].copy() for i in src}
-        a1, a3 = amount(1500), amount(2000)
-        self.seq("take asks map, map asks filter, and filter reads payment 1. "
-                 "It passes, goes straight on to map, and lands in take.",
-                 [(0, [pull(1, 1.4)], 1.5),
-                  (0, [s[1].animate.move_to([XS[0], FIL_Y, 0]), src[1].animate.set_opacity(0.35), FadeIn(con.add("filter 1"))], 0.5),
-                  (1, [s[1].animate.move_to([XS[0], MAP_Y, 0]), FadeIn(con.add("map 1"))], 0.5),
-                  (1, [ReplacementTransform(s[1], a1.move_to([XS[0], MAP_Y, 0]))], 0.35),
-                  (1, [a1.animate.move_to([XS[0], TAKE_Y, 0])], 0.5)])
+        # ================= the tray and the lunchbox =================
+        tray = RoundedRectangle(corner_radius=0.15, width=7.4, height=2.0).set_stroke(GREY_B, 2.5).move_to([-2.2, 0.9, 0])
+        tags = VGroup(*[cookie_tag(i) for i in range(5)])
+        for t, x in zip(tags, (-5.0, -3.6, -2.2, -0.8, 0.6)):
+            t.move_to([x, 0.9, 0])
+        tl = T("one tray", 22, GREY_B).next_to(tray, UP, buff=0.12)
+        lb = lunchbox().move_to([4.6, 0.8, 0])
+        lbl = T("lunchbox: 2 golden", 22, GREEN_M).next_to(lb, DOWN, buff=0.15)
+        kc = code_block(["tray.filter { println(\"filter ${it.id}\"); it.bake == GOLDEN }",
+                         "    .map { println(\"map ${it.id}\"); it.grams }",
+                         "    .take(2)"], 22)
+        fit(kc, 12.4).move_to([0, -2.1, 0])
+        self.say("tray")
+        self.play(Create(tray), FadeIn(tl), LaggedStart(*[FadeIn(t, shift=DOWN * 0.1) for t in tags], lag_ratio=0.15), run_time=1.3)
+        self.at(1)
+        self.play(*[Indicate(tags[i][0], color=GOLDEN, scale_factor=1.15) for i in (0, 2, 4)], run_time=0.8)
+        self.at(2)
+        self.play(FadeIn(lb), FadeIn(lbl), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(kc[0]), run_time=0.4)
+        self.at_text("map each", lead=0.3)
+        self.play(FadeIn(kc[1]), run_time=0.4)
+        self.at_text("and take", lead=0.3)
+        self.play(FadeIn(kc[2]), run_time=0.4)
+        self.hold()
 
-        x2 = tick(False, 0.2).move_to([XS[1], FIL_Y, 0]).set_z_index(5)
-        nr = VGroup(*[T("not read", 22, GREY_B).move_to([XS[i - 1], PAY_Y - 0.6, 0]) for i in (4, 5)])
-        full = SurroundingRectangle(VGroup(a1, a3.copy().move_to([XS[1], TAKE_Y, 0])), buff=0.15, color=TAKE_C, corner_radius=0.15)
-        self.seq("Payment 2 fails the filter. Payment 3 passes, is mapped, and take now has its two. "
-                 "So it stops. Payments 4 and 5 are never read.",
-                 [(0, [pull(2, 0.5)], 0.55),
-                  (0, [s[2].animate.move_to([XS[1], FIL_Y, 0]), src[2].animate.set_opacity(0.35), FadeIn(con.add("filter 2"))], 0.45),
-                  (0, [FadeIn(x2, scale=1.3), s[2].animate.set_opacity(0.3)], 0.3),
-                  (1, [FadeOut(VGroup(x2, s[2])), pull(3, 0.5)], 0.55),
-                  (1, [s[3].animate.move_to([XS[2], FIL_Y, 0]), src[3].animate.set_opacity(0.35), FadeIn(con.add("filter 3"))], 0.45),
-                  (1, [s[3].animate.move_to([XS[2], MAP_Y, 0]), FadeIn(con.add("map 3"))], 0.45),
-                  (1, [ReplacementTransform(s[3], a3.move_to([XS[2], MAP_Y, 0]))], 0.35),
-                  (1, [a3.animate.move_to([XS[1], TAKE_Y, 0])], 0.5),
-                  (2, [Create(full)], 0.5),
-                  (3, [FadeIn(nr), Indicate(VGroup(src[4], src[5]), color=WHITE, scale_factor=1.1)], 0.8)])
+        self.say("list_q")
+        self.hold(after=0)
+        self.predict()
+        self.wipe()
 
-        res2 = VGroup(T("result", 24, GREY_B), M("[1500, 2000]", 26)).arrange(RIGHT, buff=0.25).move_to([LAB_X, RES_Y, 0], aligned_edge=LEFT)
-        calls5 = VGroup(T("5 calls", 28), T("(List: 8)", 24, GREY_B)).arrange(RIGHT, buff=0.2).move_to([CON_X, -0.95, 0], aligned_edge=LEFT)
-        self.seq("The same result, with five calls instead of eight, and no lists in between. "
-                 "This is vertical: one payment through the whole chain.",
-                 [(0, [ReplacementTransform(ask, res2)], 0.6),
-                  (0, [FadeIn(calls5, shift=UP * 0.1)], 0.5),
-                  (1, [flash_line([XS[0], PAY_Y - 0.35, 0], [XS[0], TAKE_Y, 0], YELLOW_M, 1.0),
-                       flash_line([XS[2], PAY_Y - 0.35, 0], [XS[2], MAP_Y, 0], YELLOW_M, 1.0)], 1.0)])
+        # the List grid (left half), kept for the comparison
+        ys = [1.2, 0.45, -0.3, -1.05, -1.8]
+        lg, lcells = grid("List: the whole tray per step", (-3.6, -2.2), -5.3, ys)
+        order = [((0, 0), 1, FIL), ((1, 0), 2, FIL), ((2, 0), 3, FIL), ((3, 0), 4, FIL), ((4, 0), 5, FIL),
+                 ((0, 1), 6, MAPC), ((2, 1), 7, MAPC), ((4, 1), 8, MAPC)]
+        lempty = VGroup(*[empty_cell(lcells[r][c]) for r, c in ((1, 1), (3, 1))])
+        lc = VGroup(*[cell(lcells[r][c], n, col) for (r, c), n, col in order])
+        lsum = T("8 calls", 26, GREY_A).move_to([-3.6, -2.7, 0])
+        lbox = T("lunchbox [45, 50]", 24, GREEN_M).next_to(lsum, DOWN, buff=0.15)
+        self.say("list_a")
+        self.play(FadeIn(lg), FadeIn(lempty), run_time=0.5)
+        self.play(LaggedStart(*[FadeIn(x, scale=0.8) for x in lc[:5]], lag_ratio=0.25), run_time=1.6)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(x, scale=0.8) for x in lc[5:]], lag_ratio=0.3), run_time=1.2)
+        self.at(2)
+        self.play(FadeIn(lsum), run_time=0.4)
+        self.at_text("and the lunchbox", lead=0.3)
+        self.play(FadeIn(lbox), run_time=0.4)
+        self.at(3)
+        wasted = T("weighed for a full lunchbox", 22, HIDDEN).next_to(lc[7], RIGHT, buff=0.25)
+        self.play(Indicate(lc[7][1], color=HIDDEN, scale_factor=1.5), FadeIn(wasted), run_time=0.9)
+        self.hold()
+        list_side = VGroup(lg, lempty, lc, lsum, lbox)
+        self.play(FadeOut(wasted), FadeOut(list_side), run_time=0.6)
 
-        # the million again
-        seq_stuff = VGroup(a1, a3, full, nr, res2, calls5, *src.values(), pay_lab, *st.values(), guides, head)
-        self.play(FadeOut(seq_stuff), FadeOut(con.clear()), FadeOut(con.head), run_time=0.7)
-        tk.set_value(0)
-        bar2 = VGroup(bar, bar_lab, bad, bad_lab)
-        sweep2 = always_redraw(lambda: Rectangle(width=max(0.001, (BX1 - BX0) * tk.get_value() / 1e6), height=0.4,
-                                                 stroke_width=0).set_fill(TEAL_M, 0.55).move_to([BX0, BY, 0], aligned_edge=LEFT))
-        cnt2 = VGroup(T("risk model calls:", 28, GREY_B), M("518", 30, TEAL_M), T("then it stops", 28, GREY_B)
-                      ).arrange(RIGHT, buff=0.25).move_to([0, -1.6, 0])
-        self.seq("Back on the million. The Sequence scores 518 and stops.",
-                 [(0, [FadeIn(bar2), FadeIn(sweep2)], 0.7),
-                  (1, [tk.animate.set_value(10_000)], 0.6),
-                  (1, [FadeIn(cnt2, shift=UP * 0.1), Indicate(bad, color=RED_M)], 0.8)],
-                 say="Back on the million. The Sequence scores five hundred eighteen, and stops.")
-        sweep2.clear_updaters()
-        self.play(FadeOut(VGroup(bar2, sweep2, cnt2)), run_time=0.6)
+        # ================= the kitchen line =================
+        LY = 0.2
+        belt = Line([-6.2, LY - 0.45, 0], [5.6, LY - 0.45, 0], stroke_width=3, color=GREY_C)
+        trayp = [np.array([-5.6 + 0.0 * i, LY, 0]) for i in range(5)]
+        st1, st2 = np.array([-1.6, LY, 0]), np.array([1.6, LY, 0])
+        h1 = person(FIL, 1.15).move_to(st1 + UP * 1.35)
+        h2 = person(MAPC, 1.15).move_to(st2 + UP * 1.35)
+        h1l = T("checker: color", 24, FIL).next_to(h1, UP, buff=0.15)
+        h2l = T("weigher: grams", 24, MAPC).next_to(h2, UP, buff=0.15)
+        lb2 = lunchbox(2.0, 1.0).move_to([4.9, LY, 0])
+        ck = VGroup(*[cookie(TRAY[i][2], 0.3) for i in range(5)])
+        # the tray: a stack at the left, c1 on top
+        for i, c in enumerate(ck):
+            c.move_to([-5.6 + 0.0, LY + 1.6 - i * 0.75, 0])
+        ck.move_to([-5.4, LY + 0.15, 0])
+        ids = VGroup(*[M(TRAY[i][0], 20, GREY_B).next_to(ck[i], LEFT, buff=0.12) for i in range(5)])
+        self.say("line")
+        self.play(Create(belt), FadeIn(ck), FadeIn(ids), FadeIn(lb2), run_time=0.8)
+        self.play(FadeIn(h1), FadeIn(h1l), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(h2), FadeIn(h2l), run_time=0.5)
+        self.at(3)
+        # list mode: the whole tray goes past the checker first, then the golden ones go to the weigher
+        pile1 = [st1 + np.array([-0.9 + 0.45 * i, -1.35, 0]) for i in range(5)]
+        self.play(FadeOut(ids), LaggedStart(*[ck[i].animate.move_to(pile1[i]) for i in range(5)], lag_ratio=0.25), run_time=1.6)
+        pile2 = [st2 + np.array([-0.45 + 0.45 * k, -1.35, 0]) for k in range(3)]
+        self.play(LaggedStart(*[ck[i].animate.move_to(pile2[k]) for k, i in enumerate((0, 2, 4))], lag_ratio=0.3),
+                  ck[1].animate.set_opacity(0.3), ck[3].animate.set_opacity(0.3), run_time=1.3)
+        self.hold()
+        # reset the tray for sequence mode
+        for i, c in enumerate(ck):
+            c.generate_target()
+            c.target.set_opacity(1).move_to([-5.4, LY + 1.65 - i * 0.75, 0])
+        self.play(*[MoveToTarget(c) for c in ck], run_time=0.8)
 
-        # ---------------- sorted: the barrier ----------------
-        src2 = {i: marble(i, SCOL[TXN[i][1]]).move_to([XS[i - 1], PAY_Y, 0]) for i in TXN}
-        st2 = {"s": stage("sortedBy", "by amount", WHITE, FIL_Y), "f": stage("first()", "the smallest", TAKE_C, MAP_Y)}
-        g2 = VGroup(guide(FIL_Y), guide(MAP_Y))
-        con2 = Console()
-        head3 = T("A Sequence with sortedBy", 28).move_to([-1.0, 3.2, 0])
-        cps = {i: src2[i].copy() for i in src2}
-        amt = {i: T(f"{TXN[i][0]:,}".replace(",", ""), 22, GREY_B) for i in TXN}
-        order = sorted(TXN, key=lambda i: TXN[i][0])          # 5, 1, 3, 2, 4
-        plan = [(0, [FadeIn(head3), FadeIn(pay_lab), *[FadeIn(m) for m in src2.values()], FadeIn(VGroup(*st2.values(), g2)),
-                     FadeIn(con2.head)], 0.8)]
-        plan.append((2, [dot_run([XS[0] - 0.5, MAP_Y, 0], [XS[0] - 0.5, PAY_Y, 0], YELLOW_M, 0.6)], 0.65))
-        for i in TXN:
-            plan.append((2, [cps[i].animate.move_to([XS[i - 1], FIL_Y, 0]), src2[i].animate.set_opacity(0.35),
-                             FadeIn(con2.add(f"saw {i}"))], 0.38))
-        for i in TXN:
-            amt[i].move_to([XS[i - 1], FIL_Y - 0.55, 0])
-        plan.append((2, [FadeIn(VGroup(*amt.values()))], 0.4))
-        plan.append((2, [*[cps[i].animate.move_to([XS[k], FIL_Y, 0]) for k, i in enumerate(order)],
-                         *[amt[i].animate.move_to([XS[k], FIL_Y - 0.55, 0]) for k, i in enumerate(order)]], 1.0))
-        plan.append((2, [cps[5].animate.move_to([XS[0], MAP_Y, 0]), amt[5].animate.move_to([XS[0], MAP_Y - 0.55, 0])], 0.6))
-        res3 = VGroup(T("result", 24, GREY_B), M("payment 5", 26)).arrange(RIGHT, buff=0.25).move_to([LAB_X, RES_Y + 0.8, 0], aligned_edge=LEFT)
-        plan.append((2, [FadeIn(res3)], 0.5))
-        self.seq("One kind of step breaks the vertical flow: sorting. It can't hand out the smallest until it has seen every payment. "
-                 "So the first request pulls all five in, sorts them, and only then hands out payment 5.", plan)
-        self.wait(0.8)
-        self.play(FadeOut(VGroup(head3, pay_lab, *src2.values(), *st2.values(), g2, *cps.values(), *amt.values(), res3)),
-                  FadeOut(con2.clear()), FadeOut(con2.head), run_time=0.7)
+        self.say("line2")
+        at1, at2 = st1 + UP * 0.0, st2 + UP * 0.0
+        inbox = [lb2[0].get_center() + LEFT * 0.42, lb2[0].get_center() + RIGHT * 0.42]
+        self.play(ck[0].animate.move_to(at1), run_time=0.6)
+        self.play(Indicate(h1, color=FIL, scale_factor=1.1), run_time=0.4)
+        self.play(ck[0].animate.move_to(at2), run_time=0.6)
+        self.play(Indicate(h2, color=MAPC, scale_factor=1.1), run_time=0.4)
+        self.play(ck[0].animate.scale(0.9).move_to(inbox[0]), run_time=0.6)
+        self.at(1)
+        self.play(ck[1].animate.move_to(at1), run_time=0.5)
+        self.play(ck[1].animate.shift(DOWN * 1.3).set_opacity(0.3), run_time=0.5)
+        self.play(ck[2].animate.move_to(at1), run_time=0.5)
+        self.play(ck[2].animate.move_to(at2), run_time=0.5)
+        self.play(ck[2].animate.scale(0.9).move_to(inbox[1]), run_time=0.6)
+        stop = T("full: the line stops", 26, GREEN_M).next_to(lb2, DOWN, buff=0.25)
+        left = T("never touched", 22, GREY_B).next_to(VGroup(ck[3], ck[4]), RIGHT, buff=0.25)
+        self.play(FadeIn(stop), ck[3].animate.set_opacity(0.45), ck[4].animate.set_opacity(0.45), FadeIn(left), run_time=0.7)
+        self.hold()
+        self.wipe()
 
-        # ---------------- code, Kotlin and Java ----------------
-        def block(title, color, kt, jv, y):
-            hd = T(title, 28, color)
-            kc = code(kt, 24)
-            jc = code(jv, 24)
-            kh, jh = T("Kotlin", 24, GREY_B), T("Java", 24, GREY_B)
-            jc.next_to(kc, DOWN, buff=0.38).align_to(kc, LEFT)
-            kh.next_to(kc[0], LEFT, buff=0.5)
-            jh.next_to(jc[0], LEFT, buff=0.5).align_to(kh, LEFT)
-            body = VGroup(kh, kc, jh, jc)
-            hd.next_to(body, UP, buff=0.3).align_to(kh, LEFT)
-            return VGroup(hd, body).move_to([0, y, 0]).align_to([-6.2, 0, 0], LEFT)
+        # ================= map it =================
+        hp = T("the kitchen line", 28, GREY_B).move_to([-3.3, 2.7, 0])
+        hc = T("the code", 28, GREY_B).move_to([3.0, 2.7, 0])
+        rows = [("a cookie", "one item", GOLDEN), ("the checker, the weigher", "the steps: filter, map", FIL),
+                ("the lunchbox", "take(2)", GREEN_M), ("asking for the lunchbox", "toList()", ASK),
+                ("cookies left on the tray", "items nobody looks at", GREY_A)]
+        Y = [1.75, 0.85, -0.05, -0.95, -1.85]
+        mrows = VGroup()
+        for (a, b, c), y in zip(rows, Y):
+            ta = T(a, 28, c).move_to([-3.3, y, 0])
+            tb = (M if b.endswith(")") else T)(b, 28, c).move_to([3.0, y, 0])
+            ln = Arrow([-0.6, y, 0], [1.0, y, 0], buff=0, stroke_width=2.5, color=GREY_C, max_tip_length_to_length_ratio=0.15)
+            mrows.add(VGroup(ta, ln, tb))
+        self.say("map")
+        self.play(FadeIn(hp), FadeIn(hc), run_time=0.5)
+        cues = [1, 2, 3, "and toList", 4]
+        for i, cu in enumerate(cues):
+            if isinstance(cu, str):
+                self.at_text(cu, lead=0.3)
+            else:
+                self.at(cu)
+            self.play(FadeIn(mrows[i], shift=RIGHT * 0.15), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        eager = block("one step at a time, a new list per step", WHITE,
-                      ["txns.filter { … }.map { … }.take(2)"],
-                      ["List<Txn> settled = txns.stream().filter(…).toList();",
-                       "List<Long> amounts = settled.stream().map(…).toList();"], 1.75)
-        lazy = block("one payment at a time, stops early", WHITE,
-                     ["txns.asSequence().filter { … }.map { … }.take(2).toList()"],
-                     ["txns.stream().filter(…).map(…).limit(2).toList()"], -1.55)
-        self.seq("In Kotlin, the only change is asSequence. A Java Stream is lazy in the same way. "
-                 "Java has no eager chain: you collect after every step.",
-                 [(0, [FadeIn(eager[0]), FadeIn(eager[1][0:2]), FadeIn(lazy[0]), FadeIn(lazy[1][0:2])], 1.0),
-                  (1, [FadeIn(lazy[1][2:4], shift=UP * 0.1)], 0.8),
-                  (2, [FadeIn(eager[1][2:4], shift=UP * 0.1)], 0.8)],
-                 say="In Kotlin, the only change is as-sequence. A Java Stream is lazy in the same way. "
-                     "Java has no eager chain: you collect after every step.")
-        self.wait(1.2)
-        self.play(FadeOut(VGroup(eager, lazy)), run_time=0.6)
+        # ================= the sequence order, next to the list order =================
+        lg, lcells = grid("List: the whole tray per step", (-3.6, -2.2), -5.3, ys)
+        lempty = VGroup(*[empty_cell(lcells[r][c]) for r, c in ((1, 1), (3, 1))])
+        lc = VGroup(*[cell(lcells[r][c], n, col) for (r, c), n, col in order])
+        lsum = T("8 calls", 26, GREY_A).move_to([-3.6, -2.7, 0])
+        list_side = VGroup(lg, lempty, lc, lsum).set_opacity(0.45)
+        div = DashedLine([0, 2.4, 0], [0, -3.0, 0], dash_length=0.1).set_stroke(GREY_D, 2)
+        sg, scells = grid("Sequence: one cookie at a time", (3.4, 4.8), 1.7, ys)
+        sorder = [((0, 0), 1, FIL), ((0, 1), 2, MAPC), ((1, 0), 3, FIL), ((2, 0), 4, FIL), ((2, 1), 5, MAPC)]
+        sempty = VGroup(*[empty_cell(scells[r][c]) for r, c in ((1, 1), (3, 0), (3, 1), (4, 0), (4, 1))])
+        sc = VGroup(*[cell(scells[r][c], n, col) for (r, c), n, col in sorder])
+        add_seq = M("tray.asSequence()", 24, CARD).move_to([3.3, 3.15, 0])
+        self.say("seq_q")
+        self.play(FadeIn(list_side), Create(div), FadeIn(sg), FadeIn(add_seq), run_time=0.8)
+        self.hold(after=0)
+        self.predict(pos=(6.4, -3.3), edge=RIGHT)
 
-        # ---------------- the rule and a check ----------------
-        rule = VGroup(T("A List finishes each step for every element.", 32),
-                      T("A Sequence moves one element through every step,", 32),
-                      T("and only as far as the end asks.", 32)).arrange(DOWN, buff=0.22).move_to([0, 1.8, 0])
-        self.beat("So: a List finishes each step for every element. "
-                  "A Sequence moves one element through every step, and only as far as the end asks.",
-                  LaggedStart(*[FadeIn(x, shift=UP * 0.1) for x in rule], lag_ratio=0.5), run_time=3.0)
-        chk = M("txns.take(2).filter { … }.map { … }", 28).move_to([0, -0.35, 0])
-        q = T("On a List: how many filter lines print?", 26, GREY_B).move_to([0, -1.2, 0])
-        self.seq("A quick check. On the List, move take(2) to the front. How many filter lines print?",
-                 [(1, [FadeIn(chk, shift=UP * 0.1)], 0.6),
-                  (2, [FadeIn(q)], 0.5)],
-                 say="A quick check. On the List, move take two to the front. How many filter lines print?")
-        self.wait(2.2)
-        ans = VGroup(T("two:", 28, YELLOW_M), M("filter 1, filter 2", 26), T("and the result is", 26, GREY_B), M("[1500]", 26)
-                     ).arrange(RIGHT, buff=0.25).move_to([0, -2.1, 0])
-        self.beat("Two: filter 1 and filter 2. take cut the list first, so the result is just 1500.",
-                  FadeIn(ans, shift=UP * 0.1), run_time=0.8,
-                  say="Two: filter one and filter two. take cut the list first, so the result is just fifteen hundred.")
-        self.wait(1.0)
+        built = M("built TakeSequence, nothing has run yet", 22, ASK).move_to([3.4, -2.55, 0])
+        fit(built, 6.4)
+        ssum = T("5 calls, lunchbox [45, 50]", 24, GREEN_M).next_to(built, DOWN, buff=0.2)
+        untouched = T("untouched", 22, GREY_B).move_to([6.2, (ys[3] + ys[4]) / 2, 0])
+        self.say("seq_a")
+        self.play(FadeIn(built), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(sempty[0]), FadeIn(sc[0], scale=0.8), run_time=0.4)
+        self.play(FadeIn(sc[1], scale=0.8), run_time=0.4)
+        self.at(2)
+        self.play(FadeIn(sc[2], scale=0.8), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(sc[3], scale=0.8), run_time=0.4)
+        self.play(FadeIn(sc[4], scale=0.8), run_time=0.4)
+        self.at(4)
+        self.play(FadeIn(ssum), run_time=0.4)
+        self.at(5)
+        self.play(FadeIn(sempty[1:]), FadeIn(untouched), run_time=0.5)
+        self.hold()
+
+        jk = T("in no hurry at all", 30, GOLD_M).next_to(built, UP, buff=0.18)
+        self.say("lazy_joke")
+        self.play(Indicate(built, color=ASK, scale_factor=1.05), run_time=0.8)
+        self.at(1)
+        self.play(FadeOut(sc), FadeOut(sempty), FadeOut(untouched), FadeIn(jk), run_time=0.6)
+        self.at(3)
+        rule = T("nothing runs until something asks for a result", 28, ASK).move_to([0, 3.4, 0])
+        self.play(FadeOut(add_seq), FadeIn(rule), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= name it =================
+        nm = T("a sequence: a lazy chain of steps", 40, CARD).move_to([0, 2.5, 0])
+        lz = T("lazy: no work until a result is wanted, then only what it needs", 28, GREY_A).move_to([0, 1.6, 0])
+        fit(lz, 12.4)
+        im = VGroup(T("intermediate operations", 28, FIL), M("map  filter  take", 26, FIL),
+                    T("add a step to the plan", 24, GREY_A)).arrange(DOWN, buff=0.15).move_to([-3.2, -0.3, 0])
+        te = VGroup(T("terminal operations", 28, ASK), M("toList  first  sum", 26, ASK),
+                    T("ask for items: the work starts", 24, GREY_A)).arrange(DOWN, buff=0.15).move_to([3.2, -0.3, 0])
+        self.say("name")
+        self.play(Write(nm), run_time=1.0)
+        self.at(1)
+        self.play(FadeIn(lz), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(im, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(te, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= back to the book: ScanCount =================
+        ttl = T("the lesson's demo: a million recipes, the match is number 518", 26, GREY_B).move_to([0, 2.7, 0])
+        fit(ttl, 12.4)
+        res = [("List chain", "1,000,000", HIDDEN), ("Sequence chain", "518", OUT), ("firstOrNull { }", "518", OUT)]
+        hdr = VGroup(T("chain", 24, GREY_B).move_to([-3.4, 1.8, 0]), T("matching service asked", 24, GREY_B).move_to([2.4, 1.8, 0]))
+        rws = VGroup()
+        for k, (a, b, c) in enumerate(res):
+            y = 1.0 - 0.8 * k
+            rws.add(VGroup(M(a, 26, GREY_A).move_to([-3.4, y, 0]), M(b, 30, c).move_to([2.4, y, 0])))
+        sc_n = T("short circuiting: stop as soon as the answer is known", 28, CARD).move_to([0, -1.6, 0])
+        fit(sc_n, 12.4)
+        loop = T("one plain loop, no sequence needed", 24, GREY_A).next_to(rws[2], DOWN, buff=0.12).align_to(rws[2][1], LEFT)
+        self.say("book")
+        self.play(FadeIn(ttl), FadeIn(hdr), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(rws[0]), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(rws[1]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(sc_n), run_time=0.6)
+        self.at(4)
+        self.play(FadeIn(rws[2]), sc_n.animate.shift(DOWN * 0.7), run_time=0.5)
+        self.play(FadeIn(loop), run_time=0.4)
+        self.hold()
+        self.wipe()
+
+        # ================= inside: wrappers =================
+        wb = [box("tray", GREY_B, w=1.7), mbox("TransformingSequence", MAPC, size=22), mbox("FilteringSequence", FIL, size=22),
+              mbox("TakeSequence", ASK, size=22), mbox("toList()", ASK, size=22)]
+        # order on screen: tray -> filter -> map -> take -> toList (the chain's order)
+        chain = VGroup(wb[0], wb[2], wb[1], wb[3], wb[4]).arrange(RIGHT, buff=0.45)
+        fit(chain, 12.6).move_to([0, 0.9, 0])
+        cap = VGroup(T("filter", 22, FIL).next_to(wb[2], UP, buff=0.15), T("map", 22, MAPC).next_to(wb[1], UP, buff=0.15),
+                     T("take(2)", 22, ASK).next_to(wb[3], UP, buff=0.15))
+        asks = VGroup(*[Arrow(chain[i + 1].get_bottom() + DOWN * 0.15, chain[i].get_bottom() + DOWN * 0.15, buff=0.05,
+                              stroke_width=2.5, color=ASK, max_tip_length_to_length_ratio=0.2).shift(DOWN * 0.15)
+                        for i in range(4)][::-1])
+        askl = T("each one asks the step before for one item", 24, ASK).move_to([0, -0.6, 0])
+        self.say("inside")
+        self.play(FadeIn(chain[0]), run_time=0.4)
+        self.at_text("filter makes", lead=0.3)
+        self.play(FadeIn(chain[1]), FadeIn(cap[0]), run_time=0.4)
+        self.at_text("map a Trans", lead=0.3)
+        self.play(FadeIn(chain[2]), FadeIn(cap[1]), run_time=0.4)
+        self.at_text("take a Take", lead=0.3)
+        self.play(FadeIn(chain[3]), FadeIn(cap[2]), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(chain[4]), run_time=0.4)
+        self.play(LaggedStart(*[GrowArrow(a) for a in asks], lag_ratio=0.35), FadeIn(askl), run_time=1.6)
+        self.at(4)
+        c1 = cookie("golden", 0.22).move_to(chain[0].get_top() + UP * 0.3)
+        self.play(FadeIn(c1), run_time=0.3)
+        for i in range(1, 5):
+            self.play(c1.animate.move_to(chain[i].get_top() + UP * 0.3 + (UP * 0.35 if i in (1, 2, 3) else 0)), run_time=0.45)
+        self.hold()
+        self.play(FadeOut(c1), FadeOut(asks), FadeOut(askl), VGroup(chain, cap).animate.scale(0.8).move_to([0, 2.6, 0]), run_time=0.7)
+
+        kn = code_block(["override fun next(): R = transformer(iterator.next())",
+                         "override fun hasNext(): Boolean = iterator.hasNext()"], 22)
+        jn = code_block(["Iterator<R> mapped = new Iterator<>() {",
+                         "    public boolean hasNext() { return source.hasNext(); }",
+                         "    public R next() { return transformer.apply(source.next()); }",
+                         "};"], 22)
+        code = VGroup(labelled("Kotlin, inside TransformingSequence", kn), labelled("Java, the same idea by hand", jn))
+        code.arrange(DOWN, aligned_edge=LEFT, buff=0.4)
+        fit(code, 12.4).move_to([0, -0.4, 0])
+        price = T("the price: lambdas are objects again, numbers get boxed", 26, HIDDEN).move_to([0, -3.0, 0])
+        fit(price, 12.4)
+        self.say("inside_code")
+        self.play(FadeIn(code[0]), run_time=0.6)
+        self.at_text("next to the same", lead=0.3)
+        self.play(FadeIn(code[1]), run_time=0.6)
+        self.at(1)
+        self.play(Indicate(part_of(kn[0], "transformer(iterator.next())"), color=MAPC, scale_factor=1.05), run_time=1.0)
+        self.at(2)
+        jn_note = T("Java's stream: the same, one item at a time", 24, GREY_A).move_to([0, -3.0, 0])
+        self.play(FadeIn(jn_note), run_time=0.5)
+        self.at(3)
+        self.play(FadeOut(jn_note), FadeIn(price), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= break it: sortedBy =================
+        sb = [box("book", BOOK, w=1.8), mbox("sortedBy { it.id }", HIDDEN, size=22), mbox("firstOrNull { match >= 90 }", ASK, size=22)]
+        srow = VGroup(*sb).arrange(RIGHT, buff=0.7)
+        fit(srow, 12.4).move_to([0, 1.6, 0])
+        sa = VGroup(edge_arrow(sb[0], sb[1]), edge_arrow(sb[1], sb[2]))
+        self.say("sort_q")
+        self.play(FadeIn(srow), Create(sa), run_time=0.8)
+        self.at(2)
+        s518 = T("matching service: 518 times", 26, OUT).move_to([0, 0.3, 0])
+        self.play(FadeIn(s518), run_time=0.5)
+        self.hold(after=0)
+        self.predict()
+        pulled = M("Sequence + sortedBy   scored 518   pulled 1,000,000", 24).move_to([0, -0.5, 0])
+        fit(pulled, 12.4)
+        whole = T("it must see every item before it hands out the first", 26, HIDDEN).move_to([0, -1.4, 0])
+        fit(whole, 12.4)
+        lightest = T("no helper can tell the lightest cookie by looking at one cookie", 26, GREY_A).move_to([0, -2.2, 0])
+        fit(lightest, 12.4)
+        self.say("sort_a")
+        self.play(FadeIn(pulled), Indicate(sb[1][0], color=HIDDEN, scale_factor=1.04), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(whole), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(lightest), run_time=0.6)
+        mb = M("minByOrNull { }: reads once, sorts nothing", 26, OUT).move_to([0, -3.1, 0])
+        fit(mb, 12.4)
+        self.at(3)
+        self.play(FadeIn(mb, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= guardrail =================
+        gq = T("Should every chain be a sequence? No.", 34, GOLD_M).move_to([0, 2.6, 0])
+        lst = VGroup(T("a List is fine:", 28, GREY_B), T("a short chain, a few hundred items", 26, GREY_A),
+                     T("easiest to debug: a real list after every step", 26, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
+        sq = VGroup(T("reach for asSequence() when:", 28, CARD), T("the input is big", 26, GREY_A),
+                    T("a step is slow", 26, GREY_A), T("you need only the first few", 26, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
+        VGroup(lst, sq).arrange(RIGHT, aligned_edge=UP, buff=1.0).move_to([0, 0.5, 0])
+        fit(VGroup(lst, sq), 12.6)
+        end = T("put the step that can stop at the end", 30, ASK).move_to([0, -2.2, 0])
+        self.say("guard")
+        self.play(FadeIn(gq), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(lst, shift=UP * 0.1), run_time=0.7)
+        self.at(3)
+        self.play(FadeIn(sq, shift=UP * 0.1), run_time=0.7)
+        self.at(4)
+        self.play(FadeIn(end), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= moral and a check =================
+        mq = T("More work than you asked for? On a List, yes.", 32).move_to(UP * 2.5)
+        m1 = T("A List: each step finishes the whole tray.", 30, GREY_A).move_to(UP * 1.6)
+        m2 = T("A Sequence: one cookie down the whole line, stop when full.", 30, CARD).move_to(UP * 0.8)
+        m3 = T("Ask how many items you really need.", 32, ASK).move_to(UP * 0.0)
+        for m in (mq, m1, m2, m3):
+            fit(m, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(m1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(m2), run_time=0.5)
+        self.play(FadeIn(m3), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(VGroup(mq, m1, m2, m3)), run_time=0.5)
+
+        qc = code_block(["tray.take(2)", "    .filter { println(\"filter ${it.id}\"); it.bake == GOLDEN }",
+                         "    .map { println(\"map ${it.id}\"); it.grams }"], 24)
+        fit(qc, 12.4).move_to([0, 1.2, 0])
+        qh = T("Check: take(2) moved up. How many filter lines? What's in the lunchbox?", 28, ASK).next_to(qc, UP, buff=0.4)
+        fit(qh, 12.4)
+        self.say("check")
+        self.play(FadeIn(qh), FadeIn(qc, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.4, pos=(6.4, -3.25), edge=RIGHT)
+        ans = VGroup(M("filter c1   filter c2   lunchbox [45]", 26, GREEN_M),
+                     T("a different question: which of the first two are golden?", 26, GREY_A),
+                     T("laziness changes how much work runs, not the answer", 26, CARD)).arrange(DOWN, buff=0.2)
+        fit(ans, 12.4).move_to([0, -1.4, 0])
+        self.say("check_a")
+        self.play(FadeIn(ans[0], shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(ans[1]), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(ans[2]), run_time=0.5)
+        self.hold(after=0)
+        self.wait(2.5)
