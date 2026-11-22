@@ -4,13 +4,13 @@
       "slug": "gen03-invariance",
       "lesson": "gen-03",
       "section": 1,
-      "title": "MutableList<String> is not a MutableList<Any>: one list, two names, a crash on the read"
+      "title": "A crate of apples is not a crate of fruit: one list with two labels lets a lemon in, so a list you can write to must match its type exactly"
     },
     {
       "slug": "gen04-out",
       "lesson": "gen-04",
       "section": 0,
-      "title": "A producer only hands values out, so the subtype arrow keeps its direction"
+      "title": "An apple dispenser only hands apples out, so with out a Dispenser<Apple> passes as a Dispenser<Fruit>"
     },
     {
       "slug": "gen05-in",
@@ -82,7 +82,7 @@
       "slug": "gen01-from-zero",
       "lesson": "gen-01",
       "section": 1,
-      "title": "A box of Any fails at the read; Box<T> has a blank on its label that each use fills, and the compiler checks every put"
+      "title": "A box of Any lets the wrong thing in and fails at the counter; Box<T> puts a blank on the label that each caller fills, and the compiler checks every put"
     },
     {
       "slug": "kt04-dsl",
@@ -172,7 +172,7 @@
       "slug": "gen02-bounds",
       "lesson": "gen-02",
       "section": 1,
-      "title": "A bound is a gate at the call site: T : Comparable<T> shuts Payment out and hands the body compareTo, and a where clause adds a second gate"
+      "title": "A plain T can only do what Any? does; an upper bound such as T : Fruit is a fruit-only sign that shuts some callers out and lets the body weigh and compare"
     },
     {
       "slug": "dop02-sealed",

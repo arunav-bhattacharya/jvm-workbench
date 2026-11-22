@@ -268,7 +268,7 @@ class Gen03Invariance(Narrated):
         helper = who(BACK, "helper").move_to([-3.2, FL + 0.75, 0])
         told = paper(["bring a crate", "of fruit"], 20).next_to(helper, UP, buff=0.3)
         ok_ = VGroup(tick(True, 0.15), T("every apple is a fruit", 22, OK)).arrange(RIGHT, buff=0.15).move_to([0, 2.3, 0])
-        lm = lemon(0.2).move_to([-4.7, 0.2, 0])
+        lm = lemon(0.2).move_to([-4.6, -1.2, 0])
         self.say("open")
         self.play(Create(floor), FadeIn(c), FadeIn(row, shift=DOWN * 0.2), run_time=0.9)
         self.at(1)
@@ -351,7 +351,7 @@ class Gen03Invariance(Narrated):
         mv = VGroup(T("allowed on a list of fruit:", 24, GREY_B),
                     VGroup(T("read an item", 26), tick(True, 0.15)).arrange(RIGHT, buff=0.2),
                     VGroup(T("add any fruit", 26), M("?", 30, YELLOW_M)).arrange(RIGHT, buff=0.2)).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
-        mv.move_to([3.4, 0.4, 0])
+        mv.move_to([3.4, 1.15, 0])
         self.say("crate_q")
         self.play(Create(floor), FadeIn(c), FadeIn(row), run_time=0.7)
         self.at(1)

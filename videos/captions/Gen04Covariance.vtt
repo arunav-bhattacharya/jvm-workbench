@@ -1,59 +1,59 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.298
+00:00:02.700 --> 00:00:05.264
 By the shop door stands an apple dispenser.
 
 2
-00:00:05.298 --> 00:00:07.623
+00:00:05.264 --> 00:00:07.590
 Pull the lever, and an apple drops out.
 
 3
-00:00:07.623 --> 00:00:13.467
+00:00:07.590 --> 00:00:13.434
 A customer who wants some fruit can use it happily, because every apple that drops out is a fruit.
 
 4
-00:00:13.467 --> 00:00:17.224
+00:00:13.434 --> 00:00:17.191
 There's no slot to put anything in, and that's the whole point.
 
 5
-00:00:18.133 --> 00:00:25.888
+00:00:18.100 --> 00:00:25.855
 Last lesson, a crate of apples couldn't pass as a crate of fruit, because a crate of fruit takes any fruit, so a lemon could go in.
 
 6
-00:00:25.888 --> 00:00:27.960
+00:00:25.855 --> 00:00:27.927
 The dispenser has no way in at all.
 
 7
-00:00:28.867 --> 00:00:32.094
+00:00:28.833 --> 00:00:32.061
 So here's a question that's easy to be shy about.
 
 8
-00:00:32.094 --> 00:00:33.741
+00:00:32.061 --> 00:00:33.708
 My dispenser has no slot.
 
 9
-00:00:33.741 --> 00:00:39.143
+00:00:33.708 --> 00:00:39.110
 Why does the compiler still say a dispenser of apples is not a dispenser of fruit?
 
 10
-00:00:39.143 --> 00:00:41.053
+00:00:39.110 --> 00:00:41.020
 Can't it see there's no slot?
 
 11
-00:00:42.133 --> 00:00:44.457
+00:00:42.100 --> 00:00:44.423
 Here's the dispenser in Kotlin.
 
 12
-00:00:44.457 --> 00:00:48.503
+00:00:44.423 --> 00:00:48.470
 next hands out the next item, or null when it's empty.
 
 13
-00:00:48.503 --> 00:00:53.075
+00:00:48.470 --> 00:00:53.042
 totalGrams wants a Dispenser&lt;Fruit&gt;, and adds up the weights.
 
 14
-00:00:53.075 --> 00:00:58.096
+00:00:53.042 --> 00:00:58.063
 Our dispenser holds two apples: Gala at 180 grams, and Fuji at 150.
 
 15
@@ -93,19 +93,19 @@ Can anything go wrong?
 Pause and guess.
 
 24
-00:01:30.733 --> 00:01:32.771
+00:01:30.700 --> 00:01:32.738
 All it can do is pull the lever.
 
 25
-00:01:32.771 --> 00:01:36.846
+00:01:32.738 --> 00:01:36.813
 Every call to next returns an apple, and every apple is a fruit.
 
 26
-00:01:36.846 --> 00:01:40.858
+00:01:36.813 --> 00:01:40.824
 No move takes a fruit in, so there's nowhere for a lemon to go.
 
 27
-00:01:40.858 --> 00:01:42.195
+00:01:40.824 --> 00:01:42.161
 Nothing can go wrong.
 
 28
@@ -121,185 +121,181 @@ Dispenser&lt;out T&gt;.
 It's a promise: values of T only come out of this type.
 
 31
-00:01:53.533 --> 00:01:55.056
+00:01:53.600 --> 00:01:55.123
 Same call as before.
 
 32
-00:01:55.056 --> 00:01:56.655
+00:01:55.123 --> 00:01:56.722
 Nothing else changed.
 
 33
-00:01:56.655 --> 00:01:58.102
+00:01:56.722 --> 00:01:58.168
 What does it print?
 
 34
-00:01:58.102 --> 00:01:59.320
+00:01:58.168 --> 00:01:59.387
 Pause and guess.
 
 35
-00:02:02.333 --> 00:02:08.558
+00:02:02.367 --> 00:02:08.591
 It compiles, and the lesson's ProducerDemo prints: apple total, 330 grams.
 
 36
-00:02:08.558 --> 00:02:13.184
+00:02:08.591 --> 00:02:13.217
 That's 180 plus 150, read through a dispenser of fruit.
 
 37
-00:02:14.067 --> 00:02:14.962
+00:02:14.133 --> 00:02:15.029
 Let's map it.
 
 38
-00:02:14.962 --> 00:02:18.820
+00:02:15.029 --> 00:02:18.887
 The lever is a return type: a T flows out to the caller.
 
 39
-00:02:18.820 --> 00:02:21.851
+00:02:18.887 --> 00:02:21.918
 A slot would be a parameter: a T flowing in.
 
 40
-00:02:21.851 --> 00:02:26.467
+00:02:21.918 --> 00:02:26.533
 And out is a sticker on the machine that says: lever only, no slot.
 
 41
-00:02:27.400 --> 00:02:29.105
+00:02:27.467 --> 00:02:29.171
 I know what you're thinking.
 
 42
-00:02:29.105 --> 00:02:31.784
+00:02:29.171 --> 00:02:31.850
 What stops someone from adding a slot later?
 
 43
-00:02:31.784 --> 00:02:34.097
+00:02:31.850 --> 00:02:34.164
 Say, a refill function that takes a T.
 
 44
-00:02:34.267 --> 00:02:35.417
+00:02:34.367 --> 00:02:35.517
 Follow it through.
 
 45
-00:02:35.417 --> 00:02:38.486
+00:02:35.517 --> 00:02:38.586
 A Dispenser&lt;Apple&gt; passes as a Dispenser&lt;Fruit&gt;.
 
 46
-00:02:38.486 --> 00:02:43.537
+00:02:38.586 --> 00:02:43.637
 Through that view, refill with a lemon type checks, because a lemon is a fruit.
 
 47
-00:02:43.537 --> 00:02:49.675
+00:02:43.637 --> 00:02:49.775
 Now the apple dispenser holds a lemon, and the next pull hands it to code that expects an apple.
 
 48
-00:02:49.867 --> 00:02:55.150
+00:02:50.000 --> 00:02:55.283
 An apple dispenser with a slot for any fruit isn't an apple dispenser any more.
 
 49
-00:02:55.150 --> 00:02:56.755
+00:02:55.283 --> 00:02:56.888
 It's a surprise machine.
 
 50
-00:02:56.755 --> 00:03:05.716
+00:02:56.888 --> 00:03:05.849
 So the compiler checks every member that outside code can call, and refuses the slot: T is declared out, but occurs in an in position.
 
 51
-00:03:06.600 --> 00:03:07.467
+00:03:06.767 --> 00:03:07.634
 Now the name.
 
 52
-00:03:07.467 --> 00:03:08.734
+00:03:07.634 --> 00:03:08.901
 This is covariance.
 
 53
-00:03:08.734 --> 00:03:16.537
+00:03:08.901 --> 00:03:16.703
 Co means together: the subtype arrow between the element types carries over to the dispensers, in the same direction.
 
 54
-00:03:16.537 --> 00:03:22.005
+00:03:16.703 --> 00:03:22.172
 Apple is a subtype of Fruit, so Dispenser&lt;Apple&gt; is a subtype of Dispenser&lt;Fruit&gt;.
 
 55
-00:03:22.005 --> 00:03:25.940
+00:03:22.172 --> 00:03:26.107
 And a type that only hands values out is called a producer.
 
 56
-00:03:26.867 --> 00:03:29.223
+00:03:27.033 --> 00:03:29.390
 Java has no out on a declaration.
 
 57
-00:03:29.223 --> 00:03:38.006
-Its Dispenser stays invariant, so every method that wants the flexible behavior says so where it's used, with a wildcard: ?
+00:03:29.390 --> 00:03:41.386
+Its Dispenser stays invariant, so every method that wants the flexible behavior says so where it's used, with a wildcard: ? extends Fruit, meaning some subtype of Fruit.
 
 58
-00:03:38.006 --> 00:03:41.219
-extends Fruit, meaning some subtype of Fruit.
-
-59
-00:03:41.219 --> 00:03:47.217
+00:03:41.386 --> 00:03:47.384
 Forget it, and javac says: Dispenser&lt;Apple&gt; cannot be converted to Dispenser&lt;Fruit&gt;.
 
-60
-00:03:48.133 --> 00:03:50.863
+59
+00:03:48.300 --> 00:03:51.029
 That's the difference between the two styles.
 
-61
-00:03:50.863 --> 00:03:53.592
+60
+00:03:51.029 --> 00:03:53.758
 Kotlin puts the sticker on the machine, once.
 
-62
-00:03:53.592 --> 00:03:59.656
+61
+00:03:53.758 --> 00:03:59.823
 Java hands every customer a note to carry in their pocket, and anyone who forgets it is turned away.
 
-63
-00:03:59.656 --> 00:04:03.477
+62
+00:03:59.823 --> 00:04:03.644
 The names are declaration-site variance, and use-site variance.
 
-64
-00:04:04.400 --> 00:04:05.532
+63
+00:04:04.567 --> 00:04:05.699
 And the guardrail.
 
-65
-00:04:05.532 --> 00:04:12.260
+64
+00:04:05.699 --> 00:04:12.427
 You can only make the out promise if it's true: T may appear only where values come out, like return types.
 
-66
-00:04:12.260 --> 00:04:15.153
+65
+00:04:12.427 --> 00:04:15.319
 And out doesn't mean read-only, or unchanging.
 
-67
-00:04:15.153 --> 00:04:18.359
+66
+00:04:15.319 --> 00:04:18.526
 Every pull still takes an apple out of the machine.
 
-68
-00:04:18.359 --> 00:04:20.497
+67
+00:04:18.526 --> 00:04:20.664
 The end of this lesson shows that.
 
-69
-00:04:21.400 --> 00:04:24.412
+68
+00:04:21.567 --> 00:04:24.579
 So, why couldn't the compiler see there's no slot?
 
-70
-00:04:24.412 --> 00:04:27.726
+69
+00:04:24.579 --> 00:04:27.893
 Because it trusts what you declare, not what you meant.
 
-71
-00:04:27.726 --> 00:04:32.727
+70
+00:04:27.893 --> 00:04:32.893
 Say out, and an apple dispenser is a fruit dispenser, because only apples come out.
 
-72
-00:04:32.867 --> 00:04:33.756
+71
+00:04:33.100 --> 00:04:33.989
 Quick check.
 
-73
-00:04:33.756 --> 00:04:38.128
+72
+00:04:33.989 --> 00:04:38.361
 Inside Dispenser&lt;out T&gt;, which of these two lines compiles?
 
-74
-00:04:41.333 --> 00:04:42.466
+73
+00:04:41.533 --> 00:04:42.666
 Only val latest.
 
-75
-00:04:42.466 --> 00:04:45.653
+74
+00:04:42.666 --> 00:04:45.853
 A val only has a getter, so T only comes out.
 
-76
-00:04:45.653 --> 00:04:53.300
+75
+00:04:45.853 --> 00:04:53.500
 A var also has a setter, a slot, so T would go in too: the compiler says it occurs in an invariant position.

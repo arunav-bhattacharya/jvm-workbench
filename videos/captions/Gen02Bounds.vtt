@@ -53,333 +53,329 @@ That works because toString, hashCode and equals exist on every type.
 In Kotlin, the type that covers every value, null included, is Any?.
 
 14
-00:00:47.913 --> 00:00:49.763
-A plain T can do what Any?
+00:00:47.913 --> 00:00:51.541
+A plain T can do what Any? can do, and nothing more.
 
 15
-00:00:49.763 --> 00:00:51.541
-can do, and nothing more.
-
-16
 00:00:52.467 --> 00:00:54.912
 Now ask for something more specific.
 
-17
+16
 00:00:54.912 --> 00:00:56.950
 lengthOf returns x dot length.
 
-18
+17
 00:00:56.950 --> 00:01:00.075
 Every caller you have in mind passes a String.
 
-19
+18
 00:01:00.075 --> 00:01:01.162
 Does it compile?
 
-20
+19
 00:01:01.162 --> 00:01:02.249
 Pause and guess.
 
-21
+20
 00:01:05.233 --> 00:01:07.364
 No: unresolved reference, length.
 
-22
+21
 00:01:07.364 --> 00:01:09.366
 The compiler isn't being fussy.
 
-23
+22
 00:01:09.366 --> 00:01:13.370
 Someone could call lengthOf with 42, and an Int has no length.
 
-24
+23
 00:01:13.370 --> 00:01:20.151
 A generic function must work for every type a caller may pick, so it can only use what all of them share.
 
-25
+24
 00:01:21.067 --> 00:01:23.914
 Comparing fails too, with a stranger message.
 
-26
+25
 00:01:23.914 --> 00:01:28.850
 Write a greater than b on two T's, and Kotlin talks about compareTo on String.
 
-27
+26
 00:01:28.850 --> 00:01:30.559
 You never mentioned String.
 
-28
+27
 00:01:30.767 --> 00:01:36.693
 It's like asking the clerk for a ripe apple, and hearing that the paper bags are the wrong shape.
 
-29
+28
 00:01:36.693 --> 00:01:37.671
 A roundabout no.
 
-30
+29
 00:01:37.671 --> 00:01:42.925
 So when an error names some other type's method, read it as: this isn't defined for T.
 
-31
+30
 00:01:43.833 --> 00:01:45.232
 Back to the storeroom.
 
-32
+31
 00:01:45.232 --> 00:01:47.457
 One box carries a sign: fruit only.
 
-33
+32
 00:01:47.457 --> 00:01:50.509
 The sign shuts out the hammer and the till roll.
 
-34
+33
 00:01:50.509 --> 00:01:59.028
 In return, whoever unpacks the box knows something about every item in it: each one has a weight, so it can go straight on the scales.
 
-35
+34
 00:01:59.233 --> 00:02:00.117
 Let's map it.
 
-36
+35
 00:02:00.117 --> 00:02:05.761
 The sign is a bound on T, written T : Fruit in Kotlin, and T extends Fruit in Java.
 
-37
+36
 00:02:05.761 --> 00:02:09.501
 The hammer at the door is a caller the bound shuts out.
 
-38
+37
 00:02:09.501 --> 00:02:14.193
 And the scales are the function's body, which may now use the weight.
 
-39
+38
 00:02:15.100 --> 00:02:17.154
 Here's the shop's fruit in code.
 
-40
+39
 00:02:17.154 --> 00:02:20.749
 Fruit is an interface with a name and a weight in grams.
 
-41
+40
 00:02:20.749 --> 00:02:23.766
 Apple is a small data class that implements it.
 
-42
+41
 00:02:23.766 --> 00:02:28.645
 heavier takes two T's, where T must be a Fruit, and returns the heavier one.
 
-43
+42
 00:02:28.645 --> 00:02:33.267
 Inside, a dot grams compiles, because every T is now some kind of Fruit.
 
-44
+43
 00:02:33.500 --> 00:02:37.468
 Two apples: Gala at 180 grams, and Fuji at 150.
 
-45
+44
 00:02:37.468 --> 00:02:40.170
 The demo prints Gala, 180 grams.
 
-46
+45
 00:02:40.170 --> 00:02:41.521
 And two strings?
 
-47
+46
 00:02:41.521 --> 00:02:47.431
 Argument type mismatch: actual type is String, but Fruit was expected.
 
-48
+47
 00:02:47.431 --> 00:02:50.301
 The sign did its job, at the door.
 
-49
+48
 00:02:51.233 --> 00:02:53.596
 You might be thinking: why a T at all?
 
-50
+49
 00:02:53.596 --> 00:02:56.767
 Just take two Fruit parameters, and return a Fruit.
 
-51
+50
 00:02:56.767 --> 00:02:59.253
 Fewer angle brackets, same thing, right?
 
-52
+51
 00:02:59.467 --> 00:03:01.085
 Let's be fair, and try it.
 
-53
+52
 00:03:01.085 --> 00:03:03.574
 Two apples go in, and a Fruit comes out.
 
-54
+53
 00:03:03.574 --> 00:03:08.801
 To get your Apple back, you'd need a cast: the very thing the last lesson took away.
 
-55
+54
 00:03:08.801 --> 00:03:11.291
 With T, two apples in give an Apple out.
 
-56
+55
 00:03:12.200 --> 00:03:15.350
 The most common bound isn't a class you wrote.
 
-57
+56
 00:03:15.350 --> 00:03:16.445
 It's Comparable.
 
-58
+57
 00:03:16.445 --> 00:03:22.196
 Read T : Comparable&lt;T&gt; aloud as: T is something that can be compared with another T.
 
-59
+58
 00:03:22.196 --> 00:03:26.989
 Now a greater than b compiles, because the bound promises a compareTo.
 
-60
+59
 00:03:27.200 --> 00:03:29.388
 So 180 and 150 give 180.
 
-61
+60
 00:03:29.388 --> 00:03:35.768
 And Gala and Fuji give Gala, the one that comes later in the alphabet.
 
-62
+61
 00:03:36.000 --> 00:03:38.262
 Now hand maxOf2 two apples.
 
-63
+62
 00:03:38.262 --> 00:03:39.351
 What happens?
 
-64
+63
 00:03:39.351 --> 00:03:40.692
 Pause and guess.
 
-65
+64
 00:03:44.267 --> 00:03:48.798
 It fails: actual type is Apple, but a Comparable was expected.
 
-66
+65
 00:03:48.798 --> 00:03:50.771
 Apple has no natural order.
 
-67
+66
 00:03:50.771 --> 00:03:53.402
 Should two apples compare by weight?
 
-68
+67
 00:03:53.402 --> 00:03:53.987
 By name?
 
-69
+68
 00:03:53.987 --> 00:03:54.644
 By price?
 
-70
+69
 00:03:54.644 --> 00:03:58.664
 The compiler refuses to pick favorites, and it's right.
 
-71
+70
 00:03:59.567 --> 00:04:00.478
 So you choose.
 
-72
+71
 00:04:00.478 --> 00:04:03.669
 Make Apple a Comparable of Apple, by weight, say.
 
-73
+72
 00:04:03.669 --> 00:04:11.875
 Or, usually better, keep Apple plain, and pass a Comparator, a small object that compares two values, where you need an order.
 
-74
+73
 00:04:12.800 --> 00:04:15.051
 The sign picture breaks in one place.
 
-75
+74
 00:04:15.051 --> 00:04:19.250
 A real fruit only sign is checked by a person, who looks at the item.
 
-76
+75
 00:04:19.250 --> 00:04:22.170
 The compiler only trusts what the types declare.
 
-77
+76
 00:04:22.170 --> 00:04:27.099
 A class with a grams property that doesn't say it's a Fruit is still turned away.
 
-78
+77
 00:04:28.000 --> 00:04:28.855
 Now the name.
 
-79
+78
 00:04:28.855 --> 00:04:34.311
 A sign like this is called an upper bound: T must be this type, or a subtype of it.
 
-80
+79
 00:04:34.311 --> 00:04:40.227
 For now, read subtype as a class that inherits from it, the way Apple inherits from Fruit.
 
-81
+80
 00:04:40.227 --> 00:04:42.725
 The next lesson makes that word exact.
 
-82
+81
 00:04:43.633 --> 00:04:44.822
 And the guardrail.
 
-83
+82
 00:04:44.822 --> 00:04:48.652
 A bound shuts some callers out, and lets the body do more.
 
-84
+83
 00:04:48.652 --> 00:04:51.161
 So ask for exactly what the body uses.
 
-85
+84
 00:04:51.161 --> 00:04:54.463
 Every extra demand turns callers away for nothing.
 
-86
+85
 00:04:54.463 --> 00:05:01.331
 Later in this lesson, a where clause asks for two things at once, and T : Any keeps null out of the box.
 
-87
+86
 00:05:02.233 --> 00:05:04.877
 So, why can't a plain T tell you its weight?
 
-88
+87
 00:05:04.877 --> 00:05:07.701
 Because the compiler doesn't know your callers.
 
-89
+88
 00:05:07.701 --> 00:05:09.143
 It only knows the label.
 
-90
+89
 00:05:09.143 --> 00:05:13.289
 Put a sign on the label, and the body may use what the sign promises.
 
-91
+90
 00:05:13.500 --> 00:05:14.466
 Quick check.
 
-92
+91
 00:05:14.466 --> 00:05:16.880
 maxOf2 of 1, and the string a.
 
-93
+92
 00:05:16.880 --> 00:05:18.490
 Both are comparable.
 
-94
+93
 00:05:18.490 --> 00:05:19.777
 Does it compile?
 
-95
+94
 00:05:22.967 --> 00:05:23.197
 No.
 
-96
+95
 00:05:23.197 --> 00:05:29.956
 One T can't be an Int and a String at once: actual type is String, but Int was expected.
