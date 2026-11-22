@@ -184,7 +184,7 @@
       "slug": "gen10-recursive",
       "lesson": "gen-10",
       "section": 0,
-      "title": "A base-class setter forgets the subclass; with B : Builder<B> each subclass writes its own name into the blank, so amount returns it and the chain keeps cardToken"
+      "title": "A base-class setter forgets the subclass; with B : Builder<B> each kind of form writes its own name in the blank, so grams returns a GiftBoxBuilder and the chain keeps ribbon"
     },
     {
       "slug": "pat02-factory",
@@ -208,7 +208,7 @@
       "slug": "gen09-tokens",
       "lesson": "gen-09",
       "section": 0,
-      "title": "An object carries only its class: KClass and Class are two views of it, and only a KType, written by the compiler at a call site, keeps the type arguments"
+      "title": "An object knows only its class: KClass and Class are one note on two kinds of paper, and only a KType, written by the compiler at a call site, keeps the whole label"
     },
     {
       "slug": "pat01-singleton",

@@ -1,129 +1,373 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:04.064
-Here are two lists.
+00:00:02.700 --> 00:00:06.870
+Every box that comes into the storeroom passes the clerk at the door.
 
 2
-00:00:04.064 --> 00:00:05.642
-One holds payment ids.
+00:00:06.870 --> 00:00:12.491
+The clerk reads its label, box of apples, checks that only apples go in, and nods it through.
 
 3
-00:00:05.642 --> 00:00:08.011
-The other holds amounts in cents.
+00:00:12.491 --> 00:00:16.117
+Then, as you've heard before, the clerk tears the label off.
 
 4
-00:00:08.233 --> 00:00:10.928
-The compiler checks them as two different types.
+00:00:16.333 --> 00:00:20.399
+On the shelves, a box of apples and a box of lemons look alike.
 
 5
-00:00:11.533 --> 00:00:14.022
-Then it erases the type arguments.
+00:00:20.399 --> 00:00:24.465
+That's fine, until someone asks a box: are you a box of apples?
 
 6
-00:00:14.022 --> 00:00:18.779
-At run time both objects are the same class, java.util.ArrayList.
+00:00:24.465 --> 00:00:26.401
+There's no label left to read.
 
 7
-00:00:19.000 --> 00:00:21.068
-Nothing in the object says String.
+00:00:27.333 --> 00:00:30.365
+In code, that tearing off is called type erasure.
 
 8
-00:00:21.068 --> 00:00:24.475
-Ask each one for its class, and you get the same answer.
+00:00:30.365 --> 00:00:35.563
+The compiler checks every type argument, then leaves it out of the compiled program.
 
 9
-00:00:25.300 --> 00:00:27.752
-So a check like x is T can't compile.
+00:00:35.563 --> 00:00:39.895
+At run time, a list of names and a list of weights are the same class.
 
 10
-00:00:27.752 --> 00:00:30.668
-At run time, there is no T to check against.
+00:00:39.895 --> 00:00:42.741
+The demo prints: same class at run time, true.
 
 11
-00:00:31.400 --> 00:00:33.533
-Kotlin has one way around this.
+00:00:42.967 --> 00:00:45.565
+So a type check can only test the class.
 
 12
-00:00:33.533 --> 00:00:35.253
-Mark the function inline.
+00:00:45.565 --> 00:00:51.995
+Ask whether something is a List&lt;String&gt;, and Kotlin says: cannot check for instance of erased type.
 
 13
-00:00:35.467 --> 00:00:37.668
-Now the compiler does not call it.
+00:00:51.995 --> 00:00:57.451
+Ask whether it is T, inside an ordinary generic function, and it fails the same way.
 
 14
-00:00:37.668 --> 00:00:40.259
-It copies its body into every call site.
+00:00:58.367 --> 00:01:01.404
+Here's a question that's easy to be shy about.
 
 15
-00:00:40.467 --> 00:00:44.701
-At each call site, the type argument is right there in the code.
+00:01:01.404 --> 00:01:05.762
+When I call isA&lt;Apple&gt;, I typed Apple right there, in plain sight.
 
 16
-00:00:44.701 --> 00:00:45.892
-Here it is String.
+00:01:05.762 --> 00:01:07.083
+The compiler saw it.
 
 17
-00:00:45.892 --> 00:00:46.951
-Here it is Long.
+00:01:07.083 --> 00:01:08.337
+So where did it go?
 
 18
-00:00:47.567 --> 00:00:52.608
-Mark T reified, and the compiler writes that real class into each copy.
+00:01:08.337 --> 00:01:11.243
+Why can't my function just ask T what it is?
 
 19
-00:00:52.833 --> 00:00:55.882
-Here is javap on the compiled check function.
+00:01:12.333 --> 00:01:14.464
+Picture a second clerk at the door.
 
 20
-00:00:55.882 --> 00:00:57.508
-There is no call to isA.
+00:01:14.464 --> 00:01:17.386
+This one knows the labels are about to come off.
 
 21
-00:00:57.508 --> 00:01:03.605
-There is an instanceof String, and an instanceof Long, right in the caller's own bytecode.
+00:01:17.386 --> 00:01:23.718
+So before a label goes, the clerk copies it onto a note, and pins the note to the job: this job, apples.
 
 22
-00:01:04.433 --> 00:01:07.247
-The standard library uses the same trick.
+00:01:23.718 --> 00:01:28.040
+When the job reaches the shop floor, whoever does it can read the note.
 
 23
-00:01:07.247 --> 00:01:09.375
-Here is a list of mixed values.
+00:01:28.967 --> 00:01:31.898
+Kotlin's version of that clerk has two parts.
 
 24
-00:01:09.600 --> 00:01:15.751
-filterIsInstance of String keeps only the strings, with a real instanceof check on each one.
+00:01:31.898 --> 00:01:33.201
+The first is inline.
 
 25
-00:01:16.567 --> 00:01:17.900
-It needs both words.
+00:01:33.201 --> 00:01:38.738
+Normally a function has one shared body, compiled once, and every caller jumps to it.
 
 26
-00:01:17.900 --> 00:01:24.900
-Without inline, there is one compiled body for every caller, so there is nowhere to write the real class.
+00:01:38.738 --> 00:01:43.884
+Mark it inline, and the compiler copies the body into each place that calls it.
 
 27
-00:01:25.133 --> 00:01:27.363
-And the caller must know the type.
+00:01:44.100 --> 00:01:47.654
+And at each of those places, the type argument is known.
 
 28
-00:01:27.363 --> 00:01:31.035
-A generic caller with a plain T has no class to copy in.
+00:01:47.654 --> 00:01:52.732
+A call like isA&lt;Apple&gt; is being compiled right there, with Apple in plain sight.
 
 29
-00:01:31.767 --> 00:01:34.383
-Java has no reified type parameters.
+00:01:52.933 --> 00:01:54.696
+The second part is reified.
 
 30
-00:01:34.383 --> 00:01:38.671
-The closest Java gets is to pass the Class object yourself.
+00:01:54.696 --> 00:01:59.463
+It sounds like something a doctor would say, but it just means made real.
 
 31
-00:01:38.900 --> 00:01:43.740
-In Kotlin you name the type at the call, and the compiler fills in the class.
+00:01:59.463 --> 00:02:05.014
+Mark T reified, and the compiler writes the caller's real class into the copied body.
 
 32
-00:01:43.740 --> 00:01:45.185
-Both calls return true.
+00:02:05.014 --> 00:02:06.059
+That's the note.
+
+33
+00:02:06.967 --> 00:02:07.779
+Here it is.
+
+34
+00:02:07.779 --> 00:02:13.684
+isA is an inline function with a reified T, and its body is one line: this is T.
+
+35
+00:02:13.684 --> 00:02:20.107
+Java has no such clerk, so it passes the class by hand: a Class object, and isInstance.
+
+36
+00:02:21.033 --> 00:02:23.381
+Now watch what happens to the call.
+
+37
+00:02:23.381 --> 00:02:26.199
+gala dot isA&lt;Apple&gt; isn't a call any more.
+
+38
+00:02:26.199 --> 00:02:30.090
+The body is copied into the caller, with Apple written in.
+
+39
+00:02:30.090 --> 00:02:34.585
+In the caller's own bytecode, it has become: gala instanceof Apple.
+
+40
+00:02:34.585 --> 00:02:36.597
+A real check, on a real class.
+
+41
+00:02:37.500 --> 00:02:43.002
+So let's sort a mixed delivery: two apples, a lemon, a paper bag, and a null.
+
+42
+00:02:43.002 --> 00:02:44.216
+Is Gala an apple?
+
+43
+00:02:44.216 --> 00:02:45.002
+Is the bag?
+
+44
+00:02:45.002 --> 00:02:49.575
+And filterIsInstance, from the standard library, is reified too.
+
+45
+00:02:49.575 --> 00:02:50.861
+What does it keep?
+
+46
+00:02:50.861 --> 00:02:52.004
+Pause and guess.
+
+47
+00:02:55.200 --> 00:02:58.305
+The demo prints: Gala isA&lt;Apple&gt;, true.
+
+48
+00:02:58.305 --> 00:02:59.499
+The bag, false.
+
+49
+00:02:59.499 --> 00:03:01.250
+Apples: Gala and Fuji.
+
+50
+00:03:01.250 --> 00:03:02.444
+Lemons: Eureka.
+
+51
+00:03:02.444 --> 00:03:05.708
+The bag and the null are simply left out.
+
+52
+00:03:06.633 --> 00:03:07.519
+Let's map it.
+
+53
+00:03:07.519 --> 00:03:09.563
+The torn-off label is erasure.
+
+54
+00:03:09.563 --> 00:03:12.969
+The note is the real class, written into the copy.
+
+55
+00:03:12.969 --> 00:03:17.193
+Pinning the note to the job is inline: one copy for each call.
+
+56
+00:03:17.193 --> 00:03:21.280
+And reified is the clerk's habit of copying the label first.
+
+57
+00:03:22.200 --> 00:03:23.806
+Now let's be skeptical.
+
+58
+00:03:23.806 --> 00:03:28.622
+If inline already copies the body into the caller, isn't that enough?
+
+59
+00:03:28.622 --> 00:03:29.949
+Why the extra word?
+
+60
+00:03:29.949 --> 00:03:33.020
+Remove reified, keep inline, and compile it.
+
+61
+00:03:33.020 --> 00:03:34.137
+Pause and guess.
+
+62
+00:03:37.333 --> 00:03:41.511
+It doesn't compile: cannot check for instance of erased type T.
+
+63
+00:03:41.511 --> 00:03:45.026
+Copying the body isn't the same as copying the label.
+
+64
+00:03:45.026 --> 00:03:49.137
+Without reified, the copy still says T, and T is still erased.
+
+65
+00:03:49.137 --> 00:03:53.381
+So you need both: a copy for each call, and a note on each copy.
+
+66
+00:03:54.300 --> 00:03:56.949
+The other rules follow from the picture.
+
+67
+00:03:56.949 --> 00:03:58.473
+Reified without inline?
+
+68
+00:03:58.473 --> 00:04:02.181
+Only type parameters of inline functions can be reified.
+
+69
+00:04:02.181 --> 00:04:05.228
+That's a clerk with no job to pin the note to.
+
+70
+00:04:05.433 --> 00:04:07.246
+And this one matters most.
+
+71
+00:04:07.246 --> 00:04:12.477
+A generic function with an ordinary T tries to pass it along: x dot isA&lt;T&gt;.
+
+72
+00:04:12.477 --> 00:04:16.103
+Kotlin says: cannot use T as reified type parameter.
+
+73
+00:04:16.103 --> 00:04:17.498
+Use a class instead.
+
+74
+00:04:17.498 --> 00:04:23.216
+That caller's own label is already gone, so there's nothing to copy onto the note.
+
+75
+00:04:23.433 --> 00:04:25.708
+So the requirement spreads upward.
+
+76
+00:04:25.708 --> 00:04:32.129
+The caller must be inline with a reified T too, or it must pass a real class, the way Java does.
+
+77
+00:04:33.033 --> 00:04:35.576
+Now the names, in one breath each.
+
+78
+00:04:35.576 --> 00:04:40.213
+inline copies a function's body into each place that calls it.
+
+79
+00:04:40.213 --> 00:04:44.252
+reified writes the caller's real class into that copy.
+
+80
+00:04:44.252 --> 00:04:49.487
+Inside, you get back what erasure took away: is T, as T, and T::class.
+
+81
+00:04:50.400 --> 00:04:53.806
+And the guardrail: the note has room for one word.
+
+82
+00:04:53.806 --> 00:05:02.797
+filterIsInstance of List&lt;String&gt; keeps every list, even a list of weights, because after inlining the check is only instanceof List.
+
+83
+00:05:02.797 --> 00:05:04.636
+The demo prints both lists.
+
+84
+00:05:04.636 --> 00:05:09.200
+So use reified for the outer class: checks, casts and class tokens.
+
+85
+00:05:10.100 --> 00:05:11.628
+So, where did Apple go?
+
+86
+00:05:11.628 --> 00:05:14.749
+The compiler saw it, checked it, and erased it.
+
+87
+00:05:14.749 --> 00:05:21.391
+Make the function inline and T reified, and the compiler copies the label onto a note at every call.
+
+88
+00:05:21.391 --> 00:05:24.313
+Ask T what it is, and it can finally answer.
+
+89
+00:05:24.533 --> 00:05:25.389
+Quick check.
+
+90
+00:05:25.389 --> 00:05:30.882
+nameOf is inline, with a reified T, and returns the simple name of T's class.
+
+91
+00:05:30.882 --> 00:05:33.023
+What does nameOf&lt;Lemon&gt; print?
+
+92
+00:05:36.200 --> 00:05:36.611
+Lemon.
+
+93
+00:05:36.611 --> 00:05:41.205
+The note at that call says Lemon, and the demo prints exactly that.

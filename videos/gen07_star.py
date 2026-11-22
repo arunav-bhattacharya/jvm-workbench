@@ -520,8 +520,10 @@ class Gen07StarProjection(Narrated):
         things = VGroup(pencil(0.8), vchip("3", NUM, 22), vchip("null", GREY_B, 22)).arrange(RIGHT, buff=0.35).move_to([2.6, 1.0, 0])
         self.say("drawer")
         self.play(Create(floor), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(dl, shift=UP * 0.1), run_time=0.5)
         self.at(2)
-        self.play(FadeIn(dw), Create(legs), FadeIn(dl), run_time=0.7)
+        self.play(FadeIn(dw), Create(legs), run_time=0.7)
         self.at(3)
         self.play(LaggedStart(*[FadeIn(t, shift=DOWN * 0.1) for t in things], lag_ratio=0.4), run_time=1.2)
         self.at(4)
@@ -554,7 +556,7 @@ class Gen07StarProjection(Narrated):
 
         FL = -2.3
         floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
-        dw = drawer(0.9).move_to([-3.4, FL + 0.8, 0])
+        dw = drawer(0.9).move_to([-3.4, FL + 0.56, 0])
         wb = worn_box(2.4, 1.5).move_to([3.4, FL + 0.75, 0])
         dh = VGroup(T("the drawer", 26, WHITE), M("MutableList<Any?>", 24, GREY_A)).arrange(DOWN, buff=0.1).move_to([-3.4, 2.7, 0])
         wh = VGroup(T("the worn box", 26, WHITE), M("MutableList<*>", 24, YELLOW_M)).arrange(DOWN, buff=0.1).move_to([3.4, 2.7, 0])
