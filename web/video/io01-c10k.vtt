@@ -1,125 +1,357 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.511
-A card terminal keeps a connection to your server open, and sends one request every ten seconds.
+00:00:02.700 --> 00:00:05.033
+Picture a post office with an odd rule.
 
 2
-00:00:08.511 --> 00:00:11.417
-The server gives that connection its own thread.
+00:00:05.033 --> 00:00:09.817
+Every customer who walks in gets a clerk of their own, for as long as they stay.
 
 3
-00:00:11.417 --> 00:00:13.536
-What does the thread do in between?
+00:00:10.033 --> 00:00:14.993
+The clerk hands over a form, and waits at the counter while the customer fills it in.
 
 4
-00:00:13.767 --> 00:00:17.861
-One level down, the kernel keeps a receive buffer for each socket.
+00:00:14.993 --> 00:00:20.419
+Some customers stay at the counter when they're done, in case another question comes to mind.
 
 5
-00:00:17.861 --> 00:00:20.777
-The thread calls read, and the buffer is empty.
+00:00:20.419 --> 00:00:21.936
+And their clerk waits too.
 
 6
-00:00:20.777 --> 00:00:25.925
-So the kernel takes the thread off the CPU, and parks it on the socket's wait list.
+00:00:22.167 --> 00:00:26.198
+On a busy day, ten thousand customers need ten thousand clerks.
 
 7
-00:00:26.133 --> 00:00:27.158
-A packet arrives.
+00:00:26.198 --> 00:00:27.862
+The hiring is going great.
 
 8
-00:00:27.158 --> 00:00:32.223
-The kernel puts its bytes in the buffer and wakes the thread, and read returns them.
+00:00:27.862 --> 00:00:31.061
+And nearly all of those clerks are standing still.
 
 9
-00:00:32.223 --> 00:00:36.564
-The thread replies, calls read again, and parks for another ten seconds.
+00:00:31.267 --> 00:00:34.243
+So here's a question that's easy to be shy about.
 
 10
-00:00:36.767 --> 00:00:40.861
-It's a real OS thread, with its own stack of about a megabyte.
+00:00:34.243 --> 00:00:37.523
+A thread that waits for a client isn't doing anything.
 
 11
-00:00:40.861 --> 00:00:46.209
-And a thread dump calls it RUNNABLE, because the JVM sees it running native code.
+00:00:37.523 --> 00:00:39.649
+So it doesn't cost anything, right?
 
 12
-00:00:47.133 --> 00:00:52.453
-Now ten thousand terminals connect, and each request takes 150 milliseconds.
+00:00:43.333 --> 00:00:50.956
+First, let's map the post office onto a server: a program that waits for clients to connect and ask for something.
 
 13
-00:00:52.453 --> 00:00:55.253
-How many threads are busy at any moment?
+00:00:50.956 --> 00:00:52.494
+Ours is an echo server.
 
 14
-00:00:58.033 --> 00:01:00.674
-That's a thousand requests a second.
+00:00:52.494 --> 00:00:54.767
+It sends every line straight back.
 
 15
-00:01:00.674 --> 00:01:04.489
-Times 0.15 seconds, Little's law says 150 in flight.
+00:00:54.767 --> 00:00:55.904
+Return to sender.
 
 16
-00:01:04.489 --> 00:01:10.725
-But the server holds ten thousand threads, and almost all of them sit parked in read.
+00:00:56.433 --> 00:00:58.097
+The customer is the client.
 
 17
-00:01:10.933 --> 00:01:17.745
-In 1999, Dan Kegel called this the C10K problem: ten thousand clients at once.
+00:00:58.097 --> 00:01:00.685
+A customer at the counter is a connection.
 
 18
-00:01:17.967 --> 00:01:23.549
-The way out: make the sockets non-blocking, so a read on an empty buffer returns at once.
+00:01:00.685 --> 00:01:04.259
+The clerk is a thread, a path of work through the program.
 
 19
-00:01:23.549 --> 00:01:27.751
-Then one thread asks the kernel: which sockets are ready right now?
+00:01:04.259 --> 00:01:09.004
+And waiting for the form is readLine, which waits for the client's next line.
 
 20
-00:01:27.967 --> 00:01:33.242
-select and poll take the whole list on every call, which gets slow with thousands.
+00:01:09.233 --> 00:01:17.688
+And the odd rule, a clerk for every customer, is called thread-per-connection: one thread for every open connection, busy or not.
 
 21
-00:01:33.242 --> 00:01:38.647
-epoll and kqueue keep the list inside the kernel, and hand back only the ready ones.
+00:01:18.600 --> 00:01:20.352
+Now let's go one level down.
 
 22
-00:01:38.867 --> 00:01:41.659
-The thread serves those, then asks again.
+00:01:20.352 --> 00:01:28.800
+The core of the operating system, the kernel, keeps a receive buffer for every socket, the handle a program reads a connection through.
 
 23
-00:01:41.659 --> 00:01:43.090
-That's an event loop.
+00:01:28.800 --> 00:01:32.743
+It holds bytes that have arrived, but that nobody has read yet.
 
 24
-00:01:43.090 --> 00:01:45.201
-Its price: it must never block.
+00:01:32.967 --> 00:01:35.706
+The thread calls read, and the buffer is empty.
 
 25
-00:01:46.133 --> 00:01:50.215
-Here is the line that parks a thread, in Java and in Kotlin.
+00:01:35.706 --> 00:01:40.895
+So the kernel takes the thread off the processor, and parks it on the socket's wait list.
 
 26
-00:01:52.600 --> 00:01:56.339
-So a blocking read holds a whole thread for the whole wait.
+00:01:41.100 --> 00:01:42.547
+Later, a packet arrives.
 
 27
-00:01:56.339 --> 00:02:00.711
-Thread-per-connection needs one thread per open socket, busy or idle.
+00:01:42.547 --> 00:01:47.672
+The kernel puts its bytes in the buffer, and wakes the thread, and read returns them.
 
 28
-00:02:00.711 --> 00:02:03.372
-Readiness lets one thread watch thousands.
+00:01:47.672 --> 00:01:51.893
+A call that makes its thread wait like this is called a blocking call.
 
 29
-00:02:03.600 --> 00:02:04.392
-Quick check.
+00:01:52.100 --> 00:01:59.723
+And a keep-alive connection, the customer who stays at the counter between requests, sends the thread straight back to the wait list.
 
 30
-00:02:04.392 --> 00:02:10.790
-Five hundred terminals each send one request every five seconds, and each takes 100 milliseconds.
+00:02:00.633 --> 00:02:02.844
+So what does a waiting clerk cost?
 
 31
-00:02:10.790 --> 00:02:15.737
-How many threads does the server hold, and how many requests are in flight?
+00:02:02.844 --> 00:02:10.714
+Each one is a platform thread, a thin Java wrapper around one operating system thread, with its own stack of about 1 MiB.
+
+32
+00:02:10.714 --> 00:02:13.965
+And the operating system keeps track of every one.
+
+33
+00:02:14.867 --> 00:02:18.464
+The lesson's ThreadPerConnectionDemo puts numbers on it.
+
+34
+00:02:18.464 --> 00:02:22.060
+It connects 2,000 clients that never send a single byte.
+
+35
+00:02:22.060 --> 00:02:25.079
+How many platform threads does the server hold?
+
+36
+00:02:25.079 --> 00:02:28.291
+And what does the JVM say those threads are doing?
+
+37
+00:02:31.467 --> 00:02:32.593
+Here's one run.
+
+38
+00:02:32.593 --> 00:02:38.600
+6 platform threads before, 2,007 after: one for each client, plus the JVM's own.
+
+39
+00:02:38.600 --> 00:02:44.607
+Two thousand customers, two thousand clerks, and not one of them doing anything.
+
+40
+00:02:44.833 --> 00:02:48.039
+And the state of a handler stuck in read?
+
+41
+00:02:48.039 --> 00:02:48.743
+RUNNABLE.
+
+42
+00:02:48.743 --> 00:02:49.682
+Not waiting.
+
+43
+00:02:49.682 --> 00:02:50.385
+RUNNABLE.
+
+44
+00:02:51.300 --> 00:02:53.543
+Here the post office picture breaks.
+
+45
+00:02:53.543 --> 00:02:57.156
+In a real post office, you can see a clerk standing still.
+
+46
+00:02:57.156 --> 00:03:03.821
+But the JVM sees a thread inside the operating system's read, and it can't tell waiting from working there.
+
+47
+00:03:04.033 --> 00:03:10.865
+So a thread dump, the JVM's snapshot of every thread, lists every clerk of an idle server as RUNNABLE.
+
+48
+00:03:10.865 --> 00:03:14.281
+It's a time sheet where everybody wrote: very busy.
+
+49
+00:03:14.281 --> 00:03:15.889
+So don't trust the word.
+
+50
+00:03:15.889 --> 00:03:17.095
+Count the threads.
+
+51
+00:03:18.000 --> 00:03:20.196
+So the answer to our question is no.
+
+52
+00:03:20.196 --> 00:03:23.550
+A blocked read holds a whole thread for the whole wait.
+
+53
+00:03:23.550 --> 00:03:25.380
+Count the waits, not the work.
+
+54
+00:03:26.300 --> 00:03:27.685
+How bad does it get?
+
+55
+00:03:27.685 --> 00:03:29.694
+Picture ten thousand clients.
+
+56
+00:03:29.694 --> 00:03:37.312
+Each keeps a connection open and sends one request every ten seconds, and each request takes 150 milliseconds.
+
+57
+00:03:37.312 --> 00:03:40.705
+How many requests are being served at any moment?
+
+58
+00:03:43.900 --> 00:03:48.051
+Ten thousand every ten seconds is a thousand a second.
+
+59
+00:03:48.051 --> 00:03:50.433
+Times 0.15 seconds, that's 150.
+
+60
+00:03:50.433 --> 00:03:58.043
+This is Little's law: the number inside equals the rate they arrive, times how long each one stays.
+
+61
+00:03:58.267 --> 00:04:05.097
+But the server holds ten thousand threads, and 9,850 of them sit in read, waiting.
+
+62
+00:04:05.097 --> 00:04:13.427
+In the post office, 150 customers are being served, and 9,850 are standing at the counter, thinking.
+
+63
+00:04:14.333 --> 00:04:20.017
+In 1999, Dan Kegel called this the C10K problem: ten thousand clients at once.
+
+64
+00:04:20.017 --> 00:04:22.422
+The hardware could already do it.
+
+65
+00:04:22.422 --> 00:04:25.191
+The way servers used threads couldn't.
+
+66
+00:04:26.000 --> 00:04:27.990
+The answer was a new floor plan.
+
+67
+00:04:27.990 --> 00:04:32.095
+Each customer gets a box in the wall, with a small light above it.
+
+68
+00:04:32.095 --> 00:04:36.511
+A customer drops a form in whenever it's ready, and the light comes on.
+
+69
+00:04:36.511 --> 00:04:41.984
+One clerk watches the wall, serves only the boxes that are lit, and dozes when none are.
+
+70
+00:04:42.200 --> 00:04:48.625
+In code, each socket goes into non-blocking mode, so a read on an empty buffer returns at once.
+
+71
+00:04:48.625 --> 00:04:52.412
+Then one thread asks the kernel which sockets are ready.
+
+72
+00:04:52.412 --> 00:04:55.387
+Linux answers with epoll, macOS with kqueue.
+
+73
+00:04:55.387 --> 00:04:57.416
+That's readiness notification.
+
+74
+00:04:57.633 --> 00:05:03.338
+That clerk's day, wait for lights, serve each one a little, wait again, is called an event loop.
+
+75
+00:05:03.338 --> 00:05:08.804
+Its price: the clerk must never wait at any one box, because every other box would wait too.
+
+76
+00:05:09.733 --> 00:05:13.049
+Here's where the clerk waits, in Java and in Kotlin.
+
+77
+00:05:13.049 --> 00:05:14.835
+accept waits for a customer.
+
+78
+00:05:14.835 --> 00:05:16.876
+The pool gives each one a clerk.
+
+79
+00:05:16.876 --> 00:05:20.128
+And readLine is the clerk, standing at the counter.
+
+80
+00:05:21.033 --> 00:05:23.643
+So, does a waiting thread cost nothing?
+
+81
+00:05:23.643 --> 00:05:23.844
+No.
+
+82
+00:05:23.844 --> 00:05:31.808
+With thread-per-connection, every open connection holds a whole thread, idle or not, and it even calls itself RUNNABLE.
+
+83
+00:05:31.808 --> 00:05:34.820
+Count the connections, not just the requests.
+
+84
+00:05:35.033 --> 00:05:35.869
+Quick check.
+
+85
+00:05:35.869 --> 00:05:42.139
+6,000 parcel lockers each keep a connection open, and send a status line every 20 seconds.
+
+86
+00:05:42.139 --> 00:05:44.437
+Each line takes 150 milliseconds.
+
+87
+00:05:44.437 --> 00:05:49.801
+How many are in flight, and how many threads does thread-per-connection hold?
+
+88
+00:05:53.000 --> 00:05:57.290
+300 a second, times 0.15, is 45 in flight.
+
+89
+00:05:57.290 --> 00:06:04.747
+But the server holds 6,000 threads, so 5,955 of them are waiting in read.
