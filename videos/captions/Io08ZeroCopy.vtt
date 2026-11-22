@@ -1,19 +1,19 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.671
+00:00:02.700 --> 00:00:05.638
 Picture the loading dock behind our post office.
 
 2
-00:00:05.671 --> 00:00:10.016
+00:00:05.638 --> 00:00:09.983
 A van pulls up for a sack of parcels that's already packed and labeled.
 
 3
-00:00:10.016 --> 00:00:15.218
+00:00:09.983 --> 00:00:15.185
 Nobody carries that sack to the counter, unpacks it, repacks it, and carries it back.
 
 4
-00:00:15.218 --> 00:00:17.544
+00:00:15.185 --> 00:00:17.511
 The dock hands it straight to the van.
 
 5
@@ -33,333 +33,313 @@ We've all written it that way.
 So what could be wasteful about it?
 
 9
-00:00:29.400 --> 00:00:32.013
-Let's look at what that loop really does.
+00:00:29.467 --> 00:00:31.314
+Let's look inside that loop.
 
 10
-00:00:32.013 --> 00:00:35.328
+00:00:31.314 --> 00:00:34.745
 A socket is a program's end of a network connection.
 
 11
-00:00:35.328 --> 00:00:42.084
-The kernel, the core of the operating system, keeps recently used file pages in memory, in its page cache.
+00:00:34.745 --> 00:00:42.927
+The kernel, the core of the operating system, keeps recently used file pages in memory, in its page cache: our packed sacks.
 
 12
-00:00:42.084 --> 00:00:43.805
-Those are our packed sacks.
-
-13
-00:00:44.000 --> 00:00:45.331
+00:00:43.133 --> 00:00:44.464
 Your loop calls read.
 
-14
-00:00:45.331 --> 00:00:50.021
+13
+00:00:44.464 --> 00:00:49.154
 That's a system call: a switch from your program into the kernel and back.
 
-15
-00:00:50.021 --> 00:00:53.696
+14
+00:00:49.154 --> 00:00:52.830
 The kernel copies a chunk of the file up into your buffer.
 
-16
-00:00:53.696 --> 00:00:54.267
+15
+00:00:52.830 --> 00:00:53.400
 Copy one.
 
-17
-00:00:54.400 --> 00:00:55.748
+16
+00:00:53.633 --> 00:00:54.982
 Then you call write.
 
-18
-00:00:55.748 --> 00:01:02.423
+17
+00:00:54.982 --> 00:01:01.656
 Another system call, and the kernel copies the same bytes back down, into the socket's send buffer.
 
-19
-00:01:02.423 --> 00:01:03.030
+18
+00:01:01.656 --> 00:01:02.263
 Copy two.
 
-20
-00:01:03.030 --> 00:01:05.861
+19
+00:01:02.263 --> 00:01:05.095
 Only then does the network card send them.
 
-21
-00:01:06.000 --> 00:01:13.044
+20
+00:01:05.300 --> 00:01:12.344
 With a heap ByteBuffer, the JDK even adds another copy, through a temporary buffer.
 
-22
-00:01:13.044 --> 00:01:18.984
+21
+00:01:12.344 --> 00:01:18.284
 And a 64 MiB file through a 64 KiB buffer is 1,024 rounds of all this.
 
-23
-00:01:19.133 --> 00:01:28.053
+22
+00:01:18.500 --> 00:01:27.420
 Every byte takes a round trip through your program, like a traveler who flies to a city only to change planes, and never sees the view.
 
-24
-00:01:28.053 --> 00:01:30.630
+23
+00:01:27.420 --> 00:01:29.996
 Your program never changes these bytes.
 
-25
-00:01:30.630 --> 00:01:32.017
+24
+00:01:29.996 --> 00:01:31.384
 It only carries them.
 
-26
-00:01:32.200 --> 00:01:37.199
+25
+00:01:31.600 --> 00:01:36.599
 Wouldn't it be nice to tell the kernel: you have the file, you have the socket, you move it?
 
-27
-00:01:37.333 --> 00:01:40.517
+26
+00:01:36.800 --> 00:01:39.984
 That's exactly what FileChannel.transferTo does.
 
-28
-00:01:40.517 --> 00:01:46.288
+27
+00:01:39.984 --> 00:01:45.755
 On Linux, with a socket as the target, the JDK turns it into one system call, sendfile.
 
-29
-00:01:46.288 --> 00:01:53.320
+28
+00:01:45.755 --> 00:01:52.786
 The kernel sends pages from the page cache straight to the socket, and the bytes never enter your process.
 
-30
-00:01:53.320 --> 00:01:57.499
+29
+00:01:52.786 --> 00:01:56.965
 That's called zero-copy: no copy through your program's memory.
 
-31
-00:01:57.667 --> 00:01:58.490
+30
+00:01:57.167 --> 00:01:57.990
 Let's map it.
 
-32
-00:01:58.490 --> 00:02:01.277
+31
+00:01:57.990 --> 00:02:00.777
 The page cache is the stack of packed sacks.
 
-33
-00:02:01.277 --> 00:02:03.557
+32
+00:02:00.777 --> 00:02:03.057
 The socket's send buffer is the van.
 
-34
-00:02:03.557 --> 00:02:09.384
+33
+00:02:03.057 --> 00:02:08.884
 Your program is the counter, and with zero-copy, the sack never comes to the counter at all.
 
+34
+00:02:09.700 --> 00:02:19.397
+The lesson's ZeroCopyDemo sent a 64 MiB file both ways, and strace, a Linux tool that lists system calls, counted them.
+
 35
-00:02:10.133 --> 00:02:19.992
-The lesson's ZeroCopyDemo sends a 64 MiB file both ways, and strace, a Linux tool that lists every system call, counted them.
+00:02:19.397 --> 00:02:20.863
+How many for each?
 
 36
-00:02:19.992 --> 00:02:21.885
-How many calls for each?
-
-37
-00:02:21.885 --> 00:02:22.911
+00:02:20.863 --> 00:02:21.923
 Make a guess.
 
-38
-00:02:25.600 --> 00:02:28.452
+37
+00:02:24.600 --> 00:02:27.452
 transferTo: one sendfile call.
 
-39
-00:02:28.452 --> 00:02:36.152
+38
+00:02:27.452 --> 00:02:35.152
 The copy: 2,119 reads and 1,037 writes, and the reads include the receiving side.
 
-40
-00:02:36.333 --> 00:02:38.952
+39
+00:02:35.367 --> 00:02:37.985
 About three thousand calls against one.
 
-41
-00:02:38.952 --> 00:02:41.637
+40
+00:02:37.985 --> 00:02:40.671
 So zero-copy must be much faster, right?
 
-42
-00:02:43.867 --> 00:02:44.291
+41
+00:02:42.867 --> 00:02:43.291
 Well.
 
-43
-00:02:44.291 --> 00:02:51.161
+42
+00:02:43.291 --> 00:02:50.161
 The two passes took 78 and 74 milliseconds in one run, and 56 and 38 in the next.
 
-44
-00:02:51.161 --> 00:02:54.553
+43
+00:02:50.161 --> 00:02:53.553
 Close, and not the same way round twice.
 
-45
-00:02:54.733 --> 00:02:55.615
+44
+00:02:53.767 --> 00:02:54.603
 Why so close?
 
-46
-00:02:55.615 --> 00:03:03.414
-The file was already in the page cache, and the socket went from the machine to itself, so copying 64 MiB is quick.
+45
+00:02:54.603 --> 00:03:01.096
+The file was already in memory, and the socket went from the machine to itself, so copying was quick.
 
-47
-00:03:03.414 --> 00:03:05.923
+46
+00:03:01.096 --> 00:03:03.475
 One timing proves nothing either way.
 
-48
-00:03:05.923 --> 00:03:11.891
-The honest measure here is the system calls: they count the work that zero-copy removes.
+47
+00:03:03.475 --> 00:03:08.812
+The honest measure is the system calls: they count the work that zero-copy removes.
 
-49
-00:03:12.667 --> 00:03:13.625
+48
+00:03:09.633 --> 00:03:10.591
 Two guardrails.
 
-50
-00:03:13.625 --> 00:03:17.329
+49
+00:03:10.591 --> 00:03:14.295
 First, transferTo may move fewer bytes than you asked for.
 
-51
-00:03:17.329 --> 00:03:23.076
+50
+00:03:14.295 --> 00:03:20.043
 It returns how many it moved, so call it in a loop, just like a partial write in lesson 2.
 
-52
-00:03:23.267 --> 00:03:27.555
+51
+00:03:20.267 --> 00:03:24.555
 Second, the bytes must leave exactly as they sit in the file.
 
-53
-00:03:27.555 --> 00:03:36.624
+52
+00:03:24.555 --> 00:03:33.624
 If the JVM encrypts them with TLS, the encryption behind https, or compresses them, they have to come up into your memory anyway.
 
-54
-00:03:36.624 --> 00:03:41.335
+53
+00:03:33.624 --> 00:03:38.335
 A sack that must be opened on the way can't go straight to the van.
 
-55
-00:03:41.533 --> 00:03:50.671
-Tomcat, a Java web server, shows the trade-off: for static files over 48 KiB, it uses sendfile and skips compression.
-
-56
-00:03:51.467 --> 00:03:53.230
+54
+00:03:39.167 --> 00:03:40.957
 Zero-copy saves the copies.
 
+55
+00:03:40.957 --> 00:03:44.538
+Next: how does a server learn which sockets are ready?
+
+56
+00:03:44.538 --> 00:03:48.384
+So far, this track used epoll, Linux's board of lit boxes.
+
 57
-00:03:53.230 --> 00:03:57.933
-The next question is how a server learns which sockets are ready at all.
-
-58
-00:03:57.933 --> 00:04:02.570
-Everything in this track so far used epoll, Linux's board of lit boxes.
-
-59
-00:04:02.570 --> 00:04:07.273
+00:03:48.384 --> 00:03:53.159
 You register each socket once, and epoll_wait returns only the lit ones.
 
-60
-00:04:07.273 --> 00:04:10.081
+58
+00:03:53.159 --> 00:03:56.011
 Then your loop makes each read call itself.
 
-61
-00:04:10.267 --> 00:04:11.820
-That's called readiness.
+59
+00:03:56.233 --> 00:03:59.696
+That's readiness: this box has mail, come and get it.
 
-62
-00:04:11.820 --> 00:04:15.187
-The kernel says: this box has mail, come and get it.
-
-63
-00:04:15.933 --> 00:04:20.479
+60
+00:04:00.500 --> 00:04:05.046
 io_uring is a newer Linux interface, and it works by completion.
 
-64
-00:04:20.479 --> 00:04:26.588
+61
+00:04:05.046 --> 00:04:11.155
 Your program and the kernel share two rings in memory, like a drop box with two trays.
 
-65
-00:04:26.588 --> 00:04:31.276
+62
+00:04:11.155 --> 00:04:15.843
 You drop requests in one tray: read up to 16 KiB from this socket.
 
-66
-00:04:31.276 --> 00:04:36.888
+63
+00:04:15.843 --> 00:04:21.455
 The kernel does the work and puts results in the other tray: done, 4,096 bytes.
 
-67
-00:04:37.067 --> 00:04:43.823
-One system call can hand over and collect many jobs, and the kernel, not your thread, moves the bytes.
+64
+00:04:21.667 --> 00:04:27.763
+One system call can carry many jobs, and the kernel, not your thread, moves the bytes.
 
-68
-00:04:43.823 --> 00:04:49.453
-On the JVM you reach it through Netty, where it's a full transport since version 4.2.
+65
+00:04:27.763 --> 00:04:30.811
+On the JVM, you reach it through Netty 4.2.
 
-69
-00:04:50.200 --> 00:04:53.193
+66
+00:04:31.633 --> 00:04:34.626
 So the new drop box must be faster, right?
 
-70
-00:04:53.193 --> 00:04:58.609
+67
+00:04:34.626 --> 00:04:40.042
 The lesson's TransportsDemo sent 32 MiB over each transport on this machine.
 
-71
-00:04:58.609 --> 00:04:59.820
+68
+00:04:40.042 --> 00:04:41.253
 Guess the winner.
 
-72
-00:05:02.533 --> 00:05:08.977
+69
+00:04:43.933 --> 00:04:50.377
 Every transport delivered all 33,554,432 bytes.
 
-73
-00:05:08.977 --> 00:05:16.243
+70
+00:04:50.377 --> 00:04:57.643
 nio took 137 milliseconds, epoll 35, and io_uring 59.
 
-74
-00:05:16.400 --> 00:05:17.833
-And not just once.
+71
+00:04:57.867 --> 00:05:05.932
+Other runs agreed: the Kotlin twin measured 40 against 48, and the research runs 86 against 159.
 
-75
-00:05:17.833 --> 00:05:23.965
-The Kotlin twin measured 40 against 48, and the research runs 86 against 159.
+72
+00:05:05.932 --> 00:05:09.208
+The gaps moved, but epoll kept winning.
 
-76
-00:05:23.965 --> 00:05:28.345
-The gaps moved from run to run, and epoll kept winning.
-
-77
-00:05:28.533 --> 00:05:30.312
+73
+00:05:09.433 --> 00:05:11.265
 Newer is a date, not a speed.
 
-78
-00:05:30.312 --> 00:05:34.913
-It tells you when something was made, not how fast it runs on your machine.
-
-79
-00:05:34.913 --> 00:05:37.796
+74
+00:05:11.265 --> 00:05:14.234
 So measure your own workload before you switch.
 
-80
-00:05:37.796 --> 00:05:42.704
+75
+00:05:14.234 --> 00:05:19.288
 The switch is one factory and one channel class, cheap to try and cheap to undo.
 
-81
-00:05:43.467 --> 00:05:46.851
+76
+00:05:20.100 --> 00:05:23.485
 Here's the zero-copy loop in Java and in Kotlin.
 
-82
-00:05:46.851 --> 00:05:50.307
+77
+00:05:23.485 --> 00:05:26.940
 Keep calling transferTo until every byte is sent.
 
-83
-00:05:51.067 --> 00:05:53.651
+78
+00:05:27.767 --> 00:05:30.351
 So, what was wasteful about read and write?
 
-84
-00:05:53.651 --> 00:05:56.656
+79
+00:05:30.351 --> 00:05:33.356
 Every byte made a round trip through your program.
 
-85
-00:05:56.656 --> 00:06:02.245
+80
+00:05:33.356 --> 00:05:38.945
 When bytes leave exactly as they're stored, let the kernel move them, dock to van, in a loop.
 
-86
-00:06:02.245 --> 00:06:06.091
+81
+00:05:38.945 --> 00:05:42.791
 And treat a newer kernel interface as a question, not an answer.
 
-87
-00:06:06.267 --> 00:06:07.119
+82
+00:05:43.000 --> 00:05:43.852
 Quick check.
 
-88
-00:06:07.119 --> 00:06:10.740
+83
+00:05:43.852 --> 00:05:47.474
 Your server compresses each file before sending it.
 
-89
-00:06:10.740 --> 00:06:12.303
+84
+00:05:47.474 --> 00:05:49.036
 Can it use transferTo?
 
-90
-00:06:15.000 --> 00:06:15.219
+85
+00:05:51.733 --> 00:05:51.953
 No.
 
-91
-00:06:15.219 --> 00:06:22.096
+86
+00:05:51.953 --> 00:05:58.829
 Compression changes the bytes inside the JVM, so they have to come up into your memory anyway.
