@@ -185,7 +185,7 @@ def note(lines, size=20):
     """A small yellow note pinned to a job."""
     t = M("\n".join(lines), size, INK)
     r = Rectangle(width=t.width + 0.3, height=t.height + 0.26).set_stroke(GREY_B, 1.5).set_fill("#F2E394", 1)
-    pin = Dot(radius=0.06, color=RED_M).move_to(r.get_top() + DOWN * 0.08)
+    pin = Dot(radius=0.06, color=RED_M).move_to(r.get_top())
     return VGroup(r, t.move_to(r), pin)
 
 
@@ -274,13 +274,13 @@ class Gen08Reified(Narrated):
         floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
         dr = door(2.8, 1.4).move_to([-2.6, FL + 1.4, 0])
         clerk = who(CLERK, "clerk", 1.1, 22).move_to([-1.1, FL + 0.75, 0])
-        bx = crate(2.0, 1.3, ["Box of apples"], 20).move_to([-5.0, FL + 0.65, 0])
+        bx = crate(2.0, 1.3, ["Box of apples"], 20).move_to([-5.4, FL + 0.65, 0])
         chk = tick(True, 0.2).next_to(clerk, UP, buff=0.2)
         shelf = Line([2.0, FL + 1.6, 0], [6.4, FL + 1.6, 0], stroke_width=4, color=GREY_B)
         self.say("open")
         self.play(Create(floor), Create(dr), FadeIn(clerk), FadeIn(bx), run_time=0.8)
         self.at(1)
-        self.play(bx.animate.move_to([-2.0 + 0.1, FL + 0.65, 0]), run_time=0.8)
+        self.play(bx.animate.move_to([-4.4, FL + 0.65, 0]), run_time=0.8)
         self.play(Indicate(bx[3], color=WHITE, scale_factor=1.1), FadeIn(chk), run_time=0.7)
         self.at(2)
         lab = bx[3]
@@ -369,7 +369,6 @@ class Gen08Reified(Narrated):
         self.at(1)
         self.play(FadeIn(knows), run_time=0.5)
         self.at(2)
-        self.play(bx.animate.move_to([-3.0 + 0.3, FL + 0.6, 0]), run_time=0.6)
         self.play(TransformFromCopy(bx[3], nt), run_time=1.0)
         self.play(bx[3].animate.shift(DOWN * 0.6).set_opacity(0), run_time=0.5)
         self.play(nt.animate.scale(0.85).next_to(bx[0], UP, buff=0.12), run_time=0.6)
@@ -429,10 +428,10 @@ class Gen08Reified(Narrated):
         kc = code_block(["inline fun <reified T> Any?.isA(): Boolean =",
                          "    this is T", "",
                          "gala.isA<Apple>()         // true"], 22)
-        fit(jc, 6.1)
-        fit(kc, 6.1)
-        kg = titled(kc, "Kotlin").move_to([-3.3, 1.4, 0])
-        jg = titled(jc, "Java").move_to([3.3, 1.4, 0]).align_to(kg, UP)
+        fit(jc, 12.4)
+        fit(kc, 12.4)
+        kg = titled(kc, "Kotlin").move_to([0, 1.9, 0])
+        jg = titled(jc, "Java").next_to(kg, DOWN, buff=0.45).align_to(kg, LEFT)
         self.say("code")
         self.play(FadeIn(kg, shift=UP * 0.1), run_time=0.7)
         self.at(1)
@@ -592,12 +591,12 @@ class Gen08Reified(Narrated):
         self.wipe()
 
         # ================= the guardrail: one word =================
-        nt = note(["List"], 26).move_to([-4.6, 1.8, 0])
+        nt = note(["List"], 26).move_to([-4.6, 1.0, 0])
         nl = T("room for one word", 24, NOTE).next_to(nt, DOWN, buff=0.2)
         code = VGroup(M('val boxes: List<Any> = listOf(listOf(180, 150), listOf("Gala"), "Fuji")', 22, WHITE),
                       M("boxes.filterIsInstance<List<String>>()", 22, WHITE)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
-        fit(code, 8.0).move_to([1.8, 2.0, 0])
-        out = term(["lists of names? [[180, 150], [Gala]]"], 24, "LimitsDemo, real output").move_to([1.8, 0.2, 0])
+        fit(code, 12.4).move_to([0, 2.8, 0])
+        out = term(["lists of names? [[180, 150], [Gala]]"], 24, "LimitsDemo, real output").move_to([1.8, 0.9, 0])
         only = VGroup(T("after inlining, the check is only", 24, GREY_A), M("instanceof List", 26, BAD)).arrange(RIGHT, buff=0.2).move_to([0, -1.4, 0])
         use = T("use reified for the outer class: checks, casts, class tokens", 28, YELLOW_M).move_to([0, -2.7, 0])
         fit(use, 12.4)

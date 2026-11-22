@@ -1,393 +1,369 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.699
+00:00:02.700 --> 00:00:05.633
 Orders at the fruit shop come on printed forms.
 
 2
-00:00:05.699 --> 00:00:10.178
+00:00:05.633 --> 00:00:10.063
 Every form starts with the same lines: the variety, the weight, a note.
 
 3
-00:00:10.178 --> 00:00:12.891
+00:00:10.063 --> 00:00:12.747
 A gift-box form adds a line for the ribbon.
 
 4
-00:00:12.891 --> 00:00:15.667
-A delivery form adds a line for the address.
-
-5
-00:00:15.867 --> 00:00:20.769
+00:00:12.967 --> 00:00:17.869
 A helper fills in a form one line at a time, and hands it back after each line.
 
-6
-00:00:20.769 --> 00:00:22.010
+5
+00:00:17.869 --> 00:00:19.110
 Here's the odd part.
 
-7
-00:00:22.010 --> 00:00:27.533
+6
+00:00:19.110 --> 00:00:24.633
 The helper fills in the weight on a gift-box form, and what comes back is: an order form.
 
-8
-00:00:27.533 --> 00:00:30.388
+7
+00:00:24.633 --> 00:00:27.488
 The ribbon line is still printed on the paper.
 
-9
-00:00:30.388 --> 00:00:33.180
+8
+00:00:27.488 --> 00:00:30.280
 But nobody is allowed to look at it any more.
 
-10
-00:00:33.333 --> 00:00:39.431
+9
+00:00:30.500 --> 00:00:36.597
 It's like handing your birthday cake over to be boxed, and getting it back with a label that says: food.
 
-11
-00:00:39.431 --> 00:00:40.545
+10
+00:00:36.597 --> 00:00:37.711
 Not wrong, exactly.
 
-12
-00:00:40.545 --> 00:00:43.828
+11
+00:00:37.711 --> 00:00:40.995
 Just no help at all when you're looking for the candles.
 
-13
-00:00:44.733 --> 00:00:47.608
+12
+00:00:41.900 --> 00:00:44.775
 Here's a question that's easy to be shy about.
 
-14
-00:00:47.608 --> 00:00:50.732
+13
+00:00:44.775 --> 00:00:47.899
 The form really is a gift-box form the whole time.
 
-15
-00:00:50.732 --> 00:00:52.732
+14
+00:00:47.899 --> 00:00:49.899
 So why does the compiler forget?
 
-16
-00:00:53.800 --> 00:01:00.932
+15
+00:00:50.967 --> 00:00:58.098
 In code, the form is a builder: an object you fill in one setting at a time, and then ask to build the finished thing.
 
-17
-00:01:00.932 --> 00:01:05.767
+16
+00:00:58.098 --> 00:01:02.934
 Each setter returns the builder, so the calls can follow each other on one line.
 
-18
-00:01:05.767 --> 00:01:07.943
+17
+00:01:02.934 --> 00:01:05.109
 That style is called a fluent chain.
 
-19
-00:01:08.867 --> 00:01:13.117
+18
+00:01:06.033 --> 00:01:10.284
 Put the shared setter, grams, in a base class called PlainBuilder.
 
-20
-00:01:13.117 --> 00:01:17.947
+19
+00:01:10.284 --> 00:01:15.113
 Then add a subclass, PlainGiftBoxBuilder, with a setter of its own: ribbon.
 
-21
-00:01:18.867 --> 00:01:20.046
+20
+00:01:16.033 --> 00:01:17.213
 Now two chains.
 
-22
-00:01:20.046 --> 00:01:22.011
+21
+00:01:17.213 --> 00:01:19.178
 Ribbon first, then grams.
 
-23
-00:01:22.011 --> 00:01:24.212
+22
+00:01:19.178 --> 00:01:21.379
 Or grams first, then ribbon.
 
-24
-00:01:24.212 --> 00:01:25.706
+23
+00:01:21.379 --> 00:01:22.873
 Which one compiles?
 
-25
-00:01:25.706 --> 00:01:26.964
+24
+00:01:22.873 --> 00:01:24.131
 Pause and guess.
 
-26
-00:01:30.200 --> 00:01:31.800
+25
+00:01:27.300 --> 00:01:28.900
 Ribbon first compiles.
 
-27
-00:01:31.800 --> 00:01:33.328
+26
+00:01:28.900 --> 00:01:30.428
 Grams first does not.
 
-28
-00:01:33.328 --> 00:01:38.783
+27
+00:01:30.428 --> 00:01:35.883
 Kotlin says: unresolved reference ribbon, on receiver of type PlainBuilder.
 
-29
-00:01:38.783 --> 00:01:41.256
+28
+00:01:35.883 --> 00:01:38.356
 And Java says: cannot find symbol.
 
-30
-00:01:42.133 --> 00:01:44.954
+29
+00:01:39.267 --> 00:01:42.087
 Follow the types, the way the compiler does.
 
-31
-00:01:44.954 --> 00:01:50.466
+30
+00:01:42.087 --> 00:01:47.599
 Each call returns its declared type, and the compiler goes by that, not by the object.
 
-32
-00:01:50.466 --> 00:01:54.184
+31
+00:01:47.599 --> 00:01:51.317
 ribbon returns a PlainGiftBoxBuilder, so grams can follow.
 
-33
-00:01:54.184 --> 00:01:59.760
+32
+00:01:51.317 --> 00:01:56.893
 But grams returns a PlainBuilder, because that's all the base class knows about itself.
 
-34
-00:01:59.933 --> 00:02:02.253
+33
+00:01:57.100 --> 00:01:59.403
 So is the object still a gift box?
 
-35
-00:02:02.253 --> 00:02:03.959
-The lesson's demo checks.
-
-36
-00:02:03.959 --> 00:02:09.757
+34
+00:01:59.403 --> 00:02:05.160
 It prints: after grams, static type PlainBuilder, run-time class PlainGiftBoxBuilder.
 
-37
-00:02:09.757 --> 00:02:11.054
+35
+00:02:05.160 --> 00:02:06.447
 The object is fine.
 
-38
-00:02:11.054 --> 00:02:14.601
+36
+00:02:06.447 --> 00:02:09.969
 The form has just forgotten what kind of form it is.
 
-39
-00:02:14.800 --> 00:02:20.055
+37
+00:02:10.200 --> 00:02:15.455
 What we want is a base class that can say: I return whatever subclass I really am.
 
-40
-00:02:20.933 --> 00:02:22.808
-So let's go back to the paper.
-
-41
-00:02:22.808 --> 00:02:26.934
+38
+00:02:16.367 --> 00:02:20.471
 Print a blank at the top of the base form: this is a, blank, form.
 
-42
-00:02:26.934 --> 00:02:30.121
+39
+00:02:20.471 --> 00:02:23.643
 Each kind of form writes its own name in the blank.
 
-43
-00:02:30.121 --> 00:02:32.309
+40
+00:02:23.643 --> 00:02:25.820
 The gift-box form writes: gift box.
 
-44
-00:02:32.309 --> 00:02:37.372
+41
+00:02:25.820 --> 00:02:30.857
 Now, when the helper hands the form back, the blank says what kind of form it is.
 
-45
-00:02:37.533 --> 00:02:38.441
+42
+00:02:31.067 --> 00:02:31.975
 Let's map it.
 
-46
-00:02:38.441 --> 00:02:40.746
+43
+00:02:31.975 --> 00:02:34.279
 The blank is a type parameter, B.
 
-47
-00:02:40.746 --> 00:02:42.701
+44
+00:02:34.279 --> 00:02:36.235
 The base form is Builder&lt;B&gt;.
 
-48
-00:02:42.701 --> 00:02:50.244
+45
+00:02:36.235 --> 00:02:43.777
 Writing your own name in the blank is the subclass declaration: GiftBoxBuilder is a Builder&lt;GiftBoxBuilder&gt;.
 
-49
-00:02:50.244 --> 00:02:54.015
+46
+00:02:43.777 --> 00:02:47.548
 And the setter that hands the form back now returns B.
 
-50
-00:02:54.933 --> 00:02:58.953
+47
+00:02:48.467 --> 00:02:52.487
 Now fill in the blank, the same trick as the first lesson.
 
-51
-00:02:58.953 --> 00:03:03.736
+48
+00:02:52.487 --> 00:02:57.269
 For a GiftBoxBuilder, every B in the base class reads GiftBoxBuilder.
 
-52
-00:03:03.736 --> 00:03:08.172
+49
+00:02:57.269 --> 00:03:01.705
 So grams returns a GiftBoxBuilder, and ribbon is in reach again.
 
-53
-00:03:08.172 --> 00:03:12.816
+50
+00:03:01.705 --> 00:03:06.349
 The demo builds the finished box: gift box, 1200 grams, red ribbon.
 
-54
-00:03:13.733 --> 00:03:16.916
+51
+00:03:07.267 --> 00:03:10.628
 Now look at the bound itself: B : Builder&lt;B&gt;.
 
-55
-00:03:16.916 --> 00:03:20.028
-The B inside points back at the B it bounds.
-
-56
-00:03:20.028 --> 00:03:23.140
+52
+00:03:10.628 --> 00:03:13.915
 Read it as: B is a builder whose own B is B.
 
-57
-00:03:23.333 --> 00:03:27.054
+53
+00:03:14.133 --> 00:03:17.854
 If that sentence made you a little dizzy, you're in good company.
 
-58
-00:03:27.054 --> 00:03:28.771
+54
+00:03:17.854 --> 00:03:19.571
 Read it like the form instead.
 
-59
-00:03:28.771 --> 00:03:33.465
+55
+00:03:19.571 --> 00:03:24.265
 The only names that fit the blank belong to forms that write their own name there.
 
-60
-00:03:34.333 --> 00:03:35.334
+56
+00:03:25.167 --> 00:03:26.167
 One more piece.
 
-61
-00:03:35.334 --> 00:03:40.004
+57
+00:03:26.167 --> 00:03:30.837
 Inside the base class, this is only known to be a Builder&lt;B&gt;, not a B.
 
-62
-00:03:40.004 --> 00:03:44.873
+58
+00:03:30.837 --> 00:03:35.707
 So grams returns self(), and each subclass writes self() as: return this.
 
-63
-00:03:44.873 --> 00:03:47.075
+59
+00:03:35.707 --> 00:03:37.908
 The compiler checks that it fits.
 
-64
-00:03:47.267 --> 00:03:51.474
+60
+00:03:38.133 --> 00:03:42.341
 The tempting shortcut is to write this as B, right in the base class.
 
-65
-00:03:51.474 --> 00:03:55.621
+61
+00:03:42.341 --> 00:03:46.488
 That's an unchecked cast, and erasure turns it into no check at all.
 
-66
-00:03:56.533 --> 00:03:57.602
+62
+00:03:47.400 --> 00:03:48.469
 So far so good.
 
-67
-00:03:57.602 --> 00:03:59.240
+63
+00:03:48.469 --> 00:03:50.107
 Now let's try to cheat.
 
-68
-00:03:59.240 --> 00:04:05.295
+64
+00:03:50.107 --> 00:03:56.162
 A class called Liar writes someone else's name in its blank: Builder&lt;GiftBoxBuilder&gt;.
 
-69
-00:04:05.295 --> 00:04:06.435
+65
+00:03:56.162 --> 00:03:57.302
 Does it compile?
 
-70
-00:04:06.435 --> 00:04:07.575
+66
+00:03:57.302 --> 00:03:58.441
 Pause and guess.
 
-71
-00:04:10.800 --> 00:04:11.544
+67
+00:04:01.633 --> 00:04:02.377
 It compiles.
 
-72
-00:04:11.544 --> 00:04:14.580
+68
+00:04:02.377 --> 00:04:05.413
 The bound only asks for the name of some builder.
 
-73
-00:04:14.580 --> 00:04:21.209
+69
+00:04:05.413 --> 00:04:12.043
 And here the form picture breaks, just as the code does: anyone can write another form's name in the blank.
 
-74
-00:04:21.400 --> 00:04:24.067
+70
+00:04:12.267 --> 00:04:14.934
 But the abstract self() is where you notice.
 
-75
-00:04:24.067 --> 00:04:29.038
+71
+00:04:14.934 --> 00:04:19.904
 The liar must hand back a GiftBoxBuilder it doesn't have, so it makes a fresh one.
 
-76
-00:04:29.038 --> 00:04:35.948
+72
+00:04:19.904 --> 00:04:26.815
 Fill in the weight on the liar, and what comes back is a GiftBoxBuilder: a new object, not the liar you filled in.
 
-77
-00:04:36.867 --> 00:04:39.363
+73
+00:04:27.733 --> 00:04:30.237
 And here's the slip that really happens.
 
-78
-00:04:39.363 --> 00:04:45.854
+74
+00:04:30.237 --> 00:04:36.748
 Someone adds a pickup form by copying the gift-box builder, and forgets to change the name in the blank.
 
-79
-00:04:45.854 --> 00:04:53.094
+75
+00:04:36.748 --> 00:04:44.009
 The abstract self() catches it at compile time: return type mismatch, expected GiftBoxBuilder, actual PickupBuilder.
 
-80
-00:04:53.094 --> 00:04:57.651
-With this as B, the same slip would compile, and fail later, at the call.
-
-81
-00:04:58.533 --> 00:04:59.526
+76
+00:04:44.933 --> 00:04:45.926
 Now the names.
 
-82
-00:04:59.526 --> 00:05:04.558
+77
+00:04:45.926 --> 00:04:50.958
 A type parameter that stands for my own subclass is called a self type.
 
-83
-00:05:04.558 --> 00:05:09.946
+78
+00:04:50.958 --> 00:04:56.346
 A bound that mentions the type parameter itself is called a recursive bound.
 
-84
-00:05:09.946 --> 00:05:19.019
+79
+00:04:56.346 --> 00:05:05.419
 And you've met the shape before: T : Comparable&lt;T&gt;, a T that compares with its own kind, and Java's own Enum&lt;E extends Enum&lt;E&gt;&gt;.
 
-85
-00:05:19.933 --> 00:05:21.112
+80
+00:05:06.333 --> 00:05:07.512
 And the guardrail.
 
-86
-00:05:21.112 --> 00:05:25.827
+81
+00:05:07.512 --> 00:05:12.227
 In plain Kotlin code, the best builder is often the one you never write.
 
-87
-00:05:25.827 --> 00:05:29.953
+82
+00:05:12.227 --> 00:05:16.353
 A data class with default arguments and copy covers most cases.
 
-88
-00:05:29.953 --> 00:05:37.091
+83
+00:05:16.353 --> 00:05:23.491
 Reach for self types when Java callers need a builder, or when you extend a Java class that already uses one.
 
-89
-00:05:38.000 --> 00:05:39.958
+84
+00:05:24.400 --> 00:05:26.358
 So, why did the compiler forget?
 
-90
-00:05:39.958 --> 00:05:43.386
+85
+00:05:26.358 --> 00:05:29.786
 Because a base setter could only promise the base class.
 
-91
-00:05:43.386 --> 00:05:47.976
+86
+00:05:29.786 --> 00:05:34.376
 Give the base form a blank, and let each subclass write its own name there.
 
-92
-00:05:47.976 --> 00:05:51.403
+87
+00:05:34.376 --> 00:05:37.803
 A recursive bound lets a base class return its subclass.
 
-93
-00:05:51.600 --> 00:05:52.466
+88
+00:05:38.033 --> 00:05:38.900
 Quick check.
 
-94
-00:05:52.466 --> 00:05:56.221
+89
+00:05:38.900 --> 00:05:42.655
 Take a new GiftBoxBuilder, and call grams with 1200.
 
-95
-00:05:56.221 --> 00:05:58.532
+90
+00:05:42.655 --> 00:05:44.965
 What type does the compiler see?
 
-96
-00:06:01.733 --> 00:06:02.840
+91
+00:05:48.133 --> 00:05:49.293
 GiftBoxBuilder.
 
-97
-00:06:02.840 --> 00:06:07.709
+92
+00:05:49.293 --> 00:05:54.397
 grams returns B, and the declaration filled B with GiftBoxBuilder.
-
-98
-00:06:07.709 --> 00:06:09.775
-So ribbon is still in reach.
