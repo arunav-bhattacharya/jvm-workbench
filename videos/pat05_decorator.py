@@ -173,10 +173,12 @@ def paper(lines, size=20, pad=0.16, color=INK):
 LAYERS = [("perKm(50)", "0.50 per km", KM), ("plusFixed(200)", "+ 2.00 to start", FIX),
           ("heavySurcharge(5_000, 300)", "+ 3.00 if over 5 kg", HEAVY), ("cappedAt(800)", "at most 8.00", CAP)]
 SWAPPED = [LAYERS[0], LAYERS[1], LAYERS[3], LAYERS[2]]
-W0, DW, H0, DH = 2.6, 2.4, 0.9, 1.1
+W0, DW, H0, DH = 2.6, 2.4, 1.4, 1.0
+CY = 0.55
+Y = CY - 0.36
 
 
-def onion(layers, cy=0.55):
+def onion(layers, cy=CY):
     """Nested layers: [k] = VGroup(rect, name, rule). Layer 0 is the parcel in the middle."""
     g = VGroup()
     for k, (name, rule, col) in enumerate(layers):
@@ -184,8 +186,8 @@ def onion(layers, cy=0.55):
         r = RoundedRectangle(corner_radius=0.14, width=w, height=h).set_stroke(col, 3).set_fill(dim(col, 0.10 + 0.03 * (3 - k)), 1)
         r.move_to([0, cy, 0])
         if k == 0:
-            nm = M(name, 24, WHITE).move_to(r.get_center() + UP * 0.14)
-            ru = T(rule, 20, col).move_to(r.get_center() + DOWN * 0.22)
+            nm = M(name, 24, WHITE).move_to(r.get_center() + UP * 0.38)
+            ru = T(rule, 20, col).move_to(r.get_center() + UP * 0.03)
         else:
             nm = M(name, 22, col).move_to(r.get_top() + DOWN * 0.28).align_to(r, LEFT).shift(RIGHT * 0.22)
             ru = T(rule, 22, col).move_to(r.get_top() + DOWN * 0.28).align_to(r, RIGHT).shift(LEFT * 0.22)
@@ -301,22 +303,22 @@ class Pat05Decorator(Narrated):
         self.play(FadeIn(pc[2][1], scale=0.6), run_time=0.4)
         self.hold()
 
-        rider = who(SHOP, "Pedal Post", 1.0, 20)
         bk = bike(GREY_B, 0.9)
-        rg = VGroup(bk, rider)
-        rider.next_to(bk, UP, buff=-0.05)
-        rg.move_to([4.6, FL + 0.75, 0])
-        scan = T("scan", 20, GREY_B)
+        rider = person(SHOP, 1.0).next_to(bk, UP, buff=-0.08)
+        rlab = T("Pedal Post", 20, SHOP).next_to(bk, DOWN, buff=0.1)
+        rg = VGroup(bk, rider, rlab)
+        rg.move_to([4.6, FL + 0.62, 0])
         self.say("rider")
         self.play(FadeIn(rg, shift=LEFT * 0.4), run_time=0.8)
         self.at_text("weighs it", lead=0.2)
         self.play(pc.animate.shift(UP * 0.15), rate_func=there_and_back, run_time=0.6)
         self.at_text("scans the label", lead=0.2)
-        beam = Line(rider[0].get_left() + LEFT * 0.1, pc.get_right() + RIGHT * 0.05, stroke_width=3, color=BAD)
+        beam = Line(rider.get_left() + LEFT * 0.1, pc.get_right() + RIGHT * 0.05, stroke_width=3, color=BAD)
         self.play(Create(beam), run_time=0.3)
         self.play(FadeOut(beam), run_time=0.3)
         self.at_text("unmoved", lead=0.5)
-        self.play(pc.animate.scale(0.55).next_to(bk, UP, buff=0.05).shift(RIGHT * 0.75 + DOWN * 0.05), run_time=0.8)
+        self.play(pc.animate.scale(0.5).next_to(rider, LEFT, buff=0.1).align_to(rider, DOWN), run_time=0.8)
+        self.play(VGroup(rg, pc).animate.shift(RIGHT * 0.5), run_time=0.5)
         self.at(1)
         still = T("a wrapped parcel is still a parcel", 28, WHITE).move_to([0, 2.3, 0])
         self.play(FadeIn(still, shift=UP * 0.1), run_time=0.6)
@@ -394,23 +396,24 @@ class Pat05Decorator(Narrated):
         mapr = VGroup(*[VGroup(T(a, 22, GREY_A), M("->", 20, GREY_B), T(b, 22, c)).arrange(RIGHT, buff=0.2)
                         for a, b, c in [("the parcel", "the first rule, perKm", KM), ("each sheet of paper", "one more rule", FIX),
                                         ("the courier", "the code that asks the price", SHOP)]])
-        mapr.arrange(RIGHT, buff=0.55)
-        fit(mapr, 12.6).move_to([0, -2.55, 0])
-        same = T("every layer answers one question:  what do you cost?", 26, WHITE).move_to([0, -3.25, 0])
+        mapr.arrange(DOWN, buff=0.12, aligned_edge=LEFT)
+        fit(mapr, 12.4).move_to([0, -2.6, 0])
+        same = T("every layer answers one question:  what do you cost?", 28, WHITE).move_to([0, -2.6, 0])
         self.say("map")
+        self.at(1)
         self.play(FadeIn(mapr[0], shift=UP * 0.1), Indicate(on[0][1], color=KM, scale_factor=1.1), run_time=0.7)
         self.at(2)
         self.play(FadeIn(mapr[1], shift=UP * 0.1), run_time=0.6)
         self.at(3)
         self.play(FadeIn(mapr[2], shift=UP * 0.1), FadeIn(caller, shift=RIGHT * 0.2), run_time=0.7)
         self.at(4)
+        self.play(FadeOut(mapr), run_time=0.4)
         self.play(FadeIn(same, shift=UP * 0.1), run_time=0.6)
         self.hold()
-        self.play(FadeOut(mapr), FadeOut(same), run_time=0.5)
+        self.play(FadeOut(same), run_time=0.5)
 
         # ================= one question travels in, the answer comes out =================
-        Y = 0.12
-        qchip = vchip("12 kg, 20 km", SHOP, 22).move_to([-5.95, 1.3, 0])
+        qchip = vchip("12 kg, 20 km", SHOP, 22).move_to([-5.95, 1.3, 0]).set_z_index(10)
         tally = VGroup()
         tally_y = -2.55
 
@@ -419,21 +422,22 @@ class Pat05Decorator(Narrated):
             if len(tally):
                 arr = M("->", 24, GREY_B).next_to(tally[-1], RIGHT, buff=0.18)
                 tally.add(arr)
-            c.next_to(tally[-1] if len(tally) else ORIGIN, RIGHT, buff=0.18)
+            if len(tally):
+                c.next_to(tally[-1], RIGHT, buff=0.18)
+            else:
+                c.move_to([-3.4, tally_y, 0])
             tally.add(c)
-            tally.move_to([0, tally_y, 0])
             return c
 
         self.say("trace")
-        self.play(FadeIn(qchip, shift=DOWN * 0.1), run_time=0.5)
         self.at(1)
-        self.play(qchip.animate.move_to([band_x(3), Y, 0]), run_time=0.6)
+        self.play(FadeIn(qchip, shift=DOWN * 0.1), run_time=0.5)
         self.at(2)
-        for k in (2, 1):
-            self.play(qchip.animate.move_to([band_x(k), Y, 0]), Indicate(on[k][0], color=LAYERS[k][2], scale_factor=1.0), run_time=0.55)
-        self.play(qchip.animate.move_to([0, -0.05, 0]).scale(0.8), run_time=0.5)
+        self.play(qchip.animate.scale(0.7).move_to([0, Y, 0]),
+                  LaggedStart(*[Indicate(on[k][1], color=LAYERS[k][2], scale_factor=1.1) for k in (3, 2, 1, 0)], lag_ratio=0.3),
+                  run_time=2.0)
         self.at(3)
-        v = vchip("10.00", KM, 24).move_to([0, -0.05, 0])
+        v = vchip("10.00", KM, 24).move_to([0, Y, 0]).set_z_index(10)
         self.play(FadeOut(qchip), FadeIn(v, scale=1.2), run_time=0.5)
         steps = [tally_add("10.00", KM)]
         self.play(FadeIn(tally[0], shift=UP * 0.1), run_time=0.4)
@@ -443,7 +447,7 @@ class Pat05Decorator(Narrated):
         outs = [("12.00", FIX, 1), ("15.00", HEAVY, 2), ("8.00", CAP, 3)]
         for i, (txt, col, k) in enumerate(outs):
             self.at(i + 1)
-            nv = vchip(txt, col, 24).move_to([band_x(k), Y, 0])
+            nv = vchip(txt, col, 24).move_to([band_x(k), Y, 0]).set_z_index(10)
             self.play(v.animate.move_to([band_x(k), Y, 0]), run_time=0.5)
             self.play(Transform(v, nv), Indicate(on[k][2], color=col, scale_factor=1.12), run_time=0.5)
             c = tally_add(txt, col)
@@ -457,7 +461,7 @@ class Pat05Decorator(Narrated):
         self.play(FadeOut(tally), FadeOut(v), run_time=0.4)
         p1 = VGroup(T("2 kg, 4 km", 26, WHITE), T("?", 30, YELLOW_M)).arrange(RIGHT, buff=0.35)
         p2 = VGroup(T("12 kg, 4 km", 26, WHITE), T("?", 30, YELLOW_M)).arrange(RIGHT, buff=0.35)
-        pg = VGroup(p1, p2).arrange(RIGHT, buff=1.6).move_to([0, -2.6, 0])
+        pg = VGroup(p1, p2).arrange(RIGHT, buff=1.6).move_to([0, -2.4, 0])
         self.say("pq")
         self.at(1)
         self.play(FadeIn(p1, shift=UP * 0.1), FadeIn(p2, shift=UP * 0.1), run_time=0.6)
@@ -466,7 +470,7 @@ class Pat05Decorator(Narrated):
 
         a1 = vchip("4.00", OK, 26).move_to(p1[1])
         a2 = vchip("7.00", OK, 26).move_to(p2[1])
-        through = T("the cap lets both through", 22, CAP).move_to([0, -3.3, 0])
+        through = T("the cap lets both through", 22, CAP).move_to([0, -3.1, 0])
         self.say("pa")
         self.play(Transform(p1[1], a1), run_time=0.5)
         self.at(1)
@@ -527,8 +531,7 @@ class Pat05Decorator(Narrated):
         # ================= break it: move the cap one place in =================
         on = onion(LAYERS)
         caller = who(SHOP, "courier", 1.0, 20).move_to([-6.0, 0.35, 0])
-        self.add(on, caller)
-        self.play(FadeIn(Group(on, caller)), run_time=0.01)
+        self.play(FadeIn(on), FadeIn(caller), run_time=0.7)
         on2 = onion(SWAPPED)
         self.say("bq")
         self.at(1)
@@ -537,7 +540,7 @@ class Pat05Decorator(Narrated):
         both = T("both compile, both read sensibly", 24, GREY_B).move_to([0, -2.4, 0])
         self.play(FadeIn(both), run_time=0.5)
         self.at(3)
-        qchip = vchip("12 kg, 20 km", SHOP, 22).next_to(caller, UP, buff=0.12)
+        qchip = vchip("12 kg, 20 km", SHOP, 22).next_to(caller, UP, buff=0.12).set_z_index(10)
         self.play(FadeIn(qchip, shift=DOWN * 0.1), run_time=0.5)
         self.hold(after=0)
         self.predict(2.6)
@@ -545,14 +548,14 @@ class Pat05Decorator(Narrated):
         tally = VGroup()
         self.say("break")
         self.play(FadeOut(both), FadeOut(qchip), run_time=0.3)
-        v = vchip("10.00", KM, 24).move_to([0, -0.05, 0])
+        v = vchip("10.00", KM, 24).move_to([0, Y, 0]).set_z_index(10)
         self.play(FadeIn(v, scale=1.2), run_time=0.4)
         c = tally_add("10.00", KM)
         self.play(FadeIn(c, shift=UP * 0.1), run_time=0.3)
         outs = [("12.00", FIX, 1), ("8.00", CAP, 2), ("11.00", BAD, 3)]
         for i, (txt, col, k) in enumerate(outs):
             self.at(i + 1)
-            nv = vchip(txt, col, 24).move_to([band_x(k), Y, 0])
+            nv = vchip(txt, col, 24).move_to([band_x(k), Y, 0]).set_z_index(10)
             self.play(v.animate.move_to([band_x(k), Y, 0]), run_time=0.45)
             self.play(Transform(v, nv), Indicate(on[k][2], color=SWAPPED[k][2], scale_factor=1.12), run_time=0.5)
             c = tally_add(txt, col)
@@ -667,8 +670,8 @@ class Pat05Decorator(Narrated):
 
         self.say("stack_q")
         self.play(FadeIn(ttl[0]), FadeIn(R), FadeIn(ttl[1]), run_time=0.8)
-        logL = paper(["log:"], 20).move_to([-3.35, -1.15, 0])
-        logR = paper(["log:"], 20).move_to([3.35, -1.15, 0])
+        logL = paper(["log:"], 20).move_to([-3.35, -0.45, 0])
+        logR = paper(["log:"], 20).move_to([3.35, -0.45, 0])
         self.play(FadeIn(logL), FadeIn(logR), run_time=0.4)
         self.hold(after=0)
         self.predict(2.6)

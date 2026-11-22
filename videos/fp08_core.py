@@ -277,70 +277,62 @@ class Fp08Core(Narrated):
         self.hold()
         self.play(FadeOut(fakes), FadeOut(rule_hl), FadeOut(props), run_time=0.5)
 
-        # sort the loop: decisions to the card, errands to the cook
+        # sort the loop: decisions belong to the card, errands to the cook
         self.say("map")
-        dcard = RoundedRectangle(corner_radius=0.12, width=5.6, height=2.4).set_stroke(DECIDE, 3).set_fill(dim(DECIDE, 0.1), 1)
-        dcard.move_to([3.3, 1.5, 0])
-        dl = T("the card: decides", 24, DECIDE).next_to(dcard, UP, buff=0.1)
-        ecook = RoundedRectangle(corner_radius=0.12, width=5.6, height=2.6).set_stroke(ERRAND, 3).set_fill(dim(ERRAND, 0.1), 1)
-        ecook.move_to([3.3, -1.75, 0])
-        el = T("the cook: touches the world", 24, ERRAND).next_to(ecook, DOWN, buff=0.1)
-        self.play(FadeOut(frame), FadeOut(ttl), tl.animate.scale(0.9).move_to([-3.5, 0, 0]), run_time=0.6)
+        self.play(FadeOut(frame), FadeOut(ttl), run_time=0.5)
+        top_r, dec_r, bot_r = VGroup(tl[0], tl[1]), VGroup(*tl[2:6]), VGroup(*tl[6:])
+        br_c = Brace(dec_r, RIGHT, color=DECIDE)
+        lb_c = T("the card: decides", 28, DECIDE).next_to(br_c, RIGHT, buff=0.2)
+        br_e1 = Brace(top_r, RIGHT, color=ERRAND)
+        br_e2 = Brace(bot_r, RIGHT, color=ERRAND)
+        lb_e = T("the cook: touches the world", 28, ERRAND).next_to(br_e2, RIGHT, buff=0.2)
+        lb_e1 = T("the cook", 28, ERRAND).next_to(br_e1, RIGHT, buff=0.2)
+        plan = chip("out comes a plan: what should happen", PLAN_C, 24).next_to(lb_c, DOWN, buff=0.25).align_to(lb_c, LEFT)
+        fit(plan, 5.3)
         self.at(1)
-        self.play(Create(dcard), FadeIn(dl), run_time=0.5)
-        dec = VGroup(*[tl[i] for i in (2, 3, 4, 5)])
-        dec.generate_target()
-        dec.target.arrange(DOWN, aligned_edge=LEFT, buff=0.1).scale(0.85).move_to(dcard)
-        for i in (2, 3, 4, 5):
-            dec.target[i - 2].set_color(DECIDE)
-        self.play(MoveToTarget(dec), run_time=1.0)
-        plan = chip("a plan: what should happen", PLAN_C, 24).move_to([-3.5, 0.35, 0])
+        self.play(dec_r.animate.set_color(DECIDE), GrowFromCenter(br_c), FadeIn(lb_c), run_time=0.8)
         self.at_text("and out comes", lead=0.3)
-        self.play(FadeIn(plan, shift=LEFT * 0.2), run_time=0.5)
+        self.play(FadeIn(plan, shift=RIGHT * 0.1), run_time=0.5)
         self.at(2)
-        self.play(Create(ecook), FadeIn(el), run_time=0.5)
-        err = VGroup(*[tl[i] for i in (0, 1, 6, 7, 8)])
-        err.generate_target()
-        err.target.arrange(DOWN, aligned_edge=LEFT, buff=0.08).scale(0.85).move_to(ecook)
-        for k in range(5):
-            err.target[k].set_color(ERRAND)
-        self.play(MoveToTarget(err), run_time=1.0)
+        self.play(top_r.animate.set_color(ERRAND), bot_r.animate.set_color(ERRAND), GrowFromCenter(br_e1),
+                  GrowFromCenter(br_e2), FadeIn(lb_e), FadeIn(lb_e1), run_time=0.8)
         self.at(3)
-        fl = Arrow(plan.get_bottom(), ecook.get_left() + UP * 0.6, buff=0.15, stroke_width=3, color=PLAN_C)
+        fl = Arrow(plan.get_bottom(), lb_e.get_top(), buff=0.12, stroke_width=3, color=PLAN_C)
         self.play(GrowArrow(fl), run_time=0.6)
         self.hold()
         self.wipe()
 
         # ================= name it =================
-        shell = RoundedRectangle(corner_radius=0.3, width=11.6, height=5.0).set_stroke(ERRAND, 3).set_fill(dim(ERRAND, 0.07), 1)
-        shell.move_to([0, 0.1, 0])
-        core = RoundedRectangle(corner_radius=0.2, width=5.6, height=2.0).set_stroke(DECIDE, 3).set_fill(dim(DECIDE, 0.15), 1)
-        core.move_to([0, 0.35, 0])
-        sl = T("imperative shell", 30, ERRAND).move_to(shell.get_top() + DOWN * 0.4)
-        cl2 = T("functional core", 30, DECIDE).move_to(core.get_top() + DOWN * 0.38)
-        sig_k = M("fun planShopping(items: List<Item>, shops: Map<String, Shop>, today: LocalDate): ShoppingPlan", 22, DECIDE)
-        sig_j = M("static ShoppingPlan planShopping(List<Item> items, Map<String, Shop> shops, LocalDate today)", 22, DECIDE)
-        sigs = VGroup(labelled("Kotlin", sig_k), labelled("Java", sig_j)).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
-        fit(sigs, 12.4).move_to([0, -2.6, 0])
+        shell = RoundedRectangle(corner_radius=0.3, width=11.0, height=3.0).set_stroke(ERRAND, 3).set_fill(dim(ERRAND, 0.07), 1)
+        shell.move_to([0, 1.55, 0])
+        core = RoundedRectangle(corner_radius=0.2, width=7.0, height=1.5).set_stroke(DECIDE, 3).set_fill(dim(DECIDE, 0.15), 1)
+        core.move_to([0, 1.3, 0])
+        sl = T("imperative shell", 30, ERRAND).move_to(shell.get_top() + DOWN * 0.38)
+        cl2 = T("functional core", 30, DECIDE).move_to(core.get_top() + DOWN * 0.4)
+        sig_k = code_block(["fun planShopping(items: List<Item>, shops: Map<String, Shop>,",
+                            "                 today: LocalDate): ShoppingPlan"], 22, color=DECIDE)
+        sig_j = code_block(["static ShoppingPlan planShopping(List<Item> items, Map<String, Shop> shops,",
+                            "                                 LocalDate today)"], 22, color=DECIDE)
+        sigs = VGroup(labelled("Kotlin", sig_k), labelled("Java", sig_j)).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
+        fit(sigs, 12.4).move_to([0, -1.85, 0])
         self.say("name")
         self.play(Create(shell), FadeIn(sl), run_time=0.7)
         self.play(Create(core), FadeIn(cl2), run_time=0.6)
         self.at(1)
-        pure = T("a pure function", 24, GREY_A).next_to(cl2, DOWN, buff=0.15)
+        pure = T("a pure function", 26, GREY_A).next_to(cl2, DOWN, buff=0.15)
         self.play(FadeIn(pure), run_time=0.4)
         self.at(2)
-        self.play(shell.animate.stretch_to_fit_height(3.6).move_to([0, 0.75, 0]), sl.animate.move_to([0, 2.2, 0]), run_time=0.5)
         self.play(FadeIn(sigs), run_time=0.7)
         self.at(3)
-        self.play(Indicate(part_of(sig_k, "today: LocalDate"), color=GOLD_M, scale_factor=1.1), run_time=0.8)
-        self.play(Indicate(part_of(sig_k, "ShoppingPlan"), color=PLAN_C, scale_factor=1.1), run_time=0.8)
+        self.play(Indicate(part_of(sig_k[1], "today: LocalDate"), color=GOLD_M, scale_factor=1.1), run_time=0.8)
+        self.play(Indicate(part_of(sig_k[1], "ShoppingPlan"), color=PLAN_C, scale_factor=1.1), run_time=0.8)
         self.hold()
 
-        tools = VGroup(M("filterNot  partition  groupBy  sumOf", 22, DECIDE), T("data classes of vals", 22, GREY_A),
-                       T("unknown shop: a value in the plan", 22, GREY_A)).arrange(DOWN, buff=0.1)
-        tools.move_to(core.get_center() + DOWN * 0.3)
+        tools = VGroup(M("filterNot  partition  groupBy  sumOf", 26, DECIDE), T("data classes of vals carry the values", 26, GREY_A),
+                       T("an unknown shop: a value in the plan, not an exception", 26, GREY_A)).arrange(DOWN, buff=0.25)
+        tools.move_to([0, -1.85, 0])
         self.say("core")
-        self.play(FadeOut(pure), core.animate.stretch_to_fit_height(2.3), run_time=0.4)
+        self.play(FadeOut(sigs), run_time=0.4)
         self.at(1)
         self.play(FadeIn(tools[0]), run_time=0.5)
         self.at(2)
@@ -351,59 +343,59 @@ class Fp08Core(Narrated):
         self.wipe()
 
         kr = code_block(["fun run(): ShoppingPlan {",
-                         "    val today = LocalDate.now(clock)                                       // 1. read",
-                         "    val plan = planShopping(store.shoppingList(), store.shops(), today)    // 2. decide",
-                         "    plan.orders.forEach(shopApi::send)                                     // 3. act",
+                         "    val today = LocalDate.now(clock)",
+                         "    val plan = planShopping(store.shoppingList(), store.shops(), today)",
+                         "    plan.orders.forEach(shopApi::send)",
                          "    store.saveBudget(store.loadBudget().posting(plan.orders, \"shopping-$today\"))",
                          "    return plan", "}"], 22)
         jr = code_block(["ShoppingPlan run() {",
-                         "    LocalDate today = LocalDate.now(clock);                                        // 1. read",
-                         "    ShoppingPlan plan = planShopping(store.shoppingList(), store.shops(), today);  // 2. decide",
-                         "    plan.orders().forEach(shopApi::send);                                          // 3. act",
+                         "    LocalDate today = LocalDate.now(clock);",
+                         "    ShoppingPlan plan = planShopping(store.shoppingList(), store.shops(), today);",
+                         "    plan.orders().forEach(shopApi::send);",
                          "    store.saveBudget(posting(store.loadBudget(), plan.orders(), \"shopping-\" + today));",
                          "    return plan;", "}"], 22)
         rr = VGroup(labelled("Kotlin", kr), labelled("Java", jr)).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
         fit(rr, 12.6).move_to([0, 0.1, 0])
+        steps = VGroup(T("1. read", 26, ERRAND), T("2. decide", 26, DECIDE), T("3. act", 26, ERRAND)).arrange(RIGHT, buff=1.0)
+        steps.move_to([0, 3.35, 0])
         self.say("shell")
         self.play(FadeIn(rr), run_time=0.9)
         self.at_text("Read today", lead=0.3)
-        self.play(Indicate(VGroup(kr[1], jr[1]), color=ERRAND, scale_factor=1.02), run_time=0.7)
+        self.play(FadeIn(steps[0]), Indicate(VGroup(kr[1], jr[1]), color=ERRAND, scale_factor=1.02), run_time=0.7)
         self.at_text("Decide", lead=0.3)
-        self.play(Indicate(VGroup(kr[2], jr[2]), color=DECIDE, scale_factor=1.02), run_time=0.7)
+        self.play(FadeIn(steps[1]), Indicate(VGroup(kr[2], jr[2]), color=DECIDE, scale_factor=1.02), run_time=0.7)
         self.at_text("Act", lead=0.3)
-        self.play(Indicate(VGroup(kr[3], kr[4], jr[3], jr[4]), color=ERRAND, scale_factor=1.02), run_time=0.9)
+        self.play(FadeIn(steps[2]), Indicate(VGroup(kr[3], kr[4], jr[3], jr[4]), color=ERRAND, scale_factor=1.02), run_time=0.9)
         self.hold()
         self.wipe()
 
         # ================= the fridge =================
         fr = fridge(1.0).move_to([-5.2, 0.6, 0])
         fc = code_block(["val KEEPS_FOR: Duration = Duration.ofDays(3)",
+                         "",
                          "fun decideFridge(leftovers: List<Leftover>, now: Instant): List<FridgeDecision> =",
                          "    leftovers.map { l ->",
                          "        val age = Duration.between(l.cookedAt, now)",
                          "        if (age >= KEEPS_FOR) ThrowOut(l.id) else Keep(l.id, KEEPS_FOR - age)",
-                         "    }"], 22)
-        fj = code_block(["static List<FridgeDecision> decideFridge(List<Leftover> leftovers, Instant now) {",
-                         "    return leftovers.stream().<FridgeDecision>map(l -> {",
-                         "        Duration age = Duration.between(l.cookedAt(), now);",
-                         "        return age.compareTo(KEEPS_FOR) >= 0 ? new ThrowOut(l.id()) : new Keep(l.id(), KEEPS_FOR.minus(age));",
-                         "    }).toList();", "}"], 22)
-        fcode = VGroup(labelled("Kotlin: the core", fc), labelled("Java", fj)).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
-        fit(fcode, 10.2).move_to([1.2, 0.4, 0])
+                         "    }"], 24)
+        fcode = labelled("Kotlin: the core", fc)
+        fit(fcode, 12.4).move_to([0, 0.5, 0])
+        fjn = T("Java: the same, a static method over a stream", 24, GREY_B).next_to(fcode, DOWN, buff=0.4)
         self.say("fridge")
         self.play(FadeIn(fr), run_time=0.5)
         self.at(1)
-        self.play(FadeIn(fcode[0]), run_time=0.7)
+        self.play(FadeOut(fr), FadeIn(fcode), run_time=0.7)
         self.at(2)
-        self.play(FadeIn(fcode[1]), run_time=0.6)
+        self.play(FadeIn(fjn), run_time=0.6)
         self.at(3)
-        self.play(Indicate(part_of(fc[1], "now: Instant"), color=GOLD_M, scale_factor=1.1), run_time=0.8)
+        self.play(Indicate(part_of(fc[2], "now: Instant"), color=GOLD_M, scale_factor=1.1), run_time=0.8)
         self.hold()
-        self.play(FadeOut(fcode), fr.animate.scale(0.8).move_to([-5.4, 1.2, 0]), run_time=0.6)
+        fr.scale(0.8).move_to([-5.4, 1.2, 0])
+        self.play(FadeOut(fcode), FadeOut(fjn), FadeIn(fr), run_time=0.6)
 
         nowt = M("now = 2026-03-10T09:00:00Z", 26, GOLD_M).move_to([0.6, 2.6, 0])
-        lo1 = VGroup(M("l1  soup", 26, WHITE), T("cooked 4 days before now", 24, GREY_A)).arrange(RIGHT, buff=0.4)
-        lo2 = VGroup(M("l2  rice", 26, WHITE), T("cooked 30 hours before now", 24, GREY_A)).arrange(RIGHT, buff=0.4)
+        lo1 = VGroup(T("l1, soup", 28, WHITE), T("cooked 4 days before now", 24, GREY_A)).arrange(RIGHT, buff=0.4)
+        lo2 = VGroup(T("l2, rice", 28, WHITE), T("cooked 30 hours before now", 24, GREY_A)).arrange(RIGHT, buff=0.4)
         los = VGroup(lo1, lo2).arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([0.6, 1.3, 0])
         self.say("fridge_q")
         self.play(FadeIn(nowt), run_time=0.5)
@@ -524,6 +516,7 @@ class Fp08Core(Narrated):
         self.at(2)
         self.play(Create(core), FadeIn(ct), run_time=0.6)
         self.at(3)
+        shell.set_z_index(-1)
         self.play(Create(shell), FadeIn(st), run_time=0.6)
         self.hold()
         self.wipe()
