@@ -397,7 +397,7 @@ class Cap2Hedge(Narrated):
         self.at_text("Whichever", lead=0.3)
         self.play(GrowArrow(reply), run_time=0.6)
         self.at_text("never mind", lead=0.3)
-        self.play(FadeIn(nm), t1.animate.set_color(BAD), run_time=0.6)
+        self.play(FadeOut(wait), FadeIn(nm), t1.animate.set_color(BAD), run_time=0.6)
         self.hold()
 
         def maprow(a, b, ca):
@@ -415,7 +415,7 @@ class Cap2Hedge(Narrated):
         if mrows.get_bottom()[1] < -3.35:
             mrows.shift(UP * (-3.35 - mrows.get_bottom()[1]))
         self.say("map")
-        self.play(VGroup(cook, ph, b1, b2, same, t1, t2, wait, reply, nm).animate.scale(0.7).move_to([0, 1.85, 0]), run_time=0.7)
+        self.play(VGroup(cook, ph, b1, b2, same, t1, t2, reply, nm).animate.scale(0.7).move_to([0, 1.85, 0]), run_time=0.7)
         for i, key in enumerate(["The first text", "The few moments", "The second text", "Taking the first", "And never mind"]):
             self.at_text(key, lead=0.3)
             self.play(FadeIn(mrows[i], shift=UP * 0.1), run_time=0.5)
@@ -597,7 +597,8 @@ class Cap2Hedge(Narrated):
         toks = VGroup(*[token(OK, 0.12) for _ in range(10)]).arrange_in_grid(2, 5, buff=0.12)
         jar = SurroundingRectangle(toks, buff=0.15, corner_radius=0.08).set_stroke(GREY_B, 2)
         permit = VGroup(jar, toks).move_to(c3[0].get_center() + UP * 0.35)
-        pl = T("Northline: 10 calls at a time", 22, GREY_A).next_to(permit, DOWN, buff=0.15)
+        pl = VGroup(T("Northline:", 22, GREY_A), T("10 calls at a time", 22, GREY_A)).arrange(DOWN, buff=0.06)
+        pl.next_to(permit, DOWN, buff=0.15)
         hchip = chip_m("hedge", HEDGE, 22).next_to(pl, DOWN, buff=0.3)
         self.say("g3")
         self.play(FadeIn(c3), run_time=0.6)
@@ -621,9 +622,9 @@ class Cap2Hedge(Narrated):
         # ================= moral and check =================
         mq = T("Is a second question cheating?", 34, TICKET).move_to([0, 2.8, 0])
         m1 = T("not if it goes only to the slow tail", 30).next_to(mq, DOWN, buff=0.25)
-        steps = VGroup(*[T(s, 26, c) for s, c in (("wait the usual time", TICKET), ("ask once more", HEDGE),
+        steps = VGroup(*[T(s, 25, c) for s, c in (("wait the usual time", TICKET), ("ask once more", HEDGE),
                                                   ("take the first answer", OK), ("cancel the other", BAD))])
-        steps.arrange(RIGHT, buff=0.55).move_to([0, 0.9, 0])
+        steps.arrange(RIGHT, buff=0.75).move_to([0, 0.9, 0])
         fit(steps, 12.4)
         arrs = VGroup(*[Arrow(steps[i].get_right(), steps[i + 1].get_left(), buff=0.08, stroke_width=2.5, color=GREY_B,
                               max_tip_length_to_length_ratio=0.3) for i in range(3)])

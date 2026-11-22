@@ -1,153 +1,361 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.183
-Northbank answers a quote in 40 milliseconds, most of the time.
+00:00:02.700 --> 00:00:07.716
+It's the last day before the holidays, and the post office queue runs out of the door.
 
 2
-00:00:07.183 --> 00:00:12.804
-But one call in twenty takes 600, a garbage collection pause or a slow replica.
+00:00:07.716 --> 00:00:13.316
+Our quote service already gives each courier its own limit, and it asks again when a call fails.
 
 3
-00:00:13.033 --> 00:00:19.824
-So the p99, the time 99 of 100 requests beat, is 600 milliseconds.
+00:00:13.533 --> 00:00:16.075
+But Northline has a different habit.
 
 4
-00:00:20.033 --> 00:00:21.575
-A retry won't help.
+00:00:16.075 --> 00:00:19.394
+Most of the time it answers in 40 milliseconds.
 
 5
-00:00:21.575 --> 00:00:22.791
-Nothing failed.
+00:00:19.394 --> 00:00:21.441
+One call in twenty takes 600.
 
 6
-00:00:22.791 --> 00:00:24.576
-The call is just slow.
+00:00:21.441 --> 00:00:22.430
+Nothing fails.
 
 7
-00:00:25.400 --> 00:00:26.877
-Watch one request.
+00:00:22.430 --> 00:00:25.748
+Northline is just lost in thought now and then.
 
 8
-00:00:26.877 --> 00:00:30.896
-By 80 milliseconds, 19 calls in 20 have answered.
+00:00:25.967 --> 00:00:27.646
+So a retry doesn't help.
 
 9
-00:00:31.100 --> 00:00:34.499
-A fast call answers at 40, and nothing else happens.
+00:00:27.646 --> 00:00:31.913
+A retry fires when a call fails, and this call hasn't failed.
 
 10
-00:00:35.100 --> 00:00:37.401
-Now the first call is a slow one.
+00:00:31.913 --> 00:00:32.963
+It's only slow.
 
 11
-00:00:37.401 --> 00:00:39.632
-At 80, it still hasn't answered.
+00:00:33.867 --> 00:00:37.677
+Let's draw twenty calls, and add one more word.
 
 12
-00:00:39.632 --> 00:00:42.629
-So send one more identical call: the hedge.
+00:00:37.677 --> 00:00:41.325
+A percentile says how slow the slow ones are.
 
 13
-00:00:42.833 --> 00:00:44.952
-Which answer comes first, and when?
+00:00:41.325 --> 00:00:46.109
+p50 is the time half the calls beat: here, 40 milliseconds.
 
 14
-00:00:46.467 --> 00:00:49.858
-The hedge, at 120: 80 of waiting, plus 40.
+00:00:46.109 --> 00:00:50.000
+p99 is the time 99 calls in 100 beat: here, 600.
 
 15
-00:00:49.858 --> 00:00:52.603
-Take it, and cancel the slow call.
+00:00:50.233 --> 00:00:56.319
+The slowest few calls are the tail, and tail latency is what the unluckiest customers see.
 
 16
-00:00:53.133 --> 00:00:57.934
-Skip the cancel, and in Kotlin coroutineScope waits for every child.
+00:00:56.319 --> 00:00:58.618
+One customer in twenty isn't rare.
 
 17
-00:00:57.934 --> 00:01:01.040
-The request ends with the slow call, at 600.
+00:00:58.618 --> 00:01:00.579
+It's somebody in every queue.
 
 18
-00:01:02.767 --> 00:01:04.621
-Back to all twenty calls.
+00:01:00.800 --> 00:01:04.064
+So here's a question that feels a bit like cheating.
 
 19
-00:01:04.621 --> 00:01:08.625
-Only the slow one got a hedge, and it now ends at 120.
+00:01:04.064 --> 00:01:07.076
+If Northline is slow, why not just ask it again?
 
 20
-00:01:08.833 --> 00:01:15.814
-In the lesson's demo, 200 quotes: the p99 fell from 600 to 120 milliseconds.
+00:01:07.076 --> 00:01:09.524
+And if we do, don't we double the work?
 
 21
-00:01:15.814 --> 00:01:18.937
-The median, the p50, stayed at 40.
+00:01:12.300 --> 00:01:14.487
+Let's try the bold version first.
 
 22
-00:01:19.167 --> 00:01:22.184
-The cost: 210 calls instead of 200.
+00:01:14.487 --> 00:01:15.946
+Ask twice, every time.
 
 23
-00:01:22.184 --> 00:01:26.668
-Hedging at the 95th percentile adds about 5 percent.
+00:01:15.946 --> 00:01:22.176
+Send the second question after 30 milliseconds, before Northline would normally have answered.
 
 24
-00:01:27.800 --> 00:01:29.970
-A hedge is a duplicate request.
+00:01:22.400 --> 00:01:24.408
+The lesson's demo counted.
 
 25
-00:01:29.970 --> 00:01:34.661
-Northbank's prices are indicative, so asking twice changes nothing.
+00:01:24.408 --> 00:01:27.419
+For 200 prices, 400 calls to Northline.
 
 26
-00:01:34.867 --> 00:01:36.534
-Fjord's quotes are firm.
+00:01:27.419 --> 00:01:32.361
+Twice the load, every single time, to rescue one call in twenty.
 
 27
-00:01:36.534 --> 00:01:40.771
-Each call reserves liquidity, so a hedge would reserve twice.
+00:01:32.567 --> 00:01:37.433
+That's like posting every parcel twice because the postman once took a long lunch.
 
 28
-00:01:40.771 --> 00:01:42.716
-Fjord gets exactly one call.
+00:01:37.433 --> 00:01:41.647
+The second question should go only to the calls that are actually late.
 
 29
-00:01:42.933 --> 00:01:46.459
-And the hedge takes its own permit from Northbank's bulkhead.
+00:01:42.567 --> 00:01:43.613
+Back to the cook.
 
 30
-00:01:46.459 --> 00:01:51.544
-Under full load it waits for one, so it can't add to the queue that made Northbank slow.
+00:01:43.613 --> 00:01:47.859
+She texts a shop, and shops nearly always reply within a few moments.
 
 31
-00:01:52.767 --> 00:01:58.448
-Here it is in Kotlin, the lab's language, with the Java equivalent in Reactor below it.
+00:01:47.859 --> 00:01:52.782
+If this one hasn't replied by then, she texts the other branch of the same shop.
 
 32
-00:02:00.767 --> 00:02:01.426
-The rule.
+00:01:52.782 --> 00:01:57.889
+Whichever branch answers first, she takes, and she tells the other one: never mind.
 
 33
-00:02:01.426 --> 00:02:10.145
-Hedge only calls that are safe to repeat, only where the tail hurts, after about the p95 latency, and cancel the loser.
+00:01:58.100 --> 00:01:58.970
+Let's map it.
 
 34
-00:02:10.367 --> 00:02:11.453
-Check yourself.
+00:01:58.970 --> 00:02:01.179
+The first text is the first call.
 
 35
-00:02:11.453 --> 00:02:16.307
-You move the hedge to 30 milliseconds, below Northbank's normal 40.
+00:02:01.179 --> 00:02:06.133
+The few moments are the hedge time, taken from Northline's measured speed.
 
 36
-00:02:16.307 --> 00:02:18.771
-How many calls do 200 quotes make?
+00:02:06.133 --> 00:02:08.141
+The demo uses 80 milliseconds.
 
 37
-00:02:21.500 --> 00:02:21.804
-400.
+00:02:08.141 --> 00:02:11.756
+The second text is the hedge, one more identical call.
 
 38
-00:02:21.804 --> 00:02:27.807
-At 30, every call is still running, so every request is hedged: twice the load.
+00:02:11.756 --> 00:02:14.032
+Taking the first answer is select.
+
+39
+00:02:14.032 --> 00:02:16.643
+And never mind is cancelling the loser.
+
+40
+00:02:17.567 --> 00:02:18.776
+Now the slow call.
+
+41
+00:02:18.776 --> 00:02:22.472
+The first question goes out at zero and would take 600.
+
+42
+00:02:22.472 --> 00:02:25.160
+What's the longest a customer waits now?
+
+43
+00:02:28.133 --> 00:02:30.549
+At 80 milliseconds, still nothing.
+
+44
+00:02:30.549 --> 00:02:32.113
+So the hedge goes out.
+
+45
+00:02:32.113 --> 00:02:36.661
+It's a normal call, so it answers 40 milliseconds later, at 120.
+
+46
+00:02:36.661 --> 00:02:40.427
+The hedge wins, and the slow first call is cancelled.
+
+47
+00:02:40.633 --> 00:02:43.901
+80 of waiting, plus 40 for the hedge.
+
+48
+00:02:43.901 --> 00:02:46.727
+120 milliseconds instead of 600.
+
+49
+00:02:47.633 --> 00:02:55.360
+The demo asked Northline for 200 prices, without a hedge and with a hedge at 80.
+
+50
+00:02:55.360 --> 00:02:56.905
+p50 stays at 40.
+
+51
+00:02:56.905 --> 00:02:59.416
+p99 falls from 600 to 120.
+
+52
+00:02:59.416 --> 00:03:02.700
+And the calls: 210 instead of 200.
+
+53
+00:03:02.933 --> 00:03:08.356
+Ten extra calls, 5 percent more, because only the slow 5 percent ever got a hedge.
+
+54
+00:03:08.356 --> 00:03:10.604
+That's the answer to our question.
+
+55
+00:03:10.604 --> 00:03:12.257
+We don't double the work.
+
+56
+00:03:12.257 --> 00:03:15.035
+We spend a little, exactly where it hurts.
+
+57
+00:03:15.967 --> 00:03:23.269
+This move is called a hedge, like hedging a bet: a small second bet, so that one bad outcome can't hurt you much.
+
+58
+00:03:24.000 --> 00:03:26.045
+In Kotlin: start the first call.
+
+59
+00:03:26.045 --> 00:03:28.793
+Wait for it, but only until the hedge time.
+
+60
+00:03:28.793 --> 00:03:33.905
+If nothing came back, start the second call, and select whichever answers first.
+
+61
+00:03:33.905 --> 00:03:36.972
+Then cancel the children, which stops the loser.
+
+62
+00:03:36.972 --> 00:03:43.873
+Java with Reactor says it in one line: the first with a value, of the call, and the same call after a delay.
+
+63
+00:03:44.100 --> 00:03:50.306
+Forget that cancel line, and coroutineScope waits for the slow call anyway, which undoes the whole hedge.
+
+64
+00:03:50.306 --> 00:03:56.807
+It's like getting your answer from the second branch, and then standing by the phone for the first one anyway.
+
+65
+00:03:58.033 --> 00:04:02.026
+Now the guardrails, because a hedge is a duplicate request.
+
+66
+00:04:02.026 --> 00:04:02.296
+One.
+
+67
+00:04:02.296 --> 00:04:05.003
+Hedge only a call that's safe to repeat.
+
+68
+00:04:05.003 --> 00:04:07.980
+Northline and Eastgate only look up a price.
+
+69
+00:04:07.980 --> 00:04:12.717
+Fjord's price is a booking: each call holds a seat on one of its vans.
+
+70
+00:04:12.717 --> 00:04:16.100
+Hedge Fjord, and you book two vans for one parcel.
+
+71
+00:04:16.333 --> 00:04:16.615
+Two.
+
+72
+00:04:16.615 --> 00:04:23.434
+Hedge only the courier whose tail hurts, here Northline, at a time taken from its measured speed.
+
+73
+00:04:23.434 --> 00:04:26.317
+Too early, and every request gets hedged.
+
+74
+00:04:26.317 --> 00:04:28.285
+That's the 400 calls we saw.
+
+75
+00:04:28.500 --> 00:04:28.884
+Three.
+
+76
+00:04:28.884 --> 00:04:34.390
+The hedge takes its own permit, a token from Northline's limit of ten calls at a time.
+
+77
+00:04:34.390 --> 00:04:36.631
+And here the cook's picture breaks.
+
+78
+00:04:36.631 --> 00:04:42.585
+The other branch of a shop has its own staff, but our second call goes to the same Northline.
+
+79
+00:04:42.800 --> 00:04:47.289
+When Northline is swamped, a hedge only joins the queue that made it slow.
+
+80
+00:04:47.289 --> 00:04:52.264
+So under full load, the hedge waits for a permit, and the first call usually wins.
+
+81
+00:04:53.167 --> 00:04:55.410
+So, is a second question cheating?
+
+82
+00:04:55.410 --> 00:04:57.851
+Not if it goes only to the slow tail.
+
+83
+00:04:57.851 --> 00:05:03.525
+Wait until the usual time, ask once more, take the first answer, and cancel the other.
+
+84
+00:05:03.525 --> 00:05:05.571
+A hedge is a duplicate request.
+
+85
+00:05:05.571 --> 00:05:09.925
+Spend it on the slow tail, and only where a duplicate is harmless.
+
+86
+00:05:10.133 --> 00:05:10.984
+Quick check.
+
+87
+00:05:10.984 --> 00:05:13.606
+You hedge Fjord instead of Northline.
+
+88
+00:05:13.606 --> 00:05:14.740
+What goes wrong?
+
+89
+00:05:17.933 --> 00:05:20.699
+Every hedge holds a second seat on a van.
+
+90
+00:05:20.699 --> 00:05:25.691
+Fjord's call is a booking, not safe to repeat, so it's asked exactly once.

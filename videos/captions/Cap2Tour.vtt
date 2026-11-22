@@ -317,49 +317,49 @@ The fix asks for the price and says what to do when it arrives, on the channel's
 Kotlin says the same.
 
 80
-00:05:07.633 --> 00:05:14.261
+00:05:09.400 --> 00:05:16.028
 So look in your own code for join, get, or runBlocking inside anything that runs on an event loop.
 
 81
-00:05:14.261 --> 00:05:16.628
+00:05:16.028 --> 00:05:18.395
 Each one is the clerk on the phone.
 
 82
-00:05:17.533 --> 00:05:20.088
+00:05:19.300 --> 00:05:21.855
 So, why not just wait a tenth of a second?
 
 83
-00:05:20.088 --> 00:05:22.704
+00:05:21.855 --> 00:05:24.470
 Because that tenth of a second isn't yours.
 
 84
-00:05:22.704 --> 00:05:25.259
+00:05:24.470 --> 00:05:27.025
 It belongs to everyone in the clerk's row.
 
 85
-00:05:25.259 --> 00:05:31.341
+00:05:27.025 --> 00:05:33.108
 The counter hands each question back as a ticket, numbers its replies, and never picks up the phone.
 
 86
-00:05:31.567 --> 00:05:32.427
+00:05:33.333 --> 00:05:34.194
 Quick check.
 
 87
-00:05:32.427 --> 00:05:35.294
+00:05:34.194 --> 00:05:37.061
 One client sends 9, Oslo, then 10, Rome.
 
 88
-00:05:35.294 --> 00:05:37.230
+00:05:37.061 --> 00:05:38.997
 Rome's price arrives first.
 
 89
-00:05:37.230 --> 00:05:41.961
+00:05:38.997 --> 00:05:43.728
 Which reply leaves first, and how does the client tell them apart?
 
 90
-00:05:45.133 --> 00:05:46.971
+00:05:46.900 --> 00:05:48.738
 The reply for 10 leaves first.
 
 91
-00:05:46.971 --> 00:05:52.485
+00:05:48.738 --> 00:05:54.252
 The client reads the number at the front of each reply and matches it to its own question.
