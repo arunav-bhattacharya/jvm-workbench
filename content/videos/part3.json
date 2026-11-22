@@ -16,13 +16,13 @@
       "slug": "gen05-in",
       "lesson": "gen-05",
       "section": 0,
-      "title": "A consumer only takes values in, so the subtype arrow flips"
+      "title": "The compost bin takes any fruit, so a Bin<Fruit> stands in for a Bin<Apple>: in flips the arrow"
     },
     {
       "slug": "gen08-reified",
       "lesson": "gen-08",
       "section": 1,
-      "title": "Erasure removes T, and inline with reified writes the real class into each call site"
+      "title": "Erasure tears the label off; inline with reified copies it onto a note at every call"
     },
     {
       "slug": "dop03-exhaustive",
@@ -70,7 +70,7 @@
       "slug": "gen07-star",
       "lesson": "gen-07",
       "section": 0,
-      "title": "List<*> is a list of one type you don't know: reads give Any?, nothing goes in, and the star follows the declared variance"
+      "title": "A box whose label wore off: List<*> reads as Any?, takes nothing in, and is not the drawer MutableList<Any?>"
     },
     {
       "slug": "pat07-strategy",
@@ -160,7 +160,7 @@
       "slug": "gen06-projections",
       "lesson": "gen-06",
       "section": 0,
-      "title": "A use-site projection shuts one door of an invariant MutableList: out reads and refuses add, in writes and reads only Any?"
+      "title": "For this job, take-only: Array<out Fruit> lets one function read a busy crate, while Java arrays only find out at run time"
     },
     {
       "slug": "pat10-visitor",

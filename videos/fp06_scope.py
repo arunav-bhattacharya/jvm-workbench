@@ -1,480 +1,608 @@
 from fg import *
+import fg
 
-# ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Za-z0-9\"'(])")
+# Spoken forms only (captions keep the written words).
+fg.SAY[:0] = [
+    (r"\bmyLet\b", "my let"), (r"\bmyApply\b", "my apply"), (r"\bOvenProgram\b", "oven program"),
+    (r"\bx\?\.let\b", "x, question mark dot let"), (r"\bJ-62\b", "J 62"), (r"\bthises\b", "this-es"),
+    (r"\bmenu\.add\(dish\)\.also\b", "menu dot add dish, dot also"),
+]
+
+# every spoken line, in order
+N = {
+    "open": "Picture a good cook's small habits. You set up a new tray: paper, a little butter, twelve cookies, and "
+            "that same tray goes into the oven. You jot in the kitchen notebook that tray two went in at ten past, "
+            "and the tray goes on, unchanged. You dip a spoon in the soup, and you get an answer back: needs salt.",
+    "open2": "Each habit has one clear job. From across the room, you can tell which one it is.",
+    "shyq": "Kotlin has five tiny functions for jobs like these: let, run, with, apply and also. And here's the "
+            "question many of us are shy to ask. They all look the same. Is there a real difference, or do people "
+            "just pick a favorite?",
+    "setup": "Here's code from the recipe app. It sets up a program for the oven, 180 degrees, 12 minutes, oat "
+             "cookies, and writes a line to the log. Nothing is wrong with it. But it says program dot on every "
+             "line, and nothing marks where the setup ends.",
+    "apply": "Kotlin code often says it like this. apply sets up the new object, and hands back the same object. Then "
+             "also writes the log line in passing, and lets the value go on unchanged. Those are the first two "
+             "habits: set up a tray, and note it in passing.",
+    "trap": "And here's the catch. The compiler accepts almost any of the five, almost anywhere. Pick the wrong one, "
+            "and the code still compiles. It just hands back the wrong thing, quietly.",
+    "demo_q": "So let's test them. A recipe for pancakes, 4 servings. The same block, servings times 2, goes through "
+              "all five. What does each line print?",
+    "demo_a": "let, run and with print 8. also and apply print the recipe itself. Same block, same recipe, and two of "
+              "them threw the 8 away.",
+    "demo_j": "It's like asking someone to taste the soup, and getting the whole pot back. So the point really is: also "
+              "and apply hand back the value they were called on. let, run and with hand back the block's result.",
+    "byhand": "These aren't keywords. Each one is a tiny function you could write yourself. Here are let and apply by "
+              "hand. myLet calls the block with the value, and returns what the block returns. myApply runs the "
+              "block, then returns the value.",
+    "receiver": "The other difference is the type of the block. For let, it's a plain function type, so the value "
+                "arrives as the lambda's parameter, it. For apply, it's a lambda with a receiver. Inside it, the "
+                "value is this, so minutes equals 12 means this dot minutes. Java has no lambda like that, so the "
+                "Java helper says p dot on every line.",
+    "q1": "So there are two differences, and two questions pick the function. First: what should the call hand back? "
+          "The same value, to keep chaining it or store it? Then apply or also. Something new, computed from it? "
+          "Then let, run or with.",
+    "q2": "Second: how does the block use the value? If it mostly sets or calls the value's own members, this reads "
+          "best: apply, run and with. If it passes the value on to other functions, use it: also and let.",
+    "map": "And each cell has its kitchen habit. apply sets up a new tray. also notes it in passing. let tastes with a "
+           "spoon, and brings back an answer. run reads the oven's own dials, and tells you the minutes left. And "
+           "with reads off the card you're already holding. run and with do the same job. with reads well on its "
+           "own line, and run fits in a chain.",
+    "name": "Now the names. These five are the scope functions: small inline functions that run a block with one "
+            "value in hand. And that value is called the context object.",
+    "breaks_q": "Here's where the kitchen picture breaks. A note in the notebook can't change the soup. But Kotlin "
+                "doesn't hold a block to its job. This dish is planned. We call also, and inside, we make a copy "
+                "with the stage set to cooking. What stage does cooking have?",
+    "breaks_a": "Planned. also threw the copy away, and handed back the original dish. Kotlin 2.4.21 compiles this "
+                "without a warning. The name tells the reader what you meant, and the compiler checks none of it. "
+                "If you want the copy, use let, or just call copy.",
+    "contract": "The five share one more trick. A val can be assigned only once, yet this line assigns one inside a "
+                "lambda, and it compiles. The jar gets its label, J-62. How? also declares a contract: a promise to "
+                "the compiler that the block runs right here, exactly once.",
+    "contract2": "Write your own also without that contract, and the same line fails: Captured values cannot be "
+                 "initialized because of possible reassignments. The compiler trusts the promise. It never checks it.",
+    "guard": "So before you pick one, ask whether you need one at all. A plain call, or an if on a val, is often "
+             "clearer. A scope function with one line inside is often a plain call in costume. And don't nest them. "
+             "Two its, or two thises, in one place are easy to mix up.",
+    "loop": "One caution for the next section. x?.let, then the Elvis operator, then run, looks like an if and an "
+            "else. It isn't always one.",
+    "moral": "So, is there a real difference between the five? Yes, exactly two. Is the value this or it inside the "
+             "block? And does the call hand back the value, or the block's result? Two questions, one cell.",
+    "check": "Quick check. menu.add returns a slot id. You want to log that id, and keep it flowing on, unchanged. "
+             "Which one do you use?",
+    "check_a": "also. You want the same value back, and the block hands it to the logger, as it. menu.add(dish).also, "
+               "log it.",
+}
 
 
-class Beat(VoiceScene):
-    """VoiceScene plus: say= (the voice reads a different spelling than the caption shows), captions split
-    only where a new sentence starts, and seq() to start animations at a given sentence of the line."""
 
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-    def _speak(self, text, say):
-        path, dur = voice(say or text)
+    def say(self, key):
+        text = N[key]
+        path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        return dur
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
 
-    def beat(self, text, *anims, run_time=None, after=0.25, say=None):
-        dur = self._speak(text, say)
-        if anims:
-            rt = min(run_time if run_time else max(0.8, dur * 0.55), max(0.5, dur))
-            self.play(*anims, run_time=rt)
-            rest = dur - rt
-        else:
-            rest = dur
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def seq(self, text, plan=(), after=0.25, say=None):
-        """plan: (sentence index, [animations], run_time); each starts no earlier than its sentence."""
-        dur = self._speak(text, say)
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        starts, t = [], 0.0
-        for x in sents:
-            starts.append(t); t += dur * len(x) / total
-        now = 0.0
-        for idx, anims, rt in plan:
-            if idx >= len(starts):
-                print(f"SEQ WARNING: sentence {idx} of {len(starts)} in: {text[:60]}")
-                idx = len(starts) - 1
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now); now = starts[idx]
-            self.play(*anims, run_time=rt); now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
-        if after:
-            self.wait(after)
+    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def wipe(self, rt=0.7):
+        self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
 
 
-def fill_of(color, k=0.14):
+def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def code(lines, size=24, color=WHITE, pitch=1.6, t2c=None):
-    """Code lines, left aligned, indentation kept (a hidden '|' anchors each line)."""
-    step = M("|", size).height * pitch
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        t = Text("|" + ln, font=MONO, font_size=size, color=color, t2c=t2c or {}, disable_ligatures=True)
-        t.shift(np.array([0, -i * step, 0]) - t[0].get_center())
-        t.remove(t[0])
-        g.add(t)
-    return g
+# one colour per thing, for the whole fp track (a recipe book and a kitchen scale)
+CARD, ARG, OUT, HIDDEN, EFFECT, COOK, PURE = TEAL_M, BLUE_M, GREEN_M, RED_M, PURPLE_M, BLUE_M, YELLOW_M
+PAPER = "#EDE6D6"
+
+def person(color=COOK, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def part(t, src, sub, nth=0):
-    """The glyphs of substring sub in a Text built from src (spaces are not glyphs)."""
-    i = -1
-    for _ in range(nth + 1):
-        i = src.index(sub, i + 1)
-    a = len(src[:i].replace(" ", ""))
-    return t[a:a + len(sub.replace(" ", ""))]
+def recipe_card(title, lines, w=3.4, size=24):
+    r = RoundedRectangle(corner_radius=0.1, width=w, height=0.75 + 0.48 * len(lines)).set_stroke(CARD, 3)
+    r.set_fill(dim(CARD, 0.12), 1)
+    head = T(title, 30, CARD).move_to(r.get_top() + DOWN * 0.38)
+    rule = Line(LEFT * (w / 2 - 0.25), RIGHT * (w / 2 - 0.25), stroke_width=1.5, color=CARD).next_to(head, DOWN, buff=0.12)
+    rows = VGroup(*[T(l, size, GREY_A) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.16)
+    rows.next_to(rule, DOWN, buff=0.2).align_to(r.get_left() + RIGHT * 0.35, LEFT)
+    return VGroup(r, head, rule, rows)
 
 
-def card(title, rows, color=BLUE_M, w=None, tsize=24, rsize=22, rcolor=WHITE):
-    t = M(title, tsize, color)
-    rs = VGroup(*[M(x, rsize, rcolor) for x in rows])
-    body = VGroup(t, *rs).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
-    r = RoundedRectangle(corner_radius=0.14, width=w or body.width + 0.6, height=body.height + 0.45,
-                         stroke_color=color, stroke_width=3).set_fill(fill_of(color), opacity=1)
-    body.move_to(r)
-    return VGroup(r, body)
+def fn_box(label, w=4.2, h=1.1, color=CARD, size=28):
+    r = RoundedRectangle(corner_radius=0.14, width=w, height=h).set_stroke(color, 3).set_fill(dim(color, 0.12), 1)
+    return VGroup(r, M(label, size, color).move_to(r))
 
 
-def cbox(lines, size=24, color=WHITE, t2c=None, pad=0.45, w=None, pitch=1.45):
-    """A block of code drawn as a box."""
-    c = code(lines, size, t2c=t2c, pitch=pitch)
-    r = RoundedRectangle(corner_radius=0.16, width=w or c.width + pad, height=c.height + pad * 0.9,
-                         stroke_color=color, stroke_width=3).set_fill(BLACK, opacity=1)
-    c.move_to(r)
-    return VGroup(r, c)
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
 
 
-def gate(sym, color=GREY_B):
-    c = Circle(radius=0.36, stroke_color=color, stroke_width=3).set_fill(BLACK, opacity=1)
-    return VGroup(c, M(sym, 28).move_to(c))
+def labelled(lang, block, size=22):
+    return VGroup(T(lang, size, GREY_B), block).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
 
 
-def flash(r, color=YELLOW_M):
-    return ShowPassingFlash(r.copy().set_fill(opacity=0).set_stroke(color, 7), time_width=0.6)
+def cross(m, s=0.2, buff=0.22):
+    return tick(False, s).next_to(m, RIGHT, buff=buff)
 
 
-def dot_run(a, b, color, run_time):
-    d = Dot(radius=0.09, color=color).move_to(a).set_z_index(30)
-    return Succession(FadeIn(d, run_time=0.05), d.animate(run_time=run_time, rate_func=smooth).move_to(b),
-                      FadeOut(d, run_time=0.12))
+def check(m, s=0.2, buff=0.22):
+    return tick(True, s).next_to(m, RIGHT, buff=buff)
 
 
-# grid geometry, the same every time it is on screen
-COLX = [0.25, 4.4]
-ROWY = [1.55, -0.05]
-HEADY = 2.9
-CW, CH = 4.0, 1.35
-ROWX = -4.45
-COLC = [YELLOW_M, BLUE_M]           # result column, object column
-ROWC = [TEAL_M, PURPLE_M]           # this row, it row
-NAMES = {(0, 0): "run, with", (1, 0): "apply", (0, 1): "let", (1, 1): "also"}
-JOBS = {(0, 0): "compute from members", (1, 0): "configure an object",
-        (0, 1): "transform, null check", (1, 1): "side effect, keep the value"}
-STRIP_Y = -2.3
+def part_of(t, s):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    i = re.sub(r"\s", "", t.text).index(k)
+    return t[i:i + len(k)]
 
 
-def row_label(r):
-    head = T("object is this" if r == 0 else "object is it", 28, ROWC[r])
-    sub = VGroup(T("you write", 22, GREY_B), M("amountMinor" if r == 0 else "it.amountMinor", 22, GREY_B)
-                 ).arrange(RIGHT, buff=0.12)
-    return VGroup(head, sub).arrange(DOWN, buff=0.14).move_to([ROWX, ROWY[r], 0])
+def kitchen_scale(text, color=HIDDEN, s=1.0):
+    plate = RoundedRectangle(corner_radius=0.06, width=1.3, height=0.14).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    base = RoundedRectangle(corner_radius=0.1, width=1.1, height=0.55).set_stroke(color, 3).set_fill(dim(color, 0.15), 1)
+    base.next_to(plate, DOWN, buff=0.06)
+    disp = RoundedRectangle(corner_radius=0.04, width=0.7, height=0.3).set_stroke(color, 2).set_fill(BLACK, 1).move_to(base)
+    t = M(text, 18, color).move_to(disp)
+    return VGroup(plate, base, disp, t).scale(s)
 
 
-def make_grid():
-    heads = VGroup(T("returns the block's result", 24, COLC[0]).move_to([COLX[0], HEADY, 0]),
-                   T("returns the object itself", 24, COLC[1]).move_to([COLX[1], HEADY, 0]))
-    rows = VGroup(row_label(0), row_label(1))
-    cells, names, jobs = {}, {}, {}
-    for (c, r), n in NAMES.items():
-        rect = RoundedRectangle(corner_radius=0.16, width=CW, height=CH, stroke_color=COLC[c], stroke_width=3)
-        rect.set_fill(fill_of(COLC[c], 0.12), opacity=1).move_to([COLX[c], ROWY[r], 0])
-        cells[(c, r)] = rect
-        names[(c, r)] = M(n, 32).move_to(rect)
-        jobs[(c, r)] = T(JOBS[(c, r)], 22, GREY_B).move_to(rect.get_center() + DOWN * 0.33)
-    return heads, rows, cells, names, jobs
+# ---- this video's pictures ----
+THIS_C, IT_C, VAL_C, RES_C = BLUE_M, GOLD_M, TEAL_M, GREEN_M
+FN_C = {"apply": TEAL_M, "also": PURPLE_M, "let": GREEN_M, "run": YELLOW_M, "with": YELLOW_M}
+COOKIE = GOLD_M
 
 
-class Fp06Scope(Beat):
-    """fp-06 section 1: two questions pick the scope function (this or it, the object or the block's result),
-    each cell's typical job, and the ?.let { } ?: run { } trap from section 2."""
+def tray_icon(s=1.0, n=6):
+    t = RoundedRectangle(corner_radius=0.1, width=1.8, height=1.0).set_stroke(GREY_B, 3).set_fill(dim(GREY_B, 0.12), 1)
+    paper = Rectangle(width=1.55, height=0.78).set_stroke(dim(PAPER, 0.7), 1.5).set_fill(dim(PAPER, 0.25), 1).move_to(t)
+    cs = VGroup(*[Circle(radius=0.13).set_stroke(COOKIE, 2).set_fill(dim(COOKIE, 0.45), 1) for _ in range(n)])
+    cs.arrange_in_grid(2, n // 2, buff=0.12).move_to(t)
+    return VGroup(t, paper, cs).scale(s)
+
+
+def notebook(s=1.0):
+    r = RoundedRectangle(corner_radius=0.06, width=1.3, height=1.6).set_stroke(PURPLE_M, 3).set_fill(dim(PURPLE_M, 0.15), 1)
+    ls = VGroup(*[Line([-0.45, y, 0], [0.45, y, 0], stroke_width=1.5, color=dim(PURPLE_M, 0.8)) for y in (0.4, 0.15, -0.1, -0.35)])
+    ls.move_to(r)
+    rings = VGroup(*[Circle(radius=0.05).set_stroke(GREY_B, 2).move_to(r.get_left() + UP * y + RIGHT * 0.05) for y in (0.5, 0, -0.5)])
+    return VGroup(r, ls, rings).scale(s)
+
+
+def pot_spoon(s=1.0):
+    body = RoundedRectangle(corner_radius=0.2, width=1.6, height=1.0).set_stroke(GREEN_M, 3).set_fill(dim(GREEN_M, 0.15), 1)
+    rim = Line(body.get_corner(UL) + LEFT * 0.12, body.get_corner(UR) + RIGHT * 0.12, stroke_width=4, color=GREEN_M)
+    sp = VGroup(Ellipse(width=0.32, height=0.2).set_stroke(GREY_A, 2.5).set_fill(dim(GOLD_M, 0.6), 1),
+                Line(ORIGIN, UP * 0.9 + RIGHT * 0.25, stroke_width=4, color=GREY_A))
+    sp[1].next_to(sp[0], UR, buff=-0.05)
+    sp.move_to(body.get_top() + UP * 0.35 + RIGHT * 0.2)
+    return VGroup(body, rim, sp).scale(s)
+
+
+def habit(icon, text, color):
+    return VGroup(icon, T(text, 24, color).next_to(icon, DOWN, buff=0.2))
+
+
+class Fp06Scope(Narrated):
+    """fp-06, section 1: two questions pick the scope function. A cook's habits (set up a tray, note it in passing,
+    taste with a spoon); OvenProgram set up line by line, then with apply and also; the compiler accepts any choice;
+    ScopeReturns (8, 8, 8, Recipe, Recipe); myLet and myApply by hand, it vs a lambda with a receiver; the two
+    questions and the grid; each cell's kitchen habit; scope function and context object named; the picture breaks
+    (also { copy } keeps PLANNED); the contract that lets a val be set inside also (J-62, the compiler message);
+    the guardrail; the caution for ?.let ?: run; the moral; a check."""
 
     def construct(self):
-        self.title_card("Scope functions", "two questions pick one of five")
+        self.title_card("Two questions pick the habit", "let, run, with, apply and also")
 
-        # ---------------- the model: an object, a block, one of two things back ----------------
-        charge = card("Charge", ["id = ch_1", "amountMinor = 1999", "currency = EUR"]).move_to([-4.75, 0.5, 0])
-        blk = RoundedRectangle(corner_radius=0.18, width=4.0, height=2.5, stroke_color=WHITE, stroke_width=3)
-        blk.set_fill(BLACK, opacity=1).move_to([0.0, 0.5, 0])
-        blk_lab = T("a block of code", 24, GREY_B).next_to(blk, UP, buff=0.18)
-        blk_code = M("amountMinor * 2", 28).move_to(blk.get_center() + DOWN * 0.5)
-        inner = chip("charge", BLUE_M, size=26, mono=True).move_to(blk.get_center() + UP * 0.5)
+        # ================= the cook's habits =================
+        h1 = habit(tray_icon(1.0), "set up a new tray", FN_C["apply"]).move_to([-4.3, 0.6, 0])
+        h2 = habit(notebook(0.9), "note it in passing", FN_C["also"]).move_to([0, 0.6, 0])
+        h3 = habit(pot_spoon(1.0), "taste: an answer back", FN_C["let"]).move_to([4.3, 0.6, 0])
+        same = T("the same tray goes in", 22, GREY_A).next_to(h1, DOWN, buff=0.2)
+        note = T("\"tray two in at 10 past\"", 22, GREY_A).next_to(h2, DOWN, buff=0.2)
+        salt = T("\"needs salt\"", 22, GREY_A).next_to(h3, DOWN, buff=0.2)
+        self.say("open")
+        self.at(1)
+        self.play(FadeIn(h1, shift=UP * 0.15), run_time=0.7)
+        self.play(FadeIn(same), run_time=0.4)
+        self.at(2)
+        self.play(FadeIn(h2, shift=UP * 0.15), run_time=0.7)
+        self.play(FadeIn(note), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(h3, shift=UP * 0.15), run_time=0.7)
+        self.play(FadeIn(salt), run_time=0.4)
+        self.hold()
+        one = T("one habit, one clear job", 30, GOLD_M).move_to([0, -2.6, 0])
+        self.say("open2")
+        self.play(FadeIn(one, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        self.seq("Here is a charge of 1999 cents. You hand it to a small block of code that doubles the amount.",
-                 [(0, [FadeIn(charge, shift=RIGHT * 0.2)], 0.8),
-                  (1, [FadeIn(VGroup(blk, blk_lab, blk_code))], 0.7),
-                  (1, [ReplacementTransform(charge.copy(), inner), charge.animate.set_opacity(0.3)], 1.0)],
-                 say="Here is a charge of one thousand nine hundred ninety-nine cents. "
-                     "You hand it to a small block of code that doubles the amount.")
+        five = VGroup(*[M(n, 40, FN_C[n]) for n in ("let", "run", "with", "apply", "also")]).arrange(RIGHT, buff=0.9)
+        five.move_to([0, 1.2, 0])
+        q = T("They all look the same. Is there a real difference?", 32).move_to([0, -0.6, 0])
+        q2 = T("Or do people just pick a favorite?", 30, GREY_A).next_to(q, DOWN, buff=0.3)
+        self.say("shyq")
+        self.play(LaggedStart(*[FadeIn(f, shift=UP * 0.1) for f in five], lag_ratio=0.2), run_time=1.2)
+        self.at(2)
+        self.play(FadeIn(q, shift=UP * 0.1), run_time=0.6)
+        self.at_text("or do people", lead=0.3)
+        self.play(FadeIn(q2), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        res = chip("3998", YELLOW_M, size=32, mono=True).move_to([4.7, 2.0, 0])
-        res_lab = T("the block's result", 26, YELLOW_M).next_to(res, UP, buff=0.2)
-        obj = card("Charge", ["id = ch_1", "amountMinor = 1999", "currency = EUR"]).move_to([4.7, -1.0, 0])
-        obj_lab = T("the charge you handed in", 26, BLUE_M).next_to(obj, DOWN, buff=0.2)
-        a_res = Arrow(blk.get_right() + UP * 0.45, res.get_left(), buff=0.15, stroke_width=3, color=YELLOW_M,
-                      max_tip_length_to_length_ratio=0.12)
-        a_obj = Arrow(blk.get_right() + DOWN * 0.45, obj.get_left(), buff=0.15, stroke_width=3, color=BLUE_M,
-                      max_tip_length_to_length_ratio=0.12)
-        res_src = M("3998", 32, YELLOW_M).move_to(blk_code)
-        self.seq("When the block is done, the call gives back one of two things. The block's result, 3998. "
-                 "Or the charge you handed in.",
-                 [(0, [GrowArrow(a_res), GrowArrow(a_obj)], 0.8),
-                  (1, [Indicate(blk_code, color=YELLOW_M, scale_factor=1.1)], 0.6),
-                  (1, [ReplacementTransform(res_src, res), FadeIn(res_lab)], 0.8),
-                  (2, [ReplacementTransform(inner, obj), FadeIn(obj_lab)], 1.0)],
-                 say="When the block is done, the call gives back one of two things. "
-                     "The block's result, three thousand nine hundred ninety-eight. Or the charge you handed in.")
+        # ================= the setup, line by line =================
+        kv = code_block(["val program = OvenProgram()", "program.temperatureC = 180", "program.minutes = 12",
+                         "program.name = \"Oat cookies\"", "log.info(\"baking {}\", program)"], 24)
+        jv = code_block(["OvenProgram program = new OvenProgram();", "program.setTemperatureC(180);", "program.setMinutes(12);",
+                         "program.setName(\"Oat cookies\");", "log.info(\"baking {}\", program);"], 24)
+        pair = VGroup(labelled("Kotlin", kv), labelled("Java", jv)).arrange(RIGHT, aligned_edge=UP, buff=0.9)
+        fit(pair, 12.4).move_to([0, 0.6, 0])
+        rep = VGroup(*[SurroundingRectangle(part_of(kv[i], "program."), color=HIDDEN, buff=0.05) for i in (1, 2, 3)])
+        self.say("setup")
+        self.play(FadeIn(pair), run_time=0.9)
+        self.at(3)
+        self.play(Create(rep), run_time=0.7)
+        self.hold()
+        self.play(FadeOut(rep), FadeOut(pair), run_time=0.5)
 
-        # ---- this or it
-        L = card("Charge", [], w=6.2)
-        L[0].stretch_to_fit_height(2.5)
-        L.move_to([-3.35, 0.25, 0])
-        L[1].move_to(L[0].get_corner(UL) + np.array([0.75, -0.35, 0]))
-        fields = VGroup(*[M(f, 22, TEAL_M if f == "amountMinor" else GREY_B) for f in ("id", "amountMinor", "currency")]
-                        ).arrange(DOWN, aligned_edge=LEFT, buff=0.16).move_to(L[0].get_center() + np.array([-2.05, -0.25, 0]))
-        lb = cbox(["amountMinor * 2"], 26, t2c={"amountMinor": TEAL_M}).move_to(L[0].get_center() + np.array([1.25, -0.25, 0]))
-        L_head = T("as this", 32, TEAL_M).next_to(L, UP, buff=0.25)
-        L_sub = T("the block runs inside the charge", 24, GREY_B).next_to(L, DOWN, buff=0.25)
+        ka = code_block(["val program = OvenProgram().apply {", "    temperatureC = 180", "    minutes = 12",
+                         "    name = \"Oat cookies\"", "}.also { log.info(\"baking {}\", it) }"], 24)
+        ja = code_block(["OvenProgram program = apply(new OvenProgram(), p -> {", "    p.setTemperatureC(180);",
+                         "    p.setMinutes(12);", "    p.setName(\"Oat cookies\");", "});", "log.info(\"baking {}\", program);"], 22)
+        pair2 = VGroup(labelled("Kotlin", ka), labelled("Java: a helper that takes a Consumer", ja)).arrange(RIGHT, aligned_edge=UP, buff=0.7)
+        fit(pair2, 12.6).move_to([0, 0.8, 0])
+        b_apply = SurroundingRectangle(part_of(ka[0], ".apply {"), color=FN_C["apply"], buff=0.06)
+        b_also = SurroundingRectangle(part_of(ka[4], ".also {"), color=FN_C["also"], buff=0.06)
+        t_apply = T("set up a new tray: hands back the same object", 24, FN_C["apply"]).move_to([0, -2.1, 0])
+        t_also = T("note it in passing: the value goes on unchanged", 24, FN_C["also"]).move_to([0, -2.6, 0])
+        self.say("apply")
+        self.play(FadeIn(pair2), run_time=0.9)
+        self.at(1)
+        self.play(Create(b_apply), FadeIn(t_apply), run_time=0.6)
+        self.at(2)
+        self.play(Create(b_also), FadeIn(t_also), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        rb = cbox(["it.amountMinor * 2"], 26, t2c={"it.": PURPLE_M}).move_to([4.4, 0.25, 0])
-        rchip = chip("charge", BLUE_M, size=26, mono=True).move_to([0.75, 0.25, 0])
-        rtag = M("it", 28, PURPLE_M).next_to(rchip, UP, buff=0.2)
-        rarr = Arrow(rchip.get_right(), rb.get_left(), buff=0.1, stroke_width=3, color=PURPLE_M,
-                     max_tip_length_to_length_ratio=0.25)
-        R_head = T("as it", 32, PURPLE_M).move_to([3.4, L_head.get_y(), 0])
-        R_sub = T("the charge comes in as a parameter", 24, GREY_B).move_to([3.4, L_sub.get_y(), 0])
+        tr = VGroup(T("The compiler accepts almost any of the five, almost anywhere.", 30),
+                    T("Pick the wrong one: it still compiles.", 30, GREY_A),
+                    T("It just hands back the wrong thing, quietly.", 30, HIDDEN)).arrange(DOWN, buff=0.35)
+        fit(tr, 12.4)
+        self.say("trap")
+        self.at(1)
+        self.play(FadeIn(tr[0]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(tr[1]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(tr[2]), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        self.play(FadeOut(VGroup(a_res, a_obj, res, res_lab, obj, obj_lab, charge, blk_lab)),
-                  FadeOut(VGroup(blk, blk_code)), run_time=0.6)
-        self.seq("Inside the block, the charge shows up in one of two ways. "
-                 "As this, the block runs inside the charge, so you write amountMinor. "
-                 "As it, the charge comes in as a parameter, so you write it.amountMinor.",
-                 [(1, [FadeIn(L_head), FadeIn(L[0]), FadeIn(L[1])], 0.7),
-                  (1, [FadeIn(fields), FadeIn(lb, scale=0.9)], 0.8),
-                  (1, [Indicate(fields[1], color=TEAL_M), Indicate(lb[1][0][0:11], color=TEAL_M)], 1.0),
-                  (2, [FadeIn(R_head), FadeIn(rchip), FadeIn(rtag), FadeIn(rb, scale=0.9)], 0.8),
-                  (2, [GrowArrow(rarr), FadeIn(R_sub), FadeIn(L_sub)], 0.7),
-                  (2, [Indicate(rb[1][0][0:2], color=PURPLE_M, scale_factor=1.3), Indicate(rtag, color=PURPLE_M)], 1.0)],
-                 say="Inside the block, the charge shows up in one of two ways. "
-                     "As this, the block runs inside the charge, so you write amount minor. "
-                     "As it, the charge comes in as a parameter, so you write it dot amount minor.")
+        # ================= the same block, five ways =================
+        rec = M("val recipe = Recipe(\"pancakes\", 4, 200)", 24, GREY_B).move_to([0, 2.8, 0])
+        lines = [("let  ", "recipe.let { it.servings * 2 }"), ("run  ", "recipe.run { servings * 2 }"),
+                 ("with ", "with(recipe) { servings * 2 }"), ("also ", "recipe.also { it.servings * 2 }"),
+                 ("apply", "recipe.apply { servings * 2 }")]
+        names = ["let", "run", "with", "also", "apply"]
+        rows = VGroup(*[M(src, 24, FN_C[names[k]]) for k, (nm, src) in enumerate(lines)])
+        rows.arrange(DOWN, aligned_edge=LEFT, buff=0.22).move_to([0, 1.05, 0])
+        outs = ["8", "8", "8", "Recipe(name=pancakes, servings=4, grams=200)", "Recipe(name=pancakes, servings=4, grams=200)"]
+        ov = VGroup(*[M(f"{names[k]:<5} -> {o}", 22, RES_C if o == "8" else VAL_C) for k, o in enumerate(outs)])
+        ov.arrange(DOWN, aligned_edge=LEFT, buff=0.16).move_to([-1.2, -1.85, 0])
+        cons = SurroundingRectangle(ov, color=GREY_D, buff=0.18, corner_radius=0.08)
+        arrs = VGroup(cons)
+        self.say("demo_q")
+        self.play(FadeIn(rec), run_time=0.5)
+        self.at(2)
+        self.play(LaggedStart(*[FadeIn(r) for r in rows], lag_ratio=0.2), run_time=1.2)
+        self.hold(after=0)
+        self.predict()
+        self.say("demo_a")
+        self.play(Create(cons), FadeIn(ov[:3]), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(ov[3:]), run_time=0.6)
+        self.at(2)
+        thrown = T("the 8 was thrown away", 24, HIDDEN).next_to(cons, RIGHT, buff=0.3).shift(DOWN * 0.5)
+        self.play(Indicate(ov[3], color=HIDDEN, scale_factor=1.03), Indicate(ov[4], color=HIDDEN, scale_factor=1.03),
+                  FadeIn(thrown), run_time=0.9)
+        self.hold()
 
-        # ---- the grid
-        heads, rows, cells, names, jobs = make_grid()
-        order = [(0, 0), (1, 0), (0, 1), (1, 1)]
-        self.seq("Two questions, two answers each. That makes four cells, and Kotlin's five scope functions fill them.",
-                 [(0, [ReplacementTransform(L_head, rows[0][0]), ReplacementTransform(R_head, rows[1][0]),
-                       FadeOut(VGroup(L, fields, lb, L_sub, rb, rchip, rtag, rarr, R_sub))], 1.0),
-                  (0, [FadeIn(rows[0][1]), FadeIn(rows[1][1]),
-                       FadeIn(heads[0], shift=DOWN * 0.15), FadeIn(heads[1], shift=DOWN * 0.15)], 0.7),
-                  (1, [LaggedStart(*[FadeIn(cells[k]) for k in order], lag_ratio=0.2)], 0.9),
-                  (1, [LaggedStart(*[Write(names[k]) for k in order], lag_ratio=0.3)], 1.4)])
+        pj = T("asked for a taste, got the whole pot", 30, GOLD_M).move_to([0, 3.0, 0])
+        kv1 = SurroundingRectangle(VGroup(ov[3], ov[4]), color=VAL_C, buff=0.06)
+        kr1 = SurroundingRectangle(VGroup(ov[0], ov[1], ov[2]), color=RES_C, buff=0.06)
+        l_v = T("the value itself", 24, VAL_C).next_to(kv1, RIGHT, buff=0.25)
+        l_r = T("the block's result", 24, RES_C).next_to(kr1, RIGHT, buff=0.3)
+        self.say("demo_j")
+        self.play(FadeOut(thrown), FadeOut(rec), FadeIn(pj, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(Create(kv1), FadeIn(l_v), run_time=0.6)
+        self.at(2)
+        self.play(Create(kr1), FadeIn(l_r), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------------- predict: the same block, five ways ----------------
-        lines = ["charge.let { it.amountMinor * 2 }", "charge.run { amountMinor * 2 }",
-                 "with(charge) { amountMinor * 2 }", "charge.also { it.amountMinor * 2 }",
-                 "charge.apply { amountMinor * 2 }"]
-        cell_of = [(0, 1), (0, 0), (0, 0), (1, 1), (1, 0)]
-        five = code(lines, 24, pitch=1.35).move_to([0, -2.32, 0]).align_to([-6.3, 0, 0], LEFT)
-        qs = VGroup(*[VGroup(M("->", 24, GREY_B), M("?", 24, GREY_B)).arrange(RIGHT, buff=0.25)
-                      .move_to([0.0, ln.get_y(), 0], aligned_edge=LEFT) for ln in five])
-        ans = VGroup()
-        for ln, k in zip(five, cell_of):
-            txt = "3998" if k[0] == 0 else "Charge(id=ch_1, ...)"
-            ans.add(M(txt, 24, COLC[k[0]]).move_to([0.6, ln.get_y(), 0], aligned_edge=LEFT))
-        note = VGroup(T("Kotlin only:", 22, GREY_B), T("Java has no", 22, GREY_B), T("scope functions", 22, GREY_B)
-                      ).arrange(DOWN, aligned_edge=LEFT, buff=0.1).move_to([5.35, -2.32, 0])
-        self.seq("Same block, five functions. What does each one give back?",
-                 [(0, [LaggedStart(*[FadeIn(x, shift=UP * 0.1) for x in five], lag_ratio=0.15)], 1.2),
-                  (1, [FadeIn(qs)], 0.5)])
-        self.wait(2.2)
+        # ================= written by hand =================
+        kh = code_block(["fun <T, R> T.myLet(block: (T) -> R): R = block(this)",
+                         "fun <T> T.myApply(block: T.() -> Unit): T { block(); return this }"], 22)
+        jh = code_block(["static <T, R> R let(T value, Function<T, R> block) { return block.apply(value); }",
+                         "static <T> T apply(T value, Consumer<T> block) { block.accept(value); return value; }"], 22)
+        hb = VGroup(labelled("Kotlin", kh), labelled("Java", jh)).arrange(DOWN, aligned_edge=LEFT, buff=0.45)
+        fit(hb, 12.6).move_to([0, 1.3, 0])
+        self.say("byhand")
+        self.play(FadeIn(hb[0]), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(hb[1]), run_time=0.6)
+        self.at(3)
+        self.play(Indicate(part_of(kh[0], "R = block(this)"), color=RES_C, scale_factor=1.05), run_time=0.9)
+        self.at(4)
+        self.play(Indicate(part_of(kh[1], "return this"), color=VAL_C, scale_factor=1.08), run_time=0.9)
+        self.hold()
 
-        hl = {k: SurroundingRectangle(cells[k], buff=0.06, color=WHITE, stroke_width=5, corner_radius=0.2) for k in cells}
-        self.seq("let, run and with give back 3998. also and apply give back the charge. Java has no scope functions.",
-                 [(0, [*[Transform(qs[i][1], ans[i]) for i in (0, 1, 2)], *[flash(cells[cell_of[i]], YELLOW_M) for i in (0, 1)]], 1.0),
-                  (1, [*[Transform(qs[i][1], ans[i]) for i in (3, 4)], *[flash(cells[k], BLUE_M) for k in ((1, 1), (1, 0))]], 1.0),
-                  (2, [FadeIn(note, shift=LEFT * 0.1)], 0.6)],
-                 say="let, run and with give back three thousand nine hundred ninety-eight. "
-                     "also and apply give back the charge. Java has no scope functions.")
-        self.play(FadeOut(VGroup(five, qs, note)), run_time=0.5)
+        s_it = SurroundingRectangle(part_of(kh[0], "(T) -> R"), color=IT_C, buff=0.05)
+        s_this = SurroundingRectangle(part_of(kh[1], "T.() -> Unit"), color=THIS_C, buff=0.05)
+        e_it = VGroup(M("(T) -> R", 26, IT_C), T("the value arrives as", 24, GREY_A), M("it", 28, IT_C)).arrange(RIGHT, buff=0.2)
+        e_this = VGroup(M("T.() -> Unit", 26, THIS_C), T("a lambda with a receiver: the value is", 24, GREY_A),
+                        M("this", 28, THIS_C)).arrange(RIGHT, buff=0.2)
+        ex = M("minutes = 12   means   this.minutes = 12", 24, THIS_C)
+        jn = T("Java has no such lambda: p. on every line", 24, GREY_A)
+        expl = VGroup(e_it, e_this, ex, jn).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
+        fit(expl, 12.4).move_to([0, -1.6, 0])
+        self.say("receiver")
+        self.at(1)
+        self.play(Create(s_it), FadeIn(e_it), run_time=0.7)
+        self.at(2)
+        self.play(Create(s_this), FadeIn(e_this), run_time=0.7)
+        self.at(3)
+        self.play(FadeIn(ex), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(jn), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        # ---------------- each cell's typical job ----------------
-        IN_X, OUT_X = -5.15, 4.85
+        # ================= two questions, the grid =================
+        GX, GY = [-1.2, 2.6], [0.9, -0.9]
+        cw, chh = 3.4, 1.5
+        cells = {}
+        for r, y in enumerate(GY):
+            for c, x in enumerate(GX):
+                cells[(r, c)] = RoundedRectangle(corner_radius=0.1, width=cw, height=chh).set_stroke(GREY_D, 2).move_to([x, y, 0])
+        rowl = [VGroup(T("hands back", 24, VAL_C), T("the value", 26, VAL_C)).arrange(DOWN, buff=0.08),
+                VGroup(T("hands back", 24, RES_C), T("the block's result", 26, RES_C)).arrange(DOWN, buff=0.08)]
+        for r in range(2):
+            rowl[r].move_to([-4.6, GY[r], 0])
+        coll = [VGroup(T("value is", 24, THIS_C), M("this", 30, THIS_C)).arrange(RIGHT, buff=0.15),
+                VGroup(T("value is", 24, IT_C), M("it", 30, IT_C)).arrange(RIGHT, buff=0.15)]
+        for c in range(2):
+            coll[c].move_to([GX[c], 2.15, 0])
+        fill = {(0, 0): ["apply"], (0, 1): ["also"], (1, 0): ["run", "with"], (1, 1): ["let"]}
+        cellt = {}
+        for k, v in fill.items():
+            cellt[k] = VGroup(*[M(n, 34, FN_C[n]) for n in v]).arrange(RIGHT, buff=0.5).move_to(cells[k])
+        q1 = T("1. What should the call hand back?", 28, GREY_A).move_to([0, -2.4, 0])
+        q2 = T("2. How does the block use the value?", 28, GREY_A).move_to([0, -3.0, 0])
+        self.say("q1")
+        self.play(*[Create(c) for c in cells.values()], run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(q1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(rowl[0]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(cellt[(0, 0)]), FadeIn(cellt[(0, 1)]), run_time=0.6)
+        self.at(4)
+        self.play(FadeIn(rowl[1]), run_time=0.5)
+        self.at(5)
+        self.play(FadeIn(cellt[(1, 0)]), FadeIn(cellt[(1, 1)]), run_time=0.6)
+        self.hold()
+        self.say("q2")
+        self.play(FadeIn(q2), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(coll[0]), Indicate(cellt[(0, 0)], color=THIS_C), Indicate(cellt[(1, 0)], color=THIS_C), run_time=0.9)
+        self.at(2)
+        self.play(FadeIn(coll[1]), Indicate(cellt[(0, 1)], color=IT_C), Indicate(cellt[(1, 1)], color=IT_C), run_time=0.9)
+        self.hold()
 
-        def req(filled):
-            rows_ = ["amount   1999", "merchant m-42"] if filled else ["amount   ?", "merchant ?"]
-            return card("PaymentRequest", rows_, w=2.6, tsize=22, rsize=22, rcolor=WHITE if filled else GREY_B)
+        # ================= each cell's habit =================
+        gridg = VGroup(*cells.values(), *cellt.values(), *rowl, *coll)
+        self.play(FadeOut(q1), FadeOut(q2), gridg.animate.scale(0.72).move_to([-2.7, 0.7, 0]), run_time=0.8)
+        hab = [("apply", "set up a new tray", "OvenProgram().apply { minutes = 12 }"),
+               ("also", "note it in passing", "menu.add(dish).also { log.info(...) }"),
+               ("let", "taste: an answer back", "guest.favorite?.let { recipes.find(it) }"),
+               ("run", "read the oven's own dials", "oven.run { preheat(); minutesLeft() }"),
+               ("with", "read off the card in hand", "with(recipe) { \"$name for $servings\" }")]
+        hv = VGroup()
+        for k, (n, t, ex_) in enumerate(hab):
+            hv.add(VGroup(M(n, 26, FN_C[n]), T(t, 24, GREY_A), M(ex_, 20, GREY_B)).arrange(DOWN, aligned_edge=LEFT, buff=0.06))
+        hv.arrange(DOWN, aligned_edge=LEFT, buff=0.17)
+        fit(hv, 5.2)
+        if hv.height > 6.6:
+            hv.scale(6.6 / hv.height)
+        hv.move_to([3.75, 0.0, 0])
+        self.say("map")
+        for k in range(5):
+            self.at(k + 1)
+            n = hab[k][0]
+            self.play(FadeIn(hv[k], shift=LEFT * 0.1), run_time=0.5)
+        self.at(6)
+        same = T("same job; run fits in a chain", 22, YELLOW_M).next_to(gridg, DOWN, buff=0.3)
+        self.play(FadeIn(same), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        def focus(k):
-            names[k].generate_target()
-            names[k].target.move_to(cells[k].get_center() + UP * 0.22)
-            return [MoveToTarget(names[k]), FadeIn(jobs[k], shift=UP * 0.1)]
+        # ================= name it =================
+        nm = T("scope functions", 44, GOLD_M).move_to([0, 1.6, 0])
+        d1 = T("small inline functions that run a block with one value in hand", 28, GREY_A).move_to([0, 0.6, 0])
+        fit(d1, 12.4)
+        d2 = VGroup(T("that value:", 28, GREY_B), T("the context object", 30, CARD)).arrange(RIGHT, buff=0.25).move_to([0, -0.4, 0])
+        self.say("name")
+        self.at(1)
+        self.play(Write(nm), run_time=0.9)
+        self.play(FadeIn(d1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(d2), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        hl_now = hl[(1, 0)].copy()
-        # apply: configure an object
-        blank = req(False).move_to([IN_X, STRIP_Y, 0]).set_z_index(1)
-        ab = cbox(["apply {", '    amount = Money(1_999, "EUR")', '    merchantId = "m-42"', "}"], 22,
-                  t2c={"apply": BLUE_M}).move_to([-0.3, STRIP_Y, 0]).set_z_index(2)
-        filled = req(True).move_to(ab).set_z_index(1)
-        self.seq("Each cell has a typical job. apply configures an object, and hands the same object back.",
-                 [(0, [Create(hl_now), *focus((1, 0))], 0.8),
-                  (1, [FadeIn(blank, shift=RIGHT * 0.2), FadeIn(ab)], 0.7),
-                  (1, [blank.animate.move_to(ab)], 0.8),
-                  (1, [filled.animate.move_to([OUT_X, STRIP_Y, 0])], 0.9)])
-        self.remove(blank)
+        # ================= where the picture breaks =================
+        nb = notebook(0.8).move_to([-4.8, 2.0, 0])
+        nbt = T("a note can't change the soup", 24, GREY_A).next_to(nb, RIGHT, buff=0.3)
+        bc = code_block(["val dish = Dish(stage = PLANNED)", "val cooking = dish.also { it.copy(stage = COOKING) }",
+                         "cooking.stage   // ?"], 26)
+        fit(bc, 12.0).move_to([0, 0.0, 0])
+        self.say("breaks_q")
+        self.at(1)
+        self.play(FadeIn(nb), FadeIn(nbt), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(bc[0]), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(bc[1]), run_time=0.5)
+        self.at(5)
+        self.play(FadeIn(bc[2]), run_time=0.4)
+        self.hold(after=0)
+        self.predict()
+        ans = M("PLANNED", 32, HIDDEN).move_to(part_of(bc[2], "?").get_center() + RIGHT * 0.9)
+        thrownc = T("the copy is thrown away; no warning", 26, HIDDEN).move_to([0, -1.6, 0])
+        fixl = VGroup(M("dish.let { it.copy(stage = COOKING) }", 24, FN_C["let"]), M("dish.copy(stage = COOKING)", 24, OUT))
+        fixl.arrange(DOWN, aligned_edge=LEFT, buff=0.15).move_to([0, -2.7, 0])
+        self.say("breaks_a")
+        self.play(FadeOut(part_of(bc[2], "?")), FadeIn(ans), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(thrownc), run_time=0.5)
+        self.at(3)
+        self.play(Indicate(part_of(bc[1], "also"), color=HIDDEN, scale_factor=1.15), run_time=0.8)
+        self.at(4)
+        self.play(FadeIn(fixl), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # also: a side step, the object flows on
-        a_in = req(True).move_to([IN_X, STRIP_Y, 0]).set_z_index(1)
-        alb = cbox(['also { log.info("sending {}", it) }'], 22, t2c={"also": BLUE_M}).move_to([-0.3, STRIP_Y + 0.35, 0]).set_z_index(2)
-        a_out = a_in.copy()
-        logl = VGroup(T("log:", 22, GREY_B), M("sending PaymentRequest", 22, GREY_B)).arrange(RIGHT, buff=0.2)
-        logl.move_to([-0.3, STRIP_Y - 0.6, 0])
-        self.seq("also does a side step, like a log line, and the object flows on unchanged.",
-                 [(0, [hl_now.animate.become(hl[(1, 1)]), *focus((1, 1)), FadeOut(VGroup(filled, ab))], 0.7),
-                  (0, [FadeIn(a_in), FadeIn(alb)], 0.6),
-                  (0, [a_in.animate.move_to(alb)], 0.7),
-                  (0, [a_in.animate.move_to([OUT_X, STRIP_Y, 0]), FadeIn(logl, shift=DOWN * 0.15)], 0.8)])
+        # ================= the contract =================
+        kc = code_block(["val label: String", "val jar = fillJar(450).also { label = it.label }   // compiles"], 24)
+        jc = code_block(["final String label;", "Jar jar = fillJar(450);", "label = jar.label();   // a plain statement"], 24)
+        cp = VGroup(labelled("Kotlin", kc), labelled("Java: a lambda can't assign a local at all", jc)).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
+        fit(cp, 12.4).move_to([0, 1.5, 0])
+        out = M("also:         J-62 for 450 g", 24, OUT).move_to([0, -0.5, 0])
+        prom = VGroup(M("contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }", 22, GOLD_M),
+                      T("a promise: the block runs right here, exactly once", 24, GREY_A)).arrange(DOWN, buff=0.12)
+        fit(prom, 12.4).move_to([0, -1.6, 0])
+        self.say("contract")
+        self.play(FadeIn(cp[0]), run_time=0.7)
+        self.at(1)
+        self.play(Indicate(part_of(kc[1], "label = it.label"), color=GOLD_M, scale_factor=1.05), FadeIn(cp[1]), run_time=0.9)
+        self.at(2)
+        self.play(FadeIn(out), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(prom), run_time=0.7)
+        self.hold()
+        err = VGroup(M("fun <T> T.plainAlso(block: (T) -> Unit): T { block(this); return this }", 22, GREY_B),
+                     M("Captured values cannot be initialized because of possible reassignments.", 22, HIDDEN))
+        err.arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        fit(err, 12.6).move_to([0, -2.9, 0])
+        self.say("contract2")
+        self.play(FadeIn(err[0]), run_time=0.5)
+        self.at_text("and the same", lead=0.3)
+        self.play(FadeIn(err[1]), run_time=0.6)
+        self.at(1)
+        self.play(Indicate(prom[0], color=GOLD_M, scale_factor=1.03), run_time=0.9)
+        self.hold()
+        self.wipe()
 
-        # let: only when the value is not null
-        tok = chip("tok_4242", BLUE_M, size=24, mono=True).move_to([IN_X, STRIP_Y + 0.4, 0])
-        nul = chip("null", RED_M, size=24, mono=True).move_to([IN_X, STRIP_Y - 0.55, 0])
-        tok_lab = T("card.token", 22, GREY_B).next_to(tok, UP, buff=0.15)
-        g = gate("?.").move_to([-3.45, STRIP_Y + 0.4, 0])
-        lb2 = cbox(["let { vault.lookup(it) }"], 22, t2c={"let": YELLOW_M}).move_to([-0.3, STRIP_Y + 0.4, 0]).set_z_index(2)
-        lres = chip("lookup result", YELLOW_M, size=22).move_to([OUT_X, STRIP_Y + 0.4, 0])
-        nres = chip("null", RED_M, size=24, mono=True).move_to([OUT_X, STRIP_Y - 0.55, 0])
-        tok_go = tok.copy().set_z_index(1)
-        self.seq("let, after a safe call, runs only when the value is not null. A missing token skips the block.",
-                 [(0, [hl_now.animate.become(hl[(0, 1)]), *focus((0, 1)), FadeOut(VGroup(a_in, alb, logl))], 0.7),
-                  (0, [FadeIn(tok), FadeIn(tok_lab), FadeIn(g), FadeIn(lb2)], 0.6),
-                  (0, [tok_go.animate.move_to(g)], 0.5),
-                  (0, [flash(g[0], GREEN_M), tok_go.animate.move_to(lb2)], 0.6),
-                  (0, [ReplacementTransform(tok_go, lres)], 0.7),
-                  (1, [FadeIn(nul)], 0.4),
-                  (1, [nul.animate.move_to([-3.45, STRIP_Y - 0.55, 0])], 0.5),
-                  (1, [flash(g[0], RED_M), nul.animate.move_to(nres)], 0.9)])
+        # ================= guardrail, and a loop for the next section =================
+        g0 = T("First: do you need one at all?", 34, GOLD_M).move_to([0, 2.5, 0])
+        g1 = VGroup(T("a plain call, or an if on a val, is often clearer", 28, GREY_A),
+                    T("one line inside: a plain call in costume", 28, PURPLE_M),
+                    T("don't nest them: two its or two thises get mixed up", 28, HIDDEN)).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
+        fit(g1, 12.4).move_to([0, 0.6, 0])
+        self.say("guard")
+        self.play(FadeIn(g0), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(g1[0]), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(g1[1]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(g1[2]), run_time=0.5)
+        self.hold()
+        lp = VGroup(M("x?.let { ... } ?: run { ... }", 28, YELLOW_M), T("looks like if and else. It isn't always one: next section.", 26, GREY_A))
+        lp.arrange(DOWN, buff=0.2).move_to([0, -2.1, 0])
+        fit(lp, 12.4)
+        self.say("loop")
+        self.at(1)
+        self.play(FadeIn(lp[0]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(lp[1]), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        # run and with: compute something new
-        r_in = chip("request", BLUE_M, size=24, mono=True).move_to([IN_X - 0.2, STRIP_Y, 0]).set_z_index(1)
-        rbx = cbox(["run {", "  riskModel.score(amount, merchantId)", "}"], 22, t2c={"run": YELLOW_M}
-                   ).move_to([-0.2, STRIP_Y, 0]).set_z_index(2)
-        rres = chip("risk score", YELLOW_M, size=24).move_to([OUT_X + 0.1, STRIP_Y, 0])
-        self.seq("run and with compute something new from the object's members, like a risk score.",
-                 [(0, [hl_now.animate.become(hl[(0, 0)]), *focus((0, 0)), FadeOut(VGroup(tok, tok_lab, g, lb2, lres, nul))], 0.7),
-                  (0, [FadeIn(r_in), FadeIn(rbx)], 0.6),
-                  (0, [r_in.animate.move_to(rbx)], 0.7),
-                  (0, [ReplacementTransform(r_in, rres)], 0.8)])
-        grid = VGroup(heads, rows, *cells.values(), *names.values(), *jobs.values())
-        self.play(FadeOut(VGroup(rbx, rres, hl_now, grid)), run_time=0.7)
-
-        # ---------------- the trap: ?.let { } ?: run { } ----------------
-        TY = 2.2
-        p1 = chip("p1", BLUE_M, size=26, mono=True).move_to([-5.75, TY, 0])
-        cached_lab = T("cached", 24, GREY_B).next_to(p1, UP, buff=0.22)
-        g1 = gate("?.").move_to([-4.55, TY, 0])
-        let_box = cbox(["let { ledger.post(it) }"], 24, t2c={"let": YELLOW_M}).move_to([-1.8, TY, 0])
-        g2 = gate("?:").move_to([0.95, TY, 0])
-        g2_lab = T("Elvis", 22, GREY_B).next_to(g2, UP, buff=0.12)
-        res_r = DashedVMobject(RoundedRectangle(corner_radius=0.14, width=2.2, height=0.9, stroke_width=2.5,
-                                                stroke_color=GREY_B), num_dashes=40).move_to([5.25, TY, 0])
-        res_lab2 = T("result", 24, GREY_B).next_to(res_r, UP, buff=0.12)
-        run_box = cbox(["run { ledger.post(fetch()) }"], 24, t2c={"run": YELLOW_M}).move_to([3.4, 0.45, 0])
-        a12 = Line(g1.get_right(), let_box.get_left(), stroke_width=3, color=GREY_B)
-        a0 = Line(p1.get_right(), g1.get_left(), stroke_width=3, color=GREY_B)
-        a23 = Line(let_box.get_right(), g2.get_left(), stroke_width=3, color=GREY_B)
-        a_ok = Arrow(g2.get_right(), res_r.get_left(), buff=0.08, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.05)
-        ok_lab = T("if not null", 22, GREY_B).next_to(a_ok, UP, buff=0.1)
-        a_null = Arrow(g2.get_bottom(), [g2.get_x(), run_box.get_top()[1], 0], buff=0.05, stroke_width=3, color=GREY_B,
-                       max_tip_length_to_length_ratio=0.15)
-        null_lab = T("if null", 22, GREY_B).next_to(a_null, LEFT, buff=0.6)
-        a_run = Arrow(run_box.get_top() + RIGHT * 1.85, [res_r.get_x(), res_r.get_bottom()[1], 0], buff=0.05, stroke_width=3,
-                      color=GREY_B, max_tip_length_to_length_ratio=0.15)
-        ledger = RoundedRectangle(corner_radius=0.16, width=3.8, height=1.45, stroke_color=WHITE, stroke_width=3)
-        ledger.set_fill(BLACK, opacity=1).move_to([-1.8, -1.85, 0])
-        ledger_t = T("ledger", 24).move_to(ledger.get_top() + DOWN * 0.3)
-        db = RoundedRectangle(corner_radius=0.16, width=2.8, height=1.0, stroke_color=GREY_B, stroke_width=3)
-        db.set_fill(BLACK, opacity=1).move_to([4.0, -1.85, 0])
-        db_t = T("database", 24, GREY_B).move_to(db)
-        l_led = DashedLine(let_box.get_bottom(), ledger.get_top(), dash_length=0.08, stroke_width=1.5, color=GREY_D)
-        l_db = DashedLine([4.0, run_box.get_bottom()[1], 0], db.get_top(), dash_length=0.08, stroke_width=1.5, color=GREY_D)
-        l_rl = DashedLine([1.6, run_box.get_bottom()[1], 0], ledger.get_corner(UR) + LEFT * 0.3, dash_length=0.08,
-                          stroke_width=1.5, color=GREY_D)
-        console_lab = T("console", 22, GREY_B).move_to([-6.3, -3.2, 0], aligned_edge=LEFT)
-        diagram = VGroup(p1, cached_lab, g1, let_box, g2, g2_lab, res_r, res_lab2, run_box, a0, a12, a23, a_ok, ok_lab,
-                         a_null, null_lab, a_run, ledger, ledger_t, db, db_t, l_led, l_db, l_rl, console_lab)
-
-        self.seq("Now the trap. It reads like if, else: post the cached payment, or fetch one and post it.",
-                 [(0, [FadeIn(VGroup(p1, cached_lab, a0, g1, a12, let_box, a23, g2, g2_lab, a_ok, ok_lab, res_r, res_lab2))], 0.9),
-                  (0, [GrowArrow(a_null), FadeIn(null_lab), FadeIn(run_box), GrowArrow(a_run)], 0.7),
-                  (1, [FadeIn(VGroup(ledger, ledger_t, db, db_t, l_led, l_db, l_rl, console_lab))], 0.6),
-                  (1, [flash(let_box[0], YELLOW_M)], 0.8),
-                  (1, [flash(run_box[0], YELLOW_M)], 0.8)])
-
-        def go(m, target, rt=0.5):
-            return m.animate(run_time=rt).move_to(target)
-
-        led_p1 = chip("p1", BLUE_M, size=24, mono=True).move_to(ledger.get_center() + DOWN * 0.25)
-        le = chip("LE-p1", YELLOW_M, size=24, mono=True).move_to(ledger.get_top() + DOWN * 0.05)
-        c1 = p1.copy()
-        self.seq("First call: the ledger is empty, post returns an entry id, and run is skipped.",
-                 [(0, [go(c1, g1)], 0.5),
-                  (0, [flash(g1[0], GREEN_M), go(c1, let_box)], 0.6),
-                  (0, [FadeOut(c1, run_time=0.2), dot_run(let_box.get_bottom(), ledger.get_top(), BLUE_M, 0.7)], 0.8),
-                  (0, [FadeIn(led_p1, scale=1.3)], 0.4),
-                  (0, [FadeIn(le)], 0.3),
-                  (0, [go(le, let_box, 0.7)], 0.7),
-                  (0, [go(le, g2, 0.5)], 0.5),
-                  (0, [flash(g2[0], GREEN_M), go(le, res_r, 0.7)], 0.7)])
-
-        self.play(FadeOut(le), run_time=0.4)
-        self.seq("Second call. The payment is still cached, but the ledger has posted it already. Which blocks run?",
-                 [(0, [Indicate(p1, color=BLUE_M)], 0.8),
-                  (1, [Indicate(led_p1, color=BLUE_M)], 0.8)])
-        self.wait(2.2)
-
-        c2 = p1.copy()
-        nul1 = chip("null", RED_M, size=24, mono=True).move_to(ledger.get_top() + DOWN * 0.05)
-        cons = M("cache miss, fetching from the database", 22).next_to(console_lab, RIGHT, buff=0.3)
-        fetched = chip("p1", BLUE_M, size=24, mono=True).move_to(db)
-        nul2 = chip("null", RED_M, size=24, mono=True).move_to(ledger.get_corner(UR) + LEFT * 0.3)
-        self.play(go(c2, g1, 0.4), run_time=0.4)
-        self.play(flash(g1[0], GREEN_M), go(c2, let_box, 0.5), run_time=0.5)
-        self.play(FadeOut(c2, run_time=0.2), dot_run(let_box.get_bottom(), ledger.get_top(), BLUE_M, 0.6), run_time=0.7)
-        self.seq("post returns null for a duplicate. The Elvis operator tests the value on its left. "
-                 "That is the result of the let block, not the cached payment. It is null, so run runs too. "
-                 "A cache miss, a fetch from the database, and a second post.",
-                 [(0, [Indicate(led_p1, color=RED_M), FadeIn(nul1)], 0.6),
-                  (0, [go(nul1, let_box, 0.6)], 0.6),
-                  (1, [go(nul1, g2, 0.5)], 0.5),
-                  (2, [flash(let_box[0], RED_M), Indicate(p1, color=WHITE, scale_factor=1.1)], 1.0),
-                  (3, [flash(g2[0], RED_M), go(nul1, a_null.get_center(), 0.6)], 0.6),
-                  (3, [FadeOut(nul1, run_time=0.2), run_box[0].animate.set_stroke(RED_M)], 0.4),
-                  (4, [FadeIn(cons, shift=RIGHT * 0.1)], 0.5),
-                  (4, [dot_run(l_db.get_start(), db.get_top(), YELLOW_M, 0.5)], 0.5),
-                  (4, [FadeIn(fetched), go(fetched, run_box.get_center() + RIGHT * 0.6, 0.6)], 0.6),
-                  (4, [FadeOut(fetched, run_time=0.2), dot_run(l_rl.get_start(), l_rl.get_end(), BLUE_M, 0.6)], 0.7),
-                  (4, [Indicate(led_p1, color=RED_M), FadeIn(nul2)], 0.6),
-                  (4, [go(nul2, res_r, 0.8)], 0.8)])
-        both = VGroup(SurroundingRectangle(let_box, buff=0.1, color=RED_M, stroke_width=5, corner_radius=0.2),
-                      SurroundingRectangle(run_box, buff=0.1, color=RED_M, stroke_width=5, corner_radius=0.2))
-        self.beat("Both blocks ran.", Create(both), run_time=0.8)
-        self.play(FadeOut(VGroup(diagram, both, led_p1, nul2, cons)), run_time=0.7)
-
-        # ---- the same trap in Java, and the fix
-        def pair(title, color, kt, jv, y):
-            hd = T(title, 28, color)
-            kc = code(kt, 24, t2c={"?:": color})
-            jc = code(jv, 24)
-            kh, jh = T("Kotlin", 24, GREY_B), T("Java", 24, GREY_B)
-            jc.next_to(kc, DOWN, buff=0.4).align_to(kc, LEFT)
-            kh.next_to(kc[0], LEFT, buff=0.5)
-            jh.next_to(jc[0], LEFT, buff=0.5).align_to(kh, LEFT)
-            body = VGroup(kh, kc, jh, jc)
-            hd.next_to(body, UP, buff=0.3).align_to(kh, LEFT)
-            g_ = VGroup(hd, body).move_to([0, y, 0])
-            return g_.align_to([-6.2, 0, 0], LEFT)
-
-        trap = pair("the trap: both blocks can run", RED_M,
-                    ["cached?.let { ledger.post(it) }", "    ?: run { ledger.post(fetch()) }"],
-                    ["Optional.ofNullable(cached).map(ledger::post)", "    .orElseGet(() -> ledger.post(fetch.get()))"], 1.65)
-        fix = pair("the fix: pick the payment, then post once", GREEN_M,
-                   ["val payment = cached ?: fetch()", "ledger.post(payment)"],
-                   ["Payment payment = cached != null ? cached : fetch.get();", "ledger.post(payment);"], -1.75)
-        self.seq("Java's Optional has the same trap. Write the branch you mean with if or when, "
-                 "or pick the payment first and post it once.",
-                 [(0, [FadeIn(trap, shift=UP * 0.15)], 1.0),
-                  (1, [FadeIn(fix, shift=UP * 0.15)], 1.0)])
-        self.wait(1.5)
-        self.play(FadeOut(VGroup(trap, fix)), run_time=0.6)
-
-        # ---------------- the rule and a check ----------------
-        heads, rows, cells, names, jobs = make_grid()
-        for k in cells:
-            names[k].move_to(cells[k].get_center() + UP * 0.22)
-        grid = VGroup(heads, rows, *cells.values(), *names.values(), *jobs.values())
-        rule = T("Ask what the call gives back, and whether the block sees this or it.", 28).move_to([0, -1.55, 0])
-        fit(rule, 12.6)
-        self.beat("So: what should the call give back, and does the block see the object as this or as it?",
-                  FadeIn(grid), FadeIn(rule, shift=UP * 0.1), run_time=1.2)
-
-        chk = M("payment.also { it.copy(status = CAPTURED) }", 26).move_to([0, -2.35, 0])
-        part_copy = part(chk, "payment.also { it.copy(status = CAPTURED) }", "it.copy(status = CAPTURED)")
-        qm = T("What status comes back?", 26, GREY_B).move_to([0, -3.05, 0])
-        self.seq("A quick check. The payment is authorized. What status comes back?",
-                 [(0, [FadeIn(chk, shift=UP * 0.1)], 0.6),
-                  (2, [FadeIn(qm)], 0.4)])
-        self.wait(2.2)
-        answer = VGroup(M("AUTHORIZED", 26, BLUE_M), T("also gives back the payment itself, and the copy is dropped", 24, GREY_B)
-                        ).arrange(RIGHT, buff=0.35).move_to([0, -3.05, 0])
-        fit(answer, 12.6)
-        hl2 = SurroundingRectangle(cells[(1, 1)], buff=0.06, color=WHITE, stroke_width=5, corner_radius=0.2)
-        self.seq("Authorized. also gives back the payment, and the copy is dropped.",
-                 [(0, [ReplacementTransform(qm, answer), Create(hl2)], 0.8),
-                  (1, [part_copy.animate.set_opacity(0.3)], 0.6)])
-        self.wait(1.0)
+        # ================= moral and a check =================
+        mq = T("Is there a real difference? Yes, exactly two.", 34).move_to(UP * 2.6)
+        m1 = VGroup(T("inside the block, the value is", 28, GREY_A), M("this", 30, THIS_C), T("or", 28, GREY_A), M("it", 30, IT_C)).arrange(RIGHT, buff=0.2)
+        m2 = VGroup(T("the call hands back", 28, GREY_A), T("the value", 28, VAL_C), T("or", 28, GREY_A),
+                    T("the block's result", 28, RES_C)).arrange(RIGHT, buff=0.2)
+        m3 = T("Two questions, one cell.", 34, GOLD_M)
+        mm = VGroup(m1, m2, m3).arrange(DOWN, buff=0.35).move_to(UP * 0.9)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(m1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(m2), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(m3), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(VGroup(mq, mm)), run_time=0.5)
+        qh = T("Check: log the slot id and keep it flowing on, unchanged. Which one?", 28, GOLD_M).move_to([0, 1.6, 0])
+        fit(qh, 12.4)
+        qc = M("menu.add(dish).???  { log.info(\"added {}\", it) }", 26).move_to([0, 0.5, 0])
+        self.say("check")
+        self.play(FadeIn(qh), FadeIn(qc, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.4, pos=(6.4, -3.25), edge=RIGHT)
+        qa = M("menu.add(dish).also { log.info(\"added {}\", it) }", 26, FN_C["also"]).move_to(qc)
+        why = T("the same value back, handed to the logger as it", 26, GREY_A).move_to([0, -0.8, 0])
+        self.say("check_a")
+        self.play(ReplacementTransform(qc, qa), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(why), run_time=0.5)
+        self.hold(after=0)
+        self.wait(2.5)

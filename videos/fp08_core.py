@@ -1,320 +1,545 @@
 from fg import *
+import fg
 
-# ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Za-z0-9\"'(])")
+# Spoken forms only (captions keep the written words).
+fg.SAY[:0] = [
+    (r"\bLegacyShoppingJob\b", "legacy shopping job"), (r"\bplanShopping\b", "plan shopping"),
+    (r"\bShoppingPlan\b", "shopping plan"), (r"\bdecideFridge\b", "decide fridge"), (r"\bThrowOut\b", "throw out"),
+    (r"\bfilterNot\b", "filter not"), (r"\bgroupBy\b", "group by"), (r"\bsumOf\b", "sum of"),
+    (r"\bprintln\b", "print line"), (r"\btoList\b", "to list"), (r"LocalDate\.now\b", "local date dot now"),
+    (r"\bPT42H\b", "P T 42 H"), (r"\bPT18H\b", "P T 18 H"), (r"\bl1\b", "L 1"), (r"\bl2\b", "L 2"),
+    (r"\bvals\b", "vals"),
+]
+
+# every spoken line, in order
+N = {
+    "open": "All track long, one picture kept coming back. The recipe card decides, and the cook does the errands. "
+            "The card never lights the oven. And the cook never makes up the recipe.",
+    "shyq": "So here's a question that's easy to be shy about. Everyone says, keep your functions pure. But my "
+            "program has to read the clock, send orders and save files. So where does the pure part go?",
+    "legacy": "Here's a job from the recipe app. Every morning, LegacyShoppingJob runs one big loop. It reads the "
+              "clock and loads the shopping list. It skips crossed off items, holds back items it's too early to "
+              "order, adds up a total per shop, and works out each shop's member discount. Then it sends the "
+              "orders, writes each one into the household budget book, and saves the book.",
+    "pain": "It works. But say you want to test one discount rule. You need a fake store, a fake shop, a fixed clock, "
+            "and checks on what the fakes recorded. That's a whole kitchen of props, to taste one spoonful of "
+            "arithmetic.",
+    "map": "So let's split it the way the kitchen does. The card does the deciding: plain values go in, today's date "
+           "included, and out comes a plan, a value that says what should happen. The cook is everything that touches "
+           "the world: the clock, the list, the orders, the budget book. And the cook follows the plan.",
+    "name": "This shape has a name: functional core, imperative shell. The functional core is a pure function. For "
+            "our job, it's planShopping. It takes the items, the shops and today, and returns a ShoppingPlan.",
+    "core": "Everything from this track fits inside. filterNot, partition, groupBy and sumOf do the work. Data classes "
+            "of vals carry it. And expected outcomes, like an item from a shop the app doesn't know, come back as "
+            "values in the plan, not as exceptions or log lines.",
+    "shell": "The imperative shell is the thin outer part. It's the only code that touches the world, and it has "
+             "almost no branches. Read today and the list. Decide, by calling the core. Act: send each order, and "
+             "save the budget.",
+    "fridge": "Let's shrink it to something we can run: the fridge. Leftovers older than three days get thrown out. "
+              "decideFridge is the core. It takes the leftovers and the time now, both as plain values.",
+    "fridge_q": "Now is the 10th of March, at 9 in the morning. The soup, l1, was cooked 4 days before. The rice, l2, "
+                "30 hours before. What does the core decide?",
+    "fridge_a": "l1 goes: ThrowOut. l2 stays: Keep, good for PT42H. That's how Java writes 42 hours: three days, "
+                "72 hours, minus 30.",
+    "shell_run": "And the shell? It loads the leftovers, reads the clock, calls the core, and sends a reminder for "
+                 "each ThrowOut. With a fixed clock and a fake phone, it prints: reminder, throw out leftover l1.",
+    "q2": "Now push the time one day later, to the 11th. Which decision changes? Try to answer without running "
+          "anything.",
+    "a2": "Only the hours. l2 is still kept, now with PT18H left, and l1 goes as before. You can check that from the "
+          "core alone, with no clock and no phone.",
+    "joke": "We just checked a fridge without opening the fridge. So the point really is: when the time is a "
+            "parameter, a decision is tested with a value.",
+    "tests": "That changes the tests. The core gets many small tests: build a list, call the function, compare the "
+             "result with equals. No fakes, no clock, milliseconds each. And the shell gets one test with fakes, "
+             "just to check the wiring.",
+    "breaks": "The kitchen picture breaks in one place. A real cook can improvise when something looks off. The shell "
+              "must not. Any rule that slips into the shell is a rule you can only test with fakes again.",
+    "guard": "And the honest limit. Neither compiler checks any of this. Kotlin has no keyword for pure, or for "
+             "deeply immutable. And a read-only List can still change underneath the core, if the caller keeps "
+             "the mutable list behind it. So the shell copies at the boundary, with toList. The shell stays thin "
+             "only because you keep it thin.",
+    "moral": "So, where does the pure part go? In the middle. Decide in the core, with every input passed in. Let "
+             "the shell read, call the core and act, and nothing more.",
+    "check": "Quick check. A function reads LocalDate.now, and decides whether a bag of flour is past its date. How "
+             "do you move that decision into the core?",
+    "check_a": "Pass today in as a parameter. The shell reads the clock. The core only compares two dates, and you "
+               "test it with plain values.",
+}
 
 
-class Beat(VoiceScene):
-    """VoiceScene plus: say= (the voice reads a different spelling than the caption shows), captions split
-    only where a new sentence starts, and seq() to start animations at a given sentence of the line."""
 
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-    def _speak(self, text, say):
-        path, dur = voice(say or text)
+    def say(self, key):
+        text = N[key]
+        path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        return dur
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
 
-    def beat(self, text, *anims, run_time=None, after=0.25, say=None):
-        dur = self._speak(text, say)
-        if anims:
-            rt = min(run_time if run_time else max(0.8, dur * 0.55), max(0.5, dur))
-            self.play(*anims, run_time=rt)
-            rest = dur - rt
-        else:
-            rest = dur
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def seq(self, text, plan=(), after=0.25, say=None):
-        """plan: (sentence index, [animations], run_time); each starts no earlier than its sentence."""
-        dur = self._speak(text, say)
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        starts, t = [], 0.0
-        for x in sents:
-            starts.append(t); t += dur * len(x) / total
-        now = 0.0
-        for idx, anims, rt in plan:
-            if idx >= len(starts):
-                print(f"SEQ WARNING: sentence {idx} of {len(starts)} in: {text[:60]}")
-                idx = len(starts) - 1
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now); now = starts[idx]
-            self.play(*anims, run_time=rt); now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
-        if after:
-            self.wait(after)
+    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def wipe(self, rt=0.7):
+        self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
 
 
-def fill_of(color, k=0.14):
+def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def code(lines, size=24, color=WHITE, pitch=1.6, t2c=None):
-    """Code lines, left aligned, indentation kept (a hidden '|' anchors each line)."""
-    step = M("|", size).height * pitch
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        t = Text("|" + ln, font=MONO, font_size=size, color=color, t2c=t2c or {}, disable_ligatures=True)
-        t.shift(np.array([0, -i * step, 0]) - t[0].get_center())
-        t.remove(t[0])
-        g.add(t)
-    return g
+# one colour per thing, for the whole fp track (a recipe book and a kitchen scale)
+CARD, ARG, OUT, HIDDEN, EFFECT, COOK, PURE = TEAL_M, BLUE_M, GREEN_M, RED_M, PURPLE_M, BLUE_M, YELLOW_M
+PAPER = "#EDE6D6"
+
+def person(color=COOK, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def frame(w, h, color, k=0.10, sw=3):
-    return RoundedRectangle(corner_radius=0.2, width=w, height=h, stroke_color=color, stroke_width=sw).set_fill(fill_of(color, k), 1)
+def recipe_card(title, lines, w=3.4, size=24):
+    r = RoundedRectangle(corner_radius=0.1, width=w, height=0.75 + 0.48 * len(lines)).set_stroke(CARD, 3)
+    r.set_fill(dim(CARD, 0.12), 1)
+    head = T(title, 30, CARD).move_to(r.get_top() + DOWN * 0.38)
+    rule = Line(LEFT * (w / 2 - 0.25), RIGHT * (w / 2 - 0.25), stroke_width=1.5, color=CARD).next_to(head, DOWN, buff=0.12)
+    rows = VGroup(*[T(l, size, GREY_A) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.16)
+    rows.next_to(rule, DOWN, buff=0.2).align_to(r.get_left() + RIGHT * 0.35, LEFT)
+    return VGroup(r, head, rule, rows)
 
 
-def flash(r, color=YELLOW_M):
-    return ShowPassingFlash(r.copy().set_fill(opacity=0).set_stroke(color, 7), time_width=0.6)
+def fn_box(label, w=4.2, h=1.1, color=CARD, size=28):
+    r = RoundedRectangle(corner_radius=0.14, width=w, height=h).set_stroke(color, 3).set_fill(dim(color, 0.12), 1)
+    return VGroup(r, M(label, size, color).move_to(r))
 
 
-# one colour per meaning for the whole video
-CORE_C, SHELL_C, VAL_C = TEAL_M, GOLD_M, BLUE_M
-STEPS = [("read the clock", "io"), ("load payments", "io"), ("skip refunds", "d"), ("hold recent payments", "d"),
-         ("sum per merchant", "d"), ("compute fees", "d"), ("call the payout API", "io"),
-         ("save the ledger", "io"), ("println in between", "io")]
-CORE_BOX = dict(w=4.4, h=3.0, c=[0, -0.15, 0])
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
 
 
-class Fp08Core(Beat):
-    """fp-08 section 3 (with section 0's read-only List): a functional core decides from plain values,
-    a thin imperative shell reads the world and carries out the plan."""
+def labelled(lang, block, size=22):
+    return VGroup(T(lang, size, GREY_B), block).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+
+
+def cross(m, s=0.2, buff=0.22):
+    return tick(False, s).next_to(m, RIGHT, buff=buff)
+
+
+def check(m, s=0.2, buff=0.22):
+    return tick(True, s).next_to(m, RIGHT, buff=buff)
+
+
+def part_of(t, s):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    i = re.sub(r"\s", "", t.text).index(k)
+    return t[i:i + len(k)]
+
+
+def kitchen_scale(text, color=HIDDEN, s=1.0):
+    plate = RoundedRectangle(corner_radius=0.06, width=1.3, height=0.14).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    base = RoundedRectangle(corner_radius=0.1, width=1.1, height=0.55).set_stroke(color, 3).set_fill(dim(color, 0.15), 1)
+    base.next_to(plate, DOWN, buff=0.06)
+    disp = RoundedRectangle(corner_radius=0.04, width=0.7, height=0.3).set_stroke(color, 2).set_fill(BLACK, 1).move_to(base)
+    t = M(text, 18, color).move_to(disp)
+    return VGroup(plate, base, disp, t).scale(s)
+
+
+# ---- this video's pictures ----
+DECIDE, ERRAND, PLAN_C, WORLD = CARD, PURPLE_M, YELLOW_M, GREY_B
+
+
+def fridge(s=1.0):
+    body = RoundedRectangle(corner_radius=0.15, width=1.8, height=2.6).set_stroke(BLUE_M, 3).set_fill(dim(BLUE_M, 0.1), 1)
+    door = Line(body.get_left() + UP * 0.35, body.get_right() + UP * 0.35, stroke_width=2.5, color=BLUE_M)
+    h1 = Line(ORIGIN, DOWN * 0.4, stroke_width=4, color=GREY_A).move_to(body.get_right() + LEFT * 0.25 + UP * 0.85)
+    h2 = Line(ORIGIN, DOWN * 0.6, stroke_width=4, color=GREY_A).move_to(body.get_right() + LEFT * 0.25 + DOWN * 0.3)
+    return VGroup(body, door, h1, h2).scale(s)
+
+
+def phone(s=1.0):
+    b = RoundedRectangle(corner_radius=0.12, width=0.8, height=1.4).set_stroke(GREY_A, 3).set_fill(dim(GREY_A, 0.1), 1)
+    sc = RoundedRectangle(corner_radius=0.05, width=0.62, height=1.0).set_stroke(GREY_B, 1.5).set_fill(BLACK, 1).move_to(b)
+    return VGroup(b, sc).scale(s)
+
+
+class Fp08Core(Narrated):
+    """fp-08, section 3: a functional core decides, a thin shell does the errands. The card and the cook from the
+    whole track; LegacyShoppingJob's one loop, sorted into decisions and errands; the test that needs four fakes; the
+    split, mapped; functional core, imperative shell named, planShopping's signature; the shell's read, decide, act
+    (Java and Kotlin); the fridge demo from CoreShell (ThrowOut l1, Keep l2 PT42H, the reminder; one day later
+    PT18H); the tests change shape; where the picture breaks; the limit (no compiler check; a read-only List can
+    change; copy with toList); the moral; a check."""
 
     def construct(self):
-        self.title_card("A functional core", "the core decides, the shell does the I/O")
+        self.title_card("The card decides, the cook runs errands", "a functional core and a thin shell")
 
-        # ---------------- the problem: one loop that does everything ----------------
-        rows = VGroup()
-        for name, kind in STEPS:
-            col = SHELL_C if kind == "io" else CORE_C
-            rows.add(VGroup(Dot(radius=0.07, color=col), T(name, 24)).arrange(RIGHT, buff=0.2))
-        rows.arrange(DOWN, aligned_edge=LEFT, buff=0.2)
-        job = frame(5.6, rows.height + 0.7, WHITE, 0.0).move_to([-3.3, -0.2, 0]).set_z_index(-1)
-        rows.move_to(job).align_to(job.get_left() + RIGHT * 0.4, LEFT)
-        job_t = M("LegacySettlementJob", 24, GREY_B).next_to(job, UP, buff=0.15).align_to(job, LEFT)
-        self.seq("Here is a settlement job, written the usual way. One loop reads the clock, loads payments, "
-                 "skips refunds, holds recent ones, sums per merchant, computes fees, calls the payout API, "
-                 "and saves the ledger.",
-                 [(0, [FadeIn(job), FadeIn(job_t)], 0.6),
-                  (1, [LaggedStart(*[FadeIn(r, shift=RIGHT * 0.1) for r in rows], lag_ratio=0.35)], 5.0)])
+        # ================= the card and the cook =================
+        card = recipe_card("Pancakes", ["200 g flour", "2 eggs", "300 ml milk", "makes 8"]).move_to([-3.6, 0.4, 0])
+        cl = T("decides", 28, DECIDE).next_to(card, DOWN, buff=0.3)
+        cook = person(ERRAND, 1.6).move_to([3.4, 0.6, 0])
+        ck = T("does the errands", 28, ERRAND).next_to(cook, DOWN, buff=0.45)
+        n1 = T("never lights the oven", 22, GREY_A).next_to(cl, DOWN, buff=0.15)
+        n2 = T("never makes up the recipe", 22, GREY_A).next_to(ck, DOWN, buff=0.15)
+        self.say("open")
+        self.at(1)
+        self.play(FadeIn(card, shift=UP * 0.1), FadeIn(cl), run_time=0.7)
+        self.at_text("and the cook", lead=0.3)
+        self.play(FadeIn(cook), FadeIn(ck), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(n1), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(n2), run_time=0.4)
+        self.hold()
+        self.wipe()
 
-        fakes = VGroup(*[frame(2.9, 0.75, SHELL_C).move_to([3.6, y, 0]) for y in (2.2, 1.0, -0.2)])
-        fl = VGroup(*[T(t, 24).move_to(f) for t, f in zip(("fixed clock", "fake store", "fake payout API"), fakes)])
-        wires = VGroup(*[DashedLine(rows[i].get_right() + RIGHT * 0.15, fakes[j].get_left(), dash_length=0.08, stroke_width=1.5,
-                                    color=SHELL_C) for i, j in ((0, 0), (1, 1), (6, 2), (7, 1))])
-        test = frame(3.4, 0.8, WHITE, 0.0).move_to([3.6, -1.9, 0])
-        test_t = T("test: one fee rule", 24).move_to(test)
-        tw = DashedLine(test.get_left(), rows[5].get_right() + RIGHT * 0.15, dash_length=0.08, stroke_width=1.5, color=WHITE)
-        self.seq("It works. But to test one fee rule, you need a fixed clock, a fake store, a fake payout API, "
-                 "and checks on what the fakes recorded.",
-                 [(1, [FadeIn(test), FadeIn(test_t), Create(tw), Indicate(rows[5], color=CORE_C)], 0.8),
-                  (1, [LaggedStart(*[FadeIn(VGroup(f, t)) for f, t in zip(fakes, fl)], lag_ratio=0.4), Create(wires)], 1.6)])
+        q = T("Keep your functions pure, they say.", 32).move_to([0, 1.0, 0])
+        q2 = T("But my program reads the clock, sends orders, saves files.", 30, GREY_A).move_to([0, 0.2, 0])
+        q3 = T("So where does the pure part go?", 34, GOLD_M).move_to([0, -0.7, 0])
+        self.say("shyq")
+        self.at(1)
+        self.play(FadeIn(q, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(q3, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        # ---------------- pull it apart ----------------
-        shell = frame(12.8, 6.2, SHELL_C, 0.05).move_to([0, -0.25, 0]).set_z_index(-2)
-        shell_t = T("imperative shell: touches the world", 26, SHELL_C).move_to([-6.0, 2.45, 0], aligned_edge=LEFT)
-        core = frame(CORE_BOX["w"], CORE_BOX["h"], CORE_C, 0.14).move_to(CORE_BOX["c"]).set_z_index(-1)
-        core_t = T("functional core: decides", 26, CORE_C).next_to(core.get_top(), DOWN, buff=0.25)
-        dec = [i for i, (_, k) in enumerate(STEPS) if k == "d"]
-        reads, acts = [0, 1], [6, 7, 8]
-        targets = {}
-        for k, i in enumerate(dec):
-            targets[i] = [0, core.get_top()[1] - 0.95 - 0.48 * k, 0]
-        for k, i in enumerate(reads):
-            targets[i] = ([-3.05, 1.0 - 0.6 * k, 0], RIGHT)
-        for k, i in enumerate(acts):
-            targets[i] = ([3.1, 1.0 - 0.6 * k, 0], LEFT)
-        for i, r in enumerate(rows):
-            r.generate_target()
-            if i in acts:
-                r.target.scale(22 / 24)
-            if i in dec:
-                r.target.move_to(targets[i])
-            else:
-                r.target.move_to(targets[i][0], aligned_edge=targets[i][1])
-        self.seq("Look at the colours. The teal lines only decide. The gold lines touch the world. "
-                 "Pull them apart: the decisions go into a core, and the I/O wraps around it.",
-                 [(1, [*[Indicate(rows[i], color=CORE_C, scale_factor=1.05) for i in dec]], 0.9),
-                  (2, [*[Indicate(rows[i], color=SHELL_C, scale_factor=1.05) for i in reads + acts]], 0.9),
-                  (3, [FadeOut(VGroup(fakes, fl, wires, test, test_t, tw, job, job_t))], 0.6),
-                  (3, [FadeIn(shell), FadeIn(core), *[MoveToTarget(r) for r in rows]], 1.4),
-                  (3, [FadeIn(shell_t), FadeIn(core_t)], 0.5)])
+        # ================= the legacy loop =================
+        tasks = [("read the clock", ERRAND), ("load the shopping list", ERRAND), ("skip crossed off items", DECIDE),
+                 ("hold back items too early to order", DECIDE), ("add up a total per shop", DECIDE),
+                 ("work out each shop's member discount", DECIDE), ("send the orders", ERRAND),
+                 ("write each one into the budget book", ERRAND), ("save the book", ERRAND)]
+        tl = VGroup(*[T(t, 24, WHITE) for t, _ in tasks]).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
+        tl.move_to([-2.2, -0.15, 0])
+        frame = SurroundingRectangle(tl, color=GREY_B, buff=0.3, corner_radius=0.12)
+        ttl = M("LegacyShoppingJob: one loop, every morning", 24, GREY_B).next_to(frame, UP, buff=0.15)
+        self.say("legacy")
+        self.play(Create(frame), FadeIn(ttl), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(tl[0:2]), run_time=0.5)
+        self.at(3)
+        self.play(LaggedStart(*[FadeIn(x) for x in tl[2:6]], lag_ratio=0.5), run_time=2.4)
+        self.at(4)
+        self.play(LaggedStart(*[FadeIn(x) for x in tl[6:]], lag_ratio=0.5), run_time=1.8)
+        self.hold()
 
-        a_in = Arrow([-4.6, -0.45, 0], [core.get_left()[0], -0.45, 0], buff=0.08, stroke_width=3, color=VAL_C,
-                     max_tip_length_to_length_ratio=0.12)
-        a_out = Arrow([core.get_right()[0], -0.95, 0], [4.6, -0.95, 0], buff=0.08, stroke_width=3, color=VAL_C,
-                      max_tip_length_to_length_ratio=0.12)
-        l_in = T("plain values", 22, VAL_C).next_to(a_in, DOWN, buff=0.15)
-        l_out = T("a plan", 22, VAL_C).next_to(a_out, DOWN, buff=0.15)
-        self.seq("The core is a pure function. It takes plain values, today's date included, and returns a plan: "
-                 "a value that says what should happen. This shape is called a functional core and an imperative shell.",
-                 [(1, [GrowArrow(a_in), FadeIn(l_in)], 0.6),
-                  (1, [GrowArrow(a_out), FadeIn(l_out)], 0.6),
-                  (2, [flash(core, CORE_C), flash(shell, SHELL_C)], 1.2)])
+        fakes = VGroup(*[chip(f, GREY_B, 24) for f in ("a fake store", "a fake shop", "a fixed clock", "checks on the fakes")])
+        fakes.arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to([4.4, 0.0, 0])
+        rule_hl = SurroundingRectangle(tl[5], color=GOLD_M, buff=0.06)
+        props = T("a kitchen of props for one spoonful of arithmetic", 26, GOLD_M).move_to([0, -3.3, 0])
+        fit(props, 12.4)
+        self.say("pain")
+        self.at(1)
+        self.play(Create(rule_hl), run_time=0.5)
+        self.at(2)
+        self.play(LaggedStart(*[FadeIn(f, shift=LEFT * 0.1) for f in fakes], lag_ratio=0.35), run_time=1.6)
+        self.at(3)
+        self.play(FadeIn(props), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(fakes), FadeOut(rule_hl), FadeOut(props), run_time=0.5)
 
-        # ---------------- the smallest core: void old authorizations ----------------
-        core_t2 = M("decideVoids(auths, now)", 24, CORE_C).move_to(core_t)
-        rule = T("older than 7 days: void it", 24).move_to(core.get_center() + DOWN * 0.15)
-        clock = VGroup(T("now", 22, GREY_B), M("2026-03-10 09:00", 22, VAL_C)).arrange(DOWN, buff=0.08).move_to([-4.4, 1.0, 0])
-        a1 = chip("a1: 8 days old", VAL_C, size=22).move_to([-4.4, -0.2, 0])
-        a2 = chip("a2: 30 hours old", VAL_C, size=22).move_to([-4.4, -0.95, 0])
-        gw = frame(2.6, 0.85, WHITE, 0.0).move_to([4.4, 0.25, 0])
-        gw_t = T("gateway", 24).move_to(gw)
-        self.seq("Here is the smallest one, from the lesson. Card authorizations older than seven days get voided. "
-                 "The shell reads the clock, and loads two: a1, eight days old, and a2, thirty hours old.",
-                 [(0, [FadeOut(VGroup(*[rows[i] for i in reads + acts + dec], a_in, a_out, l_in, l_out)),
-                       Transform(core_t, core_t2)], 0.8),
-                  (1, [FadeIn(rule), FadeIn(gw), FadeIn(gw_t)], 0.7),
-                  (2, [FadeIn(clock, shift=RIGHT * 0.1)], 0.5),
-                  (2, [FadeIn(a1, shift=RIGHT * 0.1)], 0.5),
-                  (2, [FadeIn(a2, shift=RIGHT * 0.1)], 0.5)],
-                 say="Here is the smallest one, from the lesson. Card authorizations older than seven days get voided. "
-                     "The shell reads the clock, and loads two: a one, eight days old, and a two, thirty hours old.")
+        # sort the loop: decisions to the card, errands to the cook
+        self.say("map")
+        dcard = RoundedRectangle(corner_radius=0.12, width=5.6, height=2.4).set_stroke(DECIDE, 3).set_fill(dim(DECIDE, 0.1), 1)
+        dcard.move_to([3.3, 1.5, 0])
+        dl = T("the card: decides", 24, DECIDE).next_to(dcard, UP, buff=0.1)
+        ecook = RoundedRectangle(corner_radius=0.12, width=5.6, height=2.6).set_stroke(ERRAND, 3).set_fill(dim(ERRAND, 0.1), 1)
+        ecook.move_to([3.3, -1.75, 0])
+        el = T("the cook: touches the world", 24, ERRAND).next_to(ecook, DOWN, buff=0.1)
+        self.play(FadeOut(frame), FadeOut(ttl), tl.animate.scale(0.9).move_to([-3.5, 0, 0]), run_time=0.6)
+        self.at(1)
+        self.play(Create(dcard), FadeIn(dl), run_time=0.5)
+        dec = VGroup(*[tl[i] for i in (2, 3, 4, 5)])
+        dec.generate_target()
+        dec.target.arrange(DOWN, aligned_edge=LEFT, buff=0.1).scale(0.85).move_to(dcard)
+        for i in (2, 3, 4, 5):
+            dec.target[i - 2].set_color(DECIDE)
+        self.play(MoveToTarget(dec), run_time=1.0)
+        plan = chip("a plan: what should happen", PLAN_C, 24).move_to([-3.5, 0.35, 0])
+        self.at_text("and out comes", lead=0.3)
+        self.play(FadeIn(plan, shift=LEFT * 0.2), run_time=0.5)
+        self.at(2)
+        self.play(Create(ecook), FadeIn(el), run_time=0.5)
+        err = VGroup(*[tl[i] for i in (0, 1, 6, 7, 8)])
+        err.generate_target()
+        err.target.arrange(DOWN, aligned_edge=LEFT, buff=0.08).scale(0.85).move_to(ecook)
+        for k in range(5):
+            err.target[k].set_color(ERRAND)
+        self.play(MoveToTarget(err), run_time=1.0)
+        self.at(3)
+        fl = Arrow(plan.get_bottom(), ecook.get_left() + UP * 0.6, buff=0.15, stroke_width=3, color=PLAN_C)
+        self.play(GrowArrow(fl), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        o1 = chip("VoidIt(authId=a1)", RED_M, size=22, mono=True).move_to([0, -2.25, 0])
-        o2 = chip("Keep(authId=a2, expiresIn=PT138H)", GREEN_M, size=22, mono=True).move_to([0, -2.85, 0])
-        ins = VGroup(clock.copy(), a1.copy(), a2.copy())
-        self.seq("It hands them to the core as values. The core returns two decisions: void a1, and keep a2, "
-                 "with 138 hours left. It called nothing, and read no clock.",
-                 [(0, [*[m.animate.move_to(core.get_center() + LEFT * 0.4 + DOWN * 0.15).scale(0.6).set_opacity(0) for m in ins]], 1.0),
-                  (1, [flash(core, CORE_C)], 0.6),
-                  (1, [FadeIn(o1, shift=DOWN * 0.2)], 0.5),
-                  (1, [FadeIn(o2, shift=DOWN * 0.2)], 0.5),
-                  (2, [Indicate(core_t, color=CORE_C)], 0.8)],
-                 say="It hands them to the core as values. The core returns two decisions: void a one, and keep a two, "
-                     "with 138 hours left. It called nothing, and read no clock.")
+        # ================= name it =================
+        shell = RoundedRectangle(corner_radius=0.3, width=11.6, height=5.0).set_stroke(ERRAND, 3).set_fill(dim(ERRAND, 0.07), 1)
+        shell.move_to([0, 0.1, 0])
+        core = RoundedRectangle(corner_radius=0.2, width=5.6, height=2.0).set_stroke(DECIDE, 3).set_fill(dim(DECIDE, 0.15), 1)
+        core.move_to([0, 0.35, 0])
+        sl = T("imperative shell", 30, ERRAND).move_to(shell.get_top() + DOWN * 0.4)
+        cl2 = T("functional core", 30, DECIDE).move_to(core.get_top() + DOWN * 0.38)
+        sig_k = M("fun planShopping(items: List<Item>, shops: Map<String, Shop>, today: LocalDate): ShoppingPlan", 22, DECIDE)
+        sig_j = M("static ShoppingPlan planShopping(List<Item> items, Map<String, Shop> shops, LocalDate today)", 22, DECIDE)
+        sigs = VGroup(labelled("Kotlin", sig_k), labelled("Java", sig_j)).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
+        fit(sigs, 12.4).move_to([0, -2.6, 0])
+        self.say("name")
+        self.play(Create(shell), FadeIn(sl), run_time=0.7)
+        self.play(Create(core), FadeIn(cl2), run_time=0.6)
+        self.at(1)
+        pure = T("a pure function", 24, GREY_A).next_to(cl2, DOWN, buff=0.15)
+        self.play(FadeIn(pure), run_time=0.4)
+        self.at(2)
+        self.play(shell.animate.stretch_to_fit_height(3.6).move_to([0, 0.75, 0]), sl.animate.move_to([0, 2.2, 0]), run_time=0.5)
+        self.play(FadeIn(sigs), run_time=0.7)
+        self.at(3)
+        self.play(Indicate(part_of(sig_k, "today: LocalDate"), color=GOLD_M, scale_factor=1.1), run_time=0.8)
+        self.play(Indicate(part_of(sig_k, "ShoppingPlan"), color=PLAN_C, scale_factor=1.1), run_time=0.8)
+        self.hold()
 
-        post = VGroup(M("POST", 22, SHELL_C), M("/authorizations/a1/void", 22, SHELL_C)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        post.next_to(gw, UP, buff=0.3).align_to([2.4, 0, 0], LEFT)
-        o1c = o1.copy()
-        self.seq("Then the shell carries out the plan: one call to the gateway.",
-                 [(0, [MoveAlongPath(o1c, VMobject().set_points_as_corners(
-                      [o1.get_center(), [gw.get_x(), o1.get_y(), 0], [gw.get_x(), gw.get_bottom()[1] - 0.4, 0]]))], 1.1),
-                  (0, [FadeOut(o1c, shift=UP * 0.3), flash(gw, SHELL_C), FadeIn(post)], 0.6)])
+        tools = VGroup(M("filterNot  partition  groupBy  sumOf", 22, DECIDE), T("data classes of vals", 22, GREY_A),
+                       T("unknown shop: a value in the plan", 22, GREY_A)).arrange(DOWN, buff=0.1)
+        tools.move_to(core.get_center() + DOWN * 0.3)
+        self.say("core")
+        self.play(FadeOut(pure), core.animate.stretch_to_fit_height(2.3), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(tools[0]), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(tools[1]), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(tools[2]), run_time=0.4)
+        self.hold()
+        self.wipe()
 
-        # testing the core: no shell needed
-        clock2 = VGroup(T("now + 1 day", 22, GREY_B), M("2026-03-11 09:00", 22, VAL_C)).arrange(DOWN, buff=0.08).move_to(clock)
-        o2b = chip("Keep(authId=a2, expiresIn=PT114H)", GREEN_M, size=22, mono=True).move_to(o2)
-        no = T("no fakes, no clock: a list and a date", 24, CORE_C).move_to([3.0, 2.45, 0])
-        self.seq("A test needs none of the shell. Call the core with a list and a date, one day later, "
-                 "and compare the result. a2 is still kept, now with 114 hours left.",
-                 [(0, [shell.animate.set_opacity(0.15), shell_t.animate.set_opacity(0.25), FadeOut(VGroup(gw, gw_t, post))], 0.7),
-                  (1, [Transform(clock, clock2), FadeIn(no)], 0.7),
-                  (2, [Indicate(o1, color=RED_M, scale_factor=1.05)], 0.6),
-                  (2, [Transform(o2, o2b)], 0.7)],
-                 say="A test needs none of the shell. Call the core with a list and a date, one day later, "
-                     "and compare the result. a two is still kept, now with 114 hours left.")
-        self.play(FadeOut(VGroup(shell, shell_t, core, core_t, rule, clock, a1, a2, o1, o2, no)), run_time=0.7)
+        kr = code_block(["fun run(): ShoppingPlan {",
+                         "    val today = LocalDate.now(clock)                                       // 1. read",
+                         "    val plan = planShopping(store.shoppingList(), store.shops(), today)    // 2. decide",
+                         "    plan.orders.forEach(shopApi::send)                                     // 3. act",
+                         "    store.saveBudget(store.loadBudget().posting(plan.orders, \"shopping-$today\"))",
+                         "    return plan", "}"], 22)
+        jr = code_block(["ShoppingPlan run() {",
+                         "    LocalDate today = LocalDate.now(clock);                                        // 1. read",
+                         "    ShoppingPlan plan = planShopping(store.shoppingList(), store.shops(), today);  // 2. decide",
+                         "    plan.orders().forEach(shopApi::send);                                          // 3. act",
+                         "    store.saveBudget(posting(store.loadBudget(), plan.orders(), \"shopping-\" + today));",
+                         "    return plan;", "}"], 22)
+        rr = VGroup(labelled("Kotlin", kr), labelled("Java", jr)).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
+        fit(rr, 12.6).move_to([0, 0.1, 0])
+        self.say("shell")
+        self.play(FadeIn(rr), run_time=0.9)
+        self.at_text("Read today", lead=0.3)
+        self.play(Indicate(VGroup(kr[1], jr[1]), color=ERRAND, scale_factor=1.02), run_time=0.7)
+        self.at_text("Decide", lead=0.3)
+        self.play(Indicate(VGroup(kr[2], jr[2]), color=DECIDE, scale_factor=1.02), run_time=0.7)
+        self.at_text("Act", lead=0.3)
+        self.play(Indicate(VGroup(kr[3], kr[4], jr[3], jr[4]), color=ERRAND, scale_factor=1.02), run_time=0.9)
+        self.hold()
+        self.wipe()
 
-        # ---------------- the inputs must hold still: read-only is not immutable ----------------
-        lst = frame(2.6, 0.9, WHITE, 0.0).move_to([1.6, 0.0, 0])
-        items = M("[p1]", 28).move_to(lst)
-        batch = frame(4.8, 1.5, VAL_C).move_to([-3.6, 1.4, 0])
-        b_t = VGroup(M('Batch("b-7")', 24, VAL_C), M("paymentIds: List", 22)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
-        b_t.move_to(batch).align_to(batch.get_left() + RIGHT * 0.35, LEFT)
-        buf = frame(4.8, 1.1, SHELL_C).move_to([-3.6, -1.4, 0])
-        buf_t = VGroup(M("backing", 24, SHELL_C), T("the caller's MutableList", 22, GREY_B)).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-        buf_t.move_to(buf).align_to(buf.get_left() + RIGHT * 0.35, LEFT)
-        p_b = Arrow(batch.get_right() + DOWN * 0.3, lst.get_left() + UP * 0.2, buff=0.1, stroke_width=3, color=VAL_C,
-                    max_tip_length_to_length_ratio=0.12)
-        p_k = Arrow(buf.get_right(), lst.get_left() + DOWN * 0.2, buff=0.1, stroke_width=3, color=SHELL_C,
-                    max_tip_length_to_length_ratio=0.12)
-        one = T("one list, two names", 24, GREY_B).next_to(lst, DOWN, buff=0.3)
-        self.seq("All of this needs inputs that hold still. A read-only List does not promise that. "
-                 "Build a batch from the caller's list, and both point at the same list.",
-                 [(0, [FadeIn(batch), FadeIn(b_t)], 0.6),
-                  (1, [Indicate(b_t[1], color=VAL_C)], 0.8),
-                  (2, [FadeIn(lst), FadeIn(items), GrowArrow(p_b)], 0.7),
-                  (2, [FadeIn(buf), FadeIn(buf_t), GrowArrow(p_k), FadeIn(one)], 0.7)])
+        # ================= the fridge =================
+        fr = fridge(1.0).move_to([-5.2, 0.6, 0])
+        fc = code_block(["val KEEPS_FOR: Duration = Duration.ofDays(3)",
+                         "fun decideFridge(leftovers: List<Leftover>, now: Instant): List<FridgeDecision> =",
+                         "    leftovers.map { l ->",
+                         "        val age = Duration.between(l.cookedAt, now)",
+                         "        if (age >= KEEPS_FOR) ThrowOut(l.id) else Keep(l.id, KEEPS_FOR - age)",
+                         "    }"], 22)
+        fj = code_block(["static List<FridgeDecision> decideFridge(List<Leftover> leftovers, Instant now) {",
+                         "    return leftovers.stream().<FridgeDecision>map(l -> {",
+                         "        Duration age = Duration.between(l.cookedAt(), now);",
+                         "        return age.compareTo(KEEPS_FOR) >= 0 ? new ThrowOut(l.id()) : new Keep(l.id(), KEEPS_FOR.minus(age));",
+                         "    }).toList();", "}"], 22)
+        fcode = VGroup(labelled("Kotlin: the core", fc), labelled("Java", fj)).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
+        fit(fcode, 10.2).move_to([1.2, 0.4, 0])
+        self.say("fridge")
+        self.play(FadeIn(fr), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(fcode[0]), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(fcode[1]), run_time=0.6)
+        self.at(3)
+        self.play(Indicate(part_of(fc[1], "now: Instant"), color=GOLD_M, scale_factor=1.1), run_time=0.8)
+        self.hold()
+        self.play(FadeOut(fcode), fr.animate.scale(0.8).move_to([-5.4, 1.2, 0]), run_time=0.6)
 
-        items2 = M("[p1, p2]", 28).move_to(lst)
-        cmd = M('backing += "p2"', 24, SHELL_C).next_to(buf, DOWN, buff=0.3).align_to(buf, LEFT)
-        seen = VGroup(T("the batch now shows", 24, GREY_B), M("[p1, p2]", 24, RED_M)).arrange(RIGHT, buff=0.2)
-        seen.next_to(batch, UP, buff=0.25).align_to(batch, LEFT)
-        self.seq("The caller adds p2. The batch shows p1 and p2: it changed under your feet.",
-                 [(0, [FadeIn(cmd, shift=UP * 0.1)], 0.5),
-                  (0, [flash(p_k, SHELL_C), Transform(items, items2), lst.animate.stretch_to_fit_width(3.0)], 0.7),
-                  (1, [flash(p_b, VAL_C), FadeIn(seen, shift=UP * 0.1)], 0.8)],
-                 say="The caller adds p two. The batch shows p one and p two: it changed under your feet.")
+        nowt = M("now = 2026-03-10T09:00:00Z", 26, GOLD_M).move_to([0.6, 2.6, 0])
+        lo1 = VGroup(M("l1  soup", 26, WHITE), T("cooked 4 days before now", 24, GREY_A)).arrange(RIGHT, buff=0.4)
+        lo2 = VGroup(M("l2  rice", 26, WHITE), T("cooked 30 hours before now", 24, GREY_A)).arrange(RIGHT, buff=0.4)
+        los = VGroup(lo1, lo2).arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([0.6, 1.3, 0])
+        self.say("fridge_q")
+        self.play(FadeIn(nowt), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(lo1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(lo2), run_time=0.5)
+        self.hold(after=0)
+        self.predict()
+        d1 = M("ThrowOut(id=l1)", 28, HIDDEN)
+        d2 = M("Keep(id=l2, goodFor=PT42H)", 28, OUT)
+        ds = VGroup(d1, d2).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
+        dbox = VGroup(T("core, called with plain values:", 24, GREY_B), ds).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
+        dbox.move_to([0.6, -0.6, 0])
+        h42 = T("PT42H: 42 hours, that is 72 minus 30", 24, GREY_A).move_to([0.6, -1.7, 0])
+        self.say("fridge_a")
+        self.play(FadeIn(dbox[0]), FadeIn(d1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(d2), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(h42), run_time=0.5)
+        self.hold()
 
-        snap = frame(2.2, 0.9, VAL_C).move_to([1.6, 2.2, 0])
-        snap_t = M("[p1]", 28).move_to(snap)
-        p_b2 = Arrow(batch.get_right() + UP * 0.2, snap.get_left(), buff=0.1, stroke_width=3, color=VAL_C,
-                     max_tip_length_to_length_ratio=0.12)
-        fixk = VGroup(T("Kotlin", 22, GREY_B), M('Batch("b-7", backing.toList())', 22)).arrange(RIGHT, buff=0.3)
-        fixj = VGroup(T("Java", 22, GREY_B), M('new Batch("b-7", List.copyOf(backing))', 22)).arrange(RIGHT, buff=0.3)
-        fixes = VGroup(fixk, fixj).arrange(DOWN, aligned_edge=LEFT, buff=0.22).move_to([0.2, -2.75, 0])
-        fixj[1].align_to(fixk[1], LEFT)
-        self.seq("Copy at the boundary. With toList in Kotlin, or List.copyOf in Java, the batch keeps its own snapshot.",
-                 [(0, [FadeOut(seen), FadeOut(cmd), FadeOut(one)], 0.4),
-                  (1, [FadeIn(fixes, shift=UP * 0.1)], 0.7),
-                  (1, [ReplacementTransform(p_b, p_b2), FadeIn(snap), FadeIn(snap_t)], 0.8)],
-                 say="Copy at the boundary. With to-list in Kotlin, or List dot copy-of in Java, the batch keeps its own snapshot.")
-        self.play(FadeOut(VGroup(lst, items, batch, b_t, buf, buf_t, p_b2, p_k, snap, snap_t, fixes)), run_time=0.6)
+        ph = phone(0.8).move_to([-5.4, -1.9, 0])
+        rem = VGroup(T("shell, with a fixed clock and a fake phone:", 24, GREY_B),
+                     M("reminder: throw out leftover l1", 26, ERRAND)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        rem.move_to([0.6, -2.55, 0])
+        self.say("shell_run")
+        self.play(FadeIn(ph), run_time=0.4)
+        self.at(2)
+        self.play(FadeIn(rem), Indicate(ph, color=ERRAND), run_time=0.8)
+        self.hold()
 
-        # ---------------- the shell in code ----------------
-        kt = code(["val today = LocalDate.now(clock)",
-                   "val plan = planSettlement(",
-                   "    store.capturedPayments(), store.merchants(), today)",
-                   "plan.payouts.forEach(payouts::send)"], 22)
-        jv = code(["LocalDate today = LocalDate.now(clock);",
-                   "SettlementPlan plan = planSettlement(",
-                   "        store.capturedPayments(), store.merchants(), today);",
-                   "plan.payouts().forEach(payouts::send);"], 22)
-        kh, jh = T("Kotlin", 24, GREY_B), T("Java", 24, GREY_B)
-        jv.next_to(kt, DOWN, buff=0.7).align_to(kt, LEFT)
-        kh.next_to(kt[0], LEFT, buff=0.5)
-        jh.next_to(jv[0], LEFT, buff=0.5).align_to(kh, LEFT)
-        tags = VGroup()
-        for c in (kt, jv):
-            for idx, (word, col) in zip((0, 1, 3), (("1. read", SHELL_C), ("2. decide", CORE_C), ("3. act", SHELL_C))):
-                tags.add(T(word, 22, col).move_to([5.6, c[idx].get_y(), 0]))
-        cg = VGroup(kh, kt, jh, jv)
-        cg.scale(min(1, 10.6 / cg.width)).move_to([-0.9, 0.2, 0])
-        for c, base in ((kt, 0), (jv, 3)):
-            for k, idx in enumerate((0, 1, 3)):
-                tags[base + k].move_to([5.55, c[idx].get_y(), 0])
-        self.seq("In code, the shell is three steps: read, decide, act. The same in Kotlin and in Java.",
-                 [(0, [FadeIn(VGroup(kh, kt), shift=UP * 0.1), FadeIn(VGroup(jh, jv), shift=UP * 0.1)], 1.0),
-                  (0, [LaggedStart(*[FadeIn(t) for t in tags], lag_ratio=0.12)], 1.2),
-                  (0, [Indicate(VGroup(kt[1], kt[2], jv[1], jv[2]), color=CORE_C, scale_factor=1.02)], 1.0)])
-        self.wait(1.0)
-        self.play(FadeOut(VGroup(cg, tags)), run_time=0.6)
+        now2 = M("now = 2026-03-11T09:00:00Z", 26, GOLD_M).move_to(nowt)
+        self.say("q2")
+        self.play(Transform(nowt, now2), FadeOut(rem), FadeOut(ph), FadeOut(h42), run_time=0.8)
+        self.hold(after=0)
+        self.predict()
+        d2b = M("Keep(id=l2, goodFor=PT18H)", 28, OUT).move_to(d2, aligned_edge=LEFT)
+        same = T("l1: goes, as before", 24, GREY_A).next_to(d1, RIGHT, buff=0.5)
+        nofx = T("checked from the core alone: no clock, no phone", 26, DECIDE).move_to([0.6, -2.4, 0])
+        self.say("a2")
+        self.at(1)
+        self.play(Transform(d2, d2b), FadeIn(same), run_time=0.8)
+        self.at(2)
+        self.play(FadeIn(nofx), run_time=0.6)
+        self.hold()
+        jk = T("We checked a fridge without opening the fridge.", 30, GOLD_M).move_to([0.0, -3.2, 0])
+        fit(jk, 12.4)
+        self.say("joke")
+        self.play(FadeIn(jk, shift=UP * 0.1), Indicate(fr, color=GOLD_M, scale_factor=1.05), run_time=0.9)
+        self.hold()
+        self.wipe()
 
-        # ---------------- the rule and a check ----------------
-        shell = frame(9.0, 3.2, SHELL_C, 0.05).move_to([0, 1.2, 0])
-        core = frame(4.0, 1.6, CORE_C, 0.14).move_to([0, 1.0, 0])
-        rule = VGroup(T("The core decides from plain values.", 30, CORE_C),
-                      T("The shell does the I/O around it.", 30, SHELL_C)).arrange(DOWN, buff=0.2)
-        rule.move_to(core)
-        core.stretch_to_fit_width(rule.width + 0.6).stretch_to_fit_height(rule.height + 0.5)
-        shell.stretch_to_fit_width(core.width + 1.6)
-        self.beat("So: the core decides from plain values, and the shell does the I/O around it.",
-                  FadeIn(shell), FadeIn(core), FadeIn(rule), run_time=1.2)
-        chk = M("val today = LocalDate.now()   // inside the core", 26).move_to([0, -1.4, 0])
-        q = T("Is the core still pure?", 28, GREY_B).move_to([0, -2.2, 0])
-        self.seq("A quick check. A teammate reads the clock inside the core. Is it still pure?",
-                 [(1, [FadeIn(chk, shift=UP * 0.1)], 0.6),
-                  (2, [FadeIn(q)], 0.4)])
-        self.wait(2.2)
-        ans = VGroup(T("No:", 28, RED_M), T("the clock is a hidden input. Read it in the shell and pass today in.", 26)
-                     ).arrange(RIGHT, buff=0.25).move_to([0, -2.2, 0])
-        fit(ans, 12.6)
-        self.seq("No. The clock is a hidden input, so the same arguments can give a different plan. "
-                 "Read it in the shell, and pass today in.",
-                 [(0, [ReplacementTransform(q, ans)], 0.7),
-                  (1, [flash(shell, SHELL_C)], 0.8)])
-        self.wait(1.0)
+        # ================= the tests =================
+        tc = VGroup(T("the core: many small tests", 30, DECIDE),
+                    T("build a list, call the function, compare with equals", 26, GREY_A),
+                    T("no fakes, no clock, milliseconds each", 26, GREY_A)).arrange(DOWN, buff=0.2).move_to([0, 1.6, 0])
+        ts = VGroup(T("the shell: one test with fakes", 30, ERRAND), T("it only checks the wiring", 26, GREY_A)).arrange(DOWN, buff=0.2)
+        ts.move_to([0, -1.0, 0])
+        self.say("tests")
+        self.at(1)
+        self.play(FadeIn(tc[0]), FadeIn(tc[1]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(tc[2]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(ts), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= where the picture breaks; the limit =================
+        ckb = person(ERRAND, 1.3).move_to([-4.0, 0.9, 0])
+        imp = T("a real cook improvises", 26, GREY_A).next_to(ckb, DOWN, buff=0.3)
+        shb = RoundedRectangle(corner_radius=0.2, width=4.6, height=1.6).set_stroke(ERRAND, 3).move_to([2.8, 0.9, 0])
+        shl = T("the shell must not", 28, ERRAND).move_to(shb)
+        slip = T("a rule in the shell is a rule you test with fakes again", 26, HIDDEN).move_to([0, -1.6, 0])
+        fit(slip, 12.4)
+        self.say("breaks")
+        self.at(1)
+        self.play(FadeIn(ckb), FadeIn(imp), run_time=0.6)
+        self.at(2)
+        self.play(Create(shb), FadeIn(shl), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(slip), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        lim = VGroup(T("Neither compiler checks any of this.", 30, HIDDEN),
+                     T("no keyword for pure, or for deeply immutable", 26, GREY_A)).arrange(DOWN, buff=0.2).move_to([0, 2.3, 0])
+        lk = code_block(["val dishes = mutableListOf(\"soup\")", "val menu = Menu(\"week-7\", dishes)",
+                         "dishes += \"pie\"        // menu.dishes is now [soup, pie]"], 24)
+        lk.move_to([0, 0.2, 0])
+        cp = VGroup(M("Menu(\"week-7\", dishes.toList())", 26, OUT), T("copy at the boundary: a snapshot", 24, GREY_A))
+        cp.arrange(DOWN, buff=0.15).move_to([0, -1.75, 0])
+        thin = T("the shell stays thin only because you keep it thin", 28, ERRAND).move_to([0, -3.0, 0])
+        self.say("guard")
+        self.at(1)
+        self.play(FadeIn(lim[0]), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(lim[1]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(lk), run_time=0.7)
+        self.at(4)
+        self.play(FadeIn(cp), run_time=0.6)
+        self.at(5)
+        self.play(FadeIn(thin), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= moral and a check =================
+        mq = T("So where does the pure part go? In the middle.", 34).move_to(UP * 2.6)
+        shell = RoundedRectangle(corner_radius=0.3, width=9.0, height=3.0).set_stroke(ERRAND, 3).set_fill(dim(ERRAND, 0.07), 1).move_to(UP * 0.3)
+        core = RoundedRectangle(corner_radius=0.2, width=4.6, height=1.3).set_stroke(DECIDE, 3).set_fill(dim(DECIDE, 0.15), 1).move_to(UP * 0.2)
+        ct = T("decide, every input passed in", 26, DECIDE).move_to(core)
+        st = T("read, call the core, act. Nothing more.", 26, ERRAND).move_to(shell.get_top() + DOWN * 0.42)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(Create(core), FadeIn(ct), run_time=0.6)
+        self.at(3)
+        self.play(Create(shell), FadeIn(st), run_time=0.6)
+        self.hold()
+        self.wipe()
+        qc = M("fun isFresh(bag: Bag) = !LocalDate.now().isAfter(bag.bestBefore)", 24).move_to([0, 0.8, 0])
+        fit(qc, 12.4)
+        qh = T("Check: how do you move this decision into the core?", 30, GOLD_M).next_to(qc, UP, buff=0.4)
+        self.say("check")
+        self.play(FadeIn(qh), FadeIn(qc, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.4, pos=(6.4, -3.25), edge=RIGHT)
+        qa = M("fun isFresh(bag: Bag, today: LocalDate) = !today.isAfter(bag.bestBefore)", 24, DECIDE).move_to([0, -0.6, 0])
+        fit(qa, 12.4)
+        qa2 = T("the shell reads the clock; the core compares two dates", 26, GREY_A).next_to(qa, DOWN, buff=0.3)
+        self.say("check_a")
+        self.play(FadeIn(qa, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(qa2), run_time=0.5)
+        self.hold(after=0)
+        self.wait(2.5)
