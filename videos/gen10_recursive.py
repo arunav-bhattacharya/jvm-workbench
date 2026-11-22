@@ -199,7 +199,7 @@ def chain_step(code, typ, color, size=24):
 
 N = {
     "open": "Orders at the fruit shop come on printed forms. Every form starts with the same lines: the variety, the "
-            "weight, a note. A gift-box form adds a line for the ribbon. A delivery form adds a line for the address.",
+            "weight, a note. A gift-box form adds a line for the ribbon.",
     "helper": "A helper fills in a form one line at a time, and hands it back after each line. Here's the odd part. The "
               "helper fills in the weight on a gift-box form, and what comes back is: an order form. The ribbon line is "
               "still printed on the paper. But nobody is allowed to look at it any more.",
@@ -218,11 +218,11 @@ N = {
     "why": "Follow the types, the way the compiler does. Each call returns its declared type, and the compiler goes by "
            "that, not by the object. ribbon returns a PlainGiftBoxBuilder, so grams can follow. But grams returns a "
            "PlainBuilder, because that's all the base class knows about itself.",
-    "demo": "So is the object still a gift box? The lesson's demo checks. It prints: after grams, static type "
+    "demo": "So is the object still a gift box? It prints: after grams, static type "
             "PlainBuilder, run-time class PlainGiftBoxBuilder. The object is fine. The form has just forgotten what kind "
             "of form it is.",
     "wish": "What we want is a base class that can say: I return whatever subclass I really am.",
-    "blank": "So let's go back to the paper. Print a blank at the top of the base form: this is a, blank, form. Each kind "
+    "blank": "Print a blank at the top of the base form: this is a, blank, form. Each kind "
              "of form writes its own name in the blank. The gift-box form writes: gift box. Now, when the helper hands "
              "the form back, the blank says what kind of form it is.",
     "map": "Let's map it. The blank is a type parameter, B. The base form is Builder<B>. Writing your own name in the "
@@ -231,7 +231,7 @@ N = {
     "subst": "Now fill in the blank, the same trick as the first lesson. For a GiftBoxBuilder, every B in the base class "
              "reads GiftBoxBuilder. So grams returns a GiftBoxBuilder, and ribbon is in reach again. The demo builds "
              "the finished box: gift box, 1200 grams, red ribbon.",
-    "bound": "Now look at the bound itself: B : Builder<B>. The B inside points back at the B it bounds. Read it as: B "
+    "bound": "Now look at the bound itself: B : Builder<B>. Read it as: B "
              "is a builder whose own B is B.",
     "joke2": "If that sentence made you a little dizzy, you're in good company. Read it like the form instead. The only "
              "names that fit the blank belong to forms that write their own name there.",
@@ -248,8 +248,7 @@ N = {
               "object, not the liar you filled in.",
     "copy": "And here's the slip that really happens. Someone adds a pickup form by copying the gift-box builder, and "
             "forgets to change the name in the blank. The abstract self() catches it at compile time: return type "
-            "mismatch, expected GiftBoxBuilder, actual PickupBuilder. With this as B, the same slip would compile, "
-            "and fail later, at the call.",
+            "mismatch, expected GiftBoxBuilder, actual PickupBuilder.",
     "name": "Now the names. A type parameter that stands for my own subclass is called a self type. A bound that "
             "mentions the type parameter itself is called a recursive bound. And you've met the shape before: "
             "T : Comparable<T>, a T that compares with its own kind, and Java's own Enum<E extends Enum<E>>.",
@@ -260,8 +259,7 @@ N = {
              "form a blank, and let each subclass write its own name there. A recursive bound lets a base class "
              "return its subclass.",
     "check": "Quick check. Take a new GiftBoxBuilder, and call grams with 1200. What type does the compiler see?",
-    "check_a": "GiftBoxBuilder. grams returns B, and the declaration filled B with GiftBoxBuilder. So ribbon is still in "
-               "reach.",
+    "check_a": "GiftBoxBuilder. grams returns B, and the declaration filled B with GiftBoxBuilder.",
 }
 
 
@@ -287,7 +285,6 @@ class Gen10Recursive(Narrated):
         self.at(2)
         self.play(FadeIn(gift, shift=UP * 0.2), run_time=0.6)
         self.play(gift[1][4].animate.set_color(GIFT_C), run_time=0.4)
-        self.at(3)
         self.play(FadeIn(deli, shift=UP * 0.2), run_time=0.6)
         self.hold()
 
@@ -437,9 +434,8 @@ class Gen10Recursive(Narrated):
         self.say("demo")
         self.at(1)
         self.play(FadeIn(out, shift=UP * 0.1), run_time=0.6)
-        self.at(2)
         self.play(part(out[1][0], "PlainBuilder").animate.set_color(BASE_C), part(out[1][0], "PlainGiftBoxBuilder").animate.set_color(GIFT_C), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(Indicate(part(out[1][0], "PlainGiftBoxBuilder"), color=GIFT_C, scale_factor=1.1), run_time=0.7)
         self.hold()
 
@@ -460,13 +456,12 @@ class Gen10Recursive(Narrated):
         gname = Text("gift box", font=FONT, font_size=24, color=PEN, slant=ITALIC).move_to(gblank).shift(UP * 0.05)
         self.say("blank")
         self.play(FadeIn(bf, shift=UP * 0.1), run_time=0.7)
-        self.at(1)
         self.play(Indicate(blank, color=B_C, scale_factor=1.2), blank.animate.set_color(B_C), run_time=0.8)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(gf, shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(FadeOut(gblank), Write(gname), run_time=0.9)
-        self.at(4)
+        self.at(3)
         wt = Text("1200 g", font=FONT, font_size=22, color=PEN, slant=ITALIC).next_to(part(gf[1][2], "weight:"), RIGHT, buff=0.35)
         self.play(Write(wt), run_time=0.7)
         self.play(Indicate(gname, color=PEN, scale_factor=1.2), run_time=0.7)
@@ -537,9 +532,8 @@ class Gen10Recursive(Narrated):
         rd = T("\"B is a builder whose own B is B\"", 32, GREY_A).move_to([0, 0.2, 0])
         self.say("bound")
         self.play(FadeIn(bd), run_time=0.6)
-        self.at(1)
         self.play(b0.animate.set_color(B_C), b1.animate.set_color(B_C), Create(loop), run_time=0.9)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(rd, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
@@ -639,8 +633,6 @@ class Gen10Recursive(Narrated):
         self.play(Indicate(part(pk[0], "GiftBoxBuilder"), color=BAD, scale_factor=1.15), run_time=0.8)
         self.at(2)
         self.play(FadeIn(e1, shift=UP * 0.1), FadeIn(e2, shift=UP * 0.1), run_time=0.7)
-        self.at(3)
-        self.play(FadeIn(late, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.wipe()
 

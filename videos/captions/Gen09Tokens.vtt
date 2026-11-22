@@ -1,457 +1,421 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:06.561
+00:00:02.700 --> 00:00:06.527
 In the last lesson, a second clerk stood at the storeroom door.
 
 2
-00:00:06.561 --> 00:00:11.300
+00:00:06.527 --> 00:00:11.266
 Before each label was torn off, the clerk copied one word onto a note: apples.
 
 3
-00:00:11.300 --> 00:00:14.337
+00:00:11.266 --> 00:00:14.304
 Today we pick up that note and look at it closely.
 
 4
-00:00:15.267 --> 00:00:19.212
+00:00:15.233 --> 00:00:19.235
 The shop's office keeps a card index, a small drawer of cards.
 
 5
-00:00:19.212 --> 00:00:24.239
+00:00:19.235 --> 00:00:24.335
 Each card is filed under a note that names a tool, like Scale or Label printer.
 
 6
-00:00:24.239 --> 00:00:26.657
-The card says where to find that tool.
-
-7
-00:00:26.800 --> 00:00:29.056
+00:00:24.567 --> 00:00:26.823
 Then the shop opens a second shelf.
 
-8
-00:00:29.056 --> 00:00:31.957
+7
+00:00:26.823 --> 00:00:29.724
 One shelf holds apples, and one holds lemons.
 
-9
-00:00:31.957 --> 00:00:34.794
+8
+00:00:29.724 --> 00:00:32.560
 But on a one-word note, both are just Shelf.
 
-10
-00:00:34.794 --> 00:00:37.759
+9
+00:00:32.560 --> 00:00:35.526
 We file the apple shelf, then the lemon shelf.
 
-11
-00:00:37.759 --> 00:00:40.145
+10
+00:00:35.526 --> 00:00:37.911
 How many cards are in the drawer now?
 
-12
-00:00:40.145 --> 00:00:41.176
+11
+00:00:37.911 --> 00:00:38.943
 Pause and guess.
 
-13
-00:00:44.200 --> 00:00:44.465
+12
+00:00:41.933 --> 00:00:42.198
 One.
 
-14
-00:00:44.465 --> 00:00:48.501
+13
+00:00:42.198 --> 00:00:46.234
 The second card pushed the first one out, and nobody noticed.
 
-15
-00:00:48.501 --> 00:00:52.206
+14
+00:00:46.234 --> 00:00:49.939
 Nobody, until someone fetched lemons for an apple order.
 
-16
-00:00:52.206 --> 00:00:56.109
+15
+00:00:49.939 --> 00:00:53.843
 Somewhere, a customer is biting into a very sour apple pie.
 
-17
-00:00:56.267 --> 00:00:57.661
-So the point is this.
-
-18
-00:00:57.661 --> 00:01:01.577
+16
+00:00:54.067 --> 00:00:57.889
 The note had room for one word, and one word wasn't enough.
 
-19
-00:01:01.577 --> 00:01:04.231
+17
+00:00:57.889 --> 00:01:00.480
 In code, that one-word note is a KClass.
 
-20
-00:01:04.231 --> 00:01:10.736
-And the trap is easy to fall into, because for plain classes, a class behaves exactly like a type.
-
-21
-00:01:11.667 --> 00:01:14.602
+18
+00:01:01.400 --> 00:01:04.335
 Here's a question that's easy to be shy about.
 
-22
-00:01:14.602 --> 00:01:15.751
+19
+00:01:04.335 --> 00:01:05.484
 Kotlin has KClass.
 
-23
-00:01:15.751 --> 00:01:16.708
+20
+00:01:05.484 --> 00:01:06.441
 Java has Class.
 
-24
-00:01:16.708 --> 00:01:19.260
+21
+00:01:06.441 --> 00:01:08.994
 And then there's something called KType.
 
-25
-00:01:19.260 --> 00:01:22.068
+22
+00:01:08.994 --> 00:01:11.801
 Aren't those three names for the same thing?
 
-26
-00:01:23.200 --> 00:01:25.581
-Let's start from what we already know.
+23
+00:01:12.900 --> 00:01:16.771
+Let's start from what we already know: a class is not a type.
 
-27
-00:01:25.581 --> 00:01:29.152
-Earlier in this track, we pulled classes and types apart.
-
-28
-00:01:29.152 --> 00:01:34.038
+24
+00:01:16.771 --> 00:01:21.721
 The class String backs two types: String, and String?, which may also be null.
 
-29
-00:01:34.038 --> 00:01:37.797
+25
+00:01:21.721 --> 00:01:25.528
 The class List backs List&lt;String&gt;, List&lt;Int&gt;, and many more.
 
-30
-00:01:37.933 --> 00:01:39.079
+26
+00:01:25.733 --> 00:01:26.879
 Then came erasure.
 
-31
-00:01:39.079 --> 00:01:45.124
+27
+00:01:26.879 --> 00:01:32.924
 The compiler checks each type argument, the real type in the angle brackets, and then drops it.
 
-32
-00:01:45.124 --> 00:01:49.515
+28
+00:01:32.924 --> 00:01:37.315
 So while the program runs, a box on the shelf still knows it's a box.
 
-33
-00:01:49.515 --> 00:01:51.997
+29
+00:01:37.315 --> 00:01:39.797
 It no longer knows what its label said.
 
-34
-00:01:52.867 --> 00:01:56.660
+30
+00:01:40.700 --> 00:01:44.494
 So a running program gets three different objects.
 
-35
-00:01:56.660 --> 00:01:58.330
+31
+00:01:44.494 --> 00:01:46.163
 The first is a KClass.
 
-36
-00:01:58.330 --> 00:02:02.579
+32
+00:01:46.163 --> 00:01:50.412
 It describes a class, like String::class or List::class.
 
-37
-00:02:02.579 --> 00:02:06.373
+33
+00:01:50.412 --> 00:01:54.206
 It has no type arguments, and it's never nullable.
 
-38
-00:02:06.373 --> 00:02:08.345
+34
+00:01:54.206 --> 00:01:56.179
 This is our one-word note.
 
-39
-00:02:08.533 --> 00:02:12.909
+35
+00:01:56.400 --> 00:02:00.775
 The second is a Class, Java's object for the same class.
 
-40
-00:02:12.909 --> 00:02:18.065
+36
+00:02:00.775 --> 00:02:05.932
 In Java you write String.class, and in Kotlin, String::class.java.
 
-41
-00:02:18.065 --> 00:02:21.503
+37
+00:02:05.932 --> 00:02:09.369
 It's the same note, written on Java's paper.
 
-42
-00:02:21.667 --> 00:02:23.026
+38
+00:02:09.600 --> 00:02:10.959
 The third is a KType.
 
-43
-00:02:23.026 --> 00:02:28.463
+39
+00:02:10.959 --> 00:02:16.396
 It describes a full type: the class, its type arguments, and whether it may be null.
 
-44
-00:02:28.463 --> 00:02:30.016
+40
+00:02:16.396 --> 00:02:17.949
 You get one from typeOf.
 
-45
-00:02:30.016 --> 00:02:33.576
+41
+00:02:17.949 --> 00:02:21.509
 This is the whole label: a list of strings, or nothing.
 
-46
-00:02:33.733 --> 00:02:34.651
+42
+00:02:21.733 --> 00:02:22.651
 Let's map it.
 
-47
-00:02:34.651 --> 00:02:36.770
+43
+00:02:22.651 --> 00:02:24.770
 The one-word note is a KClass.
 
-48
-00:02:36.770 --> 00:02:39.665
+44
+00:02:24.770 --> 00:02:27.665
 The same note on Java's paper is a Class.
 
-49
-00:02:39.665 --> 00:02:41.571
+45
+00:02:27.665 --> 00:02:29.571
 The whole label is a KType.
 
-50
-00:02:41.571 --> 00:02:47.079
+46
+00:02:29.571 --> 00:02:35.079
 And the box on the shelf is the object itself, which only remembers its class.
 
-51
-00:02:48.000 --> 00:02:50.510
-Here's the lesson's demo, in Kotlin.
-
-52
-00:02:50.510 --> 00:02:53.717
+47
+00:02:36.000 --> 00:02:39.226
 k is a KClass, c is a Class, and t is a KType.
 
-53
-00:02:53.717 --> 00:02:55.599
+48
+00:02:39.226 --> 00:02:41.119
 Then it asks two questions.
 
-54
-00:02:55.599 --> 00:03:00.061
+49
+00:02:41.119 --> 00:02:45.607
 Do an ArrayList of String and an ArrayList of Int share a class?
 
-55
-00:03:00.061 --> 00:03:02.711
+50
+00:02:45.607 --> 00:02:48.272
 And is String the same type as String?
 
-56
-00:03:02.867 --> 00:03:03.951
+51
+00:02:48.500 --> 00:02:49.584
 Same class?
 
-57
-00:03:03.951 --> 00:03:04.936
+52
+00:02:49.584 --> 00:02:50.570
 Same type?
 
-58
-00:03:04.936 --> 00:03:06.513
+53
+00:02:50.570 --> 00:02:52.147
 Pause and guess.
 
-59
-00:03:10.467 --> 00:03:12.123
+54
+00:02:55.633 --> 00:02:57.292
 Here's what it printed.
 
-60
-00:03:12.123 --> 00:03:13.563
+55
+00:02:57.292 --> 00:02:58.734
 Share a class: true.
 
-61
-00:03:13.563 --> 00:03:15.939
-One class, ArrayList, backs both.
-
-62
-00:03:15.939 --> 00:03:17.956
+56
+00:02:58.734 --> 00:03:00.753
 Same type: false, and false.
 
-63
-00:03:17.956 --> 00:03:22.708
+57
+00:03:00.753 --> 00:03:05.512
 The nullable String is a different type, and so is a list of ints.
 
-64
-00:03:22.708 --> 00:03:30.197
+58
+00:03:05.512 --> 00:03:13.011
 And the KType knows its parts: its classifier is List::class, it has one argument, and nullable is true.
 
-65
-00:03:30.333 --> 00:03:31.693
+59
+00:03:13.233 --> 00:03:14.593
 Notice one odd thing.
 
-66
-00:03:31.693 --> 00:03:36.354
+60
+00:03:14.593 --> 00:03:19.254
 Two lines end with a little apology: Kotlin reflection is not available.
 
-67
-00:03:36.354 --> 00:03:41.404
+61
+00:03:19.254 --> 00:03:24.304
 It may be the most polite message you'll ever see, and it isn't even an error.
 
-68
-00:03:41.600 --> 00:03:42.859
+62
+00:03:24.533 --> 00:03:25.792
 Nothing is broken.
 
-69
-00:03:42.859 --> 00:03:49.644
+63
+00:03:25.792 --> 00:03:32.578
 To print Kotlin names, like kotlin.String, toString needs an extra library called kotlin-reflect.
 
-70
-00:03:49.644 --> 00:03:53.352
+64
+00:03:32.578 --> 00:03:36.285
 A Gradle project leaves it out unless you ask for it.
 
-71
-00:03:53.352 --> 00:03:56.709
+65
+00:03:36.285 --> 00:03:39.643
 So Kotlin falls back to Java names, and says so.
 
-72
-00:03:57.600 --> 00:03:59.034
+66
+00:03:40.567 --> 00:03:42.001
 Now let's be skeptical.
 
-73
-00:03:59.034 --> 00:04:03.710
+67
+00:03:42.001 --> 00:03:46.677
 If the clerk could copy one word onto a note, why not copy the whole label?
 
-74
-00:04:03.710 --> 00:04:06.516
+68
+00:03:46.677 --> 00:03:49.483
 Why can't I just ask a box for its full type?
 
-75
-00:04:06.667 --> 00:04:07.918
+69
+00:03:49.700 --> 00:03:50.966
 Watch the arrows.
 
-76
-00:04:07.918 --> 00:04:14.616
+70
+00:03:50.966 --> 00:03:57.742
 From an object at run time, x::class reaches the KClass, and x.javaClass reaches the Class.
 
-77
-00:04:14.616 --> 00:04:16.530
+71
+00:03:57.742 --> 00:03:59.678
 Nothing reaches the KType.
 
-78
-00:04:16.530 --> 00:04:23.818
+72
+00:03:59.678 --> 00:04:07.049
 A KType comes from code: the compiler writes it down at a call site, where it still knows the type.
 
-79
-00:04:23.818 --> 00:04:25.879
-typeOf is how you ask it to.
-
-80
-00:04:26.067 --> 00:04:28.746
+73
+00:04:07.267 --> 00:04:09.946
 And here the clerk picture breaks a little.
 
-81
-00:04:28.746 --> 00:04:32.172
+74
+00:04:09.946 --> 00:04:13.372
 A real clerk could copy the full label onto every note.
 
-82
-00:04:32.172 --> 00:04:37.841
+75
+00:04:13.372 --> 00:04:19.041
 Kotlin writes a KType only where you ask for one, and it never stores it inside the object.
 
-83
-00:04:38.733 --> 00:04:42.102
+76
+00:04:19.967 --> 00:04:23.335
 So, to pick the right one, ask what you want to know.
 
-84
-00:04:42.102 --> 00:04:43.818
+77
+00:04:23.335 --> 00:04:25.051
 What kind of thing is this?
 
-85
-00:04:43.818 --> 00:04:48.139
+78
+00:04:25.051 --> 00:04:29.373
 That's a question about a class, and a KClass or a Class answers it.
 
-86
-00:04:48.139 --> 00:04:49.093
+79
+00:04:29.373 --> 00:04:30.326
 A list of what?
 
-87
-00:04:49.093 --> 00:04:50.046
+80
+00:04:30.326 --> 00:04:31.279
 May it be null?
 
-88
-00:04:50.046 --> 00:04:54.304
+81
+00:04:31.279 --> 00:04:35.537
 Those are questions about a type, and only a KType can answer them.
 
-89
-00:04:54.467 --> 00:04:56.150
+82
+00:04:35.767 --> 00:04:37.376
 Now the name for all this.
 
-90
-00:04:56.150 --> 00:05:02.558
+83
+00:04:37.376 --> 00:04:43.503
 The part of the library that lets code inspect classes while the program runs is called reflection.
 
-91
-00:05:02.558 --> 00:05:05.729
-KClass, Class and KType are three of its objects.
-
-92
-00:05:06.600 --> 00:05:07.583
+84
+00:04:44.433 --> 00:04:45.416
 One guardrail.
 
-93
-00:05:07.583 --> 00:05:10.673
+85
+00:04:45.416 --> 00:04:48.506
 You can't ask for the class of a whole type.
 
-94
-00:05:10.673 --> 00:05:18.819
+86
+00:04:48.506 --> 00:04:56.652
 Write Shelf&lt;Apple&gt;::class, and the compiler says: only classes are allowed on the left-hand side of a class literal.
 
-95
-00:05:18.819 --> 00:05:23.032
+87
+00:04:56.652 --> 00:05:00.865
 A class literal is the double colon class you write in code.
 
-96
-00:05:23.200 --> 00:05:25.005
+88
+00:05:01.067 --> 00:05:02.871
 So here's the rule of thumb.
 
-97
-00:05:25.005 --> 00:05:31.192
+89
+00:05:02.871 --> 00:05:09.059
 Key a container by KClass when the things in it are plain, like the scale and the label printer.
 
-98
-00:05:31.192 --> 00:05:35.188
+90
+00:05:09.059 --> 00:05:13.055
 Key it by KType when they are generic, like a shelf of apples.
 
-99
-00:05:36.067 --> 00:05:37.267
+91
+00:05:13.967 --> 00:05:15.175
 Back to the drawer.
 
-100
-00:05:37.267 --> 00:05:44.151
+92
+00:05:15.175 --> 00:05:22.110
 File the shelves under typeOf&lt;Shelf&lt;Apple&gt;&gt;() and typeOf&lt;Shelf&lt;Lemon&gt;&gt;(), and the two cards sit side by side.
 
-101
-00:05:44.151 --> 00:05:46.867
+93
+00:05:22.110 --> 00:05:24.845
 The lemons finally get a card of their own.
 
-102
-00:05:46.867 --> 00:05:50.088
-The last section of the lesson builds exactly that.
-
-103
-00:05:51.000 --> 00:05:54.313
+94
+00:05:25.767 --> 00:05:29.080
 So, are KClass, Class and KType the same thing?
 
-104
-00:05:54.313 --> 00:05:58.401
+95
+00:05:29.080 --> 00:05:33.168
 Two of them are: one note, on Kotlin's paper or on Java's.
 
-105
-00:05:58.401 --> 00:06:00.445
+96
+00:05:33.168 --> 00:05:35.212
 The third is the whole label.
 
-106
-00:06:00.445 --> 00:06:02.208
+97
+00:05:35.212 --> 00:05:36.974
 Objects know their class.
 
-107
-00:06:02.208 --> 00:06:04.111
+98
+00:05:36.974 --> 00:05:38.877
 Only code knows full types.
 
-108
-00:06:04.267 --> 00:06:05.060
+99
+00:05:39.100 --> 00:05:39.893
 Quick check.
 
-109
-00:06:05.060 --> 00:06:07.506
+100
+00:05:39.893 --> 00:05:42.339
 Take String, and the nullable String.
 
-110
-00:06:07.506 --> 00:06:09.357
+101
+00:05:42.339 --> 00:05:44.190
 Do they have the same class?
 
-111
-00:06:09.357 --> 00:06:11.141
+102
+00:05:44.190 --> 00:05:45.975
 Do they have the same type?
 
-112
-00:06:14.400 --> 00:06:15.123
+103
+00:05:48.767 --> 00:05:49.489
 Same class.
 
-113
-00:06:15.123 --> 00:06:19.787
+104
+00:05:49.489 --> 00:05:54.153
 The demo printed true: a nullable String is backed by the class String.
 
-114
-00:06:19.787 --> 00:06:23.465
+105
+00:05:54.153 --> 00:05:57.832
 But different types, because a KType counts nullability.

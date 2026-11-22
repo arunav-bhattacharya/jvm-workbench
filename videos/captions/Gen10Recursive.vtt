@@ -1,181 +1,393 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.676
-You build a card payment with a chain of calls.
+00:00:02.733 --> 00:00:05.699
+Orders at the fruit shop come on printed forms.
 
 2
-00:00:05.676 --> 00:00:07.132
-amount, then cardToken.
+00:00:05.699 --> 00:00:10.178
+Every form starts with the same lines: the variety, the weight, a note.
 
 3
-00:00:07.132 --> 00:00:10.741
-amount lives in a base class, so every builder shares it.
+00:00:10.178 --> 00:00:12.891
+A gift-box form adds a line for the ribbon.
 
 4
-00:00:10.933 --> 00:00:16.588
-Each call hands back an object, and the compiler only knows the type the call declares.
+00:00:12.891 --> 00:00:15.667
+A delivery form adds a line for the address.
 
 5
-00:00:16.588 --> 00:00:18.797
-Watch that type as the chain runs.
+00:00:15.867 --> 00:00:20.769
+A helper fills in a form one line at a time, and hands it back after each line.
 
 6
-00:00:19.000 --> 00:00:22.202
-PlainCardBuilder() gives you a PlainCardBuilder.
+00:00:20.769 --> 00:00:22.010
+Here's the odd part.
 
 7
-00:00:22.202 --> 00:00:23.536
-It has both setters.
+00:00:22.010 --> 00:00:27.533
+The helper fills in the weight on a gift-box form, and what comes back is: an order form.
 
 8
-00:00:23.767 --> 00:00:27.910
-But amount is declared in the base class, and it returns a PlainBuilder.
+00:00:27.533 --> 00:00:30.388
+The ribbon line is still printed on the paper.
 
 9
-00:00:27.910 --> 00:00:30.500
-That's all the base class knows about itself.
+00:00:30.388 --> 00:00:33.180
+But nobody is allowed to look at it any more.
 
 10
-00:00:30.700 --> 00:00:32.584
-Can you call cardToken now?
+00:00:33.333 --> 00:00:39.431
+It's like handing your birthday cake over to be boxed, and getting it back with a label that says: food.
 
 11
-00:00:34.167 --> 00:00:34.389
-No.
+00:00:39.431 --> 00:00:40.545
+Not wrong, exactly.
 
 12
-00:00:34.389 --> 00:00:36.765
-A PlainBuilder has no cardToken.
+00:00:40.545 --> 00:00:43.828
+Just no help at all when you're looking for the candles.
 
 13
-00:00:36.765 --> 00:00:42.037
-The object is still a PlainCardBuilder, but the compiler has lost that.
+00:00:44.733 --> 00:00:47.608
+Here's a question that's easy to be shy about.
 
 14
-00:00:43.200 --> 00:00:47.722
-The base class needs to say: I return whatever subclass I really am.
+00:00:47.608 --> 00:00:50.732
+The form really is a gift-box form the whole time.
 
 15
-00:00:47.722 --> 00:00:51.512
-So give it a type parameter, B, and make amount return B.
+00:00:50.732 --> 00:00:52.732
+So why does the compiler forget?
 
 16
-00:00:51.700 --> 00:00:52.588
-B is a blank.
+00:00:53.800 --> 00:01:00.932
+In code, the form is a builder: an object you fill in one setting at a time, and then ask to build the finished thing.
 
 17
-00:00:52.588 --> 00:00:58.049
-Each subclass fills it with its own name: CardBuilder is a Builder&lt;CardBuilder&gt;.
+00:01:00.932 --> 00:01:05.767
+Each setter returns the builder, so the calls can follow each other on one line.
 
 18
-00:00:58.233 --> 00:00:59.272
-Now substitute.
+00:01:05.767 --> 00:01:07.943
+That style is called a fluent chain.
 
 19
-00:00:59.272 --> 00:01:03.633
-For a CardBuilder, every B in the base class reads CardBuilder.
+00:01:08.867 --> 00:01:13.117
+Put the shared setter, grams, in a base class called PlainBuilder.
 
 20
-00:01:03.633 --> 00:01:05.848
-So amount returns a CardBuilder.
+00:01:13.117 --> 00:01:17.947
+Then add a subclass, PlainGiftBoxBuilder, with a setter of its own: ribbon.
 
 21
-00:01:06.033 --> 00:01:07.019
-One more piece.
+00:01:18.867 --> 00:01:20.046
+Now two chains.
 
 22
-00:01:07.019 --> 00:01:10.500
-Inside the base class, this is a Builder&lt;B&gt;, not a B.
+00:01:20.046 --> 00:01:22.011
+Ribbon first, then grams.
 
 23
-00:01:10.500 --> 00:01:14.836
-So amount returns self(), and each subclass writes self() as this.
+00:01:22.011 --> 00:01:24.212
+Or grams first, then ribbon.
 
 24
-00:01:14.836 --> 00:01:17.004
-The compiler checks that it fits.
+00:01:24.212 --> 00:01:25.706
+Which one compiles?
 
 25
-00:01:18.067 --> 00:01:19.489
-Run the chain again.
+00:01:25.706 --> 00:01:26.964
+Pause and guess.
 
 26
-00:01:19.489 --> 00:01:21.906
-CardBuilder() gives a CardBuilder.
+00:01:30.200 --> 00:01:31.800
+Ribbon first compiles.
 
 27
-00:01:21.906 --> 00:01:24.679
-amount returns B, and B is CardBuilder.
+00:01:31.800 --> 00:01:33.328
+Grams first does not.
 
 28
-00:01:24.679 --> 00:01:26.456
-So cardToken is in reach.
+00:01:33.328 --> 00:01:38.783
+Kotlin says: unresolved reference ribbon, on receiver of type PlainBuilder.
 
 29
-00:01:27.933 --> 00:01:29.819
-Look at the bound itself.
+00:01:38.783 --> 00:01:41.256
+And Java says: cannot find symbol.
 
 30
-00:01:29.819 --> 00:01:30.950
-B : Builder&lt;B&gt;.
+00:01:42.133 --> 00:01:44.954
+Follow the types, the way the compiler does.
 
 31
-00:01:30.950 --> 00:01:34.268
-The B inside points back to the B it bounds.
+00:01:44.954 --> 00:01:50.466
+Each call returns its declared type, and the compiler goes by that, not by the object.
 
 32
-00:01:34.433 --> 00:01:37.369
-Read it as: B is a builder whose own B is B.
+00:01:50.466 --> 00:01:54.184
+ribbon returns a PlainGiftBoxBuilder, so grams can follow.
 
 33
-00:01:37.369 --> 00:01:41.039
-CardBuilder fits, because it is a Builder&lt;CardBuilder&gt;.
+00:01:54.184 --> 00:01:59.760
+But grams returns a PlainBuilder, because that's all the base class knows about itself.
 
 34
-00:01:41.267 --> 00:01:43.539
-You've met this shape before.
+00:01:59.933 --> 00:02:02.253
+So is the object still a gift box?
 
 35
-00:01:43.539 --> 00:01:50.197
-T : Comparable&lt;T&gt; is a recursive bound too, and so is Java's Enum&lt;E extends Enum&lt;E&gt;&gt;.
+00:02:02.253 --> 00:02:03.959
+The lesson's demo checks.
 
 36
-00:01:51.367 --> 00:01:55.000
-In code, Java writes extends where Kotlin writes a colon.
+00:02:03.959 --> 00:02:09.757
+It prints: after grams, static type PlainBuilder, run-time class PlainGiftBoxBuilder.
 
 37
-00:01:55.000 --> 00:01:58.761
-In both, the subclass names itself, and the chain compiles.
+00:02:09.757 --> 00:02:11.054
+The object is fine.
 
 38
-00:01:59.933 --> 00:02:00.572
-The rule.
+00:02:11.054 --> 00:02:14.601
+The form has just forgotten what kind of form it is.
 
 39
-00:02:00.572 --> 00:02:08.373
-A recursive bound lets a base class return its own subclass, so a chain keeps the subclass's methods in reach.
+00:02:14.800 --> 00:02:20.055
+What we want is a base class that can say: I return whatever subclass I really am.
 
 40
-00:02:08.600 --> 00:02:09.488
-Quick check.
+00:02:20.933 --> 00:02:22.808
+So let's go back to the paper.
 
 41
-00:02:09.488 --> 00:02:13.260
-Someone writes class Liar : Builder&lt;CardBuilder&gt;().
+00:02:22.808 --> 00:02:26.934
+Print a blank at the top of the base form: this is a, blank, form.
 
 42
-00:02:13.260 --> 00:02:14.444
-Does it compile?
+00:02:26.934 --> 00:02:30.121
+Each kind of form writes its own name in the blank.
 
 43
-00:02:16.600 --> 00:02:16.869
-Yes.
+00:02:30.121 --> 00:02:32.309
+The gift-box form writes: gift box.
 
 44
-00:02:16.869 --> 00:02:20.236
-The bound only asks for some builder in the blank.
+00:02:32.309 --> 00:02:37.372
+Now, when the helper hands the form back, the blank says what kind of form it is.
 
 45
-00:02:20.236 --> 00:02:23.468
-It can't force a subclass to write its own name.
+00:02:37.533 --> 00:02:38.441
+Let's map it.
+
+46
+00:02:38.441 --> 00:02:40.746
+The blank is a type parameter, B.
+
+47
+00:02:40.746 --> 00:02:42.701
+The base form is Builder&lt;B&gt;.
+
+48
+00:02:42.701 --> 00:02:50.244
+Writing your own name in the blank is the subclass declaration: GiftBoxBuilder is a Builder&lt;GiftBoxBuilder&gt;.
+
+49
+00:02:50.244 --> 00:02:54.015
+And the setter that hands the form back now returns B.
+
+50
+00:02:54.933 --> 00:02:58.953
+Now fill in the blank, the same trick as the first lesson.
+
+51
+00:02:58.953 --> 00:03:03.736
+For a GiftBoxBuilder, every B in the base class reads GiftBoxBuilder.
+
+52
+00:03:03.736 --> 00:03:08.172
+So grams returns a GiftBoxBuilder, and ribbon is in reach again.
+
+53
+00:03:08.172 --> 00:03:12.816
+The demo builds the finished box: gift box, 1200 grams, red ribbon.
+
+54
+00:03:13.733 --> 00:03:16.916
+Now look at the bound itself: B : Builder&lt;B&gt;.
+
+55
+00:03:16.916 --> 00:03:20.028
+The B inside points back at the B it bounds.
+
+56
+00:03:20.028 --> 00:03:23.140
+Read it as: B is a builder whose own B is B.
+
+57
+00:03:23.333 --> 00:03:27.054
+If that sentence made you a little dizzy, you're in good company.
+
+58
+00:03:27.054 --> 00:03:28.771
+Read it like the form instead.
+
+59
+00:03:28.771 --> 00:03:33.465
+The only names that fit the blank belong to forms that write their own name there.
+
+60
+00:03:34.333 --> 00:03:35.334
+One more piece.
+
+61
+00:03:35.334 --> 00:03:40.004
+Inside the base class, this is only known to be a Builder&lt;B&gt;, not a B.
+
+62
+00:03:40.004 --> 00:03:44.873
+So grams returns self(), and each subclass writes self() as: return this.
+
+63
+00:03:44.873 --> 00:03:47.075
+The compiler checks that it fits.
+
+64
+00:03:47.267 --> 00:03:51.474
+The tempting shortcut is to write this as B, right in the base class.
+
+65
+00:03:51.474 --> 00:03:55.621
+That's an unchecked cast, and erasure turns it into no check at all.
+
+66
+00:03:56.533 --> 00:03:57.602
+So far so good.
+
+67
+00:03:57.602 --> 00:03:59.240
+Now let's try to cheat.
+
+68
+00:03:59.240 --> 00:04:05.295
+A class called Liar writes someone else's name in its blank: Builder&lt;GiftBoxBuilder&gt;.
+
+69
+00:04:05.295 --> 00:04:06.435
+Does it compile?
+
+70
+00:04:06.435 --> 00:04:07.575
+Pause and guess.
+
+71
+00:04:10.800 --> 00:04:11.544
+It compiles.
+
+72
+00:04:11.544 --> 00:04:14.580
+The bound only asks for the name of some builder.
+
+73
+00:04:14.580 --> 00:04:21.209
+And here the form picture breaks, just as the code does: anyone can write another form's name in the blank.
+
+74
+00:04:21.400 --> 00:04:24.067
+But the abstract self() is where you notice.
+
+75
+00:04:24.067 --> 00:04:29.038
+The liar must hand back a GiftBoxBuilder it doesn't have, so it makes a fresh one.
+
+76
+00:04:29.038 --> 00:04:35.948
+Fill in the weight on the liar, and what comes back is a GiftBoxBuilder: a new object, not the liar you filled in.
+
+77
+00:04:36.867 --> 00:04:39.363
+And here's the slip that really happens.
+
+78
+00:04:39.363 --> 00:04:45.854
+Someone adds a pickup form by copying the gift-box builder, and forgets to change the name in the blank.
+
+79
+00:04:45.854 --> 00:04:53.094
+The abstract self() catches it at compile time: return type mismatch, expected GiftBoxBuilder, actual PickupBuilder.
+
+80
+00:04:53.094 --> 00:04:57.651
+With this as B, the same slip would compile, and fail later, at the call.
+
+81
+00:04:58.533 --> 00:04:59.526
+Now the names.
+
+82
+00:04:59.526 --> 00:05:04.558
+A type parameter that stands for my own subclass is called a self type.
+
+83
+00:05:04.558 --> 00:05:09.946
+A bound that mentions the type parameter itself is called a recursive bound.
+
+84
+00:05:09.946 --> 00:05:19.019
+And you've met the shape before: T : Comparable&lt;T&gt;, a T that compares with its own kind, and Java's own Enum&lt;E extends Enum&lt;E&gt;&gt;.
+
+85
+00:05:19.933 --> 00:05:21.112
+And the guardrail.
+
+86
+00:05:21.112 --> 00:05:25.827
+In plain Kotlin code, the best builder is often the one you never write.
+
+87
+00:05:25.827 --> 00:05:29.953
+A data class with default arguments and copy covers most cases.
+
+88
+00:05:29.953 --> 00:05:37.091
+Reach for self types when Java callers need a builder, or when you extend a Java class that already uses one.
+
+89
+00:05:38.000 --> 00:05:39.958
+So, why did the compiler forget?
+
+90
+00:05:39.958 --> 00:05:43.386
+Because a base setter could only promise the base class.
+
+91
+00:05:43.386 --> 00:05:47.976
+Give the base form a blank, and let each subclass write its own name there.
+
+92
+00:05:47.976 --> 00:05:51.403
+A recursive bound lets a base class return its subclass.
+
+93
+00:05:51.600 --> 00:05:52.466
+Quick check.
+
+94
+00:05:52.466 --> 00:05:56.221
+Take a new GiftBoxBuilder, and call grams with 1200.
+
+95
+00:05:56.221 --> 00:05:58.532
+What type does the compiler see?
+
+96
+00:06:01.733 --> 00:06:02.840
+GiftBoxBuilder.
+
+97
+00:06:02.840 --> 00:06:07.709
+grams returns B, and the declaration filled B with GiftBoxBuilder.
+
+98
+00:06:07.709 --> 00:06:09.775
+So ribbon is still in reach.

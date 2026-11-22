@@ -231,7 +231,7 @@ N = {
                "Pause and guess.",
     "shelves_a": "One. The second card pushed the first one out, and nobody noticed. Nobody, until someone fetched lemons "
                  "for an apple order. Somewhere, a customer is biting into a very sour apple pie.",
-    "shelves_b": "So the point is this. The note had room for one word, and one word wasn't enough. In code, that one-word "
+    "shelves_b": "The note had room for one word, and one word wasn't enough. In code, that one-word "
                  "note is a KClass.",
     "shyq": "Here's a question that's easy to be shy about. Kotlin has KClass. Java has Class. And then there's something "
             "called KType. Aren't those three names for the same thing?",
@@ -249,7 +249,7 @@ N = {
              "You get one from typeOf. This is the whole label: a list of strings, or nothing.",
     "map": "Let's map it. The one-word note is a KClass. The same note on Java's paper is a Class. The whole label is a "
            "KType. And the box on the shelf is the object itself, which only remembers its class.",
-    "code": "Here's the lesson's demo, in Kotlin. k is a KClass, c is a Class, and t is a KType. Then it asks two questions. "
+    "code": "In the lesson's demo, k is a KClass, c is a Class, and t is a KType. Then it asks two questions. "
             "Do an ArrayList of String and an ArrayList of Int share a class? And is String the same type as String?",
     "predict": "Same class? Same type? Pause and guess.",
     "show": "Here's what it printed. Share a class: true. Same type: false, and false. "
@@ -356,12 +356,12 @@ class Gen09Tokens(Narrated):
         self.at(1)
         self.play(FadeOut(ca), run_time=0.6)
         self.at(2)
-        order = paper(["apple order"], 22).move_to([4.3, -0.3, 0])
+        order = paper(["apple order"], 22).move_to([5.3, -0.3, 0])
         got = lemon(0.28).next_to(order, DOWN, buff=0.3)
         self.play(FadeIn(order, shift=LEFT * 0.2), run_time=0.5)
         self.play(FadeIn(got, shift=UP * 0.2), run_time=0.5)
         self.at(3)
-        pie = T("a very sour apple pie", 24, LEMON).next_to(got, DOWN, buff=0.2)
+        pie = VGroup(T("a very sour", 24, LEMON), T("apple pie", 24, LEMON)).arrange(DOWN, buff=0.1).next_to(got, DOWN, buff=0.2)
         self.play(FadeIn(pie), run_time=0.5)
         self.hold()
 
@@ -370,9 +370,8 @@ class Gen09Tokens(Narrated):
         ptg = VGroup(pt, pt2).arrange(DOWN, buff=0.25).move_to([0, -0.3, 0])
         self.say("shelves_b")
         self.play(FadeOut(VGroup(order, got, pie, one, cl, drw)), run_time=0.5)
-        self.at(1)
         self.play(FadeIn(pt, shift=UP * 0.1), Indicate(na, color=WHITE), Indicate(nl, color=WHITE), run_time=0.8)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(pt2, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.wipe()
@@ -405,7 +404,7 @@ class Gen09Tokens(Narrated):
             b[0].stretch_to_fit_width(2.9)
         a1 = VGroup(*[Arrow(cs.get_right(), b.get_left(), buff=0.12, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.12) for b in ts1])
         a2 = VGroup(*[Arrow(cl_.get_right(), b.get_left(), buff=0.12, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.12) for b in ts2])
-        hc = T("classes", 24, GREY_B).next_to(cs, UP, buff=0.35)
+        hc = T("classes", 24, GREY_B).move_to([cs.get_x(), 3.05, 0])
         ht = T("types", 24, GREY_B).move_to([-0.6, hc.get_y(), 0])
         self.say("familiar")
         self.play(FadeIn(hc), FadeIn(ht), run_time=0.5)
@@ -499,18 +498,17 @@ class Gen09Tokens(Narrated):
         fit(cg, 12.4).move_to([0, 0.3, 0])
         self.say("code")
         self.play(FadeIn(kg, shift=UP * 0.1), run_time=0.7)
-        self.at(1)
         self.play(LaggedStart(*[Indicate(kt[i], color=c, scale_factor=1.03) for i, c in ((0, NOTE_C), (1, JAVA_C), (2, LABEL_C))],
                               lag_ratio=0.4), run_time=1.4)
         self.play(FadeIn(jg, shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(Indicate(kt[4], color=WHITE, scale_factor=1.03), run_time=0.8)
-        self.at(4)
+        self.at(3)
         self.play(Indicate(kt[5], color=WHITE, scale_factor=1.03), run_time=0.8)
         self.hold()
         self.say("predict")
         self.hold(after=0)
-        self.predict(2.6, pos=(6.4, -3.3), edge=RIGHT)
+        self.predict(2.2, pos=(6.4, -3.3), edge=RIGHT)
         self.wipe()
 
         out = term(["KClass: class java.lang.String (Kotlin reflection is not available)",
@@ -575,15 +573,15 @@ class Gen09Tokens(Narrated):
         kt_.move_to([-4.3, 0.6, 0])
         kc_.move_to([0.6, 0.6, 0])
         jc_.move_to([4.6, 0.6, 0])
-        obj = VGroup(RoundedRectangle(corner_radius=0.1, width=4.6, height=0.8).set_stroke(GREY_B, 2.5).set_fill("#151515", 1),
-                     M('an object at run time: listOf("Gala")', 22, GREY_A)).move_to([2.6, -2.3, 0])
+        ot = M('an object at run time: listOf("Gala")', 22, GREY_A)
+        obj = VGroup(RoundedRectangle(corner_radius=0.1, width=ot.width + 0.5, height=0.8).set_stroke(GREY_B, 2.5).set_fill("#151515", 1), ot)
         obj[1].move_to(obj[0])
-        fit(obj, 5.6)
+        obj.move_to([2.6, -2.3, 0])
         a1 = Arrow(obj.get_top() + LEFT * 1.2, kc_.get_bottom(), buff=0.08, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.12)
         a2 = Arrow(obj.get_top() + RIGHT * 1.2, jc_.get_bottom(), buff=0.08, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.12)
         a1t = M("x::class", 20, GREY_A).next_to(a1.get_center(), LEFT, buff=0.15)
         a2t = M("x.javaClass", 20, GREY_A).next_to(a2.get_center(), RIGHT, buff=0.15)
-        nope = DashedLine(obj.get_left() + UP * 0.1, kt_.get_bottom() + DOWN * 0.05, dash_length=0.1, stroke_width=2.5, color=BAD)
+        nope = DashedLine(obj[0].get_corner(UL) + RIGHT * 0.2, kt_.get_bottom() + DOWN * 0.05, dash_length=0.1, stroke_width=2.5, color=BAD)
         nx = tick(False, 0.2).move_to(nope.get_center())
         comp = VGroup(person(CLERK, 0.9), T("the compiler writes it, at a call site", 26, CLERK)).arrange(RIGHT, buff=0.2)
         comp.next_to(kt_, UP, buff=0.3)
@@ -706,7 +704,7 @@ class Gen09Tokens(Narrated):
         self.say("check")
         self.play(FadeIn(qg2, shift=UP * 0.1), run_time=0.7)
         self.hold(after=0)
-        self.predict(2.6, pos=(6.4, -3.3), edge=RIGHT)
+        self.predict(2.2, pos=(6.4, -3.3), edge=RIGHT)
         a1 = VGroup(T("same class:", 24, GREY_B), M("String? is backed by the class String: true", 22, OK)).arrange(RIGHT, buff=0.2)
         a2 = VGroup(T("different types:", 24, GREY_B), T("a KType counts nullability", 24, LABEL_C)).arrange(RIGHT, buff=0.2)
         ag = VGroup(a1, a2).arrange(DOWN, buff=0.2).move_to([0, -2.55, 0])
@@ -716,4 +714,4 @@ class Gen09Tokens(Narrated):
         self.at(2)
         self.play(FadeIn(a2, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
-        self.wait(2.5)
+        self.wait(1.6)

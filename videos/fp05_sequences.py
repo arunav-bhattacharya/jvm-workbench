@@ -45,9 +45,9 @@ N = {
     "name": "Now the names. A sequence is a lazy chain of steps: no work until a result is wanted, and then only what "
             "that result needs. map and filter are intermediate operations: they add a step to the plan. toList, first or "
             "sum are terminal operations: they ask for items, and the work starts.",
-    "book": "Back to the recipe book, and the lesson's demo, which counts the calls. The List chain asks the service a "
-            "million times. The sequence asks 518 times, and stops. Stopping as soon as the answer is known is called "
-            "short circuiting. And firstOrNull with a lambda is one plain loop that also stops at 518.",
+    "book": "Back to the recipe book, and count the calls. The List chain asks the service a million times. The sequence "
+            "asks 518 times, and stops. Stopping as soon as the answer is known is called short circuiting. And "
+            "firstOrNull with a lambda is one plain loop that also stops at 518.",
     "inside": "How does it stop? Each step on a sequence is a small wrapper around the step before. filter makes a "
               "FilteringSequence, map a TransformingSequence, take a TakeSequence. toList asks the last wrapper for an "
               "item, and it asks the one before it, back to the tray. One cookie gets pulled up the whole line.",
@@ -248,7 +248,7 @@ def cell(p, n, color):
 
 
 def empty_cell(p):
-    return RoundedRectangle(corner_radius=0.08, width=0.62, height=0.36).set_stroke(GREY_D, 1.5).move_to(p)
+    return RoundedRectangle(corner_radius=0.08, width=0.62, height=0.36).set_stroke(GREY_D, 1.5).set_fill(BLACK, 1).move_to(p)
 
 
 class Fp05Sequences(Narrated):
@@ -423,7 +423,7 @@ class Fp05Sequences(Narrated):
 
         # ================= the kitchen line =================
         LY = 0.2
-        belt = Line([-6.2, LY - 0.45, 0], [5.6, LY - 0.45, 0], stroke_width=3, color=GREY_C)
+        belt = Line([-4.5, LY - 0.45, 0], [5.6, LY - 0.45, 0], stroke_width=3, color=GREY_C)
         trayp = [np.array([-5.6 + 0.0 * i, LY, 0]) for i in range(5)]
         st1, st2 = np.array([-1.6, LY, 0]), np.array([1.6, LY, 0])
         h1 = person(FIL, 1.15).move_to(st1 + UP * 1.35)
@@ -538,11 +538,11 @@ class Fp05Sequences(Narrated):
         self.play(FadeIn(sempty[1:]), FadeIn(untouched), run_time=0.5)
         self.hold()
 
-        jk = T("in no hurry at all", 30, GOLD_M).next_to(built, UP, buff=0.18)
+        jk = T("in no hurry at all", 34, GOLD_M).move_to([-3.4, 0.0, 0])
         self.say("lazy_joke")
         self.play(Indicate(built, color=ASK, scale_factor=1.05), run_time=0.8)
         self.at(1)
-        self.play(FadeOut(sc), FadeOut(sempty), FadeOut(untouched), FadeIn(jk), run_time=0.6)
+        self.play(FadeOut(sc), FadeOut(sempty), FadeOut(untouched), FadeOut(list_side), FadeIn(jk), run_time=0.6)
         self.at(3)
         rule = T("nothing runs until something asks for a result", 28, ASK).move_to([0, 3.4, 0])
         self.play(FadeOut(add_seq), FadeIn(rule), run_time=0.6)
@@ -579,7 +579,7 @@ class Fp05Sequences(Narrated):
             rws.add(VGroup(M(a, 26, GREY_A).move_to([-3.4, y, 0]), M(b, 30, c).move_to([2.4, y, 0])))
         sc_n = T("short circuiting: stop as soon as the answer is known", 28, CARD).move_to([0, -1.6, 0])
         fit(sc_n, 12.4)
-        loop = T("one plain loop, no sequence needed", 24, GREY_A).next_to(rws[2], DOWN, buff=0.12).align_to(rws[2][1], LEFT)
+        loop = T("one plain loop, no sequence needed", 24, GREY_A).next_to(rws[2], DOWN, buff=0.12)
         self.say("book")
         self.play(FadeIn(ttl), FadeIn(hdr), run_time=0.6)
         self.at(1)

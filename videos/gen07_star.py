@@ -516,7 +516,7 @@ class Gen07StarProjection(Narrated):
         dw = drawer(1.0).move_to([-3.2, FL + 1.4, 0])
         legs = VGroup(Line(dw[0].get_corner(DL), dw[0].get_corner(DL) + DOWN * 0.8, stroke_width=4, color=GREY_A),
                       Line(dw[0].get_corner(DR), dw[0].get_corner(DR) + DOWN * 0.8, stroke_width=4, color=GREY_A))
-        dl = M("MutableList<Any?>", 26, WHITE).next_to(dw, UP, buff=0.3)
+        dl = M("MutableList<Any?>", 26, WHITE).next_to(dw, UP, buff=1.0)
         things = VGroup(pencil(0.8), vchip("3", NUM, 22), vchip("null", GREY_B, 22)).arrange(RIGHT, buff=0.35).move_to([2.6, 1.0, 0])
         self.say("drawer")
         self.play(Create(floor), run_time=0.4)
@@ -539,9 +539,11 @@ class Gen07StarProjection(Narrated):
         fit(jc, 12.4)
         kg = titled(kc, "Kotlin").move_to([0, 2.5, 0])
         jg = titled(jc, "Java").next_to(kg, DOWN, buff=0.45).align_to(kg, LEFT)
-        ek = err_line("argument type mismatch: actual type is 'MutableList<String>', but 'MutableList<Any?>' was expected.", 22)
-        ej = err_line("List<String> cannot be converted to List<Object>", 22)
-        es = VGroup(ek, ej).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
+        ek = VGroup(err_line("argument type mismatch: actual type is 'MutableList<String>',", 22),
+                    M("but 'MutableList<Any?>' was expected.", 22, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
+        ek[1].align_to(ek[0][1], LEFT)
+        ej = VGroup(T("Java", 20, GREY_B), err_line("List<String> cannot be converted to List<Object>", 22)).arrange(RIGHT, buff=0.25)
+        es = VGroup(ek, ej).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
         fit(es, 12.4).move_to([0, -1.5, 0])
         self.say("break")
         self.play(FadeIn(kg, shift=UP * 0.1), FadeIn(jg, shift=UP * 0.1), run_time=0.8)
