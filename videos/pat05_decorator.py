@@ -210,20 +210,20 @@ N = {
     "open": "A customer at the corner shop buys a teapot as a present. The shopkeeper puts it in a box, wraps the box in "
             "gift paper, and ties a ribbon around it.",
     "rider": "Then the rider from Pedal Post, the town's bike courier, weighs it, scans the label, and rides off, quite "
-             "unmoved by the bow. A wrapped parcel is still a parcel. The courier handles it exactly as before.",
+             "unmoved by the bow. A wrapped parcel is still a parcel.",
     "shyq": "Here's a question that's easy to be shy about. If each layer of wrapping just passes the parcel on, does it "
-            "matter what order the layers go in? Hold on to that. We'll answer it with real numbers.",
+            "matter what order the layers go in? We'll answer that with real numbers.",
     "rules": "The shop charges for every parcel it sends. 0.50 for each kilometer. 2.00 to start. 3.00 more for a parcel "
              "over 5 kilograms. And never more than 8.00 in all.",
-    "pain": "The easy way is one big method that knows all four rules. But these rules change often. Every change means "
-            "opening that one method, and hoping the other three still work.",
+    "pain": "The easy way is one big method that knows all four rules. But these rules change often, and every change "
+            "means opening that one method again.",
     "wish": "Wouldn't it be nice if each rule were a piece we could add, remove, or move, without touching the others?",
     "wrap": "That's the gift wrap again. Give each rule its own small layer that wraps the rule before it. In the middle "
             "sits the parcel: the price per kilometer. Around it, a layer that adds 2.00 to start. Then one for heavy "
             "parcels. And the cap on the outside.",
     "map": "Let's map it. The parcel in the middle is the first rule, perKm. Each sheet of paper is one more rule. And the "
-           "courier is the code that asks for the price. It only talks to the outside, and it can't tell how many layers "
-           "there are, because every layer answers the same one question: what do you cost?",
+           "courier is the code that asks for the price. It only talks to the outside, because every layer answers the "
+           "same one question: what do you cost?",
     "trace": "Let's watch one question travel. A 12 kilogram parcel, going 20 kilometers. The question goes in, layer by "
              "layer, all the way to the middle. 20 kilometers at 0.50 makes 10.00.",
     "trace2": "On the way back out, each layer adds its rule. Plus 2.00 to start: 12.00. It's heavy, so plus 3.00: 15.00. "
@@ -238,7 +238,7 @@ N = {
     "code2": "The tricky part is the bare cents of d, inside the layer. It means: first, ask the price I'm wrapped around. "
              "Then apply my one rule. The price inside is never changed.",
     "bq": "Now, back to our question. Let's move the cap one place in, so it sits inside the heavy parcel rule. Both chains "
-          "compile, and both read sensibly. Same parcel: 12 kilograms, 20 kilometers. Does anything change? Pause and "
+          "compile, and both read sensibly. Does anything change, for the same heavy parcel? Pause and "
           "guess.",
     "break": "Watch the way out. 10.00. Plus 2.00 is 12.00. Now the cap comes first: down to 8.00. And then the heavy "
              "parcel rule lands on top: 11.00.",
@@ -257,15 +257,11 @@ N = {
              "Retrying, tries up to three times.",
     "stack_q": "Put them together, in both orders. How many log lines does each order write? Pause and guess.",
     "stack_a": "With Retrying outside, Logging sits inside the loop, and sees every attempt: 3 lines. With Logging "
-               "outside, it sees only the one booking that came back: 1 line. The same booking, BB-1250, both times.",
-    "stack2": "So the inner layer sees every try, and the outer layer sees one answer. Neither order is wrong. They "
-              "answer different questions.",
-    "jdk": "The JDK has stacked decorators like this for decades. A DataOutputStream, around a BufferedOutputStream, "
-           "around a GZIPOutputStream: three wrappers around one stream, a place where bytes go, such as a file. Each "
-           "wrapper adds one thing: typed writes, buffering, compression.",
-    "guard": "So, three rules. One: the order of the layers is part of the behavior, so pin it in a test, as the lab's "
-             "tests pin all three prices. Two: keep each layer to one extra thing, so it can move. Three: when a layer "
-             "takes away, like the cap, ask which layers should come after it.",
+               "outside, it sees only the one booking that came back: 1 line. Neither is wrong. They answer different questions.",
+    "jdk": "The JDK has stacked decorators like this for decades: a DataOutputStream, around a BufferedOutputStream, "
+           "around a GZIPOutputStream, around a file. Each one adds one thing: typed writes, buffering, compression.",
+    "guard": "So, three rules. One: the order of the layers is behavior, so pin it in a test. Two: keep each layer to "
+             "one extra thing, so it can move. Three: when a layer takes away, like the cap, ask what comes after it.",
     "moral": "So, does the order of the wrapping matter? Yes. Every layer passes the call on, but the outer one has the "
              "last word. The same four pieces gave 8.00 one way, and 11.00 the other.",
     "check": "Quick check. Say the log feeds a chart of how many bookings the shop makes. Which order do you want?",
@@ -365,7 +361,7 @@ class Pat05Decorator(Narrated):
         self.play(LaggedStart(*[TransformFromCopy(rows[i], tangle[i]) for i in range(4)], lag_ratio=0.2), run_time=1.2)
         self.at(1)
         self.play(Wiggle(tangle, scale_value=1.05), run_time=0.9)
-        self.at(2)
+        self.at_text("every change", lead=0.3)
         pen = T("editing...", 22, BAD).next_to(big, DOWN, buff=0.2)
         self.play(FadeIn(pen), big.animate.set_stroke(BAD), run_time=0.5)
         self.hold()
@@ -468,8 +464,8 @@ class Pat05Decorator(Narrated):
         self.hold(after=0)
         self.predict(2.6)
 
-        a1 = vchip("4.00", OK, 26).move_to(p1[1])
-        a2 = vchip("7.00", OK, 26).move_to(p2[1])
+        a1 = vchip("4.00", OK, 26).next_to(p1[0], RIGHT, buff=0.3)
+        a2 = vchip("7.00", OK, 26).next_to(p2[0], RIGHT, buff=0.3)
         through = T("the cap lets both through", 22, CAP).move_to([0, -3.1, 0])
         self.say("pa")
         self.play(Transform(p1[1], a1), run_time=0.5)
@@ -481,50 +477,50 @@ class Pat05Decorator(Narrated):
         self.wipe()
 
         # ================= the code =================
-        java = code_block(["default DeliveryFee plusFixed(long fixed) {", "    return d -> cents(d) + fixed;", "}", "",
-                           "DeliveryFee standard = DeliveryFee.perKm(50)", "        .plusFixed(200)",
+        jd = code_block(["default DeliveryFee plusFixed(long fixed) {", "    return d -> cents(d) + fixed;", "}"], 22)
+        kd = code_block(["fun DeliveryFee.plusFixed(fixed: Long) =", "    DeliveryFee { d -> cents(d) + fixed }"], 22)
+        java = code_block(["var standard = DeliveryFee.perKm(50)", "        .plusFixed(200)",
                            "        .heavySurcharge(5_000, 300)", "        .cappedAt(800);"], 22)
-        kt = code_block(["fun DeliveryFee.plusFixed(fixed: Long) =", "    DeliveryFee { d -> cents(d) + fixed }", "", "",
-                         "val standard = perKm(50)", "    .plusFixed(200)", "    .heavySurcharge(5_000, 300)",
+        kt = code_block(["val standard = perKm(50)", "    .plusFixed(200)", "    .heavySurcharge(5_000, 300)",
                          "    .cappedAt(800)"], 22)
-        fit(java, 6.3)
-        fit(kt, 6.0)
-        jg = titled(java, "Java: a default method").move_to([-3.25, 0.6, 0])
-        kg = titled(kt, "Kotlin: an extension function").move_to([3.45, 0.6, 0]).align_to(jg, UP)
-        for c, i0 in ((java, 4), (kt, 4)):
-            part(c[i0], "perKm(50)").set_color(KM)
-            part(c[i0 + 1], "plusFixed(200)").set_color(FIX)
-            part(c[i0 + 2], "heavySurcharge(5_000,300)").set_color(HEAVY)
-            part(c[i0 + 3], "cappedAt(800)").set_color(CAP)
+        defs = VGroup(titled(jd, "Java: a default method on the interface"), titled(kd, "Kotlin: an extension function"))
+        defs.arrange(DOWN, buff=0.35, aligned_edge=LEFT)
+        defs.move_to([0, 0, 0]).to_edge(LEFT, buff=0.7).align_to([0, 3.15, 0], UP)
+        jg = titled(java, "Java").move_to([-3.3, 0, 0]).align_to([0, -0.45, 0], UP)
+        kg = titled(kt, "Kotlin").move_to([3.0, 0, 0]).align_to([0, -0.45, 0], UP)
+        for c in (java, kt):
+            part(c[0], "perKm(50)").set_color(KM)
+            part(c[1], "plusFixed(200)").set_color(FIX)
+            part(c[2], "heavySurcharge(5_000,300)").set_color(HEAVY)
+            part(c[3], "cappedAt(800)").set_color(CAP)
         self.say("code")
-        self.play(FadeIn(jg, shift=UP * 0.1), FadeIn(kg, shift=UP * 0.1), run_time=0.9)
+        self.play(FadeIn(defs[0][0]), FadeIn(defs[1][0]), run_time=0.5)
         self.at(1)
-        bj = SurroundingRectangle(java[0:3], buff=0.1, color=FIX, stroke_width=2.5, corner_radius=0.06)
-        bk_ = SurroundingRectangle(kt[0:2], buff=0.1, color=FIX, stroke_width=2.5, corner_radius=0.06)
-        self.play(Create(bj), Create(bk_), run_time=0.7)
+        self.play(FadeIn(jd, shift=UP * 0.1), FadeIn(kd, shift=UP * 0.1), run_time=0.8)
+        self.at(2)
+        self.play(Indicate(jd[0], color=FIX, scale_factor=1.04), run_time=0.7)
+        self.at(3)
+        self.play(Indicate(kd[0], color=FIX, scale_factor=1.04), run_time=0.7)
         self.at(4)
-        cj = SurroundingRectangle(java[4:8], buff=0.1, color=GREY_B, stroke_width=2, corner_radius=0.06)
-        ck = SurroundingRectangle(kt[4:8], buff=0.1, color=GREY_B, stroke_width=2, corner_radius=0.06)
-        self.play(FadeOut(bj), FadeOut(bk_), Create(cj), Create(ck), run_time=0.6)
+        self.play(FadeIn(jg, shift=UP * 0.1), FadeIn(kg, shift=UP * 0.1), run_time=0.7)
         self.at_text("perKm is the parcel", lead=0.3)
         for k, col in enumerate((KM, FIX, HEAVY, CAP)):
-            self.play(Indicate(java[4 + k], color=col, scale_factor=1.04), Indicate(kt[4 + k], color=col, scale_factor=1.04), run_time=0.45)
+            self.play(Indicate(java[k], color=col, scale_factor=1.05), Indicate(kt[k], color=col, scale_factor=1.05), run_time=0.45)
         self.hold()
 
-        cdj = part(java[1], "cents(d)")
-        cdk = part(kt[1], "cents(d)")
-        n1 = T("1. ask the price I'm wrapped around", 24, GREY_A)
-        n2 = T("2. apply my one rule", 24, FIX)
-        ng = VGroup(n1, n2).arrange(RIGHT, buff=0.8).move_to([0, -2.85, 0])
-        fit(ng, 12.4)
+        cdj = part(jd[1], "cents(d)")
+        cdk = part(kd[1], "cents(d)")
+        n1 = T("1. ask the price I'm wrapped around", 22, YELLOW_M)
+        n2 = T("2. apply my one rule", 22, FIX)
+        ng = VGroup(n1, n2).arrange(DOWN, buff=0.3, aligned_edge=LEFT).move_to([3.7, 1.9, 0])
         self.say("code2")
-        self.play(FadeOut(cj), FadeOut(ck), cdj.animate.set_color(YELLOW_M), cdk.animate.set_color(YELLOW_M), run_time=0.5)
+        self.play(cdj.animate.set_color(YELLOW_M), cdk.animate.set_color(YELLOW_M), run_time=0.5)
         self.play(Indicate(cdj, color=YELLOW_M, scale_factor=1.25), Indicate(cdk, color=YELLOW_M, scale_factor=1.25), run_time=0.8)
         self.at(1)
-        self.play(FadeIn(n1, shift=UP * 0.1), run_time=0.5)
+        self.play(FadeIn(n1, shift=LEFT * 0.1), run_time=0.5)
         self.at(2)
-        self.play(FadeIn(n2, shift=UP * 0.1), part(java[1], "+fixed").animate.set_color(FIX),
-                  part(kt[1], "+fixed").animate.set_color(FIX), run_time=0.5)
+        self.play(FadeIn(n2, shift=LEFT * 0.1), part(jd[1], "+fixed").animate.set_color(FIX),
+                  part(kd[1], "+fixed").animate.set_color(FIX), run_time=0.5)
         self.hold()
         self.wipe()
 
@@ -666,6 +662,7 @@ class Pat05Decorator(Narrated):
         self.play(FadeIn(L[1]), FadeIn(L[4]), run_time=0.6)
         self.at_text("Another", lead=0.3)
         self.play(FadeIn(L[0]), FadeIn(L[3]), run_time=0.6)
+        self.bring_to_front(L[1], L[4], L[2], L[5])
         self.hold()
 
         self.say("stack_q")
@@ -696,7 +693,7 @@ class Pat05Decorator(Narrated):
             self.play(d.animate.move_to(L[2].get_left() + RIGHT * 0.2), FadeIn(e), run_time=0.45)
             self.play(FadeOut(d), FadeIn(res), run_time=0.25)
             self.play(FadeOut(res), run_time=0.2)
-        cl = T("3 lines", 26, LOGC).next_to(logL, RIGHT, buff=0.3).shift(DOWN * 0.4)
+        cl = T("3 lines", 26, LOGC).move_to(logL.get_left() + RIGHT * 2.75 + DOWN * 0.7)
         self.play(FadeIn(cl), run_time=0.4)
         self.at(1)
         # right: Logging sees one call, Retrying tries three times inside it
@@ -712,7 +709,7 @@ class Pat05Decorator(Narrated):
             self.play(d.animate.move_to(R[2].get_left() + RIGHT * 0.2), run_time=0.35)
             self.play(FadeOut(d), FadeIn(res), run_time=0.2)
             self.play(FadeOut(res), run_time=0.15)
-        cr = T("1 line", 26, LOGC).next_to(logR, RIGHT, buff=0.3)
+        cr = T("1 line", 26, LOGC).move_to(logR.get_left() + RIGHT * 2.75 + DOWN * 0.35)
         self.play(FadeIn(cr), run_time=0.4)
         self.at(2)
         out = term(["Retrying(Logging(line)): BB-1250, log lines: 3",
@@ -721,14 +718,6 @@ class Pat05Decorator(Narrated):
         self.play(FadeIn(out, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
-        sum1 = T("inner layer: sees every try", 26, LOGC)
-        sum2 = T("outer layer: sees one answer", 26, OK)
-        sg = VGroup(sum1, sum2).arrange(RIGHT, buff=1.0).move_to([0, -2.75, 0])
-        self.say("stack2")
-        self.play(FadeOut(out), FadeIn(sum1, shift=UP * 0.1), run_time=0.5)
-        self.at_text("and the outer", lead=0.3)
-        self.play(FadeIn(sum2, shift=UP * 0.1), run_time=0.5)
-        self.hold()
         self.wipe()
 
         # ================= the JDK does it too =================
@@ -747,7 +736,7 @@ class Pat05Decorator(Narrated):
         fit(code, 12.4).move_to([0, -2.6, 0])
         self.say("jdk")
         self.play(FadeIn(code), run_time=0.6)
-        self.at_text("A DataOutputStream", lead=0.2)
+        self.at_text("a DataOutputStream", lead=0.2)
         for k in range(4):
             self.play(FadeIn(rects[k][0]), FadeIn(rects[k][1][0]), run_time=0.45)
         self.at_text("Each", lead=0.3)
@@ -767,9 +756,9 @@ class Pat05Decorator(Narrated):
         self.play(FadeIn(gq), run_time=0.5)
         self.at(1)
         self.play(FadeIn(rules[0], shift=RIGHT * 0.1), run_time=0.5)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(rules[1], shift=RIGHT * 0.1), run_time=0.5)
-        self.at(5)
+        self.at(3)
         self.play(FadeIn(rules[2], shift=RIGHT * 0.1), run_time=0.5)
         self.hold()
         self.wipe()

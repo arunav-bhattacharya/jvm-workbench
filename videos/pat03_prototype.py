@@ -240,10 +240,10 @@ def clip_list(items, s=1.0):
     return VGroup(r, t, clip).scale(s)
 
 
-def cart(name, idv, color, w=3.0):
-    head = M(f"{name}: Cart", 24, color)
-    r1 = M(f'id    = "{idv}"', 22, WHITE)
-    r2 = M("items =", 22, WHITE)
+def cart(name, idv, color, w=3.6):
+    head = M(f"{name}: Cart", 28, color)
+    r1 = M(f'id    = "{idv}"', 26, WHITE)
+    r2 = M("items =", 26, WHITE)
     rows = VGroup(head, r1, r2).arrange(DOWN, aligned_edge=LEFT, buff=0.16)
     box = RoundedRectangle(corner_radius=0.12, width=w, height=rows.height + 0.5).set_stroke(color, 3).set_fill(dim(color, 0.12), 1)
     rows.move_to(box).align_to(box, LEFT).shift(RIGHT * 0.25)
@@ -251,10 +251,10 @@ def cart(name, idv, color, w=3.0):
     return VGroup(box, rows, dot)
 
 
-def lbox(items, color=LST, size=24):
+def lbox(items, color=LST, size=28):
     t = M("[" + ", ".join(items) + "]", size, WHITE)
-    r = RoundedRectangle(corner_radius=0.1, width=t.width + 0.5, height=0.8).set_stroke(color, 3).set_fill(dim(color, 0.16), 1)
-    h = T("a list", 20, color).next_to(r, UP, buff=0.08)
+    r = RoundedRectangle(corner_radius=0.1, width=t.width + 0.5, height=0.9).set_stroke(color, 3).set_fill(dim(color, 0.16), 1)
+    h = T("a list", 22, color).next_to(r, UP, buff=0.08)
     return VGroup(r, t.move_to(r), h)
 
 
@@ -395,7 +395,7 @@ class Pat03Prototype(Narrated):
 
         # ================= one level down: arrows =================
         k1 = cart("c1", "c1", C1).move_to([-3.9, 1.5, 0])
-        lst = lbox(["bread"]).move_to([2.6, 0.0, 0])
+        lst = lbox(["bread"]).move_to([1.6, 0.0, 0], aligned_edge=LEFT)
         a1 = ref(k1, lst)
         rtag = T("a reference: an arrow to where the object lives", 24, GREY_A).move_to([0, 3.15, 0])
         self.say("down")
@@ -410,7 +410,7 @@ class Pat03Prototype(Narrated):
 
         k2 = cart("c2", "c2", C2).move_to([-3.9, -1.6, 0])
         a2 = ref(k2, lst)
-        tw = T("two carts, one list", 28, BAD).move_to([2.6, -2.9, 0])
+        tw = T("two carts, one list", 30, BAD).move_to([2.8, -2.9, 0])
         self.say("down2")
         self.play(TransformFromCopy(k1[0], k2[0]), FadeIn(k2[1][0]), run_time=0.8)
         self.at(1)
@@ -423,7 +423,7 @@ class Pat03Prototype(Narrated):
         self.play(FadeIn(tw), run_time=0.5)
         self.hold()
 
-        lst2 = lbox(["bread", "milk"]).move_to(lst)
+        lst2 = lbox(["bread", "milk"]).move_to(lst, aligned_edge=LEFT)
         self.say("down3")
         dot = Dot(radius=0.11, color=C2).move_to(a2.get_start())
         self.play(FadeIn(dot), run_time=0.2)
@@ -441,7 +441,7 @@ class Pat03Prototype(Narrated):
         self.say("name")
         self.play(FadeOut(rtag), FadeIn(sc, shift=DOWN * 0.1), run_time=0.7)
         self.hold()
-        hn = VGroup(T("an honest name:", 24, GREY_A), M("copyTheArrows()", 26, LST)).arrange(RIGHT, buff=0.2).move_to([2.6, 1.6, 0])
+        hn = VGroup(T("an honest name:", 26, GREY_A), M("copyTheArrows()", 28, LST)).arrange(RIGHT, buff=0.2).move_to([2.8, 1.7, 0])
         self.say("rename")
         self.play(FadeIn(hn, shift=UP * 0.1), run_time=0.7)
         self.hold()
@@ -456,7 +456,7 @@ class Pat03Prototype(Narrated):
         self.play(TransformFromCopy(fo, fc), run_time=0.8)
         self.play(FadeIn(pc_t), run_time=0.5)
         self.at(3)
-        shared = clip_list(["eggs", "bread"], 1.3).move_to([-2.0, 2.2, 0])
+        shared = clip_list(["eggs", "bread"], 1.5).move_to([-2.0, 2.15, 0])
         self.play(FadeOut(pc_t), FadeIn(shared, shift=DOWN * 0.2), run_time=0.7)
         l1 = Line(fo[0].get_corner(UR), shared[0].get_corner(DL), stroke_width=3, color=LST)
         l2 = Line(fc[0].get_corner(UL), shared[0].get_corner(DR), stroke_width=3, color=LST)
@@ -465,7 +465,7 @@ class Pat03Prototype(Narrated):
         same = T("the same list, clipped to both", 24, LST).next_to(shared, RIGHT, buff=0.4)
         self.play(FadeIn(same), run_time=0.5)
         self.at(5)
-        new = clip_list(["eggs", "bread", "milk"], 1.3).move_to(shared)
+        new = clip_list(["eggs", "bread", "milk"], 1.5).move_to(shared)
         self.play(Transform(shared, new), Indicate(fo, color=BAD, scale_factor=1.04), run_time=1.0)
         self.hold()
         self.wipe()

@@ -417,20 +417,18 @@ class Pat02Factory(Narrated):
         self.wipe()
 
         # ================= the classic Factory Method =================
-        gj = titled(code_block(["abstract class OrderNotices {", "    protected abstract Messenger createMessenger();",
-                                "    final String orderLeft(String customer) {", "        return createMessenger().send(customer, ...);",
-                                "    }", "}", "class SmsNotices extends OrderNotices {", "    protected Messenger createMessenger() {",
-                                "        return new SmsMessenger();", "    }", "}"], 22), "Java, the 1994 shape")
-        gk = titled(code_block(["abstract class OrderNotices {", "    protected abstract fun createMessenger(): Messenger",
-                                "    fun orderLeft(customer: String) =", "        createMessenger().send(customer, ...)", "}",
-                                "class SmsNotices : OrderNotices() {", "    override fun createMessenger(): Messenger =",
-                                "        SmsMessenger()", "}"], 22), "Kotlin")
-        gj.move_to([-6.3, 3.2, 0], aligned_edge=UL)
-        gk.move_to([0.6, 3.2, 0], aligned_edge=UL)
-        g2 = VGroup(gj, gk)
-        g2.scale(min(1, 12.9 / (gk.get_right()[0] - gj.get_left()[0])), about_point=[-6.3, 3.2, 0])
+        gj = titled(code_block(["abstract class OrderNotices {", "  abstract Messenger createMessenger();",
+                                "  String orderLeft(String c) {", "    return createMessenger().send(c, ...);",
+                                "  }", "}", "class SmsNotices extends OrderNotices {", "  Messenger createMessenger() {",
+                                "    return new SmsMessenger();", "  }", "}"], 22), "Java, the 1994 shape")
+        gk = titled(code_block(["abstract class OrderNotices {", "  abstract fun createMessenger(): Messenger",
+                                "  fun orderLeft(c: String) =", "    createMessenger().send(c, ...)", "}",
+                                "class SmsNotices : OrderNotices() {", "  override fun createMessenger() =",
+                                "    SmsMessenger()", "}"], 22), "Kotlin")
+        g2 = VGroup(gj, gk).arrange(RIGHT, buff=0.6, aligned_edge=UP)
+        g2.scale(min(1, 12.9 / g2.width)).move_to([0, 3.25, 0], aligned_edge=UP)
         hk1 = SurroundingRectangle(gj[1][1], buff=0.05, color=PRICE, stroke_width=2.5)
-        hook = T("the factory method", 22, PRICE).next_to(hk1, DOWN, buff=0.08).align_to(hk1, RIGHT)
+        hook = T("the boxed hook: the factory method", 24, PRICE).next_to(g2, DOWN, buff=0.35).align_to(g2, LEFT)
         self.say("gof")
         self.play(FadeIn(gj, shift=UP * 0.1), FadeIn(gk, shift=UP * 0.1), run_time=0.9)
         self.at(1)
@@ -449,21 +447,19 @@ class Pat02Factory(Narrated):
         self.wipe()
 
         # ================= a function is the factory =================
-        fj = titled(code_block(["record OrderNotices(", "        Supplier<? extends Messenger> messengers) {",
-                                "    String orderLeft(String customer) {", "        return messengers.get()",
-                                "            .send(customer, \"your order is on its way\");", "    }", "}",
-                                "new OrderNotices(SmsMessenger::new);   // the program",
-                                "new OrderNotices(FakeMessenger::new);  // a test"], 22,
-                               hl={"// the program": GREY_B, "// a test": GREY_B, "SmsMessenger::new": SMS, "FakeMessenger::new": FAKE}), "Java")
-        fk = titled(code_block(["class OrderNotices(", "    private val messengers: () -> Messenger", ") {",
-                                "    fun orderLeft(customer: String) =", "        messengers()",
-                                "            .send(customer, \"your order is on its way\")", "}",
-                                "OrderNotices(::SmsMessenger)    // the program", "OrderNotices(::FakeMessenger)   // a test"], 22,
-                               hl={"// the program": GREY_B, "// a test": GREY_B, "::SmsMessenger": SMS, "::FakeMessenger": FAKE}), "Kotlin")
-        fj.move_to([-6.3, 3.2, 0], aligned_edge=UL)
-        fk.move_to([0.75, 3.2, 0], aligned_edge=UL)
-        f2 = VGroup(fj, fk)
-        f2.scale(min(1, 12.9 / (fk.get_right()[0] - fj.get_left()[0])), about_point=[-6.3, 3.2, 0])
+        fj = titled(code_block(["record OrderNotices(", "    Supplier<? extends Messenger> messengers) {",
+                                "  String orderLeft(String c) {", "    return messengers.get().send(c, ...);", "  }", "}",
+                                "new OrderNotices(SmsMessenger::new);", "new OrderNotices(FakeMessenger::new);"], 22,
+                               hl={"SmsMessenger::new": SMS, "FakeMessenger::new": FAKE}), "Java")
+        fk = titled(code_block(["class OrderNotices(", "  private val messengers: () -> Messenger", ") {",
+                                "  fun orderLeft(c: String) =", "    messengers().send(c, ...)", "}",
+                                "OrderNotices(::SmsMessenger)", "OrderNotices(::FakeMessenger)"], 22,
+                               hl={"::SmsMessenger": SMS, "::FakeMessenger": FAKE}), "Kotlin")
+        f2 = VGroup(fj, fk).arrange(RIGHT, buff=0.6, aligned_edge=UP)
+        f2.scale(min(1, 12.9 / f2.width)).move_to([0, 3.25, 0], aligned_edge=UP)
+        tags = VGroup(T("the program", 22, SMS).next_to(f2, DOWN, buff=0.35).align_to(f2, LEFT),
+                      T("a test", 22, FAKE))
+        tags[1].next_to(tags[0], RIGHT, buff=0.6)
         s1 = SurroundingRectangle(fj[1][1], buff=0.05, color=PRICE, stroke_width=2.5)
         s2 = SurroundingRectangle(fk[1][1], buff=0.05, color=PRICE, stroke_width=2.5)
         self.say("fn")
@@ -473,11 +469,11 @@ class Pat02Factory(Narrated):
         self.play(Indicate(fj[1][3], color=PRICE, scale_factor=1.05), Indicate(fk[1][4], color=PRICE, scale_factor=1.05), run_time=0.9)
         self.hold()
         self.say("fn2")
-        self.play(Indicate(part(fj[1][8], "FakeMessenger::new"), color=FAKE, scale_factor=1.12), run_time=0.9)
+        self.play(Indicate(part(fj[1][7], "FakeMessenger::new"), color=FAKE, scale_factor=1.12), run_time=0.9)
         self.at(1)
-        self.play(Indicate(fj[1][7], color=SMS, scale_factor=1.04), Indicate(fk[1][7], color=SMS, scale_factor=1.04), run_time=0.8)
+        self.play(Indicate(fj[1][6], color=SMS, scale_factor=1.04), Indicate(fk[1][6], color=SMS, scale_factor=1.04), FadeIn(tags[0]), run_time=0.8)
         self.at(2)
-        self.play(Indicate(fj[1][8], color=FAKE, scale_factor=1.04), Indicate(fk[1][8], color=FAKE, scale_factor=1.04), run_time=0.8)
+        self.play(Indicate(fj[1][7], color=FAKE, scale_factor=1.04), Indicate(fk[1][7], color=FAKE, scale_factor=1.04), FadeIn(tags[1]), run_time=0.8)
         self.hold()
         self.wipe()
 
@@ -510,7 +506,7 @@ class Pat02Factory(Narrated):
         self.say("pred")
         self.play(FadeIn(pq, shift=UP * 0.1), run_time=0.7)
         self.hold(after=0)
-        self.predict(2.4)
+        self.predict(2.4, pos=(6.4, 3.2), edge=RIGHT)
         res = term(["test notices -> fake: nothing sent"], 24, "MessengerFactory, real output").move_to([0, -2.85, 0])
         self.say("show")
         self.play(FadeIn(res, shift=UP * 0.1), run_time=0.6)
@@ -524,10 +520,9 @@ class Pat02Factory(Narrated):
         sk = titled(code_block(["fun messengerOf(c: Channel): Messenger =", "    when (c) {   // no else",
                                 "        Channel.SMS -> SmsMessenger()", "        Channel.EMAIL -> EmailMessenger()",
                                 "        Channel.FAKE -> FakeMessenger()", "    }"], 22, hl={"// no else": YELLOW_M}), "Kotlin")
-        sj.move_to([-6.3, 3.2, 0], aligned_edge=UL)
-        sk.move_to([0.6, 3.2, 0], aligned_edge=UL)
-        s2g = VGroup(sj, sk)
-        s2g.scale(min(1, 12.9 / (sk.get_right()[0] - sj.get_left()[0])), about_point=[-6.3, 3.2, 0])
+        s2g = VGroup(sj, sk).arrange(RIGHT, buff=0.6, aligned_edge=UP)
+        sw_f = min(1, 12.9 / s2g.width)
+        s2g.scale(sw_f).move_to([0, 3.25, 0], aligned_edge=UP)
         self.say("data")
         self.play(FadeIn(sj, shift=UP * 0.1), FadeIn(sk, shift=UP * 0.1), run_time=0.9)
         self.at_text("SMS, email", lead=0.3)
@@ -563,21 +558,22 @@ class Pat02Factory(Narrated):
         self.at_text("And kotlinc", lead=0.3)
         self.play(FadeIn(e2, shift=UP * 0.1), run_time=0.6)
         self.hold()
-        fm = person(GREY_A, 1.2).move_to([5.9, 0.4, 0])
+        fm = person(GREY_A, 1.2).move_to([5.7, -2.0, 0])
         hat = Polygon([-0.3, 0, 0], [0.3, 0, 0], [0, 0.22, 0]).set_stroke(PRICE, 2).set_fill(PRICE, 1).next_to(fm, UP, buff=-0.08)
         fm_t = T("the foreman", 20, GREY_A).next_to(fm, DOWN, buff=0.1)
-        ptr = Arrow(fm.get_left(), sj.get_right() + DOWN * 1.0 + RIGHT * 0.1, buff=0.15, stroke_width=3, color=BAD, max_tip_length_to_length_ratio=0.12)
+        ptr = VGroup(SurroundingRectangle(VGroup(sj[1][1:5]), buff=0.08, color=BAD, stroke_width=2.5),
+                     SurroundingRectangle(VGroup(sk[1][1:5]), buff=0.08, color=BAD, stroke_width=2.5))
         self.say("foreman")
         self.play(FadeIn(VGroup(fm, hat, fm_t)), run_time=0.5)
-        self.play(GrowArrow(ptr), Indicate(sj[1][1], color=BAD, scale_factor=1.04), run_time=0.8)
+        self.play(Create(ptr), run_time=0.8)
         self.hold()
         self.play(FadeOut(VGroup(fm, hat, fm_t, ptr, errs)), run_time=0.5)
 
         # ================= the catch-all =================
-        dl = M("        default -> new FakeMessenger();", 22, BAD)
+        dl = M("default -> new FakeMessenger();", 22, BAD).scale(sw_f)
         dl.next_to(sj[1][4], DOWN, buff=0.14).align_to(sj[1][4], LEFT)
         self.say("default")
-        self.play(sj[1][5:].animate.shift(DOWN * 0.42), run_time=0.4)
+        self.play(sj[1][5:].animate.shift(DOWN * 0.42 * sw_f), run_time=0.4)
         dl.next_to(sj[1][4], DOWN, buff=0.14).align_to(sj[1][4], LEFT)
         self.play(FadeIn(dl, shift=RIGHT * 0.1), run_time=0.6)
         green = VGroup(tick(True, 0.18), T("build is green", 24, OK)).arrange(RIGHT, buff=0.15).move_to([3.5, -1.6, 0])

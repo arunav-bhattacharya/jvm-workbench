@@ -141,7 +141,7 @@ def vchip(text, color, size=22):
 
 
 ASK, BOOKC, STAFF, HEAD, NOPE, YES = YELLOW_M, GREY_A, SHOP, HALL, BAD, OK
-NAMES = [("book", "writes it down", BOOKC), ("receipt", "has one?", STAFF), ("once per\norder", "first time?", STAFF),
+NAMES = [("book", "writes", BOOKC), ("receipt", "has one?", STAFF), ("once per\norder", "first time?", STAFF),
          ("assistant", "up to 5.00", STAFF), ("manager", "up to 50.00", STAFF), ("head office", "the rest", HEAD)]
 BW, BH, STEP = 1.9, 1.3, 2.08
 
@@ -174,31 +174,28 @@ def card(text, color=ASK, size=22):
 N = {
     "open": "A customer comes to the corner shop's counter. The teapot from her gift box arrived cracked. So who sorts that "
             "out?",
-    "desk": "The shop has a simple habit. The shop assistant can sort out anything worth up to 5.00 herself, straight from "
-            "the shelf. Anything bigger goes to the manager, who can sort out up to 50.00. The rest goes to head office, "
+    "desk": "The shop has a simple habit. The shop assistant can sort out anything worth up to 5.00 herself. Anything bigger goes to the manager, who can sort out up to 50.00. The rest goes to head office, "
             "which answers everything. Eventually.",
     "shyq": "So here's a question that's easy to be shy about. Why not write one method that knows all of this? An if "
             "for the assistant, an if for the manager, and an else for head office. Why build anything fancier?",
-    "pain": "Let's try it, and watch it grow. First the two limits. Then a rule: no receipt, no help. Then another: one "
-            "complaint per order. Then the complaints book on the counter, which writes down every complaint and every "
-            "answer. Every new rule lands in the same method, next to all the others.",
+    "pain": "Let's try it, and watch it grow. First the two limits. Then: no receipt, no help. Then: one complaint per "
+            "order. Then the complaints book, which writes down every answer. Every new rule lands in the same method.",
     "joke": "It's not really a method any more. It's the whole staff, squeezed onto one chair.",
     "wish": "What we'd like is for each person to know only two things: their own job, and that somebody comes after them.",
     "line": "And that's exactly how the real counter works. Nobody needs to know who sits further down the line. Each "
             "person looks at the complaint, and does one of two things. Answer it. Or pass it on.",
     "map": "Let's map it. The complaint is the request. Each person in the line is a handler. Passing it on is a call "
-           "to next, which means: the rest of the line, whoever that is. And head office is the last stop, the one that "
-           "answers everything.",
+           "to next: the rest of the line, whoever that is. And head office is the last stop.",
     "code": "In code, a handler is a small function of the complaint and next. Here's the assistant. The shop counts in "
             "cents, so 5.00 is 500. Worth that or less? Answer now: assistant, sorted. And the rest of the line never "
             "runs. Otherwise, pass it on.",
-    "row": "Now the whole desk, as a list. First the complaints book. Then the receipt check, which turns away a "
-           "complaint without a receipt. Then once per order, which turns away a second complaint about the same "
-           "order. Then the assistant, the manager, and head office at the end.",
+    "row": "Now the whole desk, as a list. First the complaints book. Then the receipt check: no receipt, turned away. "
+           "Then once per order: a second complaint about the same order, turned away. Then the assistant, the "
+           "manager, and head office.",
     "book": "The book is the interesting one. It calls next first, and writes its line after. So on the way in, the "
             "book does nothing at all. It waits for the reply to come back, and then writes it down.",
     "shape": "That's the shape of every handler. Code before next runs on the way in. Code after next runs on the way "
-             "back, with the reply in hand. And not calling next at all ends the trip early.",
+             "back, with the reply. And no next at all ends the trip early.",
     "four": "Now four customers come in. One: the cracked teapot, worth 18.00, with a receipt. Two: the same teapot "
             "again. Three: stale bread, worth 2.50, but the receipt is at home. Four: the same bread, back with the "
             "receipt.",
@@ -210,9 +207,9 @@ N = {
              "it.",
     "show4": "Two complaints sorted. And look at the book. It wrote a line for all four, the turned away ones too, "
              "because every reply travels back past it.",
-    "breaks": "That's where the shop picture breaks, in a useful way. In the shop, an assistant who passes a complaint to "
-              "the manager may never hear how it ended. In code, the reply comes back through every handler that passed "
-              "it on. Each one can read it, write it down, or even change it.",
+    "breaks": "That's where the shop picture breaks, in a useful way. In the shop, an assistant who passes a complaint on "
+              "may never hear how it ended. In code, the reply comes back through every handler that passed it on, and "
+              "each one can read it, write it down, or change it.",
     "swap_q": "Now let's break it on purpose. Swap two handlers, so once per order comes before the receipt check. The same "
               "four customers. What changes? Pause and guess.",
     "swap_a": "The bread without a receipt is marked as handled first, and only then turned away. So when she comes back "
@@ -222,10 +219,9 @@ N = {
              "Pin the order with a test.",
     "name": "What we built has a name: Chain of Responsibility. A request travels along a list of handlers, and each "
             "handler either answers it, or passes it to the next.",
-    "fold": "The 1994 book of design patterns links handler objects with a setNext method. You don't need that. Start "
-            "from the last stop, and wrap it in each handler, from the last one to the first. Walking a list like that "
-            "to build one result is called a fold. And the chain it builds can't change, so one desk can serve every "
-            "complaint, on every thread.",
+    "fold": "The 1994 book of design patterns links handlers with a setNext method. We don't need it. Start from the "
+            "last stop, and wrap it in each handler, from the last one to the first. That walk is called a fold, and "
+            "the chain it builds can't change, so one desk serves every complaint.",
     "guard": "Two guardrails. Every path through a handler must answer, or call next, exactly once. Forget next, and in "
              "Java it's tempting to return null: the complaint just disappears. Call next twice, and everything after "
              "it runs twice. Two new teapots in the post.",
@@ -268,7 +264,7 @@ class Pat09ChainState(Narrated):
 
         # ================= hook: a cracked teapot =================
         sh = shop(1.0).move_to([-4.3, 0.4, 0])
-        cust = who(ASK, "a customer", 1.2).move_to([0.2, 0.0, 0])
+        cust = who(ASK, "a customer", 1.2).move_to([0.2, -0.3, 0])
         pot = card("cracked teapot", BAD, 24).next_to(cust, UP, buff=0.3)
         self.say("open")
         self.play(FadeIn(sh), run_time=0.6)
@@ -276,8 +272,8 @@ class Pat09ChainState(Narrated):
         self.at(1)
         self.play(FadeIn(pot, shift=DOWN * 0.1), run_time=0.5)
         self.hold()
-        self.play(FadeOut(sh), VGroup(cust, pot).animate.scale(0.8).move_to([-5.4, 0.6, 0]), run_time=0.8)
-        ppl = VGroup(who(STAFF, "assistant", 1.2), who(STAFF, "manager", 1.2), who(HEAD, "head office", 1.2)).arrange(RIGHT, buff=1.6).move_to([1.4, 0.6, 0])
+        self.play(FadeOut(sh), VGroup(cust, pot).animate.scale(0.8).move_to([-5.4, 0.1, 0]), run_time=0.8)
+        ppl = VGroup(who(STAFF, "assistant", 1.2), who(STAFF, "manager", 1.2), who(HEAD, "head office", 1.2)).arrange(RIGHT, buff=1.6).move_to([1.4, 0.1, 0])
         lim = VGroup(T("up to 5.00", 26, STAFF), T("up to 50.00", 26, STAFF), T("everything", 26, HEAD))
         for l_, p_ in zip(lim, ppl):
             l_.next_to(p_, DOWN, buff=0.3)
@@ -468,6 +464,9 @@ class Pat09ChainState(Narrated):
         colR = VGroup(*ol[4:8]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
         cols = VGroup(colL, colR).arrange(RIGHT, buff=0.6, aligned_edge=UP)
         ol[8].next_to(cols, DOWN, buff=0.2).align_to(cols, LEFT)
+        cw = M("0000000000", 20).width / 10
+        for k in (0, 2, 4, 6):
+            ol[k].shift(RIGHT * 2 * cw)
         body = VGroup(cols, ol[8])
         panel = RoundedRectangle(corner_radius=0.08, width=body.width + 0.5, height=body.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
         body.move_to(panel)
@@ -517,7 +516,7 @@ class Pat09ChainState(Narrated):
         self.at(2)
         self.play(FadeIn(rr), FadeIn(b2), run_time=0.6)
         self.play(rr.animate.move_to([boxes[0].get_x() + rr.width / 2 - BW / 2, lane, 0]), run_time=1.6)
-        self.at(3)
+        self.at_text("each one can read", lead=0.3)
         self.play(LaggedStart(*[FadeIn(x, shift=UP * 0.1) for x in b3], lag_ratio=0.4), run_time=1.2)
         self.hold()
         self.play(FadeOut(VGroup(b1, b2, b3, rr)), run_time=0.5)
@@ -569,21 +568,21 @@ class Pat09ChainState(Narrated):
         self.play(FadeIn(nd), run_time=0.6)
         self.hold()
         self.play(FadeOut(nd), nm.animate.scale(0.7).move_to([0, 3.0, 0]), run_time=0.5)
-        old = VGroup(T("1994:", 24, GREY_B), M("handler.setNext(other)", 24, GREY_B)).arrange(RIGHT, buff=0.2).move_to([0, 2.1, 0])
+        old = VGroup(T("1994:", 24, GREY_B), M("handler.setNext(other)", 24, GREY_B)).arrange(RIGHT, buff=0.2).move_to([0, 2.3, 0])
         cross = Line(old.get_left(), old.get_right(), stroke_width=3, color=BAD)
         layers = []
         cols = [HEAD, STAFF, STAFF, STAFF, STAFF, BOOKC]
         labels = ["head office", "manager", "assistant", "once per order", "receipt", "book"]
-        cx, cy = 0.0, -0.6
+        cx, cy = 0.0, -0.55
         nest = VGroup()
         for k in range(6):
-            w, h = 2.2 + k * 1.75, 0.8 + k * 0.7
+            w, h = 2.2 + k * 1.75, 0.8 + k * 0.8
             r = RoundedRectangle(corner_radius=0.14, width=w, height=h).set_stroke(cols[k], 3).set_fill(dim(cols[k], 0.06 + 0.01 * k), 0)
             r.move_to([cx, cy - 0.0, 0])
-            lab = T(labels[k], 22 if k else 24, cols[k])
-            lab.move_to(r.get_top() + DOWN * 0.19) if k else lab.move_to(r)
+            lab = T(labels[k], 20 if k else 24, cols[k])
+            lab.move_to(r.get_top() + DOWN * 0.2) if k else lab.move_to(r)
             nest.add(VGroup(r, lab))
-        fk = M("handlers.foldRight(lastStop) { h, next -> { c -> h.handle(c, next) } }", 22, GREY_A).move_to([0, -3.2, 0])
+        fk = M("handlers.foldRight(lastStop) { h, next -> { c -> h.handle(c, next) } }", 22, GREY_A).move_to([0, -3.22, 0])
         fk.scale(min(1, 12.6 / fk.width))
         self.say("fold")
         self.play(FadeIn(old), run_time=0.5)
@@ -595,7 +594,6 @@ class Pat09ChainState(Narrated):
             self.play(FadeIn(nest[k]), run_time=0.45)
         self.at(3)
         self.play(FadeIn(fk, shift=UP * 0.1), run_time=0.6)
-        self.at(4)
         self.play(Indicate(nest[5][0], color=YES, scale_factor=1.02), run_time=0.9)
         self.hold()
         self.wipe()
@@ -610,9 +608,9 @@ class Pat09ChainState(Narrated):
         self.play(FadeIn(g0, shift=UP * 0.1), run_time=0.6)
         self.at(2)
         self.play(FadeIn(fa, shift=UP * 0.1), run_time=0.6)
-        self.at(4)
+        self.at(3)
         self.play(FadeIn(fb, shift=UP * 0.1), run_time=0.6)
-        self.at(5)
+        self.at(4)
         self.play(LaggedStart(*[FadeIn(p, shift=DOWN * 0.2) for p in pots], lag_ratio=0.4), run_time=0.8)
         self.hold()
         fin = titled(code_block(["try {", "    r = next.passOn(c);", "} finally {", "    // write the book's line here", "}"], 24), "the way back goes in finally")

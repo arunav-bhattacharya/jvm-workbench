@@ -1,19 +1,19 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:06.451
+00:00:02.700 --> 00:00:06.418
 Walk into the town bakery and ask for a loaf for sandwiches.
 
 2
-00:00:06.451 --> 00:00:09.673
+00:00:06.418 --> 00:00:09.640
 You don't name a recipe, and you don't pick an oven.
 
 3
-00:00:09.673 --> 00:00:12.338
+00:00:09.640 --> 00:00:12.304
 The baker hears what you need, and decides.
 
 4
-00:00:12.338 --> 00:00:14.259
+00:00:12.304 --> 00:00:14.225
 Today, it's the white tin loaf.
 
 5
@@ -57,253 +57,253 @@ Here, the code that writes the notice also picks the messenger, and it always pi
 Now run the tests.
 
 15
-00:00:48.467 --> 00:00:51.830
+00:00:48.533 --> 00:00:51.897
 Every test run texts Anna: your order is on its way.
 
 16
-00:00:51.830 --> 00:00:52.994
+00:00:51.897 --> 00:00:53.061
 Forty times a day.
 
 17
-00:00:52.994 --> 00:00:56.423
+00:00:53.061 --> 00:00:56.489
 Anna is starting to wonder what kind of shop this is.
 
 18
-00:00:56.600 --> 00:00:58.194
+00:00:56.700 --> 00:00:58.294
 So the point really is this.
 
 19
-00:00:58.194 --> 00:01:02.349
+00:00:58.294 --> 00:01:02.449
 The code that writes the notice shouldn't decide which messenger it gets.
 
 20
-00:01:02.349 --> 00:01:08.609
+00:01:02.449 --> 00:01:08.709
 Wouldn't it be nice if it could just ask for a messenger, the way you ask the baker for a loaf for sandwiches?
 
 21
-00:01:09.533 --> 00:01:13.496
+00:01:09.633 --> 00:01:13.596
 The design patterns book from 1994 has a classic answer.
 
 22
-00:01:13.496 --> 00:01:22.201
+00:01:13.596 --> 00:01:22.301
 A class declares a creation hook, an abstract method called createMessenger, and a subclass overrides it to pick the class.
 
 23
-00:01:22.201 --> 00:01:24.465
+00:01:22.301 --> 00:01:24.565
 That hook is the factory method.
 
 24
-00:01:24.600 --> 00:01:25.181
+00:01:24.767 --> 00:01:25.348
 It works.
 
 25
-00:01:25.181 --> 00:01:29.378
+00:01:25.348 --> 00:01:29.545
 And it's still fair when the subclass has other reasons to exist.
 
 26
-00:01:29.378 --> 00:01:34.092
+00:01:29.545 --> 00:01:34.259
 But here it costs one subclass per messenger, just to pick a constructor.
 
 27
-00:01:35.000 --> 00:01:37.835
+00:01:35.167 --> 00:01:38.001
 Since Java 8, a function does the same job.
 
 28
-00:01:37.835 --> 00:01:45.680
+00:01:38.001 --> 00:01:45.847
 A Supplier of Messenger, in Kotlin a function that returns a Messenger, is a factory: call it, and you get a messenger.
 
 29
-00:01:45.867 --> 00:01:55.649
+00:01:46.067 --> 00:01:55.849
 And a constructor reference, like FakeMessenger::new, read as: call this constructor, is the shortest way to write one.
 
 30
-00:01:55.649 --> 00:01:59.266
+00:01:55.849 --> 00:01:59.466
 The real program hands in SmsMessenger::new.
 
 31
-00:01:59.266 --> 00:02:02.143
+00:01:59.466 --> 00:02:02.343
 A test hands in FakeMessenger::new.
 
 32
-00:02:03.067 --> 00:02:04.816
+00:02:03.267 --> 00:02:05.016
 Let's map it to the bakery.
 
 33
-00:02:04.816 --> 00:02:09.806
+00:02:05.016 --> 00:02:10.006
 The counter is OrderNotices: it asks for a messenger and never names a class.
 
 34
-00:02:09.806 --> 00:02:12.851
+00:02:10.006 --> 00:02:13.051
 The baker's choice is the function you hand in.
 
 35
-00:02:12.851 --> 00:02:15.637
+00:02:13.051 --> 00:02:15.837
 And the loaf is the messenger you get back.
 
 36
-00:02:15.800 --> 00:02:24.335
+00:02:16.067 --> 00:02:24.601
 The lesson's MessengerFactory demo builds the test notices with FakeMessenger::new, and sends Anna her notice.
 
 37
-00:02:24.335 --> 00:02:25.499
+00:02:24.601 --> 00:02:25.765
 What gets sent?
 
 38
-00:02:28.533 --> 00:02:30.764
+00:02:28.733 --> 00:02:30.964
 Test notices: fake, nothing sent.
 
 39
-00:02:30.764 --> 00:02:34.819
+00:02:30.964 --> 00:02:35.019
 Anna's phone stays quiet, and the notice code never changed.
 
 40
-00:02:35.733 --> 00:02:41.766
+00:02:35.933 --> 00:02:41.966
 Sometimes the choice depends on data, like a setting or the customer's choice of channel.
 
 41
-00:02:41.766 --> 00:02:47.392
+00:02:41.966 --> 00:02:47.592
 Then put it in one static factory, a switch over the channels: SMS, email and fake.
 
 42
-00:02:47.392 --> 00:02:50.239
+00:02:47.592 --> 00:02:50.439
 And notice: no default branch, on purpose.
 
 43
-00:02:50.400 --> 00:02:55.356
+00:02:50.667 --> 00:02:55.623
 The demo asks it for each channel, and each line comes back from the right messenger.
 
 44
-00:02:55.933 --> 00:03:00.520
+00:02:56.233 --> 00:03:00.820
 Now, say the shop, in a burst of nostalgia, adds PIGEON to the channels.
 
 45
-00:03:00.520 --> 00:03:02.368
+00:03:00.820 --> 00:03:02.668
 What happens to this factory?
 
 46
-00:03:05.400 --> 00:03:06.482
+00:03:05.667 --> 00:03:06.749
 The build stops.
 
 47
-00:03:06.482 --> 00:03:11.554
+00:03:06.749 --> 00:03:11.820
 javac says: the switch expression does not cover all possible input values.
 
 48
-00:03:11.554 --> 00:03:15.273
+00:03:11.820 --> 00:03:15.539
 And kotlinc says: 'when' expression must be exhaustive.
 
 49
-00:03:15.273 --> 00:03:18.248
+00:03:15.539 --> 00:03:18.515
 Add the 'PIGEON' branch or an 'else' branch.
 
 50
-00:03:18.400 --> 00:03:20.601
+00:03:18.733 --> 00:03:20.935
 The compiler is a strict foreman here.
 
 51
-00:03:20.601 --> 00:03:27.032
+00:03:20.935 --> 00:03:27.365
 It points at the one place that needs a new messenger, and it won't build the program until every case has one.
 
 52
-00:03:27.733 --> 00:03:32.728
+00:03:28.067 --> 00:03:33.062
 Now let's be clever, and add a catch-all branch that returns the fake messenger.
 
 53
-00:03:32.728 --> 00:03:34.289
+00:03:33.062 --> 00:03:34.623
 The build is green again.
 
 54
-00:03:34.289 --> 00:03:37.286
+00:03:34.623 --> 00:03:37.620
 And the demo prints: PIGEON, fake, nothing sent.
 
 55
-00:03:37.286 --> 00:03:41.157
+00:03:37.620 --> 00:03:41.491
 A real customer's notice went nowhere, and nothing warned you.
 
 56
-00:03:42.067 --> 00:03:44.557
+00:03:42.400 --> 00:03:44.890
 That's where the bakery picture breaks.
 
 57
-00:03:44.557 --> 00:03:48.132
+00:03:44.890 --> 00:03:48.466
 Ask a baker for something new, and the baker improvises.
 
 58
-00:03:48.132 --> 00:03:51.580
+00:03:48.466 --> 00:03:51.913
 A factory with a default branch improvises too, badly.
 
 59
-00:03:51.733 --> 00:03:52.954
+00:03:52.133 --> 00:03:53.354
 So here's the rule.
 
 60
-00:03:52.954 --> 00:03:55.201
+00:03:53.354 --> 00:03:55.601
 A factory's switch gets no default.
 
 61
-00:03:55.201 --> 00:03:57.449
+00:03:55.601 --> 00:03:57.849
 Let the compiler find the new case.
 
 62
-00:03:58.333 --> 00:04:01.503
+00:03:58.767 --> 00:04:01.936
 One more thing, because people mix up two names.
 
 63
-00:04:01.503 --> 00:04:06.917
+00:04:01.936 --> 00:04:07.351
 A static factory is about how one class hands out its own instances, like List.of.
 
 64
-00:04:06.917 --> 00:04:12.860
+00:04:07.351 --> 00:04:13.293
 Factory Method is about who decides the concrete class: not the code that uses the object.
 
 65
-00:04:13.000 --> 00:04:15.196
+00:04:13.500 --> 00:04:15.696
 And when should you reach for which?
 
 66
-00:04:15.196 --> 00:04:18.428
+00:04:15.696 --> 00:04:18.928
 Keep the subclass when it has other reasons to exist.
 
 67
-00:04:18.428 --> 00:04:22.087
+00:04:18.928 --> 00:04:22.587
 Hand in a function when you only need to pick a constructor.
 
 68
-00:04:22.087 --> 00:04:27.576
+00:04:22.587 --> 00:04:28.076
 And when the choice depends on data, use one switch over a sealed family, with no default.
 
 69
-00:04:28.467 --> 00:04:30.050
+00:04:29.000 --> 00:04:30.583
 So, what's wrong with new?
 
 70
-00:04:30.050 --> 00:04:33.155
+00:04:30.583 --> 00:04:33.688
 Nothing, except that it decides in the wrong place.
 
 71
-00:04:33.155 --> 00:04:37.783
+00:04:33.688 --> 00:04:38.316
 Read the code out loud: when an order leaves, ask for a messenger, and send.
 
 72
-00:04:37.783 --> 00:04:40.888
+00:04:38.316 --> 00:04:41.421
 Who makes the messenger is someone else's decision.
 
 73
-00:04:41.067 --> 00:04:41.835
+00:04:41.633 --> 00:04:42.401
 Quick check.
 
 74
-00:04:41.835 --> 00:04:48.810
+00:04:42.401 --> 00:04:49.376
 A teammate adds FAX to the channels, and the factory's switch has a default that returns the email messenger.
 
 75
-00:04:48.810 --> 00:04:52.393
+00:04:49.376 --> 00:04:52.960
 What happens to fax notices, and how would you find out?
 
 76
-00:04:55.600 --> 00:04:59.106
+00:04:56.133 --> 00:04:59.639
 They quietly go by email, and the build never tells you.
 
 77
-00:04:59.106 --> 00:05:04.552
+00:04:59.639 --> 00:05:05.085
 Delete the default, and the compiler points at the one line that needs a fax messenger.
