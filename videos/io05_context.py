@@ -16,13 +16,12 @@ N = {
              "four customers have an answer? Make a guess, and hold on to it.",
     "shyq": "Before we answer, here's a question that's easy to be shy about. Vert.x runs thousands of connections "
             "on a handful of threads. So who, exactly, runs my code?",
-    "familiar": "Start with what we know. In lesson 3, Netty hired a team of clerks. Each clerk owns a row of boxes "
-                "in the wall, for good, and never stops to make a phone call.",
+    "familiar": "Start with what we know. In lesson 3, Netty hired a team of clerks. Each one owns a row of boxes "
+                "for good, and never stops to make a phone call.",
     "familiar2": "Vert.x is a toolkit for network programs that runs on those same clerks. What it adds is rules "
                  "about who runs your code.",
     "desks": "So picture desks on the counter: a weighing desk, a price desk, a lost-property desk. Each desk has its "
-             "own drawers, and a card on top that names its clerk. The same clerk always serves that desk, one job "
-             "at a time.",
+             "own drawers, and a card on top that names its clerk, who always serves it, one job at a time.",
     "map": "Let's map it. A clerk is an event loop: one thread that serves many connections, one job at a time. "
            "Vert.x starts two per core, so 8 on a 4-core machine.",
     "map2": "A desk is a verticle, a class you deploy. The card is its context: the home of its code, which decides "
@@ -133,7 +132,7 @@ def dim(color, k=0.14):
 
 
 # one colour per thing, for the whole post office track
-CLERK, WORKER, JOB, BAD, MGR, CARD, CUST = BLUE_M, GREEN_M, GOLD_M, RED_M, PURPLE_M, YELLOW_M, GREY_B
+CLERK, WORKER, JOB, BAD, MGR, CARD, CUST = BLUE_M, GREEN_M, GOLD_M, RED_M, PURPLE_M, YELLOW_M, TEAL_M
 
 
 def person(color=CLERK, s=1.0):
@@ -281,7 +280,7 @@ class Io05Context(Narrated):
         self.play(*[Indicate(d[2], color=GREY_A, scale_factor=1.08) for d in (wd, pd, ld)], run_time=0.8)
         self.at_text("and a card", lead=0.2)
         self.play(*[FadeIn(d[5], shift=DOWN * 0.1) for d in (wd, pd, ld)], run_time=0.6)
-        self.at(2)
+        self.at_text("who always", lead=0.3)
         self.play(FadeIn(c0), FadeIn(c1), FadeIn(c0l), FadeIn(c1l), *[Create(l) for l in links], run_time=0.9)
         self.hold()
 
@@ -502,7 +501,7 @@ class Io05Context(Narrated):
         fl = M("executeBlocking(slowLookup, false)", 20, WORKER).move_to([0.0, -0.75, 0], aligned_edge=RIGHT)
         self.say("false")
         self.play(Transform(ebl, fl), run_time=0.6)
-        self.play(*[pcs[i].animate.move_to(bo[1][i].get_center() + DOWN * 0.42) for i in range(4)],
+        self.play(*[pcs[i].animate.scale(0.62).next_to(bo[1][i], LEFT, buff=0.03) for i in range(4)],
                   FadeOut(blocks), FadeOut(r1), FadeOut(lane), run_time=0.9)
         four = VGroup(*[bar(TX0 + 0.02, TX0 + 0.5 * TS - 0.02, -1.0 - 0.28 * i, JOB, h=0.22) for i in range(4)])
         fourl = T("four workers", 20, WORKER).move_to([TX0 - 1.2, -1.6, 0])
@@ -570,4 +569,4 @@ class Io05Context(Narrated):
         self.say("check_a")
         self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
-        self.wait(1.8)
+        self.wait(1.3)

@@ -19,8 +19,8 @@ N = {
     "shyq": "Here's a question that's easy to be shy about. When I write a slow method, how does the framework know "
             "it's slow? Does it look inside? Keep your answer in mind.",
     "familiar": "That company is Quarkus, a Java framework for web services: programs that answer requests sent over "
-                "HTTP, the protocol of the web. Its counter is Vert.x, from last lesson. Every request is first read "
-                "by a counter clerk, a Vert.x event loop, which Quarkus calls an IO thread.",
+                "HTTP, the protocol of the web. Its counter is Vert.x, from last lesson: every request is first read "
+                "by a counter clerk, an event loop, which Quarkus calls an IO thread.",
     "map": "Let's map it. A job ticket is a request to an endpoint: a Java method that answers one kind of request, "
            "such as, what does parcel P-17 cost?",
     "map2": "The counter clerk is the IO thread. The back office is the worker pool, threads that are allowed to "
@@ -47,11 +47,10 @@ N = {
     "breaks": "And here the ticket picture breaks. A real clerk would notice a forty minute job marked quick. "
               "Quarkus never will, because it never looks inside the method. So, our shy question: no, it doesn't "
               "look.",
-    "cost": "How bad is one stuck clerk? Quarkus runs one event loop per CPU, where plain Vert.x runs two. On a "
-            "4-core laptop that's 4 clerks, so one stuck clerk stalls a quarter of your connections.",
-    "warn": "Quarkus's floor manager is a bit friendlier, though. He warns after 2 seconds, and the first warning "
-            "already carries the stack trace. In the lesson's demo, it came at 2,681 milliseconds. Below the "
-            "sleep, the first line is your own code.",
+    "cost": "How bad is one stuck clerk? Quarkus runs one event loop per CPU, half as many as plain Vert.x. On a "
+            "4-core laptop, one stuck clerk stalls a quarter of your connections.",
+    "warn": "Quarkus's floor manager is friendlier, though. After 2 seconds, his first warning already carries the "
+            "stack trace. In the lesson's demo, it came at 2,681 milliseconds, pointing at your own line of code.",
     "fix": "The fix is to change the label. @Blocking sends a method to a worker even when it returns a Uni. "
            "@NonBlocking keeps a method on the IO thread even when it returns a plain value.",
     "suspend": "And watch out in Kotlin. A suspend function counts as non-blocking too. A blocking database call "
@@ -66,8 +65,6 @@ N = {
              "helpers calling a pool of 20 database connections still queue at the pool.",
     "guard2": "The back office's size was also its protection. So put a limit back in front of anything fragile, "
               "such as a semaphore: a counter of permits that makes extra callers wait.",
-    "guard3": "And helpers suit work that waits, not work that computes. A helper doing a long calculation never "
-              "gives its seat back.",
     "code": "Here are the labels in code, Java and Kotlin. A plain value goes to a worker. Uni, or suspend, stays on "
             "the IO thread. @Blocking moves a Uni method to a worker. And @RunOnVirtualThread hires a helper.",
     "moral": "So, does Quarkus look inside your method? Never. The return type is a promise about blocking, and "
@@ -214,7 +211,10 @@ def ticket(text, color=CARD, size=22):
 
 def card(lines, color=GREY_B, size=22, w=None):
     """A code card: monospace lines in a rounded box."""
-    body = VGroup(*[M(l, size) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    body = VGroup(*[M(l.strip(), size) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    cw = M("0123456789", size).width / 10
+    for m, l in zip(body, lines):
+        m.shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
     r = RoundedRectangle(corner_radius=0.1, width=w or body.width + 0.5, height=body.height + 0.4).set_stroke(color, 2.2).set_fill("#101010", 1)
     body.move_to(r)
     return VGroup(r, body)
@@ -222,6 +222,23 @@ def card(lines, color=GREY_B, size=22, w=None):
 
 def ring(m, color=BAD, r=0.55):
     return Circle(radius=r).set_stroke(color, 4).move_to(m)
+
+
+def wallbox(lit=False, s=1.0, color=YELLOW_M):
+    """A box in the wall with its light above (the same look as io-01's post office)."""
+    sq = RoundedRectangle(corner_radius=0.06, width=0.62, height=0.5).set_stroke(GREY_B, 2.2).set_fill("#101010", 1)
+    slot = Line(LEFT * 0.18, RIGHT * 0.18, stroke_width=3, color=GREY_C).move_to(sq.get_center() + UP * 0.06)
+    lamp = Circle(radius=0.08).next_to(sq, UP, buff=0.07)
+    set_lamp(lamp, lit, color)
+    return VGroup(sq, slot, lamp).scale(s)
+
+
+def set_lamp(lamp, lit, color=YELLOW_M):
+    if lit:
+        lamp.set_stroke(color, 2.5).set_fill(color, 1)
+    else:
+        lamp.set_stroke(GREY_C, 2).set_fill("#1a1a1a", 1)
+    return lamp
 
 
 def counter_clerk(name="counter", w=2.4):
@@ -249,13 +266,13 @@ class Io06Quarkus(Narrated):
         self.title_card("Quarkus reads the label", "how a return type picks the thread that runs your endpoint")
 
         # ================= hook: the company rule book =================
-        book = RoundedRectangle(corner_radius=0.12, width=7.6, height=2.05).set_stroke(CARD, 2.5).set_fill(dim(CARD, 0.08), 1)
-        book.move_to([0, 2.2, 0])
+        book = RoundedRectangle(corner_radius=0.12, width=8.2, height=2.3).set_stroke(CARD, 2.5).set_fill(dim(CARD, 0.08), 1)
+        book.move_to([0, 2.15, 0])
         bt = T("the rule book", 24, CARD).next_to(book.get_top(), DOWN, buff=0.15)
         rules = VGroup(VGroup(ticket("quick"), T("stays with the counter clerk", 24, CLERK)).arrange(RIGHT, buff=0.3),
                        VGroup(ticket("no label", GREY_B), T("goes to the back office", 24, WORKER)).arrange(RIGHT, buff=0.3),
                        VGroup(ticket("helper", HELPER), T("gets a temporary helper", 24, HELPER)).arrange(RIGHT, buff=0.3))
-        rules.arrange(DOWN, buff=0.1, aligned_edge=LEFT).scale(0.8).next_to(bt, DOWN, buff=0.1)
+        rules.arrange(DOWN, buff=0.12, aligned_edge=LEFT).next_to(bt, DOWN, buff=0.15)
         cc = counter_clerk().move_to([-4.6, -1.05, 0])
         bo = office(8, 4, "back office", 0.5).move_to([0, -1.0, 0])
         hp = helpers().move_to([4.6, -1.0, 0])
@@ -296,7 +313,7 @@ class Io06Quarkus(Narrated):
         fit(vx, 12.4)
         self.say("familiar")
         self.play(FadeIn(qk), run_time=0.6)
-        self.at(2)
+        self.at_text("every request", lead=0.3)
         self.play(FadeIn(vx), Indicate(cc[1], color=CLERK, scale_factor=1.2), run_time=0.8)
         self.hold()
         self.play(FadeOut(VGroup(qk, vx)), run_time=0.4)
@@ -380,11 +397,11 @@ class Io06Quarkus(Narrated):
         tc = card(["@GET @Path(\"/{parcel}/archive\")", "public Uni<Price> archived(String parcel) {",
                    "    return Uni.createFrom().item(priceBook.find(parcel));", "}"], GREY_B, 22).move_to([0, 2.2, 0])
         fit(tc, 12.4)
-        boxes = VGroup(*[Square(side_length=0.5).set_stroke(GREY_B, 2).set_fill("#121212", 1) for _ in range(6)]).arrange(RIGHT, buff=0.1)
-        boxes.move_to([-3.4, -0.35, 0])
-        bl = VGroup(*[Dot(b.get_top() + DOWN * 0.12, radius=0.06, color=YELLOW_M) for b in boxes])
+        wbs = VGroup(*[wallbox(False) for _ in range(6)]).arrange(RIGHT, buff=0.12).move_to([-3.4, -0.3, 0])
+        boxes = VGroup(*[b[:2] for b in wbs]).add(*[b[2] for b in wbs])
+        bl = VGroup(*[set_lamp(b[2].copy(), True) for b in wbs])
         clk = person(CLERK, 1.1).next_to(boxes, DOWN, buff=0.35)
-        clkl = T("IO thread", 22, CLERK).next_to(clk, LEFT, buff=0.25)
+        clkl = T("IO thread", 22, CLERK).next_to(clk, LEFT, buff=0.75)
         self.say("trap")
         self.play(FadeIn(boxes), FadeIn(clk), FadeIn(clkl), run_time=0.6)
         self.at(1)
@@ -401,8 +418,8 @@ class Io06Quarkus(Narrated):
         self.hold(after=0)
         self.predict()
         rg = ring(clk, BAD, 0.6)
-        stuck = T("stuck in priceBook.find", 22, BAD).next_to(clk, RIGHT, buff=0.3)
-        waits = T("every box in his row waits", 24, BAD).move_to([-3.4, 0.55, 0])
+        stuck = T("stuck in priceBook.find", 22, BAD).next_to(clk, RIGHT, buff=0.6)
+        waits = T("every box in his row waits", 24, BAD).move_to([-3.4, 0.6, 0])
         self.say("trap_a")
         self.play(Create(rg), FadeIn(stuck), run_time=0.7)
         self.at(1)
@@ -437,18 +454,18 @@ class Io06Quarkus(Narrated):
         self.at(2)
         self.play(Create(ring(clerks[1][0], BAD, 0.55)), FadeIn(q4), run_time=0.7)
         self.hold()
-        log = VGroup(M("WARN Thread vert.x-eventloop-thread-0 has been blocked for 2681 ms,", 20, CARD),
-                     M("     time limit is 2000 ms", 20, CARD),
-                     M("io.vertx.core.VertxException: Thread blocked", 20, MGR),
-                     M("    at java.lang.Thread.sleep(Thread.java:509)", 20, GREY_A),
-                     M("    at workbench.nio.l06.QuarkusLikeLoopDemo.lambda$main$0(...:30)", 20, WHITE)).arrange(DOWN, buff=0.1, aligned_edge=LEFT)
+        log = VGroup(M("Thread vert.x-eventloop-thread-0 has been blocked for 2681 ms,", 22, CARD),
+                     M("time limit is 2000 ms", 22, CARD),
+                     M("io.vertx.core.VertxException: Thread blocked", 22, MGR),
+                     M("  at java.lang.Thread.sleep(Thread.java:509)", 22, GREY_A),
+                     M("  at workbench.nio.l06.QuarkusLikeLoopDemo.lambda$main$0", 22, WHITE)).arrange(DOWN, buff=0.1, aligned_edge=LEFT)
         fit(log, 12.4).move_to([0, -2.4, 0])
         self.say("warn")
         self.play(FadeOut(q4), run_time=0.3)
         self.at(1)
         self.play(FadeIn(log[:2]), run_time=0.5)
         self.play(FadeIn(log[2:4]), run_time=0.5)
-        self.at(3)
+        self.at_text("pointing", lead=0.4)
         self.play(FadeIn(log[4]), Indicate(log[4], color=WHITE, scale_factor=1.03), run_time=0.9)
         self.hold()
         self.clear()
@@ -536,10 +553,6 @@ class Io06Quarkus(Narrated):
         self.at(1)
         self.play(FadeOut(qn), FadeIn(gate), FadeIn(gt), run_time=0.7)
         self.hold()
-        cpu = T("helpers suit work that waits, not work that computes", 26, GREY_A).move_to([0, -2.4, 0])
-        self.say("guard3")
-        self.play(FadeIn(cpu), run_time=0.6)
-        self.hold()
         self.clear()
 
         # ================= the code, last =================
@@ -588,4 +601,4 @@ class Io06Quarkus(Narrated):
         self.say("check_a")
         self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
-        self.wait(1.8)
+        self.wait(1.3)

@@ -1,125 +1,345 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.598
-A request for an account balance reaches a Quarkus service.
+00:00:02.733 --> 00:00:05.274
+Picture a company that runs post offices.
 
 2
-00:00:06.598 --> 00:00:11.817
-Every request is read on a Vert.x event loop, which Quarkus calls an IO thread.
+00:00:05.274 --> 00:00:12.091
+Every branch puts last lesson's clerks at the counter, and the company gives each branch a rule book for jobs.
 
 3
-00:00:11.817 --> 00:00:14.328
-One IO thread serves many connections.
+00:00:12.267 --> 00:00:15.729
+The rule book reads only the label on each job ticket.
 
 4
-00:00:14.328 --> 00:00:16.508
-So which thread runs your method?
+00:00:15.729 --> 00:00:18.807
+A job marked quick stays with the counter clerk.
 
 5
-00:00:16.500 --> 00:00:19.678
-Quarkus REST decides from your method's signature.
+00:00:18.807 --> 00:00:21.372
+An unmarked job goes to the back office.
 
 6
-00:00:19.678 --> 00:00:21.776
-This one returns a plain Balance.
+00:00:21.372 --> 00:00:26.053
+And a job stamped helper gets a temporary helper, hired for that one job.
 
 7
-00:00:21.776 --> 00:00:22.920
-Where does it run?
+00:00:26.200 --> 00:00:29.071
+Here's a question that's easy to be shy about.
 
 8
-00:00:25.033 --> 00:00:26.333
-On a worker thread.
+00:00:29.071 --> 00:00:33.189
+When I write a slow method, how does the framework know it's slow?
 
 9
-00:00:26.333 --> 00:00:35.159
-The IO thread hands the call to a bounded pool, 200 threads on a 4-core machine, and goes straight back to its other connections.
+00:00:33.189 --> 00:00:34.437
+Does it look inside?
 
 10
-00:00:35.567 --> 00:00:37.262
-This one returns a Uni.
+00:00:34.437 --> 00:00:35.997
+Keep your answer in mind.
 
 11
-00:00:37.262 --> 00:00:38.588
-Where does it run?
+00:00:36.533 --> 00:00:45.867
+That company is Quarkus, a Java framework for web services: programs that answer requests sent over HTTP, the protocol of the web.
 
 12
-00:00:40.700 --> 00:00:43.301
-Right on the IO thread, with no hop.
+00:00:45.867 --> 00:00:55.704
+Its counter is Vert.x, from last lesson: every request is first read by a counter clerk, an event loop, which Quarkus calls an IO thread.
 
 13
-00:00:43.301 --> 00:00:48.721
-A Uni, or a Kotlin suspend function, is a promise: this method won't block.
+00:00:56.267 --> 00:00:57.279
+Let's map it.
 
 14
-00:00:48.721 --> 00:00:50.021
-Quarkus trusts it.
+00:00:57.279 --> 00:01:07.096
+A job ticket is a request to an endpoint: a Java method that answers one kind of request, such as, what does parcel P-17 cost?
 
 15
-00:00:50.033 --> 00:00:54.247
-Now someone wraps a JDBC call in a Uni, to make it reactive.
+00:01:07.267 --> 00:01:09.543
+The counter clerk is the IO thread.
 
 16
-00:00:54.247 --> 00:00:56.916
-What happens to the other connections?
+00:01:09.543 --> 00:01:16.178
+The back office is the worker pool, threads that are allowed to wait: 200 of them on a 4-core machine.
 
 17
-00:00:59.033 --> 00:01:02.089
-findById runs on the IO thread, and blocks it.
+00:01:16.178 --> 00:01:18.194
+The helper is a virtual thread.
 
 18
-00:01:02.089 --> 00:01:04.879
-Every connection on that event loop waits.
+00:01:18.194 --> 00:01:20.861
+And the label is your method's signature.
 
 19
-00:01:04.879 --> 00:01:08.931
-After 2 seconds, Quarkus logs a warning with the stack trace.
+00:01:21.600 --> 00:01:26.433
+Let's shrink it to one small service, the price desk, with two endpoints.
 
 20
-00:01:09.033 --> 00:01:15.487
-On 4 cores, Quarkus runs 4 event loops, so one blocked loop stalls a quarter of your connections.
+00:01:26.433 --> 00:01:29.082
+The first, price, returns a plain Price.
 
 21
-00:01:15.487 --> 00:01:20.012
-Keep the plain return type, add @Blocking, or use a reactive client.
+00:01:29.082 --> 00:01:31.796
+The second, live, returns a Uni of Price.
 
 22
-00:01:20.133 --> 00:01:22.665
-The third choice is @RunOnVirtualThread.
+00:01:31.796 --> 00:01:37.093
+A Uni, from the Mutiny library that Quarkus uses, means: the answer comes later.
 
 23
-00:01:22.665 --> 00:01:28.552
-Your code still blocks, but on a new virtual thread, so waiting doesn't hold a pooled thread.
+00:01:37.267 --> 00:01:39.191
+Which thread runs each one?
 
 24
-00:01:29.267 --> 00:01:40.431
-In the lesson's demo, 200 calls of 100 milliseconds each took about a second on a pool of 20 workers, and 113 milliseconds on virtual threads.
+00:01:39.191 --> 00:01:40.117
+Make a guess.
 
 25
-00:01:41.500 --> 00:01:44.920
-Here are the three signatures, in Java and in Kotlin.
+00:01:42.800 --> 00:01:48.042
+price returns a plain value, so it goes to the back office, on a worker thread.
 
 26
-00:01:48.500 --> 00:01:50.766
-So the signature picks the thread.
+00:01:48.042 --> 00:01:54.013
+live returns a Uni, so it stays at the counter, on the IO thread, with no hand-off at all.
 
 27
-00:01:50.766 --> 00:01:55.832
-Uni or suspend promises not to block, and Quarkus runs it on the event loop.
+00:01:54.800 --> 00:01:56.363
+That's the whole rule.
 
 28
-00:01:55.832 --> 00:01:59.699
-Blocking code belongs on a worker, or on a virtual thread.
+00:01:56.363 --> 00:02:05.100
+A method that returns Uni, Multi, CompletionStage or Publisher, or a Kotlin suspend function, says: the answer comes later.
 
 29
-00:01:59.800 --> 00:02:00.664
-Quick check.
+00:02:05.100 --> 00:02:06.875
+It runs on the IO thread.
 
 30
-00:02:00.664 --> 00:02:04.911
-A Kotlin suspend endpoint calls a JDBC repository directly.
+00:02:06.875 --> 00:02:09.077
+Anything else runs on a worker.
 
 31
-00:02:04.911 --> 00:02:10.167
-Which thread runs it, and what do the other connections on that loop see?
+00:02:09.267 --> 00:02:11.233
+Read it as a promise you make.
+
+32
+00:02:11.233 --> 00:02:13.592
+A Uni says: this method won't block.
+
+33
+00:02:13.592 --> 00:02:18.311
+Quarkus believes that promise completely, and saves the hop to a worker.
+
+34
+00:02:19.067 --> 00:02:20.020
+Now the trap.
+
+35
+00:02:20.020 --> 00:02:25.522
+Someone wants the archive endpoint to feel modern, so it returns a Uni too.
+
+36
+00:02:25.522 --> 00:02:29.923
+Inside, it calls Uni.createFrom().item, with priceBook.find.
+
+37
+00:02:29.923 --> 00:02:33.664
+And find is a database call, made the blocking way.
+
+38
+00:02:33.800 --> 00:02:36.025
+Which thread makes that database call?
+
+39
+00:02:38.733 --> 00:02:39.640
+The IO thread.
+
+40
+00:02:39.640 --> 00:02:45.989
+item wraps a value that already exists, so find runs right there, while the method builds the Uni.
+
+41
+00:02:45.989 --> 00:02:51.041
+The counter clerk is stuck, and every connection on his loop waits behind him.
+
+42
+00:02:51.200 --> 00:02:56.550
+It's like writing quick on a forty minute job, in the hope that the label makes it quick.
+
+43
+00:02:56.550 --> 00:02:58.534
+Labels don't make anything quick.
+
+44
+00:02:58.534 --> 00:03:00.457
+They only decide who gets stuck.
+
+45
+00:03:00.600 --> 00:03:02.765
+And here the ticket picture breaks.
+
+46
+00:03:02.765 --> 00:03:06.352
+A real clerk would notice a forty minute job marked quick.
+
+47
+00:03:06.352 --> 00:03:10.125
+Quarkus never will, because it never looks inside the method.
+
+48
+00:03:10.125 --> 00:03:12.723
+So, our shy question: no, it doesn't look.
+
+49
+00:03:13.467 --> 00:03:15.285
+How bad is one stuck clerk?
+
+50
+00:03:15.285 --> 00:03:19.729
+Quarkus runs one event loop per CPU, half as many as plain Vert.x.
+
+51
+00:03:19.729 --> 00:03:24.644
+On a 4-core laptop, one stuck clerk stalls a quarter of your connections.
+
+52
+00:03:24.800 --> 00:03:28.028
+Quarkus's floor manager is friendlier, though.
+
+53
+00:03:28.028 --> 00:03:32.730
+After 2 seconds, his first warning already carries the stack trace.
+
+54
+00:03:32.730 --> 00:03:38.836
+In the lesson's demo, it came at 2,681 milliseconds, pointing at your own line of code.
+
+55
+00:03:39.600 --> 00:03:41.754
+The fix is to change the label.
+
+56
+00:03:41.754 --> 00:03:46.200
+@Blocking sends a method to a worker even when it returns a Uni.
+
+57
+00:03:46.200 --> 00:03:51.759
+@NonBlocking keeps a method on the IO thread even when it returns a plain value.
+
+58
+00:03:51.933 --> 00:03:53.631
+And watch out in Kotlin.
+
+59
+00:03:53.631 --> 00:03:56.885
+A suspend function counts as non-blocking too.
+
+60
+00:03:56.885 --> 00:04:03.111
+A blocking database call inside one blocks an event loop, exactly like one inside a Uni.
+
+61
+00:04:03.867 --> 00:04:08.363
+The third label is @RunOnVirtualThread: hire a temporary helper.
+
+62
+00:04:08.363 --> 00:04:17.427
+The code stays plain and blocking, but it runs on a new virtual thread, a cheap thread that the JDK puts to sleep while it waits.
+
+63
+00:04:17.600 --> 00:04:21.943
+So, 200 calls arrive, and each one waits 100 milliseconds.
+
+64
+00:04:21.943 --> 00:04:26.512
+A back office of 20 workers, against a helper for every call.
+
+65
+00:04:26.512 --> 00:04:28.009
+Guess the two times.
+
+66
+00:04:30.733 --> 00:04:40.390
+In the lesson's demo, 20 workers took 1,037 milliseconds: ten rounds of 100, just as Little's law from lesson 1 predicts.
+
+67
+00:04:40.390 --> 00:04:45.019
+The helpers took 113 milliseconds: one round, all at once.
+
+68
+00:04:45.800 --> 00:04:47.456
+Sounds like a free lunch.
+
+69
+00:04:47.456 --> 00:04:51.960
+But helpers are cheap to hire, and the database still has 20 chairs.
+
+70
+00:04:51.960 --> 00:04:57.127
+200 helpers calling a pool of 20 database connections still queue at the pool.
+
+71
+00:04:57.267 --> 00:05:00.219
+The back office's size was also its protection.
+
+72
+00:05:00.219 --> 00:05:07.883
+So put a limit back in front of anything fragile, such as a semaphore: a counter of permits that makes extra callers wait.
+
+73
+00:05:08.667 --> 00:05:11.931
+Here are the labels in code, Java and Kotlin.
+
+74
+00:05:11.931 --> 00:05:14.181
+A plain value goes to a worker.
+
+75
+00:05:14.181 --> 00:05:17.083
+Uni, or suspend, stays on the IO thread.
+
+76
+00:05:17.083 --> 00:05:20.057
+@Blocking moves a Uni method to a worker.
+
+77
+00:05:20.057 --> 00:05:22.887
+And @RunOnVirtualThread hires a helper.
+
+78
+00:05:23.667 --> 00:05:26.405
+So, does Quarkus look inside your method?
+
+79
+00:05:26.405 --> 00:05:26.806
+Never.
+
+80
+00:05:26.806 --> 00:05:31.414
+The return type is a promise about blocking, and Quarkus believes it.
+
+81
+00:05:31.414 --> 00:05:37.091
+Return Uni only from code that never waits, and put a limit in front of the database.
+
+82
+00:05:37.267 --> 00:05:38.128
+Quick check.
+
+83
+00:05:38.128 --> 00:05:42.650
+A Kotlin suspend endpoint calls a blocking repository directly.
+
+84
+00:05:42.650 --> 00:05:44.732
+Which thread makes that call?
+
+85
+00:05:47.400 --> 00:05:51.432
+The IO thread, so every connection on that event loop waits.
+
+86
+00:05:51.432 --> 00:05:54.389
+Add @Blocking, or use a non-blocking client.

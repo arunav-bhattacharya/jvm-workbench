@@ -271,7 +271,7 @@ class Io02Selector(Narrated):
         self.play(FadeIn(q1, shift=UP * 0.1), run_time=0.6)
         self.at(2)
         self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.5)
-        self.play(LaggedStart(*[Indicate(b[0], color=CLERK, scale_factor=1.08) for b in grid], lag_ratio=0.08), run_time=2.2)
+        self.play(LaggedStart(*[Indicate(b[1], color=CLERK, scale_factor=1.8) for b in grid], lag_ratio=0.08), run_time=2.2)
         self.hold(after=0)
         self.predict(2.0)
 
@@ -352,14 +352,14 @@ class Io02Selector(Narrated):
         self.clear_all()
 
         # ================= the clerk's day =================
-        X = -3.3
-        s1 = mbox("selector.select()", CLERK, w=4.6, h=0.7)
-        s2 = mbox("selectedKeys(): the lit boxes", LIGHT, w=4.6, h=0.7)
-        s3 = mbox("it.remove(): cross it off", GREY_A, w=4.6, h=0.7)
+        X = -3.0
+        s1 = mbox("selector.select()", CLERK, w=5.4, h=0.75)
+        s2 = mbox("selectedKeys(): the lit boxes", LIGHT, w=5.4, h=0.75)
+        s3 = mbox("it.remove(): cross it off", GREY_A, w=5.4, h=0.75)
         flow = VGroup(s1, s2, s3).arrange(DOWN, buff=0.55).move_to([X, 1.6, 0])
         a12, a23 = arrow(s1, s2), arrow(s2, s3)
-        yes = mbox("accept, non-blocking, register", ACC, w=4.6, h=0.7)
-        no = mbox("serve(key): read, write, lights", RD, w=4.6, h=0.7)
+        yes = mbox("accept, non-blocking, register", ACC, w=5.4, h=0.75)
+        no = mbox("serve(key): read, write, lights", RD, w=5.4, h=0.75)
         VGroup(yes, no).arrange(RIGHT, buff=0.5).next_to(s3, DOWN, buff=0.95).set_x(0.6)
         a3y = Arrow(s3.get_bottom(), yes.get_top(), buff=0.1, stroke_width=3, color=ACC, max_tip_length_to_length_ratio=0.15)
         a3n = Arrow(s3.get_bottom(), no.get_top(), buff=0.1, stroke_width=3, color=RD, max_tip_length_to_length_ratio=0.12)
@@ -384,7 +384,7 @@ class Io02Selector(Narrated):
         self.hold()
 
         # ================= it.remove: predict, then show =================
-        self.play(Indicate(s3, color=YELLOW_M, scale_factor=1.05), run_time=0.6)
+        self.play(Indicate(s3[1], color=YELLOW_M, scale_factor=1.1), run_time=0.6)
         self.clear_all(0.5)
         hd = VGroup(M("StaleKeyDemo", 26, GREY_A),
                     T("one message, \"letter\", 6 bytes; the loop runs for 300 ms", 28)).arrange(DOWN, buff=0.2).move_to([0, 2.8, 0])
@@ -553,11 +553,12 @@ class Io02Selector(Narrated):
         rb.clear_updaters()
         self.hold()
 
-        pace = person(CLERK, 1.0).move_to([-1.3, 1.6, 0])
+        pace = person(CLERK, 1.0).move_to([2.1, 1.55, 0])
         steps = T("> 1,000 trips a millisecond", 24, CLERK).next_to(pace, UP, buff=0.2)
         core = VGroup(T("one core at 100%,", 26, BAD), T("no traffic at all", 26, GREY_A)).arrange(RIGHT, buff=0.2).move_to([0.6, -2.95, 0])
         rule2 = T("Ask for OP_WRITE only while a reply is waiting.", 30, YELLOW_M).move_to([0.6, -2.95, 0])
         self.say("write3")
+        self.play(FadeOut(VGroup(sb, sb_t)), run_time=0.3)
         self.play(FadeIn(pace), FadeIn(steps), run_time=0.5)
         for _ in range(3):
             self.play(pace.animate.shift(RIGHT * 1.0), run_time=0.22)

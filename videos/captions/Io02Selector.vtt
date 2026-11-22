@@ -1,125 +1,301 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.702
-A classic blocking server gives every connection its own thread.
+00:00:02.700 --> 00:00:05.093
+Last time, we rebuilt the post office.
 
 2
-00:00:06.702 --> 00:00:09.391
-Each thread calls read and waits for bytes.
+00:00:05.093 --> 00:00:11.706
+Instead of a clerk for every customer, each customer gets a box in the wall, with a small light above it.
 
 3
-00:00:09.600 --> 00:00:11.313
-Most connections are idle.
+00:00:11.706 --> 00:00:15.925
+One clerk watches the wall, and serves only the boxes that are lit.
 
 4
-00:00:11.313 --> 00:00:15.334
-A point-of-sale terminal sends one request every ten seconds.
+00:00:16.133 --> 00:00:19.289
+But here's a question that's easy to be shy about.
 
 5
-00:00:15.334 --> 00:00:19.156
-So almost every thread sits parked in read, doing nothing.
+00:00:19.289 --> 00:00:22.382
+How does that one clerk know which boxes are lit?
 
 6
-00:00:19.367 --> 00:00:23.832
-Each one still holds its own stack, about a megabyte of native memory.
+00:00:22.382 --> 00:00:26.927
+With ten thousand boxes, does the clerk walk past every one, every time?
 
 7
-00:00:24.033 --> 00:00:25.699
-Bytes arrive on one socket.
+00:00:29.500 --> 00:00:34.924
+That's how the old select and poll worked: read out every box number, one by one.
 
 8
-00:00:25.699 --> 00:00:29.401
-The kernel wakes that one thread, and the rest keep waiting.
+00:00:34.924 --> 00:00:38.741
+What we want is a wall that hands the clerk a short list.
 
 9
-00:00:29.633 --> 00:00:34.824
-Ten thousand connections need ten thousand threads, and almost all of them are waiting.
+00:00:38.741 --> 00:00:39.545
+These three.
 
 10
-00:00:35.733 --> 00:00:37.611
-A Selector turns this around.
+00:00:39.545 --> 00:00:40.215
+Right now.
 
 11
-00:00:37.611 --> 00:00:42.403
-Put every channel in non-blocking mode, and register it with one selector.
+00:00:40.433 --> 00:00:42.579
+In Java, that wall is a Selector.
 
 12
-00:00:42.633 --> 00:00:44.892
-Each registration is a SelectionKey.
+00:00:42.579 --> 00:00:44.725
+It watches many channels at once.
 
 13
-00:00:44.892 --> 00:00:51.478
-It holds the interest set, the operations you care about, and the ready set, which the selector fills in.
+00:00:44.725 --> 00:00:49.733
+A channel is Java's handle on something bytes move through, such as a socket.
 
 14
-00:00:51.478 --> 00:00:54.301
-Its attachment keeps that connection's state.
+00:00:49.733 --> 00:00:51.553
+And the clerk is one thread.
 
 15
-00:00:55.033 --> 00:00:56.784
-Now one thread runs a loop.
+00:00:52.467 --> 00:00:59.022
+You hang a box on the wall by registering a channel, with an interest set: the lights this box may show.
 
 16
-00:00:56.784 --> 00:01:01.062
-It calls select, which sleeps until at least one channel is ready.
+00:00:59.022 --> 00:01:02.426
+OP_ACCEPT means a new customer is waiting at the door.
 
 17
-00:01:01.062 --> 00:01:03.331
-On Linux, that is epoll underneath.
+00:01:02.426 --> 00:01:04.380
+OP_READ means a letter arrived.
 
 18
-00:01:03.533 --> 00:01:04.984
-Two clients send data.
+00:01:04.380 --> 00:01:07.405
+And OP_WRITE means there's room to send a reply.
 
 19
-00:01:04.984 --> 00:01:09.797
-Their keys become ready, and select returns them in the selected-key set.
+00:01:07.633 --> 00:01:09.889
+Each registration is a SelectionKey.
 
 20
-00:01:10.000 --> 00:01:12.056
-The thread serves only those two.
+00:01:09.889 --> 00:01:11.769
+Think of it as the box itself.
 
 21
-00:01:12.056 --> 00:01:15.420
-It reads what arrived, writes the reply, and moves on.
+00:01:11.769 --> 00:01:16.720
+It knows its interest set, and its ready set, the lights that are on right now.
 
 22
-00:01:15.420 --> 00:01:17.849
-The four idle channels cost it nothing.
+00:01:16.720 --> 00:01:22.423
+And it has an attachment: a card pinned to the box, where you keep that connection's state.
 
 23
-00:01:18.067 --> 00:01:21.272
-It must remove each handled key from the set itself.
+00:01:23.333 --> 00:01:24.688
+Now the clerk's day.
 
 24
-00:01:21.272 --> 00:01:24.230
-The selector adds keys and never takes them out.
+00:01:24.688 --> 00:01:27.941
+select sleeps until at least one light comes on.
 
 25
-00:01:24.230 --> 00:01:28.668
-Leave one in, and the next pass handles it again with its old ready set.
+00:01:27.941 --> 00:01:31.396
+Then selectedKeys hands over the list of lit boxes.
 
 26
-00:01:28.900 --> 00:01:32.981
-Then it calls select again, and sleeps until the next channel is ready.
+00:01:31.600 --> 00:01:33.445
+The clerk walks down the list.
 
 27
-00:01:33.900 --> 00:01:36.509
-Here is that loop in Java and in Kotlin.
+00:01:33.445 --> 00:01:35.412
+An accept key is a new customer.
 
 28
-00:01:36.509 --> 00:01:40.292
-Select, walk the selected keys, remove each one, serve it.
+00:01:35.412 --> 00:01:41.931
+So the clerk accepts the channel, makes it non-blocking, and gives it a box of its own, with a fresh card.
 
 29
-00:01:40.500 --> 00:01:44.763
-A selector's selected-key set is not safe for several threads at once.
+00:01:41.931 --> 00:01:48.203
+Any other key is a box with something to do, and serve handles it: read, write, and update the lights.
 
 30
-00:01:44.763 --> 00:01:49.086
-So one thread owns the selector and does all the work for its channels.
+00:01:49.533 --> 00:01:55.666
+One line in that loop looks like housekeeping: it.remove, which crosses the box off the list.
 
 31
-00:01:49.086 --> 00:01:51.400
-Netty calls that thread an event loop.
+00:01:55.666 --> 00:01:57.116
+Does it really matter?
+
+32
+00:01:57.116 --> 00:02:05.886
+The lesson's StaleKeyDemo sends exactly one message, six bytes, and runs the loop for 300 milliseconds, with the line and without it.
+
+33
+00:02:05.886 --> 00:02:10.040
+How many times does each version treat the channel as readable?
+
+34
+00:02:13.233 --> 00:02:15.450
+With it.remove: once, six bytes.
+
+35
+00:02:15.450 --> 00:02:21.198
+Without it: seven times, in seven passes of the loop, and still six bytes in total.
+
+36
+00:02:21.198 --> 00:02:24.731
+Each extra visit called read, and got nothing back.
+
+37
+00:02:25.433 --> 00:02:26.160
+Here's why.
+
+38
+00:02:26.160 --> 00:02:30.190
+The selector adds keys to the list, and never takes them out.
+
+39
+00:02:30.190 --> 00:02:31.247
+That's your job.
+
+40
+00:02:31.247 --> 00:02:36.203
+Leave a key in, and the next pass handles it again, with its old ready set.
+
+41
+00:02:36.203 --> 00:02:39.440
+It's a list of lit boxes that nobody crosses off.
+
+42
+00:02:39.667 --> 00:02:42.454
+Seven visits to a box that held one letter.
+
+43
+00:02:42.454 --> 00:02:45.435
+A very dedicated clerk, with no memory at all.
+
+44
+00:02:45.435 --> 00:02:49.713
+For an accept key it's worse: accept again, and you get null back.
+
+45
+00:02:50.633 --> 00:02:53.485
+The selector comes with a threading rule, too.
+
+46
+00:02:53.485 --> 00:02:58.691
+A selector is safe to use from several threads, but its list of selected keys isn't.
+
+47
+00:02:58.691 --> 00:03:06.253
+So every library does the simple thing: one thread owns a selector, runs its loop, and does all the work for its channels.
+
+48
+00:03:06.253 --> 00:03:09.476
+Netty, next lesson, calls that thread an event loop.
+
+49
+00:03:10.400 --> 00:03:17.846
+One level down: on Linux, Selector.open gives you a wrapper around epoll, and on macOS, around kqueue.
+
+50
+00:03:17.846 --> 00:03:20.985
+The JDK uses epoll in level-triggered mode.
+
+51
+00:03:20.985 --> 00:03:29.599
+As long as a socket is ready, every select reports it again, like a light that stays on while there's mail in the box.
+
+52
+00:03:29.800 --> 00:03:35.149
+The other mode, edge-triggered, is more like a bell that rings once when a letter arrives.
+
+53
+00:03:35.149 --> 00:03:38.001
+For reading, a light that stays on is forgiving.
+
+54
+00:03:38.001 --> 00:03:41.745
+Leave a letter in the box, and the light is still on next time.
+
+55
+00:03:42.667 --> 00:03:45.501
+But here the post office picture misleads us.
+
+56
+00:03:45.501 --> 00:03:51.043
+A socket counts as writable whenever its send buffer has room, and that's nearly always.
+
+57
+00:03:51.043 --> 00:03:55.892
+So if every box asks for OP_WRITE, its room-for-a-reply light never goes out.
+
+58
+00:03:56.100 --> 00:04:02.841
+The lesson's SpinDemo watched one idle connection for 300 milliseconds.
+
+59
+00:04:02.841 --> 00:04:05.975
+With OP_READ alone, zero wakeups.
+
+60
+00:04:05.975 --> 00:04:08.728
+With OP_WRITE added, 374,510.
+
+61
+00:04:08.933 --> 00:04:17.735
+That's the clerk walking to a box, finding room for a reply nobody wrote, and walking back, more than a thousand times a millisecond.
+
+62
+00:04:17.735 --> 00:04:19.918
+Great for the clerk's step count.
+
+63
+00:04:19.918 --> 00:04:24.617
+On a real server, it's one core at 100 percent, with no traffic at all.
+
+64
+00:04:24.617 --> 00:04:27.925
+So ask for OP_WRITE only while a reply is waiting.
+
+65
+00:04:28.833 --> 00:04:37.373
+Here's the clerk's day in code, in Java and in Kotlin: select, the list of lit boxes, it.remove, and the two kinds of keys.
+
+66
+00:04:38.300 --> 00:04:41.216
+So how does one clerk know which boxes are lit?
+
+67
+00:04:41.216 --> 00:04:44.752
+It asks the selector, which hands over only the lit ones.
+
+68
+00:04:44.752 --> 00:04:47.917
+And the selector never crosses a box off your list.
+
+69
+00:04:47.917 --> 00:04:53.004
+Remove every key you handle, and ask for the write light only while a reply waits.
+
+70
+00:04:53.233 --> 00:04:54.048
+Quick check.
+
+71
+00:04:54.048 --> 00:04:57.646
+You forget it.remove, and a client sends one message.
+
+72
+00:04:57.646 --> 00:05:00.293
+Does the server read those bytes twice?
+
+73
+00:05:03.467 --> 00:05:03.681
+No.
+
+74
+00:05:03.681 --> 00:05:08.614
+It visits the box again and again, but each extra read finds nothing.
+
+75
+00:05:08.614 --> 00:05:11.188
+Wasted trips, not duplicate letters.

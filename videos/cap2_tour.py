@@ -515,9 +515,9 @@ class Cap2Tour(Narrated):
         cl2 = person(CLERK, 1.0).next_to(c2[1], UP, buff=0.04)
         ph1 = phone(0.6, NL).next_to(cl1, RIGHT, buff=0.08)
         ph2 = phone(0.6, NL).next_to(cl2, RIGHT, buff=0.08)
-        ax2 = axis(-2.9, [0, 200, 400, 600, 800, 1000], 1100)
+        ax2 = axis(-2.45, [0, 200, 400, 600, 800, 1000], 1100)
         st1 = VGroup(*[bar(100 * i, 100 * (i + 1), -0.75 - 0.13 * i, NL, h=0.11) for i in range(5)])
-        half = DashedLine([tx(500), -0.55, 0], [tx(500), -2.8, 0], dash_length=0.08).set_stroke(TICKET, 2.5)
+        half = DashedLine([tx(500), -0.55, 0], [tx(500), -2.35, 0], dash_length=0.08).set_stroke(TICKET, 2.5)
         half_t = T("about 500 ms: five each, still on the phone", 24, TICKET).next_to(half, RIGHT, buff=0.2).shift(UP * 0.6)
         div = T("more clerks divide the damage; they don't remove it", 28).move_to([0, -3.35, 0])
         fit(div, 12.4)
@@ -645,7 +645,7 @@ class Cap2Tour(Narrated):
         self.play(FadeIn(jgood, shift=UP * 0.1), run_time=0.8)
         self.at_text("Kotlin says", lead=0.3)
         self.play(FadeIn(kg, shift=UP * 0.1), run_time=0.8)
-        self.hold()
+        self.hold(after=2.0)
         self.clear()
 
         # ================= guardrail =================

@@ -3,7 +3,7 @@ import fg
 
 # Spoken forms only (captions keep the written words). fg.py is shared, so these live here.
 fg.SAY[:0] = [
-    (r"<out T>", " of out T"), (r"\? extends", "question mark extends"), (r"\bT : (\w+)", r"T colon \1"),
+    (r"<out (\w+)>", r" of out \1"), (r"\? extends", "question mark extends"), (r"\bT : (\w+)", r"T colon \1"),
     (r"\b([A-Z][A-Za-z]*)<([A-Za-z]+)\?>", r"\1 of nullable \2"),
     (r"\b([A-Z][A-Za-z]*)<([A-Za-z]+)<([A-Za-z]+)>>", r"\1 of \2 of \3"),
     (r"\b([A-Z][A-Za-z]*)<([A-Za-z]+)>", r"\1 of \2"),
@@ -222,8 +222,8 @@ N = {
     "breaks": "The picture breaks in one place, and it matters later. A real label stays on the box. The compiler checks "
               "the label, and then tears it off. When the program runs, on the JVM, there is only one Box class, and "
               "the String part is gone.",
-    "breaks2": "So our clerk is strict at the door, with one odd habit: every label goes in the bin before the shop opens. That's fine, because by then every box has been checked. Lesson 8 shows what the missing label costs.",
-    "guard": "Three rules to take with you. One: a cast like as String, on a value from Any, marks a box with no label. Two: don't widen a type to Any to feel flexible. Here, flexible means unchecked. Three: a plain T promises nothing, so the box can't ask its value for much. The next lesson fixes that.",
+    "breaks2": "So our clerk is strict at the door, with one odd habit: every label goes in the bin before the shop opens. That's fine, because by then every box has been checked.",
+    "guard": "Three rules. One: a cast like as String, on a value from Any, marks a box with no label. Two: don't widen a type to Any to feel flexible. Here, flexible means unchecked. Three: a plain T promises nothing, and the next lesson fixes that.",
     "moral": "So, why put a label on the box? Because a cast checks at the read, far from the bug. A type parameter puts "
              "the check at the write, on the very line that made the mistake.",
     "check": "Quick check. Someone writes the line on the screen: a Box<String>, filled with 42. Where do you hear about it?",
@@ -416,7 +416,8 @@ class Gen01FromZero(Narrated):
         big = crate(3.4, 2.2, None).move_to([2.6, FL + 1.1, 0])
         lab = paper(["Box of ________"], 26).move_to(big[0].get_center() + DOWN * 0.1)
         gap = part(lab[1], "________")
-        filled = Text("apple names", font=FONT, font_size=26, color=PEN, slant=ITALIC).move_to(gap).shift(UP * 0.05)
+        filled = Text("apple names", font=FONT, font_size=24, color=PEN, slant=ITALIC)
+        filled.next_to(part(lab[1], "Boxof"), RIGHT, buff=0.2).align_to(gap, DOWN)
         maker = who(GREY_A, "box maker", 1.0, 20).move_to([-0.2, FL + 0.7, 0])
         taker = who(BACK, "whoever takes it", 1.0, 20).move_to([5.6, FL + 0.7, 0])
         qmark = T("?", 40, GREY_A).next_to(maker[0], UP, buff=0.15)
@@ -600,7 +601,8 @@ class Gen01FromZero(Narrated):
         nocast = T("no cast anywhere", 22, OK).next_to(flow, DOWN, buff=0.2)
         self.say("fun")
         self.play(FadeOut(VGroup(gen, gl, ts, arrs, tl)), run_time=0.5)
-        self.play(FadeIn(fg_[1], shift=UP * 0.1), Indicate(part(kf[0], "<T>"), color=CLERK, scale_factor=1.3), run_time=0.8)
+        self.play(FadeIn(fg_[1], shift=UP * 0.1), run_time=0.6)
+        self.play(Indicate(part(kf[0], "<T>"), color=CLERK, scale_factor=1.3), run_time=0.6)
         self.at(2)
         self.play(FadeIn(fg_[0], shift=UP * 0.1), run_time=0.7)
         self.play(Indicate(part(jf[0], "<T>"), color=CLERK, scale_factor=1.3), run_time=0.6)

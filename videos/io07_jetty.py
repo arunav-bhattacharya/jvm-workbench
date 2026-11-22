@@ -209,7 +209,10 @@ def ticket(text, color=CARD, size=22):
 
 def card(lines, color=GREY_B, size=22, w=None):
     """A code card: monospace lines in a rounded box."""
-    body = VGroup(*[M(l, size) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    body = VGroup(*[M(l.strip(), size) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    cw = M("0123456789", size).width / 10
+    for m, l in zip(body, lines):
+        m.shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
     r = RoundedRectangle(corner_radius=0.1, width=w or body.width + 0.5, height=body.height + 0.4).set_stroke(color, 2.2).set_fill("#101010", 1)
     body.move_to(r)
     return VGroup(r, body)
