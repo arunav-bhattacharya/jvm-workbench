@@ -1,165 +1,425 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.658
-A payment service has three kinds of instruction: card, SEPA transfer and wallet payout.
+00:00:02.733 --> 00:00:09.949
+Once a month, an inspector from the town hall visits the corner shop, and goes through the Saturday breakfast box.
 
 2
-00:00:08.658 --> 00:00:10.351
-They almost never change.
+00:00:09.949 --> 00:00:12.228
+Her check depends on what she finds.
 
 3
-00:00:10.567 --> 00:00:14.451
-But new jobs for them keep coming: a fee, a bank export.
+00:00:12.228 --> 00:00:13.558
+The date on the milk.
 
 4
-00:00:14.451 --> 00:00:17.364
-Each job needs its own code for each kind.
+00:00:13.558 --> 00:00:15.267
+The price label on the jam.
 
 5
-00:00:17.567 --> 00:00:21.430
-So picture a grid: one row per kind, one column per job.
+00:00:15.267 --> 00:00:19.001
+Inside is a smaller box, so she opens it, and starts again.
 
 6
-00:00:21.430 --> 00:00:23.361
-Where should the cells live?
+00:00:19.600 --> 00:00:24.298
+It's the breakfast box from the Composite lesson, with three kinds of goods.
 
 7
-00:00:24.300 --> 00:00:29.619
-The usual answer is by row: each class holds its own fee and export methods.
+00:00:24.298 --> 00:00:27.080
+An item: a packet with a price, like the jam.
 
 8
-00:00:29.833 --> 00:00:31.875
-Then someone asks for a report.
+00:00:27.080 --> 00:00:30.666
+Fresh food, which also knows its days left, like the milk.
 
 9
-00:00:31.875 --> 00:00:34.839
-A new column means editing all three classes.
+00:00:30.666 --> 00:00:32.768
+And a box, which holds more goods.
 
 10
-00:00:35.033 --> 00:00:37.577
-A visitor stores the grid by column.
+00:00:33.667 --> 00:00:35.574
+The kinds hardly ever change.
 
 11
-00:00:37.577 --> 00:00:43.089
-Each job is one class, with one method per kind, behind one visitor interface.
+00:00:35.574 --> 00:00:37.218
+But the jobs keep coming.
 
 12
-00:00:43.300 --> 00:00:47.820
-A new report is one new class, and the instruction classes stay put.
+00:00:37.218 --> 00:00:41.033
+The price, where fresh food is half price on its last day.
 
 13
-00:00:47.820 --> 00:00:50.545
-Each just needs one small method: accept.
+00:00:41.033 --> 00:00:42.480
+The inspector's check.
 
 14
-00:00:50.733 --> 00:00:54.082
-Your code holds a plain Instruction of unknown kind.
+00:00:42.480 --> 00:00:43.664
+The label printer.
 
 15
-00:00:54.082 --> 00:00:58.718
-One Java call can only choose by the class of the object it's called on.
+00:00:43.664 --> 00:00:45.440
+The weight for the courier.
 
 16
-00:00:58.718 --> 00:01:00.972
-So how do you reach the right cell?
+00:00:45.600 --> 00:00:46.594
+Picture a grid.
 
 17
-00:01:02.733 --> 00:01:05.472
-Hop one: call accept on the instruction.
+00:00:46.594 --> 00:00:51.565
+One row per kind, one column per job, and every cell a small piece of code.
 
 18
-00:01:05.472 --> 00:01:08.621
-It's a wallet payout, so Wallet's accept runs.
+00:00:51.565 --> 00:00:53.620
+So where should the cells live?
 
 19
-00:01:08.621 --> 00:01:09.921
-That picks the row.
+00:00:54.133 --> 00:00:57.014
+Here's a question that's easy to be shy about.
 
 20
-00:01:10.133 --> 00:01:15.199
-Hop two: it calls visitWallet on the visitor, whose class picks the column.
+00:00:57.014 --> 00:01:00.896
+Why not give each class a price method, and an inspect method?
 
 21
-00:01:15.199 --> 00:01:16.685
-Fee visitor, fee cell.
+00:01:00.896 --> 00:01:02.900
+Isn't that what objects are for?
 
 22
-00:01:16.685 --> 00:01:18.644
-Export visitor, the next one.
+00:01:03.467 --> 00:01:05.772
+It works, and most of us start there.
 
 23
-00:01:18.800 --> 00:01:23.159
-That's double dispatch: accept picks the kind, visit picks the job.
+00:01:05.772 --> 00:01:07.579
+Each class holds its own row.
 
 24
-00:01:23.967 --> 00:01:25.427
-The catch is a new row.
+00:01:07.579 --> 00:01:10.569
+And a new kind of goods is cheap: one new class.
 
 25
-00:01:25.427 --> 00:01:30.444
-A voucher needs an accept, and every visitor ever written needs a visitVoucher.
+00:01:11.133 --> 00:01:13.326
+But new jobs arrive every month.
 
 26
-00:01:30.633 --> 00:01:33.065
-That trade is the expression problem.
+00:01:13.326 --> 00:01:18.532
+A new column means opening Item, Fresh and Box, and adding a method to each.
 
 27
-00:01:33.065 --> 00:01:36.154
-Methods in the classes make kinds cheap to add.
+00:01:18.532 --> 00:01:20.519
+Next spring, all three again.
 
 28
-00:01:36.154 --> 00:01:37.928
-A visitor makes jobs cheap.
+00:01:20.667 --> 00:01:26.369
+The goods get a new method every spring, like a fresh coat of paint, whether they need one or not.
 
 29
-00:01:38.100 --> 00:01:42.442
-Today a sealed interface gives you the visitor's side with less code.
+00:01:26.533 --> 00:01:28.878
+What we'd like is the other way round.
 
 30
-00:01:42.442 --> 00:01:46.092
-It lists all three kinds, so the compiler knows every row.
+00:01:28.878 --> 00:01:31.901
+A new job in one place, and the goods left alone.
 
 31
-00:01:46.300 --> 00:01:48.883
-Each job is one function with a switch.
+00:01:32.600 --> 00:01:35.365
+And that's exactly what the inspector does.
 
 32
-00:01:48.883 --> 00:01:51.797
-The switch checks the object's class itself.
+00:01:35.365 --> 00:01:36.265
+Let's map her.
 
 33
-00:01:51.797 --> 00:01:54.512
-One hop, no accept, no visitor interface.
+00:01:36.265 --> 00:01:38.002
+The inspector is a visitor.
 
 34
-00:01:54.700 --> 00:02:00.381
-Add a voucher, and every switch without a voucher case stops compiling, each one listed.
+00:01:38.002 --> 00:01:41.667
+This spring's checklist is one visitor class: one column.
 
 35
-00:02:01.300 --> 00:02:05.701
-In Java that's a switch, in Kotlin a when, with no default branch.
+00:01:41.667 --> 00:01:45.204
+A different check for each kind is one method per kind.
 
 36
-00:02:09.033 --> 00:02:16.229
-The rule: to add jobs to a closed set of types, write one function per job that switches over a sealed type.
+00:01:45.204 --> 00:01:49.963
+And each thing opens its door to her with one small method, called accept.
 
 37
-00:02:16.433 --> 00:02:17.259
-Quick check.
+00:01:50.867 --> 00:01:52.195
+Here it is in Java.
 
 38
-00:02:17.259 --> 00:02:20.425
-A new job every month, a new kind once a year.
+00:01:52.195 --> 00:01:54.783
+GoodsVisitor has one method per kind.
 
 39
-00:02:20.425 --> 00:02:23.109
-Should rows or columns be cheap to add?
+00:01:54.783 --> 00:01:56.951
+Price is one job, in one class.
 
 40
-00:02:25.100 --> 00:02:25.714
-Columns.
+00:01:56.951 --> 00:01:58.630
+An item costs its cents.
 
 41
-00:02:25.714 --> 00:02:28.783
-So a visitor, or today, a sealed switch.
+00:01:58.630 --> 00:02:01.917
+Fresh food is half price when no days are left.
+
+42
+00:02:01.917 --> 00:02:04.155
+And a box adds up what it holds.
+
+43
+00:02:04.333 --> 00:02:06.023
+Kotlin has the same shape.
+
+44
+00:02:06.023 --> 00:02:10.896
+Each kind of goods gets one small accept, which calls its own visit method.
+
+45
+00:02:11.800 --> 00:02:15.511
+Now follow one call: breakfast.accept(new Price()).
+
+46
+00:02:15.511 --> 00:02:19.731
+Hop one: the box's own accept runs, and it calls visitBox.
+
+47
+00:02:19.731 --> 00:02:24.679
+Hop two: visitBox asks each thing inside to accept the same visitor.
+
+48
+00:02:24.679 --> 00:02:26.935
+The rye bread calls visitFresh.
+
+49
+00:02:26.935 --> 00:02:28.681
+The jam calls visitItem.
+
+50
+00:02:28.681 --> 00:02:31.083
+And the smaller box starts again.
+
+51
+00:02:31.600 --> 00:02:37.585
+Choosing the code by two things at once, the kind and the job, is called double dispatch.
+
+52
+00:02:37.585 --> 00:02:39.064
+Accept picks the kind.
+
+53
+00:02:39.064 --> 00:02:40.409
+Visit picks the job.
+
+54
+00:02:41.133 --> 00:02:44.253
+So what does the whole box cost?
+
+55
+00:02:44.253 --> 00:02:47.762
+Rye bread, 250 cents, two days left.
+
+56
+00:02:47.762 --> 00:02:48.639
+Jam, 300.
+
+57
+00:02:48.639 --> 00:02:49.517
+Tea, 450.
+
+58
+00:02:49.517 --> 00:02:52.344
+Milk, 120, with no days left.
+
+59
+00:02:52.344 --> 00:02:54.293
+Pause and add it up.
+
+60
+00:02:57.733 --> 00:03:01.286
+The milk is on its last day, so it counts for 60.
+
+61
+00:03:01.286 --> 00:03:06.216
+And the lesson's VisitorVsSwitch printed: breakfast box, 1060 cents.
+
+62
+00:03:07.133 --> 00:03:09.828
+Now the shop starts selling frozen peas.
+
+63
+00:03:09.828 --> 00:03:11.713
+A new kind of goods: Frozen.
+
+64
+00:03:11.713 --> 00:03:13.532
+What does the visitor need?
+
+65
+00:03:16.133 --> 00:03:18.353
+Here the inspector picture breaks.
+
+66
+00:03:18.353 --> 00:03:20.376
+A real inspector can improvise.
+
+67
+00:03:20.376 --> 00:03:24.489
+A visitor can't: it has no method for a kind it never heard of.
+
+68
+00:03:24.489 --> 00:03:31.669
+So the interface needs visitFrozen, Frozen needs an accept, and every visitor ever written needs a new method.
+
+69
+00:03:31.867 --> 00:03:35.095
+That's a lot of paperwork for a bag of frozen peas.
+
+70
+00:03:36.000 --> 00:03:38.955
+This trade has a name: the expression problem.
+
+71
+00:03:38.955 --> 00:03:44.030
+With methods in each class, new kinds are cheap and new jobs touch every class.
+
+72
+00:03:44.030 --> 00:03:46.664
+With a visitor, it's the other way round.
+
+73
+00:03:46.664 --> 00:03:48.784
+Pick the side you expect to grow.
+
+74
+00:03:48.784 --> 00:03:50.519
+In the shop, the jobs grow.
+
+75
+00:03:50.519 --> 00:03:52.189
+That's the visitor's side.
+
+76
+00:03:53.067 --> 00:03:54.794
+Today there's a lighter way.
+
+77
+00:03:54.794 --> 00:04:00.780
+A sealed interface lists every type allowed to implement it, so the compiler knows the whole set.
+
+78
+00:04:00.780 --> 00:04:06.889
+And pattern matching lets a switch, or a when, test which type a value is, and take its fields out.
+
+79
+00:04:07.800 --> 00:04:12.637
+So each job becomes one function, with no accept and no visitor interface.
+
+80
+00:04:12.637 --> 00:04:17.605
+The guard, when days is zero, puts the last day rule right where it applies.
+
+81
+00:04:18.533 --> 00:04:21.288
+And the inspector is one more function.
+
+82
+00:04:21.288 --> 00:04:27.291
+The demo prices the box both ways: 1060 cents with the visitor, 1060 with the switch.
+
+83
+00:04:27.291 --> 00:04:30.116
+And the inspector found: milk, last day.
+
+84
+00:04:31.000 --> 00:04:33.851
+Now add Frozen to the sealed set, and build.
+
+85
+00:04:33.851 --> 00:04:37.285
+Kotlin answers: 'when' expression must be exhaustive.
+
+86
+00:04:37.285 --> 00:04:40.330
+Add the 'is Frozen' branch or an 'else' branch.
+
+87
+00:04:40.330 --> 00:04:45.384
+And Java says: the switch expression does not cover all possible input values.
+
+88
+00:04:45.533 --> 00:04:49.244
+Visitor style: the interface, an accept, and every visitor.
+
+89
+00:04:49.244 --> 00:04:53.205
+Switch style: one branch per function, each one listed for you.
+
+90
+00:04:54.133 --> 00:04:56.432
+So when is a visitor still right?
+
+91
+00:04:56.432 --> 00:05:07.437
+When the kinds are open to code you don't compile, or when a library hands you one, like Java's annotation processing, or ASM, a library for compiled classes.
+
+92
+00:05:07.600 --> 00:05:12.151
+Even the design notes for Java's pattern matching say so, in these words.
+
+93
+00:05:12.333 --> 00:05:13.521
+So here's the rule.
+
+94
+00:05:13.521 --> 00:05:18.148
+For a closed set of kinds you own, a sealed switch does the visitor's job.
+
+95
+00:05:18.148 --> 00:05:20.524
+Keep Visitor for sets you can't close.
+
+96
+00:05:21.400 --> 00:05:23.502
+The inspector still comes every month.
+
+97
+00:05:23.502 --> 00:05:27.152
+She just doesn't need the goods to hold the door for her any more.
+
+98
+00:05:28.067 --> 00:05:31.610
+So, isn't a method on each class what objects are for?
+
+99
+00:05:31.610 --> 00:05:33.250
+When the kinds grow, yes.
+
+100
+00:05:33.250 --> 00:05:38.433
+When the jobs grow, give each job one place: one function with a sealed switch.
+
+101
+00:05:38.600 --> 00:05:39.359
+Quick check.
+
+102
+00:05:39.359 --> 00:05:44.358
+The shop adds a new job every month, and a new kind of goods about once a year.
+
+103
+00:05:44.358 --> 00:05:46.193
+Which should be cheap to add?
+
+104
+00:05:49.400 --> 00:05:50.021
+New jobs.
+
+105
+00:05:50.021 --> 00:05:53.057
+So one function per job, over a sealed type.
+
+106
+00:05:53.057 --> 00:05:56.161
+The compiler lists the rare new kind for you.

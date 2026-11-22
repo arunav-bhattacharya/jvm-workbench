@@ -266,7 +266,7 @@ class Fp07Errors(Narrated):
 
         # ================= the kitchen line with a side door =================
         steps, top, bot = railway(["check", "mix", "bake"], y=1.0)
-        tl = T("success", 22, OK_C).move_to([-5.7, 1.35, 0])
+        tl = T("success", 22, OK_C).move_to([-6.0, 1.35, 0])
         bl = T("side door: errors", 22, ERR_C).move_to([-4.6, -0.95, 0])
         batter = Circle(radius=0.22).set_stroke(GOLD_M, 3).set_fill(dim(GOLD_M, 0.5), 1).move_to([-6.2, 1.0, 0])
         self.say("line")
@@ -450,10 +450,11 @@ class Fp07Errors(Narrated):
         f2 = VGroup(T("unit", 24, GREY_B), M("oz", 30, WHITE)).arrange(RIGHT, buff=0.5)
         VGroup(f1, f2).arrange(DOWN, aligned_edge=LEFT, buff=0.45).move_to(form)
         insp = person(CLIP_C, 1.3).move_to([-0.6, 2.2, 0])
-        cb = clipboard(1.4).move_to([3.4, 0.6, 0])
+        cb = clipboard(1.4).move_to([1.9, 0.6, 0])
         cbl = T("the clipboard", 24, CLIP_C).next_to(cb, UP, buff=0.2)
-        e1 = M("InvalidAmount(-5)", 18, ERR_C).move_to(cb[1].get_center() + UP * 0.3)
-        e2 = M("UnsupportedUnit(oz)", 18, ERR_C).move_to(cb[1].get_center() + DOWN * 0.15)
+        e1 = M("InvalidAmount(-5)", 24, ERR_C).next_to(cb, RIGHT, buff=0.3).shift(UP * 0.35)
+        e2 = M("UnsupportedUnit(oz)", 24, ERR_C).next_to(cb, RIGHT, buff=0.3).shift(DOWN * 0.25)
+        e2.align_to(e1, LEFT)
         dish = T("dish made only if it stays empty", 24, GREY_A).move_to([3.0, -1.9, 0])
         self.say("clip")
         self.play(FadeIn(form), FadeIn(f1), FadeIn(f2), FadeIn(insp), FadeIn(cb), FadeIn(cbl), run_time=0.8)
@@ -472,7 +473,7 @@ class Fp07Errors(Narrated):
         hp = T("the inspector", 28, GREY_B).move_to([-3.3, 2.4, 0])
         hc = T("the code", 28, GREY_B).move_to([3.0, 2.4, 0])
         rows = [("one stop on her round", "one check, its own lambda", STEP_C), ("the clipboard", "the list of errors", CLIP_C),
-                ("the dish", "the Amount, made if all passed", OK_C)]
+                ("the dish", "the Amount, if all passed", OK_C)]
         Y = [1.3, 0.2, -0.9]
         mrows = VGroup()
         for (a, b, c), y in zip(rows, Y):
@@ -540,17 +541,18 @@ class Fp07Errors(Narrated):
                          "    if (!UNITS.contains(u)) errors.add(new UnsupportedUnit(u));",
                          "    return errors.isEmpty() ? new Valid<>(new Amount(a, u))",
                          "                            : new Invalid<>(List.copyOf(errors));",
-                         "}"], 22)
+                         "}"], 26)
         kv = code_block(["fun accumulate(a: Int, u: String):", "    Either<NonEmptyList<FormError>, Amount> = either {",
                          "    zipOrAccumulate(",
                          "        { validAmount(a) },",
                          "        { validUnit(u) }",
                          "    ) { amount, unit -> Amount(amount, unit) }",
                          "}"], 22)
-        pr = VGroup(labelled("Java: by hand", jv), labelled("Kotlin, with Arrow", kv)).arrange(RIGHT, aligned_edge=UP, buff=0.6)
-        fit(pr, 12.6).move_to([0, 0.6, 0])
+        pr = VGroup(labelled("Java: by hand, the JDK has no Either", jv, 24))
+        fit(pr, 12.4).move_to([0, 0.5, 0])
+        kn = T("Kotlin: the zipOrAccumulate block you just saw", 24, GREY_B).move_to([0, -2.6, 0])
         self.say("java2")
-        self.play(FadeIn(pr[1]), run_time=0.6)
+        self.play(FadeIn(kn), run_time=0.6)
         self.at(1)
         self.play(FadeIn(pr[0]), run_time=0.7)
         self.at_text("a list of errors", lead=0.3)

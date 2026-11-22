@@ -347,7 +347,8 @@ class Pat10Visitor(Narrated):
         self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.play(FadeOut(VGroup(shy, q1, q2)), run_time=0.4)
-        rowf = [frame_around([rlab[r]] + [cells[r, j] for j in range(4)], KINDS[r][1]) for r in range(3)]
+        x_l, x_r = GX - 1.9 * 0.55 - 1.05, GX + 3 * 1.9 + 0.97
+        rowf = [RoundedRectangle(corner_radius=0.1, width=x_r - x_l, height=0.74).set_stroke(KINDS[r][1], 4).move_to([(x_l + x_r) / 2, cells[r, 0].get_y(), 0]) for r in range(3)]
         rnote = T("methods in each class: one class holds one row", 26, GREY_A).move_to([0, -2.2, 0])
         self.say("rows")
         self.at(1)

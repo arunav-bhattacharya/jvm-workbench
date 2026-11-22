@@ -112,25 +112,25 @@
       "slug": "fp05-sequences",
       "lesson": "fp-05",
       "section": 1,
-      "title": "A List runs each step over every payment; a Sequence pulls one payment through the whole chain and stops early, but sorted() still reads everything"
+      "title": "A List runs each step over the whole tray; a Sequence sends one cookie down the whole line and stops early, but sortedBy still reads every recipe"
     },
     {
       "slug": "fp06-scope",
       "lesson": "fp-06",
       "section": 1,
-      "title": "Two questions pick a scope function: this or it, the object or the block's result, and why ?.let { } ?: run { } can run both blocks"
+      "title": "Two questions pick a scope function: is the value this or it, and does the call hand back the value or the block's result"
     },
     {
       "slug": "fp07-errors",
       "lesson": "fp-07",
       "section": 3,
-      "title": "Errors as values: fail fast stops at the first error, collecting runs every check, and runCatching swallows the cancel"
+      "title": "Fail fast with either { } when each step needs the one before; collect every error with zipOrAccumulate when the checks are independent"
     },
     {
       "slug": "fp08-core",
       "lesson": "fp-08",
       "section": 3,
-      "title": "A pure core decides from plain values, a thin shell does the I/O, and its inputs must not change underneath it"
+      "title": "A pure core decides from plain values, the clock included, and a thin shell reads, calls the core and does the errands"
     },
     {
       "slug": "fp01-pure",
