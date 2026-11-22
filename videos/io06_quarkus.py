@@ -249,8 +249,8 @@ class Io06Quarkus(Narrated):
         self.title_card("Quarkus reads the label", "how a return type picks the thread that runs your endpoint")
 
         # ================= hook: the company rule book =================
-        book = RoundedRectangle(corner_radius=0.12, width=7.4, height=1.75).set_stroke(CARD, 2.5).set_fill(dim(CARD, 0.08), 1)
-        book.move_to([0, 2.3, 0])
+        book = RoundedRectangle(corner_radius=0.12, width=7.6, height=2.05).set_stroke(CARD, 2.5).set_fill(dim(CARD, 0.08), 1)
+        book.move_to([0, 2.2, 0])
         bt = T("the rule book", 24, CARD).next_to(book.get_top(), DOWN, buff=0.15)
         rules = VGroup(VGroup(ticket("quick"), T("stays with the counter clerk", 24, CLERK)).arrange(RIGHT, buff=0.3),
                        VGroup(ticket("no label", GREY_B), T("goes to the back office", 24, WORKER)).arrange(RIGHT, buff=0.3),

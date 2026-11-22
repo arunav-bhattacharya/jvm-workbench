@@ -219,14 +219,31 @@ def ring(m, color=BAD, r=0.55):
     return Circle(radius=r).set_stroke(color, 4).move_to(m)
 
 
+def wallbox(lit=False, s=1.0, color=YELLOW_M):
+    """A box in the wall with its light above (the same look as io-01's post office)."""
+    sq = RoundedRectangle(corner_radius=0.06, width=0.62, height=0.5).set_stroke(GREY_B, 2.2).set_fill("#101010", 1)
+    slot = Line(LEFT * 0.18, RIGHT * 0.18, stroke_width=3, color=GREY_C).move_to(sq.get_center() + UP * 0.06)
+    lamp = Circle(radius=0.08).next_to(sq, UP, buff=0.07)
+    set_lamp(lamp, lit, color)
+    return VGroup(sq, slot, lamp).scale(s)
+
+
+def set_lamp(lamp, lit, color=YELLOW_M):
+    if lit:
+        lamp.set_stroke(color, 2.5).set_fill(color, 1)
+    else:
+        lamp.set_stroke(GREY_C, 2).set_fill("#1a1a1a", 1)
+    return lamp
+
+
 DOOR, WATCH, POOL, STANDBY = PURPLE_M, CLERK, WORKER, WORKER
 
 
 def wall(rows=2, cols=4, side=0.5, lit=()):
-    bx = VGroup(*[Square(side_length=side).set_stroke(GREY_B, 2).set_fill("#121212", 1) for _ in range(rows * cols)])
-    bx.arrange_in_grid(rows=rows, cols=cols, buff=0.08)
-    lights = VGroup(*[Dot(b.get_top() + DOWN * 0.11, radius=0.055, color=(YELLOW_M if i in lit else GREY_D)) for i, b in enumerate(bx)])
-    return VGroup(bx, lights)
+    """Returns (boxes, lamps): io-01's wall boxes, each with its light above."""
+    bx = VGroup(*[wallbox(i in lit, side / 0.62) for i in range(rows * cols)])
+    bx.arrange_in_grid(rows=rows, cols=cols, buff=0.1)
+    return VGroup(VGroup(*[b[:2] for b in bx]), VGroup(*[b[2] for b in bx]))
 
 
 def standby(s=0.6):
@@ -280,7 +297,7 @@ class Io07Jetty(Narrated):
         self.at(1)
         self.play(FadeIn(pdk), run_time=0.5)
         self.at(2)
-        self.play(FadeIn(sq), Indicate(w1[1][1], color=YELLOW_M, scale_factor=1.8), run_time=0.8)
+        self.play(FadeIn(sq), Indicate(w1[1][1], color=YELLOW_M, scale_factor=1.6), run_time=0.8)
         self.hold(after=0)
         self.predict()
         self.play(FadeOut(sq), run_time=0.3)
@@ -332,7 +349,7 @@ class Io07Jetty(Narrated):
         self.play(FadeIn(Group(wl, wt, wtl, room)), run_time=0.6)
         task = chip("run this connection", JOB, 22).next_to(wt, DOWN, buff=0.3)
         self.say("task")
-        self.play(wl[1][2].animate.set_color(YELLOW_M).scale(1.6), run_time=0.6)
+        self.play(wl[1][2].animate.set_fill(YELLOW_M, 1).set_stroke(YELLOW_M, 2.5), run_time=0.6)
         self.at(1)
         self.play(FadeIn(task, shift=UP * 0.1), run_time=0.6)
         self.hold()

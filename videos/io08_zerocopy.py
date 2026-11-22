@@ -1,338 +1,601 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form).
-fg.SAY += [(r"FileChannel\.transferTo", "File Channel dot transfer to"), (r"\btransferTo\b", "transfer to"),
-           (r"\bsendfile\b", "send file"), (r"\bstrace\b", "S trace"), (r"\bByteBuffer\b", "byte buffer"),
-           (r"\bMiB\b", "mebibytes"), (r"\bKiB\b", "kibibytes"), (r"\bTLS\b", "T L S")]
+# Spoken forms only (captions keep the written words).
+fg.SAY[:0] = [
+    (r"FileChannel\.transferTo", "File Channel dot transfer to"), (r"\btransferTo\b", "transfer to"),
+    (r"\bsendfile\b", "send file"), (r"\bstrace\b", "S trace"), (r"\bByteBuffer\b", "byte buffer"),
+    (r"\bMiB\b", "mebibytes"), (r"\bKiB\b", "kibibytes"), (r"\bTLS\b", "T L S"), (r"\bepoll_wait\b", "E poll wait"),
+    (r"\bZeroCopyDemo\b", "Zero Copy Demo"), (r"\bTransportsDemo\b", "Transports Demo"), (r"\bnio\b", "N I O"),
+    (r"\bhttps\b", "H T T P S"), (r"\b33,554,432\b", "33554432"), (r"\b2,119\b", "2119"), (r"\b1,037\b", "1037"),
+    (r"\b1,024\b", "1024"), (r"\b4,096\b", "4096"),
+]
 
-USER, KERN, HW, DATA, COPY, ZERO, EP, UR = GOLD_M, BLUE_M, GREY_B, YELLOW_M, RED_M, GREEN_M, PURPLE_M, TEAL_M
+# every spoken line, in order
+N = {
+    "open": "Picture the loading dock behind our post office. A van pulls up for a sack of parcels that's already "
+            "packed and labeled. Nobody carries that sack to the counter, unpacks it, repacks it, and carries it "
+            "back. The dock hands it straight to the van.",
+    "shyq": "Here's a question that's easy to be shy about. Sending a file over the network is just read, then "
+            "write, in a loop. We've all written it that way. So what could be wasteful about it?",
+    "setup": "Let's look at what that loop really does. A socket is a program's end of a network connection. The "
+             "kernel, the core of the operating system, keeps recently used file pages in memory, in its page "
+             "cache. Those are our packed sacks.",
+    "copy1": "Your loop calls read. That's a system call: a switch from your program into the kernel and back. The "
+             "kernel copies a chunk of the file up into your buffer. Copy one.",
+    "copy2": "Then you call write. Another system call, and the kernel copies the same bytes back down, into the "
+             "socket's send buffer. Copy two. Only then does the network card send them.",
+    "rounds": "With a heap ByteBuffer, the JDK even adds another copy, through a temporary buffer. And a 64 MiB file "
+              "through a 64 KiB buffer is 1,024 rounds of all this.",
+    "joke": "Every byte takes a round trip through your program, like a traveler who flies to a city only to change "
+            "planes, and never sees the view. Your program never changes these bytes. It only carries them.",
+    "wish": "Wouldn't it be nice to tell the kernel: you have the file, you have the socket, you move it?",
+    "name": "That's exactly what FileChannel.transferTo does. On Linux, with a socket as the target, the JDK turns "
+            "it into one system call, sendfile. The kernel sends pages from the page cache straight to the socket, "
+            "and the bytes never enter your process. That's called zero-copy: no copy through your program's "
+            "memory.",
+    "map": "Let's map it. The page cache is the stack of packed sacks. The socket's send buffer is the van. Your "
+           "program is the counter, and with zero-copy, the sack never comes to the counter at all.",
+    "pq": "The lesson's ZeroCopyDemo sends a 64 MiB file both ways, and strace, a Linux tool that lists every "
+          "system call, counted them. How many calls for each? Make a guess.",
+    "pa": "transferTo: one sendfile call. The copy: 2,119 reads and 1,037 writes, and the reads include the "
+          "receiving side.",
+    "bq": "About three thousand calls against one. So zero-copy must be much faster, right?",
+    "ba": "Well. The two passes took 78 and 74 milliseconds in one run, and 56 and 38 in the next. Close, and not "
+          "the same way round twice.",
+    "bwhy": "Why so close? The file was already in the page cache, and the socket went from the machine to itself, "
+            "so copying 64 MiB is quick. One timing proves nothing either way. The honest measure here is the "
+            "system calls: they count the work that zero-copy removes.",
+    "loop": "Two guardrails. First, transferTo may move fewer bytes than you asked for. It returns how many it "
+            "moved, so call it in a loop, just like a partial write in lesson 2.",
+    "cond": "Second, the bytes must leave exactly as they sit in the file. If the JVM encrypts them with TLS, the "
+            "encryption behind https, or compresses them, they have to come up into your memory anyway. A sack that "
+            "must be opened on the way can't go straight to the van.",
+    "tomcat": "Tomcat, a Java web server, shows the trade-off: for static files over 48 KiB, it uses sendfile and "
+              "skips compression.",
+    "ready": "Zero-copy saves the copies. The next question is how a server learns which sockets are ready at all. "
+             "Everything in this track so far used epoll, Linux's board of lit boxes. You register each socket "
+             "once, and epoll_wait returns only the lit ones. Then your loop makes each read call itself.",
+    "ready2": "That's called readiness. The kernel says: this box has mail, come and get it.",
+    "uring": "io_uring is a newer Linux interface, and it works by completion. Your program and the kernel share "
+             "two rings in memory, like a drop box with two trays. You drop requests in one tray: read up to 16 "
+             "KiB from this socket. The kernel does the work and puts results in the other tray: done, 4,096 "
+             "bytes.",
+    "uring2": "One system call can hand over and collect many jobs, and the kernel, not your thread, moves the "
+              "bytes. On the JVM you reach it through Netty, where it's a full transport since version 4.2.",
+    "fq": "So the new drop box must be faster, right? The lesson's TransportsDemo sent 32 MiB over each transport "
+          "on this machine. Guess the winner.",
+    "fa": "Every transport delivered all 33,554,432 bytes. nio took 137 milliseconds, epoll 35, and io_uring 59.",
+    "fa2": "And not just once. The Kotlin twin measured 40 against 48, and the research runs 86 against 159. The "
+           "gaps moved from run to run, and epoll kept winning.",
+    "joke2": "Newer is a date, not a speed. It tells you when something was made, not how fast it runs on your "
+             "machine. So measure your own workload before you switch. The switch is one factory and one channel "
+             "class, cheap to try and cheap to undo.",
+    "code": "Here's the zero-copy loop in Java and in Kotlin. Keep calling transferTo until every byte is sent.",
+    "moral": "So, what was wasteful about read and write? Every byte made a round trip through your program. When "
+             "bytes leave exactly as they're stored, let the kernel move them, dock to van, in a loop. And treat a "
+             "newer kernel interface as a question, not an answer.",
+    "check": "Quick check. Your server compresses each file before sending it. Can it use transferTo?",
+    "check_a": "No. Compression changes the bytes inside the JVM, so they have to come up into your memory anyway.",
+}
 
 
-class Planned(VoiceScene):
-    def say(self, text, plan=(), after=0.25):
-        """Speak text; plan is a list of (sentence index, [animations], run_time) started at that sentence."""
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
+
+    def say(self, key):
+        text = N[key]
         path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
         sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
-        total = sum(len(x) for x in sents)
-        starts, t = [], 0.0
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
         for x in sents:
-            starts.append(t)
-            t += dur * len(x) / total
-        now = 0.0
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now)
-                now = starts[idx]
-            self.play(*anims, run_time=rt)
-            now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
         if after:
             self.wait(after)
 
+    def predict(self, secs=2.1, pos=(-6.4, 3.3), edge=LEFT):
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
 
-def slotbox(label, color, size=26):
-    """A box with its label on the left and a free slot on the right, where a chunk of data can rest."""
-    t = T(label, size)
-    r = RoundedRectangle(corner_radius=0.12, width=t.width + 1.25, height=0.8, stroke_color=color, stroke_width=3)
-    r.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(color), 0.14), opacity=1)
-    t.move_to(r).align_to(r, LEFT).shift(RIGHT * 0.3)
+    def clear(self, rt=0.6):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
+
+
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
+
+
+# one colour per thing, for the whole post office track
+CLERK, WORKER, JOB, BAD, MGR, CARD, CUST = BLUE_M, GREEN_M, GOLD_M, RED_M, PURPLE_M, YELLOW_M, GREY_B
+
+
+def person(color=CLERK, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
+
+
+def desk(name, w=2.5, card_text=None, card_color=CARD):
+    """A desk: a top, a body with two drawers, a name below, and an optional card on top naming its clerk."""
+    body = RoundedRectangle(corner_radius=0.06, width=w, height=0.9).set_stroke(GREY_B, 2.5).set_fill("#121212", 1)
+    top = Line(body.get_corner(UL) + LEFT * 0.12, body.get_corner(UR) + RIGHT * 0.12, stroke_width=6, color=GREY_B)
+    drawers = VGroup(*[RoundedRectangle(corner_radius=0.04, width=w * 0.36, height=0.38).set_stroke(GREY_B, 2) for _ in range(2)])
+    drawers.arrange(RIGHT, buff=w * 0.1).move_to(body.get_center() + DOWN * 0.05)
+    knobs = VGroup(*[Dot(d.get_center(), radius=0.035, color=GREY_B) for d in drawers])
+    lbl = T(name, 24, GREY_A).next_to(body, DOWN, buff=0.18)
+    g = VGroup(body, top, drawers, knobs, lbl)
+    if card_text:
+        ct = T(card_text, 20, card_color)
+        cr = RoundedRectangle(corner_radius=0.05, width=ct.width + 0.25, height=0.4).set_stroke(card_color, 2).set_fill(dim(card_color, 0.2), 1)
+        card = VGroup(cr, ct.move_to(cr)).next_to(top, UP, buff=0.04).align_to(body, RIGHT).shift(LEFT * 0.12)
+        g.add(card)
+    return g
+
+
+def letter(color=JOB, s=1.0):
+    r = Rectangle(width=0.5, height=0.34).set_stroke(color, 2.5).set_fill(dim(color, 0.25), 1)
+    flap = VMobject(stroke_color=color, stroke_width=2).set_points_as_corners([r.get_corner(UL), r.get_center() + DOWN * 0.03, r.get_corner(UR)])
+    return VGroup(r, flap).scale(s)
+
+
+def parcel(color=JOB, s=1.0):
+    r = Square(side_length=0.42).set_stroke(color, 2.5).set_fill(dim(color, 0.25), 1)
+    a = Line(r.get_top(), r.get_bottom(), stroke_width=1.8, color=color)
+    b = Line(r.get_left(), r.get_right(), stroke_width=1.8, color=color)
+    return VGroup(r, a, b).scale(s)
+
+
+def office(n=20, cols=5, title="back office: 20 workers", s=0.5):
+    ws = VGroup(*[person(WORKER, s) for _ in range(n)]).arrange_in_grid(rows=(n + cols - 1) // cols, cols=cols, buff=(0.42, 0.3))
+    frame = RoundedRectangle(corner_radius=0.15, width=ws.width + 0.7, height=ws.height + 0.6).set_stroke(WORKER, 2.5)
+    frame.set_fill(dim(WORKER, 0.06), 1).move_to(ws)
+    t = T(title, 24, WORKER).next_to(frame, UP, buff=0.15)
+    return VGroup(frame, ws, t)
+
+
+def code_block(src, size=22, hl=None):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def bar(x0, x1, y, color, h=0.34, label=None, size=20):
+    r = Rectangle(width=max(0.02, x1 - x0), height=h).set_stroke(color, 2).set_fill(dim(color, 0.45), 1)
+    r.move_to([(x0 + x1) / 2, y, 0])
+    if label:
+        t = T(label, size, WHITE).move_to(r)
+        return VGroup(r, t)
+    return VGroup(r)
+
+
+HELPER = TEAL_M
+
+
+def ticket(text, color=CARD, size=22):
+    """A job ticket: a tag with a hole and a label."""
+    t = T(text, size, color)
+    w, h = t.width + 0.6, 0.5
+    pts = [[-w / 2, h / 2, 0], [w / 2, h / 2, 0], [w / 2, -h / 2, 0], [-w / 2, -h / 2, 0], [-w / 2 - 0.22, 0, 0]]
+    tag = Polygon(*pts).set_stroke(color, 2.2).set_fill(dim(color, 0.2), 1)
+    hole = Circle(radius=0.05).set_stroke(color, 1.5).move_to([-w / 2 - 0.02, 0, 0])
+    t.move_to([0.08, 0, 0])
+    return VGroup(tag, hole, t)
+
+
+def card(lines, color=GREY_B, size=22, w=None):
+    """A code card: monospace lines in a rounded box."""
+    body = VGroup(*[M(l, size) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    r = RoundedRectangle(corner_radius=0.1, width=w or body.width + 0.5, height=body.height + 0.4).set_stroke(color, 2.2).set_fill("#101010", 1)
+    body.move_to(r)
+    return VGroup(r, body)
+
+
+def ring(m, color=BAD, r=0.55):
+    return Circle(radius=r).set_stroke(color, 4).move_to(m)
+
+
+PROG, KERN, SACK, COPY, ZERO, EP, UR = BLUE_M, PURPLE_M, GOLD_M, RED_M, GREEN_M, BLUE_M, TEAL_M
+
+
+def sack(color=SACK, s=1.0):
+    body = RoundedRectangle(corner_radius=0.22, width=0.7, height=0.8).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    neck = Polygon([-0.14, 0.4, 0], [0.14, 0.4, 0], [0.22, 0.56, 0], [-0.22, 0.56, 0]).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    tie = Line([-0.16, 0.44, 0], [0.16, 0.44, 0], stroke_width=3, color=color)
+    return VGroup(body, neck, tie).scale(s)
+
+
+def van(color=GREY_A, s=1.0):
+    body = Rectangle(width=1.8, height=0.95).set_stroke(color, 2.5).set_fill("#151515", 1)
+    cab = Polygon([0.9, -0.47, 0], [0.9, 0.2, 0], [1.25, 0.2, 0], [1.5, -0.1, 0], [1.5, -0.47, 0]).set_stroke(color, 2.5).set_fill("#151515", 1)
+    wheels = VGroup(*[Circle(radius=0.16).set_stroke(color, 2.5).set_fill(BLACK, 1).move_to([x, -0.5, 0]) for x in (-0.5, 1.15)])
+    return VGroup(body, cab, wheels).scale(s)
+
+
+def zone(w, h, color, title):
+    r = RoundedRectangle(corner_radius=0.15, width=w, height=h).set_stroke(color, 2.5).set_fill(dim(color, 0.07), 1)
+    t = T(title, 24, color).next_to(r.get_corner(UL), DR, buff=0.15)
     return VGroup(r, t)
 
 
-def slot(b):
-    return b[0].get_right() + LEFT * 0.45
+def ring_buf(color, title, n=8, r=0.75):
+    slots = VGroup(*[AnnularSector(inner_radius=r * 0.6, outer_radius=r, angle=TAU / n * 0.86, start_angle=i * TAU / n)
+                     .set_stroke(color, 2).set_fill(dim(color, 0.15), 1) for i in range(n)])
+    t = T(title, 22, color).next_to(slots, DOWN, buff=0.2)
+    return VGroup(slots, t)
 
 
-def chunk(color=DATA):
-    return RoundedRectangle(corner_radius=0.05, width=0.42, height=0.26, stroke_width=0).set_fill(color, 1)
+
+def wallbox(lit=False, s=1.0, color=YELLOW_M):
+    """A box in the wall with its light above (the same look as io-01's post office)."""
+    sq = RoundedRectangle(corner_radius=0.06, width=0.62, height=0.5).set_stroke(GREY_B, 2.2).set_fill("#101010", 1)
+    slot = Line(LEFT * 0.18, RIGHT * 0.18, stroke_width=3, color=GREY_C).move_to(sq.get_center() + UP * 0.06)
+    lamp = Circle(radius=0.08).next_to(sq, UP, buff=0.07)
+    set_lamp(lamp, lit, color)
+    return VGroup(sq, slot, lamp).scale(s)
 
 
-def ride(mob, pts, run_time=1.0):
-    path = VMobject().set_points_as_corners([np.array(p, dtype=float) for p in pts])
-    return MoveAlongPath(mob, path, run_time=run_time, rate_func=smooth)
+def set_lamp(lamp, lit, color=YELLOW_M):
+    if lit:
+        lamp.set_stroke(color, 2.5).set_fill(color, 1)
+    else:
+        lamp.set_stroke(GREY_C, 2).set_fill("#1a1a1a", 1)
+    return lamp
 
 
-def trip(pts, color=DATA, run_time=1.0):
-    """A chunk that appears, runs along the points and fades out."""
-    c = chunk(color).move_to(pts[0])
-    return Succession(FadeIn(c, run_time=0.05), ride(c, pts, run_time), FadeOut(c, run_time=0.15))
-
-
-def stat(label, value, color):
-    return VGroup(T(label, 26), T(value, 26, color)).arrange(RIGHT, buff=0.2)
-
-
-def ring(center, color, r_in=0.5, r_out=0.85, n=8):
-    """A ring buffer drawn as n slots; slot 0 is the top-right one, then clockwise."""
-    segs = VGroup(*[AnnularSector(inner_radius=r_in, outer_radius=r_out, angle=TAU / n - 0.08,
-                                  start_angle=PI / 2 - (i + 1) * TAU / n + 0.04,
-                                  stroke_width=2, stroke_color=color, fill_color=color, fill_opacity=0.12) for i in range(n)])
-    return segs.move_to(center)
-
-
-def seg_pt(center, i, n=8, r=0.675):
-    a = PI / 2 - (i + 0.5) * TAU / n
-    return np.array(center) + r * np.array([np.cos(a), np.sin(a), 0])
-
-
-class Io08ZeroCopy(Planned):
-    """io-08 sections 0 and 1: the copy path versus transferTo/sendfile, then readiness (epoll) versus completion (io_uring)."""
+class Io08ZeroCopy(Narrated):
+    """io-08, sections 0 and 1: the loading dock. read and write carry every byte up through the program and back
+    (two copies, two system calls per round, 1,024 rounds); transferTo becomes one sendfile call (strace: 1 against
+    2,119 reads and 1,037 writes); the times are close (78/74, 56/38 ms), so count the calls; loop for partial
+    transfers; no zero-copy when the JVM changes the bytes; readiness (epoll, the board) versus completion
+    (io_uring, the drop box with two trays); TransportsDemo (nio 137, epoll 35, io_uring 59 ms); code; check."""
 
     def construct(self):
-        self.title_card("Zero-copy and epoll", "who moves the bytes: your thread or the kernel")
+        self.title_card("Straight from the dock to the van", "zero-copy, and two ways to learn a socket is ready")
 
-        # ---------------- the ordinary copy path ----------------
-        div_uk = DashedLine([-6.5, 1.15, 0], [6.5, 1.15, 0], dash_length=0.1, stroke_width=2, color=GREY_D)
-        div_kh = DashedLine([-6.5, -1.55, 0], [6.5, -1.55, 0], dash_length=0.1, stroke_width=2, color=GREY_D)
-        lab_u = T("your process (user space)", 24, USER).move_to([-6.5, 3.15, 0], aligned_edge=LEFT)
-        lab_k = T("kernel", 24, KERN).move_to([-6.5, 0.85, 0], aligned_edge=LEFT)
-        lab_h = T("hardware", 24, HW).move_to([-6.5, -1.85, 0], aligned_edge=LEFT)
-        pc = slotbox("page cache", KERN).move_to([-4.0, -0.3, 0])
-        sb = slotbox("socket send buffer", KERN).move_to([4.0, -0.3, 0])
-        ub = slotbox("your buffer", USER).move_to([0, 2.2, 0])
-        disk = slotbox("disk", HW)
-        disk.move_to([slot(pc)[0] + 0.45 - disk.width / 2, -2.75, 0])      # slots line up, so the arrows are straight
-        nic = slotbox("network card", HW)
-        nic.move_to([slot(sb)[0] + 0.45 - nic.width / 2, -2.75, 0])
-        a_dp = arrow([slot(disk)[0], disk[0].get_top()[1], 0], [slot(pc)[0], pc[0].get_bottom()[1], 0], HW, buff=0.1)
-        a_sn = arrow([slot(sb)[0], sb[0].get_bottom()[1], 0], [slot(nic)[0], nic[0].get_top()[1], 0], HW, buff=0.1)
-        a_rd = edge_arrow(pc, ub, COPY)
-        a_wr = edge_arrow(ub, sb, COPY)
-        l_rd = M("read()", 26, COPY).next_to(a_rd.get_center(), DR, buff=0.1)
-        l_wr = M("write()", 26, COPY).next_to(a_wr.get_center(), DL, buff=0.1)
-        # chunk paths that go round the labels, not over them
-        p_dp = [slot(disk), slot(pc)]
-        p_rd = [slot(pc), a_rd.get_start(), a_rd.get_end(), [slot(ub)[0], 1.62, 0], slot(ub)]
-        p_wr = [slot(ub), a_wr.get_start(), a_wr.get_end(), [slot(sb)[0], 0.27, 0], slot(sb)]
-        p_sn = [slot(sb), slot(nic)]
+        # ================= hook: the loading dock =================
+        ctr = desk("counter", 2.2).move_to([-4.6, -0.6, 0])
+        ck = person(PROG, 1.0).next_to(ctr, UP, buff=0.2)
+        dock = Rectangle(width=3.2, height=0.3).set_stroke(GREY_B, 2.5).set_fill("#1a1a1a", 1).move_to([0.6, -1.25, 0])
+        dl = T("loading dock", 22, GREY_A).next_to(dock, DOWN, buff=0.15)
+        sk = sack(SACK, 1.0).next_to(dock, UP, buff=0.05).shift(LEFT * 0.6)
+        vn = van(GREY_A, 1.15).move_to([4.6, -0.75, 0])
+        self.say("open")
+        self.play(FadeIn(ctr), FadeIn(ck), FadeIn(dock), FadeIn(dl), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(vn, shift=LEFT * 0.6), FadeIn(sk), run_time=0.9)
+        self.at(2)
+        rt = CurvedArrow(sk.get_top() + UP * 0.1, ck.get_right() + RIGHT * 0.15, angle=0.8, color=COPY, stroke_width=3)
+        rt2 = CurvedArrow(ck.get_right() + RIGHT * 0.15 + DOWN * 0.3, sk.get_left() + LEFT * 0.1, angle=0.6, color=COPY, stroke_width=3)
+        no = tick(False, 0.25).move_to([-1.6, 1.4, 0])
+        self.play(Create(rt), Create(rt2), run_time=1.0)
+        self.play(Create(no), run_time=0.4)
+        self.at(3)
+        go = Arrow(sk.get_right(), vn.get_left(), buff=0.1, stroke_width=4, color=ZERO, max_tip_length_to_length_ratio=0.15)
+        self.play(GrowArrow(go), sk.copy().animate.move_to(vn[0].get_center()), run_time=1.0)
+        self.hold()
+        sq = VGroup(T("read, then write, in a loop:", 30), T("what could be wasteful about it?", 32, CARD)).arrange(DOWN, buff=0.15)
+        sq.move_to([0, 2.7, 0])
+        self.say("shyq")
+        self.at(1)
+        self.play(FadeIn(sq[0]), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(sq[1]), run_time=0.6)
+        self.hold()
+        self.clear()
 
-        frame = VGroup(div_uk, div_kh, lab_u, lab_k, lab_h)
-        self.say("Sending a file the obvious way passes every byte through your process twice.",
-                 [(0, [FadeIn(frame)], 0.9), (0, [FadeIn(disk), FadeIn(pc), FadeIn(sb), FadeIn(nic), FadeIn(ub)], 0.9)])
+        # ================= what the loop really does =================
+        pz = zone(12.6, 1.9, PROG, "your program").move_to([0, 2.15, 0])
+        kz = zone(12.6, 3.6, KERN, "the kernel").move_to([0, -1.55, 0])
+        buf = box("your buffer", PROG, size=24).move_to([-1.0, 2.0, 0])
+        pcache = VGroup(box("page cache", SACK, size=24), T("the file's pages", 20, GREY_A)).arrange(DOWN, buff=0.12).move_to([-4.2, -1.2, 0])
+        sbuf = VGroup(box("socket send buffer", ZERO, size=24), T("leaves for the network", 20, GREY_A)).arrange(DOWN, buff=0.12).move_to([2.6, -1.2, 0])
+        nic = box("network card", GREY_B, size=22).move_to([5.3, -2.75, 0])
+        self.say("setup")
+        self.play(FadeIn(pz), FadeIn(kz), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(sbuf), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(pcache), run_time=0.5)
+        self.at(3)
+        sk2 = sack(SACK, 0.55).next_to(pcache, LEFT, buff=0.2)
+        self.play(FadeIn(sk2), run_time=0.5)
+        self.hold()
+        up = Arrow(pcache[0].get_top(), buf.get_left() + LEFT * 0.05, buff=0.1, stroke_width=4, color=COPY, max_tip_length_to_length_ratio=0.08)
+        upl = T("read: system call + copy 1", 22, COPY).move_to([-4.0, 0.95, 0])
+        self.say("copy1")
+        self.play(FadeIn(buf), run_time=0.4)
+        self.at(1)
+        self.play(GrowArrow(up), run_time=0.7)
+        self.at(2)
+        self.play(travel(up, SACK, 1.0), FadeIn(upl), run_time=1.1)
+        self.hold()
+        dn = Arrow(buf.get_right() + RIGHT * 0.05, sbuf[0].get_top(), buff=0.1, stroke_width=4, color=COPY, max_tip_length_to_length_ratio=0.08)
+        dnl = T("write: system call + copy 2", 22, COPY).move_to([3.4, 0.95, 0])
+        out = Arrow(sbuf[0].get_right(), nic.get_top(), buff=0.1, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.15)
+        self.say("copy2")
+        self.play(GrowArrow(dn), FadeIn(dnl), run_time=0.8)
+        self.play(travel(dn, SACK, 1.0), run_time=1.1)
+        self.at(3)
+        self.play(FadeIn(nic), GrowArrow(out), run_time=0.7)
+        self.hold()
+        rd = VGroup(T("+ a temporary buffer for a heap ByteBuffer", 22, GREY_A),
+                    T("64 MiB / 64 KiB = 1,024 rounds", 26, COPY)).arrange(DOWN, buff=0.12).move_to([-0.6, -2.85, 0])
+        self.say("rounds")
+        self.play(FadeIn(rd[0]), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(rd[1]), run_time=0.5)
+        for _ in range(2):
+            self.play(travel(up, SACK, 0.35), run_time=0.4)
+            self.play(travel(dn, SACK, 0.35), run_time=0.4)
+        self.hold()
+        trip = T("a round trip, and the bytes never change", 26, CARD).move_to([4.0, 2.0, 0])
+        fit(trip, 4.4)
+        self.say("joke")
+        self.play(travel(up, SACK, 0.6), run_time=0.7)
+        self.play(travel(dn, SACK, 0.6), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(trip), run_time=0.6)
+        self.hold()
+        self.say("wish")
+        self.play(Indicate(pcache[0], color=SACK), Indicate(sbuf[0], color=ZERO), run_time=1.2)
+        self.hold()
 
-        c0 = chunk().move_to(slot(disk))
-        c_pc = chunk().move_to(slot(disk))
-        self.say("The kernel keeps recently used file pages in memory, in its page cache.",
-                 [(0, [FadeIn(c0, scale=0.5), GrowArrow(a_dp)], 0.7), (0, [ride(c_pc, p_dp, 1.0)], 1.0)])
+        # ================= transferTo: dock to van =================
+        zz = Arrow(pcache[0].get_right(), sbuf[0].get_left(), buff=0.12, stroke_width=5, color=ZERO, max_tip_length_to_length_ratio=0.06)
+        zl = VGroup(M("FileChannel.transferTo", 22, ZERO), T("on Linux: one sendfile call", 22, ZERO)).arrange(DOWN, buff=0.08).next_to(zz, UP, buff=0.1)
+        zn = T("zero-copy: no copy through your program's memory", 26, ZERO).move_to([-0.6, -2.85, 0])
+        self.say("name")
+        self.play(FadeOut(VGroup(up, dn, upl, dnl, rd, trip)), buf.animate.set_opacity(0.3), run_time=0.6)
+        self.play(FadeIn(zl[0]), run_time=0.4)
+        self.at(1)
+        self.play(GrowArrow(zz), FadeIn(zl[1]), run_time=0.8)
+        self.at(2)
+        self.play(travel(zz, SACK, 1.2), run_time=1.3)
+        self.at(3)
+        self.play(FadeIn(zn), run_time=0.6)
+        self.hold()
+        mp = VGroup(T("packed sacks", 22, CARD).next_to(sk2, UP, buff=0.12),
+                    T("the van", 22, CARD).next_to(sbuf, DOWN, buff=0.15),
+                    T("the counter", 22, CARD).next_to(buf, RIGHT, buff=0.3))
+        self.say("map")
+        for i in range(3):
+            self.at(i + 1)
+            self.play(FadeIn(mp[i]), run_time=0.5)
+        self.hold()
+        self.clear()
 
-        cnt_c = stat("copies:", "0", COPY)
-        cnt_s = stat("system calls:", "0", USER)
-        cnts = VGroup(cnt_c, cnt_s).arrange(DOWN, aligned_edge=LEFT, buff=0.18).move_to([6.4, 2.45, 0], aligned_edge=RIGHT)
+        # ================= count the calls, then the times =================
+        hdr = T("ZeroCopyDemo: a 64 MiB file to a loopback socket, counted with strace", 24, GREY_A).move_to([0, 3.0, 0])
+        fit(hdr, 12.4)
+        X0, K = -2.6, 7.6 / 2119
+        names = VGroup(M("transferTo: sendfile", 22, ZERO), M("copy: read", 22, COPY), M("copy: write", 22, COPY)).arrange(DOWN, buff=0.5, aligned_edge=RIGHT)
+        names.move_to([X0 - 2.2, 1.0, 0])
+        vals = (1, 2119, 1037)
+        bars = VGroup(*[bar(X0, X0 + max(0.06, v * K), n.get_y(), c, h=0.4) for v, n, c in zip(vals, names, (ZERO, COPY, COPY))])
+        nums = VGroup(*[M(f"{v:,}", 22, c).next_to(b, RIGHT, buff=0.15) for v, b, c in zip(vals, bars, (ZERO, COPY, COPY))])
+        self.say("pq")
+        self.play(FadeIn(hdr), FadeIn(names), run_time=0.7)
+        self.hold(after=0)
+        self.predict()
+        self.say("pa")
+        self.play(FadeIn(bars[0]), FadeIn(nums[0]), run_time=0.6)
+        self.at(1)
+        self.play(GrowFromEdge(bars[1], LEFT), FadeIn(nums[1]), run_time=0.8)
+        self.play(GrowFromEdge(bars[2], LEFT), FadeIn(nums[2]), run_time=0.6)
+        self.hold()
+        bq = T("about 3,000 calls against 1: so much faster?", 28, CARD).move_to([0, -0.9, 0])
+        self.say("bq")
+        self.play(FadeIn(bq), run_time=0.6)
+        self.hold(after=0)
+        self.predict(1.6)
+        tm = VGroup(VGroup(T("one run:", 24, GREY_A), M("78 ms", 24), M("74 ms", 24)).arrange(RIGHT, buff=0.35),
+                    VGroup(T("next run:", 24, GREY_A), M("56 ms", 24), M("38 ms", 24)).arrange(RIGHT, buff=0.35)).arrange(DOWN, buff=0.2)
+        tm.move_to([0, -2.1, 0])
+        tml = T("the two passes", 20, GREY_B).next_to(tm, RIGHT, buff=0.4)
+        self.say("ba")
+        self.play(FadeOut(bq), run_time=0.3)
+        self.at(1)
+        self.play(FadeIn(tm[0]), FadeIn(tml), run_time=0.5)
+        self.at_text("and 56", lead=0.2)
+        self.play(FadeIn(tm[1]), run_time=0.5)
+        self.hold()
+        hon = T("count the system calls: they measure the work zero-copy removes", 26, ZERO).move_to([0, -3.35, 0])
+        fit(hon, 12.4)
+        self.say("bwhy")
+        self.at(1)
+        self.play(Indicate(tm, color=GREY_A, scale_factor=1.03), run_time=0.8)
+        self.at(3)
+        self.play(FadeIn(hon), Indicate(VGroup(bars, nums), color=WHITE, scale_factor=1.02), run_time=0.9)
+        self.hold()
+        self.clear()
 
-        def set_cnt(c, value, color):
-            return Transform(c[1], T(value, 26, color).move_to(c[1], aligned_edge=LEFT))
+        # ================= guardrails =================
+        g1 = VGroup(T("1", 30, CARD), T("transferTo may stop early: it returns what it moved, so loop", 28)).arrange(RIGHT, buff=0.35)
+        g2 = VGroup(T("2", 30, CARD), T("only for bytes that leave exactly as stored", 28)).arrange(RIGHT, buff=0.35)
+        gs = VGroup(g1, g2).arrange(DOWN, buff=0.5, aligned_edge=LEFT).move_to([0, 2.2, 0])
+        fit(gs, 12.4)
+        self.say("loop")
+        self.at(1)
+        self.play(FadeIn(g1, shift=RIGHT * 0.1), run_time=0.6)
+        self.hold()
+        sk3 = sack(SACK, 1.2).move_to([-3.6, -0.6, 0])
+        lockr = RoundedRectangle(corner_radius=0.05, width=0.42, height=0.34).set_stroke(COPY, 2.5).set_fill(dim(COPY, 0.3), 1)
+        shack = Arc(radius=0.14, start_angle=0, angle=PI, color=COPY, stroke_width=3).next_to(lockr, UP, buff=0)
+        lk = VGroup(lockr, shack).move_to(sk3.get_center() + DOWN * 0.1)
+        sl = T("TLS or compression inside the JVM", 24, COPY).next_to(sk3, DOWN, buff=0.25)
+        upp = Arrow(sk3.get_right(), [1.0, 0.4, 0], buff=0.2, stroke_width=3, color=COPY, max_tip_length_to_length_ratio=0.12)
+        upt = T("up into your memory anyway", 24, COPY).next_to(upp.get_end(), RIGHT, buff=0.15)
+        self.say("cond")
+        self.play(FadeIn(g2, shift=RIGHT * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(sk3), FadeIn(lk), FadeIn(sl), run_time=0.7)
+        self.play(GrowArrow(upp), FadeIn(upt), run_time=0.6)
+        self.hold()
+        tc = T("Tomcat: sendfile for static files over 48 KiB, and no compression for them", 24, GREY_A).move_to([0, -2.7, 0])
+        fit(tc, 12.4)
+        self.say("tomcat")
+        self.play(FadeIn(tc), run_time=0.6)
+        self.hold()
+        self.clear()
 
-        def bump(c, value, color):
-            return [set_cnt(c, value, color), Indicate(c[0], color=color, scale_factor=1.1)]
+        # ================= readiness: the board of lit boxes =================
+        lit = (2, 5, 9)
+        wbs = VGroup(*[wallbox(False) for _ in range(12)]).arrange_in_grid(rows=3, cols=4, buff=(0.15, 0.2)).move_to([-3.6, 0.6, 0])
+        board = VGroup(*[b[:2] for b in wbs])
+        lights = VGroup(*[b[2] for b in wbs])
+        bt = T("epoll: the board of lit boxes", 26, EP).next_to(board, UP, buff=0.3)
+        th = person(EP, 1.0).move_to([1.2, 0.7, 0])
+        thl = T("your loop's thread", 22, EP).next_to(th, DOWN, buff=0.15)
+        self.say("ready")
+        self.play(FadeIn(board), FadeIn(lights), FadeIn(bt), FadeIn(th), FadeIn(thl), run_time=0.8)
+        self.at(3)
+        self.play(*[lights[i].animate.set_fill(YELLOW_M, 1).set_stroke(YELLOW_M, 2.5) for i in lit], run_time=0.6)
+        wl = M("epoll_wait -> 3 lit boxes", 22, EP).move_to([1.6, 2.6, 0])
+        self.play(FadeIn(wl), run_time=0.4)
+        self.at(4)
+        rs = VGroup(*[Arrow(th.get_left(), board[i].get_right(), buff=0.12, stroke_width=2.5, color=EP, max_tip_length_to_length_ratio=0.12) for i in lit])
+        rsl = T("then one read call per lit box", 22, EP).next_to(thl, DOWN, buff=0.2)
+        self.play(LaggedStart(*[GrowArrow(a) for a in rs], lag_ratio=0.3), FadeIn(rsl), run_time=1.0)
+        self.hold()
+        rn = T("readiness: \"this box has mail, come and get it\"", 28, EP).move_to([0, -2.6, 0])
+        self.say("ready2")
+        self.play(FadeIn(rn), run_time=0.6)
+        self.hold()
+        self.clear()
 
-        c_ub = chunk().move_to(slot(pc))
-        self.say("Your loop calls read, and the kernel copies the bytes up into your buffer. "
-                 "That's one copy, and one system call: a switch into the kernel and back.",
-                 [(0, [GrowArrow(a_rd), FadeIn(l_rd), FadeIn(cnts)], 0.7),
-                  (0, [ride(c_ub, p_rd, 1.3)], 1.3),
-                  (1, bump(cnt_c, "1", COPY), 0.6),
-                  (1, bump(cnt_s, "1", USER) + [div_uk.animate.set_color(USER)], 0.7),
-                  (1, [div_uk.animate.set_color(GREY_D)], 0.4)])
+        # ================= completion: the drop box with two trays =================
+        sub = ring_buf(UR, "requests tray: submission ring").move_to([-3.4, 0.6, 0])
+        com = ring_buf(UR, "results tray: completion ring").move_to([3.4, 0.6, 0])
+        kk = box("kernel", KERN, size=24).move_to([0, 0.75, 0])
+        ut = T("io_uring: a drop box with two trays", 28, UR).move_to([0, 2.9, 0])
+        rq = chip("read up to 16 KiB from this socket", UR, 22).move_to([-3.4, -1.8, 0])
+        rr = chip("done, 4,096 bytes", UR, 22).move_to([3.4, -1.8, 0])
+        a1 = Arrow(sub[0].get_right(), kk.get_left(), buff=0.15, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.15)
+        a2 = Arrow(kk.get_right(), com[0].get_left(), buff=0.15, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.15)
+        self.say("uring")
+        self.play(FadeIn(ut), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(sub), FadeIn(com), FadeIn(kk), GrowArrow(a1), GrowArrow(a2), run_time=0.9)
+        self.at(2)
+        self.play(FadeIn(rq, shift=UP * 0.1), run_time=0.5)
+        self.play(rq.copy().animate.scale(0.3).move_to(sub[0][0]), Indicate(sub[0][0], color=UR), run_time=0.7)
+        self.at(3)
+        self.play(Indicate(kk, color=KERN), run_time=0.6)
+        self.play(FadeIn(rr, shift=UP * 0.1), Indicate(com[0][0], color=UR), run_time=0.6)
+        self.hold()
+        u2 = VGroup(T("one system call: many jobs in, many results out", 24, GREY_A),
+                    T("on the JVM: through Netty, a full transport since 4.2", 24, GREY_A)).arrange(DOWN, buff=0.15).move_to([0, -3.05, 0])
+        self.say("uring2")
+        self.play(FadeIn(u2[0]), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(u2[1]), run_time=0.5)
+        self.hold()
+        self.clear()
 
-        c_sb = chunk().move_to(slot(ub))
-        c_out = chunk().move_to(slot(sb))
-        self.say("Then it calls write, and the kernel copies them back down into the socket's send buffer. "
-                 "A second copy, and a second system call. Only then does the network card send them.",
-                 [(0, [GrowArrow(a_wr), FadeIn(l_wr)], 0.7),
-                  (0, [ride(c_sb, p_wr, 1.3)], 1.3),
-                  (1, bump(cnt_c, "2", COPY), 0.6),
-                  (1, bump(cnt_s, "2", USER) + [div_uk.animate.set_color(USER)], 0.7),
-                  (1, [div_uk.animate.set_color(GREY_D)], 0.4),
-                  (2, [GrowArrow(a_sn)], 0.5), (2, [ride(c_out, p_sn, 0.9)], 0.9)])
+        # ================= is the new one faster? =================
+        hdr = T("TransportsDemo: 32 MiB over each transport (one run, a busy 4-core machine)", 24, GREY_A).move_to([0, 3.0, 0])
+        fit(hdr, 12.4)
+        X0, K = -2.2, 7.0 / 137
+        rows = [("nio", 137, GREY_B), ("epoll", 35, EP), ("io_uring", 59, UR)]
+        tn = VGroup(*[M(n, 24, c) for n, _, c in rows], M("kqueue", 24, GREY_D)).arrange(DOWN, buff=0.45, aligned_edge=RIGHT).move_to([X0 - 1.2, 0.8, 0])
+        tbars = VGroup(*[bar(X0, X0 + v * K, tn[i].get_y(), c, h=0.42) for i, (_, v, c) in enumerate(rows)])
+        tv = VGroup(*[M(f"{v} ms", 22, c).next_to(tbars[i], RIGHT, buff=0.15) for i, (_, v, c) in enumerate(rows)])
+        kq = T("unavailable on Linux: it's the macOS cousin of epoll", 20, GREY_B).next_to(tn[3], RIGHT, buff=0.3)
+        self.say("fq")
+        self.play(FadeIn(hdr), FadeIn(tn[:3]), run_time=0.7)
+        self.hold(after=0)
+        self.predict()
+        allb = T("every transport: all 33,554,432 bytes", 22, GREY_A).move_to([0, -1.6, 0])
+        self.say("fa")
+        self.play(FadeIn(allb), FadeIn(tn[3]), FadeIn(kq), run_time=0.6)
+        self.at(1)
+        for i in range(3):
+            self.play(GrowFromEdge(tbars[i], LEFT), FadeIn(tv[i]), run_time=0.6)
+        self.hold()
+        more = VGroup(T("Kotlin twin: epoll 40, io_uring 48 ms", 24, GREY_A), T("research runs: epoll 86, io_uring 159 ms", 24, GREY_A)).arrange(DOWN, buff=0.12)
+        more.move_to([0, -2.5, 0])
+        self.say("fa2")
+        self.at(1)
+        self.play(FadeIn(more[0]), run_time=0.5)
+        self.at_text("and the research", lead=0.3)
+        self.play(FadeIn(more[1]), run_time=0.5)
+        self.hold()
+        nd = T("newer is a date, not a speed: measure before you switch", 28, CARD).move_to([0, -3.45, 0])
+        fit(nd, 12.4)
+        self.say("joke2")
+        self.play(FadeIn(nd, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.clear()
 
-        heap = VGroup(T("heap ByteBuffer:", 22, GREY_B), T("one more copy per call,", 22, GREY_B),
-                      T("via a temporary direct buffer", 22, GREY_B)).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-        heap.move_to([-6.5, 2.1, 0], aligned_edge=LEFT)
-        self.say("A heap ByteBuffer adds one more copy per call, through a temporary direct buffer.",
-                 [(0, [FadeIn(heap, shift=UP * 0.1)], 0.7), (0, bump(cnt_c, "4", COPY), 0.7)])
+        # ================= the code, last =================
+        hl = {"transferTo": ZERO, "// maybe partial": GREY_B}
+        jv = code_block(["long sent = 0;", "while (sent < count) {",
+                         "    sent += file.transferTo(position + sent, count - sent, socket);   // maybe partial", "}"], 20, hl)
+        kt = code_block(["var sent = 0L", "while (sent < count) {",
+                         "    sent += file.transferTo(position + sent, count - sent, socket)   // maybe partial", "}"], 20, hl)
+        cols = VGroup(VGroup(T("Java", 24, GREY_B), jv).arrange(DOWN, aligned_edge=LEFT, buff=0.2),
+                      VGroup(T("Kotlin", 24, GREY_B), kt).arrange(DOWN, aligned_edge=LEFT, buff=0.2)).arrange(DOWN, aligned_edge=LEFT, buff=0.5)
+        fit(cols, 12.6).move_to(UP * 0.3)
+        self.say("code")
+        self.play(FadeIn(cols, shift=UP * 0.1), run_time=0.8)
+        self.at(1)
+        self.play(Indicate(VGroup(jv[2], kt[2]), color=ZERO, scale_factor=1.02), run_time=1.0)
+        self.hold()
+        self.clear()
 
-        rounds = VGroup(T("64 MiB in 64 KiB chunks:", 24), T("1,024 rounds", 24, COPY)).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-        rounds.move_to([-6.5, 2.2, 0], aligned_edge=LEFT)
-        full = p_rd + p_wr[1:] + p_sn[1:]
-        self.say("And 64 MiB through a 64 KiB buffer is 1,024 rounds of this.",
-                 [(0, [FadeOut(c_out), FadeOut(c_ub), FadeOut(c_sb), FadeOut(heap)], 0.4),
-                  (0, [FadeIn(rounds, shift=UP * 0.1),
-                       LaggedStart(*[trip(full, DATA, 1.6) for _ in range(5)], lag_ratio=0.3)], 3.0)])
-
-        # ---------------- transferTo / sendfile ----------------
-        code = M("file.transferTo(position, count, socket)", 24, ZERO).move_to([-1.3, 2.2, 0])
-        a_call = arrow([-1.3, 1.95, 0], [-1.3, 0.2, 0], ZERO, buff=0.0)
-        l_call = M("sendfile", 24, ZERO).move_to([-1.1, 0.6, 0], aligned_edge=LEFT)
-        a_zc = arrow(pc[0].get_right(), sb[0].get_left(), ZERO, buff=0.12, sw=4)
-        self.say("FileChannel.transferTo asks the kernel to do the whole move. "
-                 "On Linux, with a socket as the target, it becomes one sendfile call.",
-                 [(0, [FadeOut(VGroup(a_rd, a_wr, l_rd, l_wr, ub, rounds)), set_cnt(cnt_c, "0", COPY), set_cnt(cnt_s, "0", USER)], 0.7),
-                  (0, [FadeIn(code, shift=DOWN * 0.1)], 0.6),
-                  (1, [GrowArrow(a_call), FadeIn(l_call)] + bump(cnt_s, "1", USER), 0.9)])
-
-        zc = T("zero-copy", 28, ZERO).move_to([0, -0.95, 0])
-        hop = [slot(pc), a_zc.get_start(), a_zc.get_end()]
-        self.say("The kernel sends pages from the page cache straight to the socket. "
-                 "The bytes never enter your process. That's zero-copy.",
-                 [(0, [GrowArrow(a_zc)], 0.6),
-                  (0, [LaggedStart(*[Succession(trip(hop, DATA, 0.9), trip(p_sn, DATA, 0.6)) for _ in range(5)], lag_ratio=0.3)], 2.6),
-                  (1, [Indicate(cnt_c, color=ZERO, scale_factor=1.15)], 0.7), (2, [FadeIn(zc, shift=UP * 0.1)], 0.5)])
-        self.play(FadeOut(VGroup(frame, disk, nic, pc, sb, a_dp, a_sn, a_zc, a_call, l_call, code, cnts, zc, c0, c_pc)), run_time=0.6)
-
-        # ---------------- strace numbers ----------------
-        head = T("64 MiB to a loopback socket, counted with strace", 30).move_to(UP * 1.9)
-        r1 = VGroup(M("transferTo", 26, ZERO), M("sendfile: 1 call", 26, ZERO))
-        r2 = VGroup(M("copy, 64 KiB heap buffer", 26, COPY), M("read: 2,119   write: 1,037", 26, COPY))
-        for r, y in ((r1, 0.6), (r2, -0.3)):
-            r[0].move_to([-5.6, y, 0], aligned_edge=LEFT)
-            r[1].move_to([0.6, y, 0], aligned_edge=LEFT)
-        note = T("the reads include the receiving side", 22, GREY_B).next_to(r2[1], DOWN, buff=0.2).align_to(r2[1], LEFT)
-        self.say("Counted with strace, transferTo made one sendfile call. "
-                 "The copy made 2,119 reads and 1,037 writes.",
-                 [(0, [FadeIn(head), FadeIn(r1, shift=RIGHT * 0.15)], 0.8), (1, [FadeIn(r2, shift=RIGHT * 0.15)], 0.7),
-                  (1, [FadeIn(note)], 0.5)])
-        self.play(FadeOut(VGroup(head, r1, r2, note)), run_time=0.5)
-
-        # ---------------- the loop, Java and Kotlin ----------------
-        java = M("long sent = 0;\n"
-                 "while (sent < count) {\n"
-                 "    sent += file.transferTo(\n"
-                 "        position + sent,\n"
-                 "        count - sent, socket);\n"
-                 "}", 26)
-        kt = M("var sent = 0L\n"
-               "while (sent < count) {\n"
-               "    sent += file.transferTo(\n"
-               "        position + sent,\n"
-               "        count - sent, socket)\n"
-               "}", 26)
-        jg = VGroup(T("Java", 24, GREY_B), java).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
-        kg = VGroup(T("Kotlin", 24, GREY_B), kt).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
-        pair = VGroup(jg, kg).arrange(RIGHT, buff=1.2, aligned_edge=UP)
-        pair.scale(min(1, 12.4 / pair.width))
-        part = T("it returns the bytes it moved, maybe fewer than you asked for", 26, DATA)
-        cond = VGroup(T("zero-copy needs the bytes to leave unchanged:", 26),
-                      T("no TLS and no compression inside the JVM", 26, COPY)).arrange(DOWN, buff=0.15)
-        VGroup(pair, part, cond).arrange(DOWN, buff=0.5).move_to(ORIGIN)
-        self.say("transferTo may move fewer bytes than you asked for. "
-                 "It returns how many it moved, so call it in a loop, in Java or in Kotlin.",
-                 [(0, [FadeIn(pair, shift=UP * 0.2)], 1.1), (1, [FadeIn(part, shift=UP * 0.1)], 0.7)])
-        self.say("One condition: the bytes must leave exactly as they sit in the file. "
-                 "TLS or compression inside the JVM rules zero-copy out.",
-                 [(0, [FadeIn(cond[0], shift=UP * 0.1)], 0.7), (1, [FadeIn(cond[1], shift=UP * 0.1)], 0.7)])
-        self.play(FadeOut(VGroup(pair, part, cond)), run_time=0.6)
-
-        # ---------------- readiness: epoll ----------------
-        mid = DashedLine([0, 3.3, 0], [0, -3.3, 0], dash_length=0.1, stroke_width=2, color=GREY_D)
-        h_l = T("epoll: readiness", 32, EP).move_to([-3.4, 3.1, 0])
-        h_r = T("io_uring: completion", 32, UR).move_to([3.4, 3.1, 0])
-        th_l = chip("your thread", USER, 26).move_to([-3.4, 1.9, 0])
-        th_r = chip("your thread", USER, 26).move_to([3.4, 1.9, 0])
-        k_l = box("kernel", KERN, w=5.4).move_to([-3.4, -2.6, 0])
-        k_r = box("kernel", KERN, w=5.4).move_to([3.4, -2.6, 0])
-
-        dn = Arrow([-4.2, 1.5, 0], [-4.2, -2.1, 0], buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.06)
-        up = Arrow([-2.6, -2.1, 0], [-2.6, 1.5, 0], buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.06)
-        p_dn = [dn.get_start(), dn.get_end()]
-        p_up = [up.get_start(), up.get_end()]
-
-        def call_lbl(s, color):
-            return M(s, 26, color).next_to(dn, LEFT, buff=0.15)
-
-        def ans_lbl(s, color):
-            return T(s, 26, color).next_to(up, RIGHT, buff=0.15)
-
-        def tally_lbl(n):
-            return T(f"system calls: {n}", 24, GREY_B).move_to([-3.4, 2.6, 0])
-
-        call = call_lbl("epoll_wait", EP)
-        ans = ans_lbl("3 and 7 ready", EP)
-        tally = tally_lbl(1)
-        self.say("Now, who does the read? epoll answers one question: which sockets are ready?",
-                 [(0, [FadeIn(mid), FadeIn(h_l), FadeIn(th_l), FadeIn(k_l)], 0.8),
-                  (1, [GrowArrow(dn), FadeIn(call), FadeIn(tally)], 0.6), (1, [trip(p_dn, EP, 0.6)], 0.6),
-                  (1, [GrowArrow(up), FadeIn(ans), trip(p_up, EP, 0.6)], 0.7)])
-
-        plan = []
-        for n, s in ((2, "3"), (3, "7")):
-            plan += [(0, [Transform(call, call_lbl(f"read({s})", DATA)), Transform(ans, ans_lbl("bytes", DATA)),
-                          Transform(tally, tally_lbl(n))], 0.45),
-                     (0, [trip(p_dn, DATA, 0.5)], 0.5), (0, [trip(p_up, DATA, 0.5)], 0.5)]
-        self.say("Then your loop makes the read call itself, one more call per ready socket.", plan)
-
-        # ---------------- completion: io_uring ----------------
-        sq_c, cq_c = [2.0, -0.35, 0], [4.8, -0.35, 0]
-        sq = ring(sq_c, UR)
-        cq = ring(cq_c, UR)
-        sq_l = VGroup(T("submission", 22), T("ring", 22)).arrange(DOWN, buff=0.08).move_to([1.75, 0.95, 0])
-        cq_l = VGroup(T("completion", 22), T("ring", 22)).arrange(DOWN, buff=0.08).move_to([5.05, 0.95, 0])
-        a_sq = arrow([2.7, 1.55, 0], seg_pt(sq_c, 0, r=0.9), GREY_B, buff=0.05)
-        a_cq = arrow(seg_pt(cq_c, 7, r=0.9), [4.1, 1.55, 0], GREY_B, buff=0.05)
-        a_sk = arrow([2.0, -1.25, 0], [2.0, -2.15, 0], GREY_B, buff=0.05)
-        a_kc = arrow([4.8, -2.15, 0], [4.8, -1.25, 0], GREY_B, buff=0.05)
-        self.say("io_uring works by completion. Your program and the kernel share two ring buffers in memory.",
-                 [(0, [FadeIn(h_r), FadeIn(th_r), FadeIn(k_r)], 0.7),
-                  (1, [FadeIn(sq), FadeIn(cq), FadeIn(sq_l), FadeIn(cq_l)], 0.8),
-                  (1, [GrowArrow(a_sq), GrowArrow(a_cq), GrowArrow(a_sk), GrowArrow(a_kc)], 0.6)])
-
-        req = M("read(socket 3, buf, 16 KiB)", 24, DATA).move_to([3.4, 2.6, 0])
-        done = M("done: 4,096 bytes", 24, ZERO).move_to(req)
-        p_in = [a_sq.get_start(), a_sq.get_end(), seg_pt(sq_c, 0)]
-        self.say("You put a request on the submission ring: read up to 16 KiB from this socket. "
-                 "The kernel does the read, and puts the result on the completion ring: done, 4,096 bytes.",
-                 [(0, [FadeIn(req, shift=DOWN * 0.1)], 0.6),
-                  (0, [trip(p_in, DATA, 0.8)], 0.8),
-                  (0, [sq[0].animate.set_fill(DATA, 0.85)], 0.3),
-                  (1, [sq[0].animate.set_fill(UR, 0.12), trip([seg_pt(sq_c, 0), seg_pt(sq_c, 2), seg_pt(sq_c, 4), a_sk.get_start(),
-                                                               a_sk.get_end()], DATA, 0.9)], 0.9),
-                  (1, [Indicate(k_r[1], color=UR, scale_factor=1.2)], 0.5),
-                  (1, [trip([a_kc.get_start(), a_kc.get_end(), seg_pt(cq_c, 4)], ZERO, 0.6)], 0.6),
-                  (1, [cq[4].animate.set_fill(ZERO, 0.85)], 0.3),
-                  (1, [cq[4].animate.set_fill(UR, 0.12), trip([seg_pt(cq_c, 4), seg_pt(cq_c, 6), seg_pt(cq_c, 7), a_cq.get_start(),
-                                                               a_cq.get_end()], ZERO, 0.9), Transform(req, done)], 0.9)])
-
-        many = T("one system call, many operations", 26, GREY_B).move_to(req)
-        trips_in = [trip([a_sq.get_start(), a_sq.get_end(), seg_pt(sq_c, i)], DATA, 0.8) for i in range(3)]
-        trips_k = [trip([seg_pt(sq_c, i), a_sk.get_start(), a_sk.get_end()], DATA, 0.7) for i in range(3)]
-        trips_c = [trip([a_kc.get_start(), a_kc.get_end(), seg_pt(cq_c, 4 + i)], ZERO, 0.6) for i in range(3)]
-        trips_out = [trip([seg_pt(cq_c, 4 + i), seg_pt(cq_c, 7), a_cq.get_start(), a_cq.get_end()], ZERO, 0.8) for i in range(3)]
-        self.say("One system call can submit and collect many operations, and the kernel moves the bytes.",
-                 [(0, [Transform(req, many)], 0.4),
-                  (0, [LaggedStart(*trips_in, lag_ratio=0.25), *[sq[i].animate.set_fill(DATA, 0.85) for i in range(3)]], 1.0),
-                  (0, [LaggedStart(*trips_k, lag_ratio=0.25), *[sq[i].animate.set_fill(UR, 0.12) for i in range(3)]], 1.0),
-                  (0, [LaggedStart(*trips_c, lag_ratio=0.25), Indicate(k_r[1], color=UR, scale_factor=1.2),
-                       *[cq[4 + i].animate.set_fill(ZERO, 0.85) for i in range(3)]], 1.0),
-                  (0, [LaggedStart(*trips_out, lag_ratio=0.25), *[cq[4 + i].animate.set_fill(UR, 0.12) for i in range(3)]], 1.0)])
-        self.play(FadeOut(VGroup(mid, h_l, h_r, th_l, th_r, k_l, k_r, dn, up, call, ans, tally, sq, cq, sq_l, cq_l,
-                                 a_sq, a_cq, a_sk, a_kc, req)), run_time=0.6)
-
-        # ---------------- on the JVM, and is it faster? ----------------
-        j1 = VGroup(T("the JDK's Selector and poller:", 28), T("epoll", 28, EP)).arrange(RIGHT, buff=0.2)
-        j2 = VGroup(T("Netty 4.2:", 28), T("io_uring is a first-class transport", 28, UR)).arrange(RIGHT, buff=0.2)
-        VGroup(j1, j2).arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to(UP * 2.4)
-        self.say("The JDK's selector and poller use epoll. "
-                 "io_uring comes through Netty, first-class since 4.2.",
-                 [(0, [FadeIn(j1, shift=UP * 0.1)], 0.6), (1, [FadeIn(j2, shift=UP * 0.1)], 0.6)])
-
-        bh = T("32 MiB file region, one run of the lesson's demo", 24, GREY_B).move_to(UP * 0.85)
-        rows = []
-        for i, (name, ms, col) in enumerate((("nio", 29, GREY_B), ("epoll", 18, EP), ("io_uring", 65, UR))):
-            y = 0.05 - 0.75 * i
-            nm = M(name, 26, col).move_to([-3.6, y, 0], aligned_edge=RIGHT)
-            bar = Rectangle(width=ms * 0.095, height=0.42, stroke_width=0).set_fill(col, 0.85)
-            bar.move_to([-3.35, y, 0], aligned_edge=LEFT)
-            val = T(f"{ms} ms", 26, col).next_to(bar, RIGHT, buff=0.2)
-            rows.append(VGroup(nm, bar, val))
-        rule = VGroup(T("times move from run to run: measure your own workload", 26),
-                      T("the switch is one factory and one channel class", 26, UR)).arrange(DOWN, buff=0.18).move_to(DOWN * 2.75)
-        self.say("Is it faster? Not reliably. In the lesson's demo, epoll took 18 milliseconds and io_uring took 65. "
-                 "So measure your own workload. The switch is one factory and one channel class.",
-                 [(1, [FadeIn(bh)], 0.5),
-                  (2, [LaggedStart(*[AnimationGroup(FadeIn(r[0]), GrowFromEdge(r[1], LEFT), FadeIn(r[2])) for r in rows],
-                                   lag_ratio=0.35)], 2.0),
-                  (3, [FadeIn(rule[0], shift=UP * 0.1)], 0.6), (4, [FadeIn(rule[1], shift=UP * 0.1)], 0.6)])
-        self.wait(0.8)
+        # ================= the moral and a check =================
+        mq = T("What was wasteful? Every byte made a round trip through your program.", 30).move_to(UP * 2.4)
+        m1 = T("Bytes that leave as stored: let the kernel move them, in a loop.", 30, ZERO).move_to(UP * 1.55)
+        m2 = T("A newer kernel interface is a question, not an answer.", 30, CARD).move_to(UP * 0.75)
+        for m in (mq, m1, m2):
+            fit(m, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        qg = VGroup(VGroup(T("Check:", 28, CARD), T("your server compresses each file before sending it.", 28)).arrange(RIGHT, buff=0.25),
+                    T("Can it use transferTo?", 28)).arrange(DOWN, buff=0.2).move_to(DOWN * 0.85)
+        fit(qg, 12.4)
+        self.say("check")
+        self.play(FadeIn(qg, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
+        self.predict(2.1, pos=(6.4, -3.3), edge=RIGHT)
+        ans = T("No: the JVM changes the bytes, so they come up into memory.", 30, COPY).move_to(DOWN * 2.35)
+        fit(ans, 12.4)
+        self.say("check_a")
+        self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.wait(1.8)

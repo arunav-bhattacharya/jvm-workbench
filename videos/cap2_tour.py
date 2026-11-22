@@ -15,8 +15,8 @@ N = {
              "and Fjord, and tells the customer the cheapest price within a third of a second.",
     "name_qs": "A program that does this is a quote service: it gives a price for a job before anyone books it. Over "
                "three sittings, we'll build one.",
-    "proto": "A client, the program that asks, opens a connection to our server and sends one line of text: 7, Lisbon. "
-             "The server answers with one line too.",
+    "proto": "A client, the program that asks, opens a connection to our server and sends one line: 7, Lisbon. The "
+             "server answers with one line.",
     "proto2": "Read it aloud. Request 7 went fine. Sending the parcel to Lisbon costs 12.42, and Northline offered that "
               "price.",
     "id": "The 7 is the client's own number for its question, a request id, and the server repeats it on the answer."
@@ -44,29 +44,28 @@ N = {
     "fix2": "All ten questions are out at once. The same demo answered everyone in 146 milliseconds.",
     "joke": "And here's the trap. The first version passes every test with one customer, which is exactly how many "
             "customers a simple test has.",
-    "joke2": "So the point is this. Waiting looks harmless until customers share a clerk. Then one customer's wait "
-             "becomes everybody's wait.",
+    "joke2": "So the point is this. Once customers share a clerk, one customer's wait becomes everybody's wait.",
     "rule": "That gives the one rule every part of this service obeys. The event loop never waits. Hand the ticket "
             "back, and finish the job on the loop when the answer arrives.",
     "breaks": "Here our picture breaks. A real post office would notice the queue and open a second counter. Netty "
               "never adds a loop on its own. It doesn't even notice that the clerk is on the phone.",
-    "breaks2": "And if you add a second clerk yourself, each one serves five customers, still on the phone. About half "
-               "a second instead of one. More clerks divide the damage. They don't remove it.",
+    "breaks2": "Add a second clerk yourself, and each one serves five customers, still on the phone: about half a second."
+               " More clerks divide the damage. They don't remove it.",
     "detail": "Two more details are there on purpose. First, the server reads at most 64 bytes per line.",
     "detail2": "Without a limit, a client that never ends its line would make the server keep every byte, waiting for an "
                "end that never comes. A longer line gets an error, and the connection closes.",
     "ids_q": "Second, the request id. One client sends two questions: 7, Lisbon, then 8, Dublin. Dublin's price comes "
              "back first. Which reply leaves first?",
-    "ids_a": "Dublin's. A reply leaves when its price arrives, so a quick answer overtakes a slow one. 8, OK, Dublin, "
-             "9.80, Fjord. Then 7, Lisbon. The client matches them by their numbers, like coat stubs.",
+    "ids_a": "Dublin's. A reply leaves when its price arrives, so a quick answer overtakes a slow one. Then 7, Lisbon. "
+             "The client matches them by their numbers, like coat stubs.",
     "pipe": "Here's the counter as a line of stations, a pipeline. Each station is a handler, a small object that "
             "reacts to the channel's events.",
     "pipe2": "The frame station cuts the bytes into lines of at most 64 bytes. The decoder turns a line into text, and "
              "replies go out through the encoder. Flow control waits for its own section. The last station, "
              "QuoteHandler, answers the question, and that's where the phone call hides.",
-    "code": "In code, the clerk on the phone is one innocent word: join. It waits for the ticket's answer and holds the "
-            "thread while it waits. The fix asks for the price and says what to do when it arrives, on the "
-            "channel's own loop. Kotlin says the same thing.",
+    "code": "In code, the clerk on the phone is one innocent word: join. It holds the thread until the answer comes. "
+            "The fix asks for the price and says what to do when it arrives, on the channel's own loop. Kotlin says "
+            "the same.",
     "guard": "So look in your own code for join, get, or runBlocking inside anything that runs on an event loop. Each "
              "one is the clerk on the phone.",
     "moral": "So, why not just wait a tenth of a second? Because that tenth of a second isn't yours. It belongs to "
@@ -481,7 +480,7 @@ class Cap2Tour(Narrated):
         moral1 = T("one customer's wait becomes everybody's wait", 30, TICKET).move_to([0, -2.4, 0])
         self.say("joke2")
         self.play(FadeIn(crowd, lag_ratio=0.1), FadeIn(crowd_l), run_time=1.0)
-        self.at_text("Then one", lead=0.3)
+        self.at_text("one customer's", lead=0.3)
         self.play(FadeIn(moral1, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.clear()
@@ -520,12 +519,12 @@ class Cap2Tour(Narrated):
         st1 = VGroup(*[bar(100 * i, 100 * (i + 1), -0.75 - 0.13 * i, NL, h=0.11) for i in range(5)])
         half = DashedLine([tx(500), -0.55, 0], [tx(500), -2.8, 0], dash_length=0.08).set_stroke(TICKET, 2.5)
         half_t = T("about 500 ms: five each, still on the phone", 24, TICKET).next_to(half, RIGHT, buff=0.2).shift(UP * 0.6)
-        div = T("more clerks divide the damage; they don't remove it", 28).move_to([0, -3.55, 0])
+        div = T("more clerks divide the damage; they don't remove it", 28).move_to([0, -3.35, 0])
         fit(div, 12.4)
         self.say("breaks2")
         self.play(FadeOut(netty), FadeIn(cl1), FadeIn(cl2), FadeIn(ph1), FadeIn(ph2), run_time=0.7)
         self.play(FadeIn(ax2), LaggedStart(*[FadeIn(b) for b in st1], lag_ratio=0.3), run_time=1.6)
-        self.at_text("About half", lead=0.3)
+        self.at_text("about half", lead=0.3)
         self.play(Create(half), FadeIn(half_t), run_time=0.7)
         self.at_text("More clerks", lead=0.3)
         self.play(FadeIn(div, shift=UP * 0.1), run_time=0.6)
@@ -618,7 +617,7 @@ class Cap2Tour(Narrated):
         for i, key in enumerate(["The frame", "The decoder", "replies go", "Flow control", "The last station"]):
             self.at_text(key, lead=0.2)
             self.play(Circumscribe(sts[i][0], color=TICKET if i < 4 else CLERK, buff=0.04), run_time=0.8)
-        self.at_text("That's where", lead=0.3)
+        self.at_text("that's where", lead=0.3)
         self.play(FadeIn(php), FadeIn(hides), run_time=0.6)
         self.hold()
         self.clear()
