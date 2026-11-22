@@ -116,7 +116,7 @@ def price_list(tag=None, s=1.0):
     if tag:
         b = VGroup(Circle(radius=0.24).set_stroke(PRICE, 2.5).set_fill(dim(PRICE, 0.5), 1), T(tag, 22, WHITE))
         b[1].move_to(b[0])
-        b.move_to(r.get_corner(UR) + LEFT * 0.02 + DOWN * 0.02)
+        b.move_to(r.get_corner(UR) + RIGHT * 0.16 + UP * 0.12)
         g.add(b)
     return g.scale(s)
 
@@ -213,13 +213,13 @@ N = {
             "second one, and everybody knows where it is.",
     "shop": "The town has a corner shop, and the shop's order program needs a town hall of its own: the price list. "
             "Every part of the program asks it what things cost. A loaf of bread: 450 cents. There should be exactly "
-            "one price list, and everybody shares it.",
+            "one.",
     "name": "An object like that, one instance that everyone shares, is called a singleton.",
     "shyq": "Now here's a question that's easy to be shy about. Making one of something sounds trivial. If there isn't "
             "one yet, build one. Isn't a null check enough?",
     "naive": "Here's the version most of us write first. Loading the price list means reading the supplier's price "
              "file, which is slow, so we wait until somebody first asks. That's called lazy. If the field is null, "
-             "build a price list, store it, and return it. Kotlin looks the same.",
+             "build one and store it. Kotlin looks the same.",
     "plot": "Back to the town. Before the hall exists, there's an empty plot of land set aside for it. The first "
             "builder who finds the plot empty builds the hall.",
     "map": "Let's map it. The plot is the field, called instance. An empty plot means null. The town hall is the one "
@@ -230,15 +230,14 @@ N = {
     "a2": "While A is still building, thread B asks. What does B see?",
     "a3": "Empty. A hasn't stored anything yet. So B starts building too.",
     "a4": "A finishes and stores its price list. Then B finishes, and stores another one right over it. Two threads, "
-          "two price lists. Anyone who asked in between got the first one, and nobody can say which list they hold.",
+          "two price lists, and nobody can say which one a caller holds.",
     "breaks": "And here the town picture breaks. Two real builders at an empty plot would see each other and agree who "
               "builds. Threads can't see each other at all. Each one sees only the field.",
-    "race": "This is a check-then-act race. The check and the act are two separate steps, and another thread can slip "
-            "in between them.",
+    "race": "This is a check-then-act race: two separate steps, and another thread slips in between.",
     "eight_q": "So how bad can it get? The lesson's LazyRaceDemo lets eight threads ask at the same moment, with a "
                "constructor that takes 20 ms, like a slow file read. How many price lists get built?",
-    "eight": "Eight. The constructor ran 8 times, and the callers saw 8 different instances. Eight threads asked for "
-             "the one price list and got eight. So much for one.",
+    "eight": "Eight. The constructor ran 8 times, and callers saw 8 instances. Eight threads asked for the one price "
+             "list and got eight. So much for one.",
     "joke": "In the town, that's eight town halls on one plot. Very generous. Register your new address in one, and the "
             "other seven have never heard of you.",
     "joke2": "So the point really is this. A null check can't promise one instance. Something has to make the other "
@@ -253,32 +252,29 @@ N = {
             "setup. Thread B arrives a moment later, and waits politely at the door.",
     "door2": "A builds the one price list. Only then does the door open, and B gets the very same object. Nobody "
              "pushes past this doorkeeper, not even a thread in a hurry.",
-    "holder_out": "The demo agrees. Holder idiom: the constructor ran once, and every caller saw one instance. And "
-                  "after that first time, every call is a plain read of a static field, with no waiting at all.",
-    "holder_name": "That's why it's called the holder idiom. A tiny class whose only job is to hold the one instance, "
-                   "and let the JVM's doorkeeper guard it.",
-    "dcl": "The third tool is for a lazy value in an instance field, one per object, where a holder can't help. It's "
-           "called double-checked locking. Read the field once, with no lock. Only if it's still null, take a lock, "
+    "holder_out": "The demo agrees: the constructor ran once, and every caller saw one instance. After that, every "
+                  "call is a plain read of a static field, with no waiting. That's the holder idiom: a tiny class whose "
+                  "only job is to hold the one instance.",
+    "dcl": "The third tool is for a lazy instance field, one per object, where a holder can't help: double-checked "
+           "locking. Read the field once, with no lock. Only if it's still null, take a lock, "
            "and check again, because another thread may have won while you waited.",
     "volatile": "And mark the field volatile. That makes a write to the field visible to every thread that reads it "
                 "afterwards. Leave volatile out, and another thread can see a price list whose contents it can't see "
                 "yet.",
     "rule": "So here's the rule. A plain null check can't promise one instance. Let the JVM or a lock promise it.",
     "kotlin": "Kotlin moves two of these tools into the language. An object declaration is a singleton made on first "
-              "access, and by lazy is double-checked locking, written once and correctly for you. The next section "
-              "of the lesson runs both.",
-    "guard": "One guardrail before you go. Remember the town hall's notice board. A note pinned there for one visitor "
-             "gets read by the next. Even a safe singleton is one global thing, and state a test leaves in it leaks "
+              "access, and by lazy is double-checked locking, written once and correctly for you.",
+    "guard": "One guardrail. Remember the town hall's notice board: a note pinned there for one visitor gets read "
+             "by the next. Even a safe singleton is one global thing, and state a test leaves in it leaks "
              "into the next test.",
     "guard2": "So the best singleton is often one you don't write. Make one price list where the program is put "
-              "together, and pass it in to everyone who needs it. The lesson's last section shows how.",
+              "together, and pass it in to everyone who needs it.",
     "moral": "So, isn't a null check enough? No. The check and the build are two steps, and threads slip in between. "
-             "Let the JVM's doorkeeper or a lock make the others wait: an enum, a holder, or double-checked locking "
-             "with volatile.",
+             "Let the JVM's doorkeeper or a lock make the others wait.",
     "check": "Quick check. You delete the slow sleep from the constructor, run the racy version three times, and it "
              "prints: constructor ran 1 time. Is the race fixed?",
-    "check_a": "No. The gap between the check and the act shrank to a few microseconds, too small for eight threads to "
-               "hit often. A real price file is slow, so the race shows up when the shop is busy, not in your test.",
+    "check_a": "No. The gap between the check and the act just shrank to a few microseconds. A real price file is slow, "
+               "so the race comes back when the shop is busy.",
 }
 
 
@@ -346,7 +342,8 @@ class Pat01Singleton(Narrated):
         self.at(3)
         self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0.4)
-        self.play(FadeOut(VGroup(shy, q1)), q2.animate.scale(0.75).move_to([0, 3.1, 0]), run_time=0.6)
+        self.play(FadeOut(VGroup(shy, q1)), run_time=0.4)
+        self.play(q2.animate.scale(0.75).move_to([0, 3.1, 0]), run_time=0.5)
 
         jv = code_block(["static PriceList instance;", "static PriceList getInstance() {",
                          "    if (instance == null) instance = new PriceList();", "    return instance;", "}"], 22,
@@ -374,8 +371,8 @@ class Pat01Singleton(Narrated):
         # ================= the empty plot, mapped =================
         FL = -2.0
         ground = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
-        pt = plot(3.4, 1.7).move_to([1.2, FL + 0.95, 0])
-        ghost = town_hall(0.85).move_to(pt[0]).set_opacity(0.25)
+        pt = plot(3.8, 2.3).move_to([1.2, FL + 1.25, 0])
+        ghost = town_hall(0.72).move_to(pt[0]).set_opacity(0.25)
         bA = who(TA, "builder", 1.2).move_to([-4.6, FL + 0.7, 0])
         self.say("plot")
         self.play(Create(ground), FadeIn(pt), run_time=0.9)
@@ -397,7 +394,7 @@ class Pat01Singleton(Narrated):
             r[1].move_to([-0.4, r.get_y(), 0])
             r[0].next_to(r[1], LEFT, buff=0.3)
             r[2].next_to(r[1], RIGHT, buff=0.3)
-        thr = T("paths of work running at the same time, one per order", 22, GREY_B).next_to(mp, DOWN, buff=0.18).align_to(mp[3][2], LEFT)
+        thr = T("threads: paths of work running at the same time, one per order", 22, GREY_B).next_to(mp, DOWN, buff=0.22)
         self.play(VGroup(ground, pt, ghost, bA).animate.shift(DOWN * 0.9), run_time=0.6)
         self.say("map")
         self.at(1)
@@ -428,8 +425,8 @@ class Pat01Singleton(Narrated):
         barB = Bar(3.2, TB, "new PriceList()").move_to([0.15, YB + 0.15, 0])
         objA = price_list("1", 0.9).move_to([4.6, YA, 0])
         objB = price_list("2", 0.9).move_to([4.6, YB, 0])
-        lookA = DashedLine(chA.get_top(), field[0].get_bottom() + LEFT * 1.0, dash_length=0.08, stroke_width=2, color=TA)
-        lookB = DashedLine(chB.get_top(), field[0].get_bottom() + LEFT * 1.4, dash_length=0.08, stroke_width=2, color=TB)
+        lookA = DashedLine(chA.get_top(), field[0].get_corner(DL) + RIGHT * 0.5, dash_length=0.08, stroke_width=2, color=TA)
+        lookB = DashedLine(chB.get_top(), field[0].get_corner(DL) + RIGHT * 0.1, dash_length=0.08, stroke_width=2, color=TB)
         lookB.set_z_index(-1)
         self.say("a1")
         self.play(FadeIn(field), FadeIn(f_txt), FadeIn(tA), FadeIn(tB), run_time=0.8)
@@ -492,7 +489,7 @@ class Pat01Singleton(Narrated):
         gap_t.next_to(gap, DOWN, buff=0.1)
         lbl = VGroup(T("check", 24, BAD).next_to(chA, UP, buff=0.12), T("act", 24, BAD).next_to(barA.lab, UP, buff=0.08))
         self.play(FadeIn(lbl), run_time=0.6)
-        self.at(1)
+        self.at_text("two separate", lead=0.3)
         self.play(GrowFromCenter(gap), FadeIn(gap_t), run_time=0.8)
         self.hold()
         self.wipe()
@@ -578,43 +575,46 @@ class Pat01Singleton(Narrated):
         self.hold()
         self.play(FadeOut(VGroup(hj, hk)), run_time=0.5)
 
-        FL = -2.3
+        FL = -2.6
         ground = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
-        bld = Rectangle(width=4.2, height=3.0).set_stroke(HALL, 3).set_fill(dim(HALL, 0.1), 1).move_to([2.6, FL + 1.5, 0])
-        bld_t = M("class Holder", 24, HALL).next_to(bld, UP, buff=0.12)
-        dr = Rectangle(width=0.7, height=1.2).set_stroke(GREY_A, 3).set_fill(BLACK, 1).move_to([bld.get_left()[0], FL + 0.6, 0])
-        keeper = who(KEEP, "the JVM", 1.05, 20).move_to([bld.get_left()[0] - 0.75, FL + 0.55, 0])
-        aP = person(TA, 1.1).move_to([-5.6, FL + 0.32, 0])
-        bP = person(TB, 1.1).move_to([-6.2, FL + 0.32, 0])
+        bld = Rectangle(width=5.6, height=3.6).set_stroke(HALL, 3).set_fill(dim(HALL, 0.1), 1).move_to([2.9, FL + 1.8, 0])
+        bld_t = M("class Holder", 26, HALL).next_to(bld, UP, buff=0.12)
+        dr = Rectangle(width=0.8, height=1.4).set_stroke(GREY_A, 3).set_fill(BLACK, 1).move_to([bld.get_left()[0], FL + 0.7, 0])
+        keeper = person(KEEP, 1.25).move_to([bld.get_left()[0] - 0.85, FL + 0.38, 0])
+        keep_t = VGroup(T("the JVM,", 22, KEEP), T("doorkeeper", 22, KEEP)).arrange(DOWN, buff=0.06).next_to(keeper, UP, buff=0.2)
+        keep_t.shift(LEFT * 0.3)
+        aP = person(TA, 1.2).move_to([-6.0, FL + 0.36, 0])
+        bP = person(TB, 1.2).move_to([-6.0, FL + 0.36, 0])
         aL = T("A", 24, TA).next_to(aP, UP, buff=0.1)
         bL = T("B", 24, TB).next_to(bP, UP, buff=0.1)
-        setup = Bar(2.4, TA, "setup").move_to([2.9, FL + 1.9, 0])
+        setup = Bar(3.0, TA, "setup: new PriceList()").move_to([3.3, FL + 2.75, 0])
         self.say("door")
-        self.play(Create(ground), FadeIn(bld), FadeIn(bld_t), FadeIn(dr), FadeIn(keeper), run_time=0.9)
+        self.play(Create(ground), FadeIn(bld), FadeIn(bld_t), FadeIn(dr), FadeIn(keeper), FadeIn(keep_t), run_time=0.9)
         self.at(1)
         self.play(FadeIn(aP), FadeIn(aL), run_time=0.4)
-        self.play(VGroup(aP, aL).animate.move_to([2.0, FL + 0.55, 0]), run_time=1.3)
+        self.play(VGroup(aP, aL).animate.move_to([1.3, FL + 0.6, 0]), run_time=1.4)
         self.play(FadeIn(setup), run_time=0.3)
         self.at(2)
         self.play(FadeIn(bP), FadeIn(bL), setup.to(0.3, 0.5))
-        waits = T("waits", 22, TB)
-        self.play(VGroup(bP, bL).animate.move_to([-1.3, FL + 0.55, 0]), setup.to(0.55, 1.1), run_time=1.1)
-        waits.next_to(VGroup(bP, bL), UP, buff=0.1)
+        waits = T("waits", 24, TB)
+        self.play(VGroup(bP, bL).animate.move_to([-3.6, FL + 0.6, 0]), setup.to(0.55, 1.1), run_time=1.1)
+        waits.next_to(VGroup(bP, bL), UP, buff=0.12)
         self.play(FadeIn(waits), setup.to(0.6, 0.4))
         self.hold()
 
-        made = price_list("1", 0.85).move_to([3.4, FL + 0.85, 0])
+        made = price_list("1", 1.0).move_to([3.6, FL + 1.1, 0])
         self.say("door2")
         self.play(setup.to(1.0, 1.0))
         self.play(FadeIn(made, shift=UP * 0.1), run_time=0.5)
         self.at(1)
-        self.play(FadeOut(waits), VGroup(bP, bL).animate.move_to([1.0, FL + 0.55, 0]), run_time=1.0)
-        lA = Arrow(aP.get_top(), made.get_left(), buff=0.1, stroke_width=3, color=TA, max_tip_length_to_length_ratio=0.15)
-        lB = CurvedArrow(bP.get_top() + UP * 0.25, made.get_top() + LEFT * 0.4, angle=-0.9, stroke_width=3, color=TB)
-        same = T("the very same object", 24, OK).next_to(bld, DOWN, buff=0.15)
-        self.play(GrowArrow(lA), Create(lB), FadeIn(same), run_time=0.9)
+        opened = dr.copy().set_fill(dim(OK, 0.3), 1).set_stroke(OK, 3)
+        self.play(FadeOut(waits), Transform(dr, opened), run_time=0.6)
+        lA = Arrow(aP.get_right(), made.get_left(), buff=0.15, stroke_width=3, color=TA, max_tip_length_to_length_ratio=0.15)
+        lB = CurvedArrow(bL.get_top() + UP * 0.1, made.get_top() + UP * 0.05, angle=-0.7, stroke_width=3, color=TB)
+        same = T("the very same object", 26, OK).next_to(made, DOWN, buff=0.2)
+        self.play(GrowArrow(lA), Create(lB), FadeIn(same), run_time=1.0)
         self.at(2)
-        self.play(Indicate(keeper[0], color=WHITE, scale_factor=1.2), run_time=0.9)
+        self.play(Indicate(keep_t, color=WHITE, scale_factor=1.1), run_time=0.9)
         self.hold()
 
         out2 = term(["racy check-then-act: constructor ran 8 time(s), callers saw 8 instance(s)",
@@ -622,16 +622,14 @@ class Pat01Singleton(Narrated):
         out2.move_to([0, 1.05, 0])
         fast = T("after that: a plain read of a static field, no waiting", 26, GREY_A).move_to([0, -2.6, 0])
         self.say("holder_out")
-        self.play(FadeOut(VGroup(ground, bld, bld_t, dr, keeper, aP, aL, bP, bL, setup, made, lA, lB, same)), run_time=0.5)
+        self.play(FadeOut(VGroup(ground, bld, bld_t, dr, keeper, keep_t, aP, aL, bP, bL, setup, made, lA, lB, same)), run_time=0.5)
         self.play(FadeIn(out2, shift=UP * 0.1), run_time=0.6)
         self.play(out2[1][0].animate.set_opacity(0.4), Indicate(out2[1][1], color=OK, scale_factor=1.05), run_time=1.0)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(fast), run_time=0.6)
-        self.hold()
         nm = VGroup(T("the holder idiom:", 28, HALL), T("a tiny class that only holds the one instance", 28)).arrange(RIGHT, buff=0.2)
-        fitw = min(1, 12.6 / nm.width)
-        nm.scale(fitw).move_to([0, -1.5, 0])
-        self.say("holder_name")
+        nm.scale(min(1, 12.6 / nm.width)).move_to([0, -1.4, 0])
+        self.at(2)
         self.play(FadeIn(nm, shift=UP * 0.1), run_time=0.7)
         self.hold()
         self.play(FadeOut(VGroup(n2, out2, fast, nm)), run_time=0.5)
@@ -656,9 +654,9 @@ class Pat01Singleton(Narrated):
         self.say("dcl")
         self.play(FadeIn(n3), run_time=0.5)
         self.play(FadeIn(dj, shift=UP * 0.1), FadeIn(dk, shift=UP * 0.1), run_time=0.9)
-        self.at(2)
+        self.at(1)
         self.play(Create(c1), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(Create(c2), run_time=0.6)
         self.hold()
 
@@ -717,10 +715,10 @@ class Pat01Singleton(Narrated):
         mn = VGroup(M("main", 26, OK), T("makes one price list", 24, GREY_A)).arrange(DOWN, buff=0.08).move_to([-4.6, 0.6, 0])
         mnb = SurroundingRectangle(mn, buff=0.25, color=OK, corner_radius=0.1, stroke_width=2.5)
         pl = price_list("1", 1.0).move_to([-1.4, 0.6, 0])
-        users = VGroup(*[mbox(n, GREY_B, w=3.2, h=0.7, size=22) for n in ("OrderPricer(prices)", "Website(prices)", "a test: OrderPricer { 450 }")])
+        users = VGroup(*[mbox(n, c, w=4.2, h=0.7, size=22) for n, c in (("OrderPricer(prices)", GREY_B), ("Website(prices)", GREY_B),
+                                                                          ("a test: OrderPricer { 450 }", OK))])
         users.arrange(DOWN, buff=0.35).move_to([3.6, 0.6, 0])
         ar = VGroup(*[Arrow(pl.get_right(), u.get_left(), buff=0.15, stroke_width=2.5, color=PRICE, max_tip_length_to_length_ratio=0.1) for u in users[:2]])
-        users[2].set_color(GREY_A)
         pin = T("pass it in", 30, YELLOW_M).move_to([0, -2.6, 0])
         self.say("guard2")
         self.at(1)
@@ -743,7 +741,6 @@ class Pat01Singleton(Narrated):
         self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.5)
         self.at(3)
         self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.5)
-        self.at_text("an enum", lead=0.3)
         self.play(FadeIn(m3), run_time=0.5)
         self.hold()
 

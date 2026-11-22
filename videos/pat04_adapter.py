@@ -1,308 +1,657 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form).
-fg.SAY += [(r"\bIOException\b", "I O exception"), (r"\bGatewayUnavailable\b", "gateway unavailable"),
-           (r"\bXML\b", "X M L"), (r"\bSDK\b", "S D K"), (r"\bREST\b", "rest")]
+# Spoken forms only (captions keep the written words). fg.py is shared, so these live here.
+fg.SAY[:0] = [
+    (r"\bIOException\b", "I O exception"), (r"\bXML\b", "X M L"), (r"\bOldCourierAdapter\b", "old courier adapter"),
+    (r"\bCourierUnavailable\b", "courier unavailable"), (r"\bXmlAdapterDemo\b", "X M L adapter demo"),
+    (r"\bR-2500\b", "R twenty-five hundred"), (r"\b2500 grams\b", "twenty-five hundred grams"),
+    (r"\bQUICK-990\b", "quick nine ninety"), (r": 503\b", ": five oh three"), (r"\b12 Mill Lane\b", "twelve Mill Lane"),
+]
 
-# ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
 
+# ---- local helpers ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-
-class Beat(VoiceScene):
-    """VoiceScene plus captions split only where a new sentence starts, and seq() to start animations
-    at a given sentence of the line."""
-
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
-
-    def seq(self, text, plan=(), after=0.25):
-        """plan: (sentence index, [animations], run_time); each starts no earlier than its sentence."""
+    def say(self, key):
+        text = N[key]
         path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        sents = [x for x in _SENT.split(text.strip()) if x]
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
         total = sum(len(x) for x in sents) or 1
-        starts, t = [], 0.0
+        self._st = []
         for x in sents:
-            starts.append(t); t += dur * len(x) / total
-        assert all(i < len(starts) for i, _, _ in plan), "plan index past the last sentence"
-        now = 0.0
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now); now = starts[idx]
-            if callable(anims):          # built when it starts, so it sees where things are by then
-                anims = anims()
-            self.play(*anims, run_time=rt); now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
         if after:
             self.wait(after)
 
+    def predict(self, secs=2.4, pos=(-6.4, 3.2), edge=LEFT):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
 
-class Pulse(Transform):
-    """Indicate for filled chips: grows and recolours outlines only, so fills and text stay readable."""
-
-    def __init__(self, mobject, color=WHITE, scale_factor=1.08, **kwargs):
-        self.pulse_color, self.pulse_scale = color, scale_factor
-        kwargs.setdefault("rate_func", there_and_back)
-        super().__init__(mobject, **kwargs)
-
-    def create_target(self):
-        t = self.mobject.copy().scale(self.pulse_scale)
-        for sm in t.family_members_with_points():
-            if sm.get_stroke_width() > 0:
-                sm.set_stroke(color=self.pulse_color)
-        return t
+    def wipe(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
 
 
-def cline(text, size=24, color=WHITE):
-    t = Text("|" + text, font=MONO, font_size=size, color=color, disable_ligatures=True)
-    t.src = text
-    return t
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def one(text, size=24, color=WHITE):
-    t = cline(text, size, color)
-    t.remove(t[0])
-    return t
+# one colour per thing, for the whole patterns track (the small town and its corner shop)
+HALL, SHOP, PRICE, TA, TB, KEEP, BAD, OK = BLUE_M, TEAL_M, GOLD_M, YELLOW_M, PURPLE_M, GREY_A, RED_M, GREEN_M
+PAPER, INK = "#EDE6D6", "#161616"
 
 
-def code(lines, size=24, color=WHITE):
-    pitch = M("|", size).height * 1.65
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        t = cline(ln, size, color)
-        t.shift(np.array([0, -i * pitch, 0]) - t[0].get_center())
-        g.add(t)
-    for t in g:
-        t.remove(t[0])
-    return g
+def person(color, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def part(t, sub, nth=0):
-    """Glyphs of substring sub in a line from one()/code() (ligatures off: string index = glyph index)."""
+def who(color, name, s=1.1, size=22):
+    p = person(color, s)
+    return VGroup(p, T(name, size, color).next_to(p, DOWN, buff=0.12))
+
+
+def house(color=GREY_B, w=0.9, h=0.7):
+    b = Rectangle(width=w, height=h).set_stroke(color, 2.5).set_fill(dim(color, 0.2), 1)
+    roof = Polygon(b.get_corner(UL) + LEFT * 0.08, b.get_corner(UR) + RIGHT * 0.08, b.get_top() + UP * h * 0.55)
+    roof.set_stroke(color, 2.5).set_fill(dim(color, 0.35), 1)
+    door = Rectangle(width=w * 0.22, height=h * 0.45).set_stroke(color, 2).set_fill(BLACK, 1)
+    door.move_to(b.get_bottom() + UP * h * 0.225)
+    return VGroup(b, roof, door)
+
+
+def town_hall(s=1.0, color=HALL):
+    base = Rectangle(width=2.6, height=1.5).set_stroke(color, 3).set_fill(dim(color, 0.18), 1)
+    step = Rectangle(width=2.9, height=0.16).set_stroke(color, 2.5).set_fill(dim(color, 0.35), 1).next_to(base, DOWN, buff=0)
+    ped = Polygon(base.get_corner(UL) + LEFT * 0.15, base.get_corner(UR) + RIGHT * 0.15, base.get_top() + UP * 0.6)
+    ped.set_stroke(color, 3).set_fill(dim(color, 0.32), 1)
+    cols = VGroup(*[Line(UP * 0.62, DOWN * 0.62, stroke_width=5, color=color) for _ in range(4)]).arrange(RIGHT, buff=0.55)
+    cols.move_to(base)
+    pole = Line(ped.get_top(), ped.get_top() + UP * 0.6, stroke_width=2.5, color=GREY_B)
+    flag = Polygon(pole.get_end(), pole.get_end() + RIGHT * 0.38 + DOWN * 0.1, pole.get_end() + DOWN * 0.2)
+    flag.set_stroke(PRICE, 2).set_fill(PRICE, 1)
+    return VGroup(base, step, ped, cols, pole, flag).scale(s)
+
+
+def shop(s=1.0, color=SHOP):
+    b = Rectangle(width=2.4, height=1.6).set_stroke(color, 3).set_fill(dim(color, 0.18), 1)
+    aw = VGroup(*[Rectangle(width=0.4, height=0.32).set_stroke(color, 1.5).set_fill(color if i % 2 == 0 else dim(color, 0.3), 1)
+                  for i in range(6)]).arrange(RIGHT, buff=0).next_to(b, UP, buff=0)
+    win = Rectangle(width=1.0, height=0.6).set_stroke(color, 2).set_fill(BLACK, 1).move_to(b.get_center() + LEFT * 0.45 + DOWN * 0.1)
+    door = Rectangle(width=0.5, height=0.9).set_stroke(color, 2).set_fill(BLACK, 1).move_to(b.get_bottom() + RIGHT * 0.65 + UP * 0.45)
+    sign = T("corner shop", 22, color).next_to(aw, UP, buff=0.1)
+    return VGroup(b, aw, win, door, sign).scale(s)
+
+
+def price_list(tag=None, s=1.0):
+    lines = ["PRICE LIST", "BREAD  450"]
+    t = M("\n".join(lines), 20, INK)
+    r = Rectangle(width=t.width + 0.34, height=t.height + 0.34).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    g = VGroup(r, t.move_to(r))
+    if tag:
+        b = VGroup(Circle(radius=0.24).set_stroke(PRICE, 2.5).set_fill(dim(PRICE, 0.5), 1), T(tag, 22, WHITE))
+        b[1].move_to(b[0])
+        b.move_to(r.get_corner(UR) + LEFT * 0.02 + DOWN * 0.02)
+        g.add(b)
+    return g.scale(s)
+
+
+def mini_list(tag=None, s=1.0):
+    r = Rectangle(width=0.5, height=0.64).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    ls = VGroup(*[Line(LEFT * 0.16, RIGHT * 0.16, stroke_width=2, color=INK) for _ in range(3)]).arrange(DOWN, buff=0.12).move_to(r)
+    g = VGroup(r, ls)
+    if tag:
+        b = VGroup(Circle(radius=0.17).set_stroke(PRICE, 2).set_fill(dim(PRICE, 0.5), 1), T(tag, 18, WHITE))
+        b[1].move_to(b[0])
+        b.move_to(r.get_corner(UR))
+        g.add(b)
+    return g.scale(s)
+
+
+def plot(w=3.0, h=1.5, color=GREY_B):
+    """The empty plot of land set aside for the town hall: a dashed fence with a little sign."""
+    fence = DashedVMobject(Rectangle(width=w, height=h), num_dashes=46).set_stroke(color, 2.5)
+    post = Line(ORIGIN, UP * 0.5, stroke_width=3, color=color)
+    board = VGroup(Rectangle(width=1.55, height=0.42).set_stroke(color, 2).set_fill("#1a1a1a", 1), M("instance", 20, WHITE))
+    board[1].move_to(board[0])
+    board.next_to(post, UP, buff=0)
+    sign = VGroup(post, board).next_to(fence, LEFT, buff=0.15).align_to(fence, DOWN)
+    return VGroup(fence, sign)
+
+
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def titled(code, title, color=GREY_B):
+    h = T(title, 22, color).next_to(code, UP, buff=0.22).align_to(code, LEFT)
+    return VGroup(h, code)
+
+
+def part(t, s, nth=0):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    flat = re.sub(r"\s", "", t.text)
     i = -1
     for _ in range(nth + 1):
-        i = t.src.index(sub, i + 1)
-    return VGroup(*t[i:i + len(sub)])
+        i = flat.index(k, i + 1)
+    return t[i:i + len(k)]
 
 
-def paint(t, sub, color):
-    """Colour every occurrence of sub in line t."""
-    i = t.src.find(sub)
-    while i >= 0:
-        VGroup(*t[i:i + len(sub)]).set_color(color)
-        i = t.src.find(sub, i + 1)
-    return t
+def term(lines, size=22, title="output", color=GREY_A):
+    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.5, height=t.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
+    t.move_to(r)
+    h = T(title, 20, GREY_B).next_to(r, UP, buff=0.1).align_to(r, LEFT)
+    return VGroup(r, t, h)
 
 
-def mark(m, color=WHITE, hold=0.6):
-    """Underline a few glyphs, then fade the line out."""
-    u = Line(m.get_corner(DL) + DOWN * 0.09, m.get_corner(DR) + DOWN * 0.09, color=color, stroke_width=4)
-    return Succession(Create(u, run_time=0.45), Wait(hold), FadeOut(u, run_time=0.35))
+def rule_row(text, size=28, color=WHITE):
+    return VGroup(tick(True, 0.15), T(text, size, color)).arrange(RIGHT, buff=0.2)
 
 
+class Bar(VGroup):
+    """A progress bar: an outline and a fill that grows from the left."""
+
+    def __init__(self, w, color, label=None, h=0.34):
+        super().__init__()
+        self.w, self.frac = w, 0.0
+        self.box = Rectangle(width=w, height=h).set_stroke(color, 2)
+        self.fill = Rectangle(width=0.001, height=h).set_stroke(width=0).set_fill(color, 0.6)
+        self.fill.align_to(self.box, LEFT)
+        self.add(self.box, self.fill)
+        if label:
+            self.lab = M(label, 20, color).next_to(self.box, UP, buff=0.1)
+            self.add(self.lab)
+
+    def to(self, frac, run_time=1.0):
+        a = self.frac
+        self.frac = frac
+
+        def upd(m, t):
+            f = a + (frac - a) * t
+            m.fill.stretch_to_fit_width(max(0.001, self.w * f))
+            m.fill.align_to(m.box, LEFT)
+
+        return UpdateFromAlphaFunc(self, upd, run_time=run_time, rate_func=linear)
 
 
-OUR_C, VEN_C, ADP_C, ERR_C, FAC_C = BLUE_M, GOLD_M, GREEN_M, RED_M, YELLOW_M   # your code, the vendor, the adapter, a failure, the facade
-INV_C, PAY_C, NOT_C = TEAL_M, BLUE_M, PURPLE_M                               # three subsystems behind the facade
+OURS, THEIRS, ADAPT = SHOP, PURPLE_M, GOLD_M
 
 
-def tint(m, color, k=0.14):
-    return m.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(color), k), opacity=1).set_stroke(color, 3)
+def socket(color=THEIRS, s=1.0):
+    plate = RoundedRectangle(corner_radius=0.15, width=1.5, height=1.5).set_stroke(color, 3).set_fill(dim(color, 0.18), 1)
+    holes = VGroup(Rectangle(width=0.14, height=0.36), Rectangle(width=0.14, height=0.36), Rectangle(width=0.36, height=0.14))
+    holes[0].move_to(plate.get_center() + LEFT * 0.3 + UP * 0.12)
+    holes[1].move_to(plate.get_center() + RIGHT * 0.3 + UP * 0.12)
+    holes[2].move_to(plate.get_center() + DOWN * 0.35)
+    holes.set_stroke(color, 2).set_fill(BLACK, 1)
+    return VGroup(plate, holes).scale(s)
 
 
-# ---- adapter layout: your code, the adapter's gap, the vendor; requests run above, answers below
-BY, BH, SW, AW = 0.35, 1.5, 3.2, 2.4
-SX, VX = -(AW / 2 + SW / 2), AW / 2 + SW / 2          # centres of your code and of the vendor when the adapter sits between
-PEG_W, PEG_H, SOCK_R = 0.5, 0.56, 0.3
-REQ_Y, RES_Y = BY + BH / 2 + 0.55, BY - BH / 2 - 0.55
+def plug(color=OURS, s=1.0):
+    body = RoundedRectangle(corner_radius=0.12, width=1.0, height=0.8).set_stroke(color, 3).set_fill(dim(color, 0.3), 1)
+    pins = VGroup(*[Circle(radius=0.07).set_stroke(color, 2).set_fill(color, 1) for _ in range(2)]).arrange(RIGHT, buff=0.3)
+    pins.next_to(body, RIGHT, buff=-0.05)
+    pins.arrange(DOWN, buff=0.25).next_to(body, RIGHT, buff=0.0)
+    cable = Line(body.get_left(), body.get_left() + LEFT * 1.2, stroke_width=4, color=color)
+    return VGroup(cable, body, pins).scale(s)
 
 
-def service_shape():
-    body = Rectangle(width=SW, height=BH).move_to([SX, BY, 0])
-    peg = Rectangle(width=PEG_W + 0.02, height=PEG_H).move_to([SX + SW / 2 + PEG_W / 2 - 0.01, BY, 0])
-    return tint(Union(body, peg), OUR_C)
+def adapter_block(s=1.0, color=ADAPT):
+    b = RoundedRectangle(corner_radius=0.12, width=1.3, height=1.2).set_stroke(color, 3).set_fill(dim(color, 0.25), 1)
+    holes = VGroup(*[Circle(radius=0.08).set_stroke(color, 2).set_fill(BLACK, 1) for _ in range(2)]).arrange(DOWN, buff=0.25)
+    holes.move_to(b.get_left() + RIGHT * 0.25)
+    prongs = VGroup(Rectangle(width=0.36, height=0.12), Rectangle(width=0.36, height=0.12)).arrange(DOWN, buff=0.36)
+    prongs.set_stroke(color, 2).set_fill(color, 1).next_to(b, RIGHT, buff=0)
+    return VGroup(b, holes, prongs).scale(s)
 
 
-def vendor_shape():
-    body = Rectangle(width=SW, height=BH).move_to([VX, BY, 0])
-    hole = Circle(radius=SOCK_R).move_to([VX - SW / 2, BY, 0])
-    return tint(Difference(body, hole), VEN_C)
+def lbl_box(title, sub, color, w=3.4, h=1.5, mono=True):
+    r = RoundedRectangle(corner_radius=0.14, width=w, height=h).set_stroke(color, 3).set_fill(dim(color, 0.12), 1)
+    t = (M if mono else T)(title, 24, color)
+    st = T(sub, 20, GREY_A)
+    g = VGroup(t, st).arrange(DOWN, buff=0.1).move_to(r)
+    return VGroup(r, g)
 
 
-def adapter_shape():
-    body = Rectangle(width=AW, height=BH * 0.86).move_to([0, BY, 0])
-    notch = Rectangle(width=PEG_W * 2, height=PEG_H + 0.04).move_to([-AW / 2, BY, 0])
-    knob = Circle(radius=SOCK_R - 0.03).move_to([AW / 2, BY, 0])
-    return tint(Union(Difference(body, notch), knob), ADP_C)
+def vchip(text, color, size=22):
+    t = M(text, size, WHITE)
+    r = RoundedRectangle(corner_radius=0.1, width=t.width + 0.36, height=0.56).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    return VGroup(r, t.move_to(r))
 
 
-def token(text, color, size=22):
-    return chip(text, color, size=size, mono=True).set_z_index(20)
+# every spoken line, in order
+N = {
+    "open": "You arrive at a hotel in another country, with your phone charger from home. The socket in the wall has "
+            "the wrong shape. So you push a travel plug adapter into it. The socket stays the same. The charger stays "
+            "the same. And the little block in between makes them fit.",
+    "shop": "The corner shop has the same problem. It books its deliveries through a courier company's old client "
+            "library, a program the shop can't change. It speaks XML, a text format of tags in angle brackets. And "
+            "when the courier's office is closed, it throws an IOException.",
+    "checked": "IOException is a checked exception: one the Java compiler makes you catch, or declare.",
+    "shyq": "So here's a question that's easy to be shy about. Why not just call the old library, everywhere we need "
+            "it? It works. Why put anything in between?",
+    "pain": "Let's see where that leads. The website builds XML and catches IOException. So does the phone line. So "
+            "does the shop counter. Each in its own slightly different way. And the day the shop switches couriers, "
+            "every one of them has to change.",
+    "joke": "The old courier's words have moved in, and they've brought furniture.",
+    "wish": "What we'd like is for the shop's code to speak only the shop's own words, and for one place to do the "
+            "translating.",
+    "port": "So the shop writes down its own words first. An interface, Courier, with one method: book a parcel for "
+            "an address and a weight in grams, and get back a booking reference. An interface like that, in your own "
+            "words, that the rest of your code depends on, is called a port.",
+    "map": "Now map it to the hotel. The socket in the wall is the old client: you can't change it. Your charger is "
+           "the shop's code. The shape of its plug is the port. And the block in between is the adapter: "
+           "OldCourierAdapter.",
+    "walk": "Let's follow one booking through the adapter. 12 Mill Lane, 2500 grams. First, it writes the request in "
+            "their format: a parcel tag with the grams and the address.",
+    "walk2": "Then it calls them. The old client answers in its own format: ok, ref R-2500.",
+    "walk3": "Then the adapter cuts our booking reference out of their answer. R-2500. Their format ends here.",
+    "pred": "Now try an address the courier can't reach: 1 Nowhere Road. The old client throws its IOException. What "
+            "does the shop's code see?",
+    "catch": "It sees the shop's own exception, CourierUnavailable: courier unreachable. The catch in the adapter "
+             "stopped their exception, and put ours in its place.",
+    "out": "Here's what the lesson's XmlAdapterDemo printed. Booked, ref R-2500. Caller sees CourierUnavailable: "
+           "courier unreachable. Hold on to that third line, we'll come back to it.",
+    "break_q": "Now let's break it on purpose. Delete the try and the catch, and keep the two lines inside. What "
+               "happens in Java? And in Kotlin?",
+    "java": "Java refuses to compile: unreported exception IOException; must be caught or declared to be thrown. The "
+            "port's method doesn't declare IOException, so the compiler won't let it escape.",
+    "kotlin": "Kotlin has no checked exceptions. So the same code compiles without a word, and prints: caller sees "
+              "IOException: courier office closed: 503. The old client's exception walked straight through your "
+              "port.",
+    "fussy": "For once, Java's fussiness is a feature. It gets in your way exactly where you need it. In Kotlin, that "
+             "discipline is yours.",
+    "breaks": "And that's where the travel plug picture breaks. A plug either fits, or it doesn't. A software adapter "
+              "must also translate failures. A leaky one passes the foreign voltage straight through.",
+    "rule": "So here's the rule. Translate at the edge, in both directions. Let nothing foreign through.",
+    "lambda": "Now that third line. When the port has only one method, as Courier does, you don't even need a class. "
+              "A lambda, a small function written in place, is the adapter, in both languages. The demo prints: "
+              "lambda adapter, QUICK-990.",
+    "guard": "One guardrail. Keep the old library's names, formats and exceptions inside the adapter. If you find "
+             "IOException, or the courier's XML, in any other class, the adapter has a leak. Switching couriers "
+             "should mean writing one new adapter, and nothing else.",
+    "moral": "So, why put anything in between? Because the in-between is where their words stop. The shop's code "
+             "says: book this parcel. The adapter says it in XML, and turns their trouble into ours.",
+    "check": "Quick check. A teammate's Kotlin adapter calls the old client with no try at all. The courier's office "
+             "closes. What does the shop's order page see?",
+    "check_a": "IOException: courier office closed: 503. The courier's error leaked through the port, and the "
+               "compiler said nothing. Catch it in the adapter, and throw CourierUnavailable.",
+}
 
 
-def sbox(name, color, w=2.8, h=0.9, size=26):
-    r = RoundedRectangle(corner_radius=0.12, width=w, height=h)
-    tint(r, color)
-    return VGroup(r, T(name, size, color).move_to(r))
-
-
-class Pat04Adapter(Beat):
-    """pat-04 sections 0 and 2: an adapter has your port's shape on one side and the vendor's on the other,
-    and translates calls, answers and errors both ways; a facade is one front door that owns the order of the steps
-    and what each failure means."""
+class Pat04Adapter(Narrated):
+    """pat-04, section 0: Adapter. The travel plug in a hotel abroad; the courier's old client (XML, IOException,
+    checked exceptions); the shy question (why not call it directly?); the pain of leaked words; the port Courier;
+    the hotel mapped; one booking followed through OldCourierAdapter (XML out, ref R-2500 back); a prediction for
+    1 Nowhere Road; the catch; XmlAdapterDemo's real output; breaking it: javac's real message vs Kotlin's leak;
+    where the picture breaks; the rule; a lambda as the adapter (QUICK-990); guardrail; moral and a check."""
 
     def construct(self):
-        self.title_card("Fit their shape, hide the steps", "Adapter and Facade")
+        self.title_card("A plug that fits", "Adapter: their words stop at the edge")
 
-        # ---------- two shapes that don't fit
-        svc = service_shape()
-        svc_t = T("your code", 28, OUR_C).move_to([SX - 0.15, BY, 0])
-        port = M("charge(amount, currency, token)", 22, OUR_C).move_to([SX, 2.75, 0])
-        port_n = T("your port", 24, OUR_C).next_to(port, UP, buff=0.12)
-        self.seq("Your payment code expects one shape. charge, with an amount, a currency and a token, gives back a reference. "
-                 "That shape is your port.",
-                 [(0, [FadeIn(svc), FadeIn(svc_t)], 0.8), (1, [FadeIn(port, shift=DOWN * 0.1)], 0.7),
-                  (2, [FadeIn(port_n), Indicate(svc_t, color=WHITE, scale_factor=1.08)], 0.8)])
+        # ================= hook: the travel plug =================
+        wall = Rectangle(width=2.2, height=4.4).set_stroke(GREY_D, 2).set_fill("#141414", 1).move_to([5.4, 0, 0])
+        so = socket(THEIRS, 1.3).move_to([5.0, 0.2, 0])
+        so_t = T("the hotel's socket", 24, THEIRS).next_to(so, DOWN, buff=0.3)
+        pl = plug(OURS, 1.3).move_to([-2.6, 0.2, 0])
+        pl_t = T("your charger", 24, OURS).next_to(pl, DOWN, buff=0.3)
+        bad = tick(False, 0.3).move_to([1.4, 0.2, 0])
+        ad = adapter_block(1.3).move_to([2.6, 0.2, 0])
+        ad_t = T("the adapter", 24, ADAPT).next_to(ad, DOWN, buff=0.3)
+        self.say("open")
+        self.play(FadeIn(wall), FadeIn(so), FadeIn(pl), FadeIn(pl_t), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(so_t), FadeIn(bad, scale=0.5), run_time=0.6)
+        self.at(2)
+        self.play(FadeOut(bad), FadeIn(ad, shift=LEFT * 0.3), FadeIn(ad_t), run_time=0.7)
+        self.play(ad.animate.next_to(so, LEFT, buff=-0.25), ad_t.animate.next_to(so, LEFT, buff=-0.25).shift(DOWN * 1.35), run_time=0.7)
+        self.play(VGroup(pl, pl_t).animate.shift(RIGHT * (ad.get_left()[0] - pl[2].get_right()[0] + 0.05)), run_time=0.8)
+        self.at(3)
+        self.play(Indicate(so[0], color=THEIRS, scale_factor=1.05), run_time=0.6)
+        self.at(4)
+        self.play(Indicate(pl[1], color=OURS, scale_factor=1.1), run_time=0.6)
+        self.at(5)
+        self.play(Indicate(ad[0], color=ADAPT, scale_factor=1.1), run_time=0.7)
+        self.hold()
+        self.wipe()
 
-        ven = vendor_shape()
-        ven_t = M("LegacySoapClient", 22, VEN_C).move_to([VX + 0.15, BY, 0])
-        api = M("submitTxn(xml): xml", 22, VEN_C).move_to([VX, 2.75, 0])
-        api_n = T("the issuer's SDK", 24, VEN_C).next_to(api, UP, buff=0.12)
-        api_e = M("throws IOException", 22, VEN_C).move_to([VX, -1.75, 0])
-        self.seq("The issuer's SDK has another shape. It takes an XML string, answers in XML, and throws IOException. "
-                 "You can't change it.",
-                 [(0, [FadeIn(ven), FadeIn(ven_t), FadeIn(api_n)], 0.8), (1, [FadeIn(api, shift=DOWN * 0.1)], 0.7),
-                  (1, [FadeIn(api_e, shift=UP * 0.1)], 0.6)])
+        # ================= the shop and the old client =================
+        sh = shop(0.9).move_to([-4.6, 0.2, 0])
+        old = lbl_box("OldCourierClient", "an old library the shop can't change", THEIRS, w=5.0, h=1.4).move_to([2.6, 1.4, 0])
+        xml = vchip("<parcel grams='2500' to='12 Mill Lane'/>", THEIRS, 22).move_to([2.6, -0.2, 0])
+        xml_t = T("XML: a text format of tags in angle brackets", 22, GREY_A).next_to(xml, DOWN, buff=0.15)
+        exc = VGroup(M("throws IOException", 24, BAD), T("when the courier's office is closed", 22, GREY_A)).arrange(DOWN, buff=0.08).move_to([2.6, -2.1, 0])
+        self.say("shop")
+        self.play(FadeIn(sh), run_time=0.6)
+        self.at_text("through a courier", lead=0.3)
+        self.play(FadeIn(old, shift=LEFT * 0.2), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(xml, shift=UP * 0.1), FadeIn(xml_t), run_time=0.7)
+        self.at(3)
+        self.play(FadeIn(exc, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        chk = T("checked exception: the Java compiler makes you catch it, or declare it", 24, YELLOW_M).move_to([0, -3.25, 0])
+        chk.scale(min(1, 12.6 / chk.width))
+        self.say("checked")
+        self.play(FadeIn(chk), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        push = AW - PEG_W - 0.02
-        ven_g = VGroup(ven, ven_t)
-        self.seq("Push them together. They don't fit.",
-                 [(0, [ven_g.animate.shift(LEFT * push)], 0.8),
-                  (1, [Flash(np.array([SX + SW / 2 + PEG_W, BY, 0]), color=ERR_C, flash_radius=0.5)], 0.6),
-                  (1, lambda: [ven_g.animate.shift(RIGHT * push)], 0.6)])   # built late: it must start from the pushed place
+        # ================= shy question and pain =================
+        shy = T("a question that's easy to be shy about", 26, GREY_B).move_to([0, 2.4, 0])
+        q1 = T("Why not just call the old library, everywhere?", 36)
+        q2 = T("Why put anything in between?", 36, YELLOW_M)
+        qg = VGroup(q1, q2).arrange(DOWN, buff=0.35).move_to([0, 0.5, 0])
+        self.say("shyq")
+        self.play(FadeIn(shy), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(q1, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        adp = adapter_shape()
-        adp_t = T("adapter", 28, ADP_C).move_to([0.2, BY, 0])
-        adp_g = VGroup(adp, adp_t).shift(DOWN * 3.2)
-        self.seq("So put a piece in between, with your shape on one side and theirs on the other. That piece is an adapter.",
-                 [(0, [FadeIn(adp_g)], 0.4), (0, [adp_g.animate.shift(UP * 3.2)], 1.1),
-                  (0, [Flash(np.array([SX + SW / 2 + PEG_W / 2, BY, 0]), color=ADP_C, flash_radius=0.45),
-                       Flash(np.array([AW / 2, BY, 0]), color=ADP_C, flash_radius=0.45)], 0.6),
-                  (1, [Indicate(adp_t, color=WHITE, scale_factor=1.1)], 0.8)])
+        old2 = lbl_box("OldCourierClient", "XML, IOException", THEIRS, w=4.2, h=1.3).move_to([3.8, 0.0, 0])
+        callers = VGroup(*[lbl_box(n, "builds XML, catches IOException", OURS, w=4.6, h=1.2, mono=False)
+                           for n in ("the website", "the phone line", "the shop counter")]).arrange(DOWN, buff=0.45).move_to([-3.6, 0.0, 0])
+        for c in callers:
+            c[1][1].set_color(THEIRS)
+        lines = VGroup(*[Arrow(c.get_right(), old2.get_left(), buff=0.15, stroke_width=2.5, color=THEIRS, max_tip_length_to_length_ratio=0.08) for c in callers])
+        self.say("pain")
+        self.play(FadeIn(old2), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(callers[0]), GrowArrow(lines[0]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(callers[1]), GrowArrow(lines[1]), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(callers[2]), GrowArrow(lines[2]), run_time=0.6)
+        self.at(5)
+        self.play(*[Indicate(c[0], color=BAD, scale_factor=1.04) for c in callers], run_time=1.0)
+        self.hold()
+        sofa = VGroup(RoundedRectangle(corner_radius=0.1, width=1.2, height=0.4).set_stroke(THEIRS, 2.5).set_fill(dim(THEIRS, 0.4), 1),
+                      RoundedRectangle(corner_radius=0.1, width=1.2, height=0.35).set_stroke(THEIRS, 2.5).set_fill(dim(THEIRS, 0.3), 1))
+        sofa[1].next_to(sofa[0], UP, buff=0)
+        legs = VGroup(*[Line(UP * 0, DOWN * 0.15, stroke_width=3, color=THEIRS) for _ in range(2)]).arrange(RIGHT, buff=0.9).next_to(sofa[0], DOWN, buff=0)
+        sofa.add(legs)
+        sofas = VGroup(*[sofa.copy().scale(0.55).next_to(c[0], RIGHT, buff=-0.85).shift(UP * 0.25) for c in callers])
+        self.say("joke")
+        self.play(LaggedStart(*[FadeIn(s_, shift=DOWN * 0.15) for s_ in sofas], lag_ratio=0.25), run_time=1.0)
+        self.hold()
+        wish = T("Wish: the shop speaks only its own words, and one place translates.", 28, YELLOW_M).move_to([0, -3.2, 0])
+        wish.scale(min(1, 12.6 / wish.width))
+        self.say("wish")
+        self.play(FadeIn(wish, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        self.wipe()
 
-        # ---------- one call, both ways
-        req = token("1250, EUR, tok_1", OUR_C).move_to([SX, REQ_Y, 0])
-        xml = token("<txn amt='1250' .../>", VEN_C).move_to([0, REQ_Y, 0])
-        resp = token("<ok ref='R-77'/>", VEN_C).move_to([VX, RES_Y, 0])
-        ref = token("\"R-77\"", OUR_C).move_to([0, RES_Y, 0])
-        self.seq("Follow one call. Your amount, currency and token go in, and the adapter writes the XML the vendor wants. "
-                 "The answer comes back as XML, and the adapter hands you only the reference.",
-                 [(0, [FadeIn(req, shift=DOWN * 0.1)], 0.5), (1, [req.animate.move_to([0, REQ_Y, 0])], 0.8),
-                  (1, [ReplacementTransform(req, xml)], 0.6), (1, [xml.animate.move_to([VX, REQ_Y, 0])], 0.8),
-                  (2, [FadeOut(xml), FadeIn(resp, shift=UP * 0.1)], 0.5), (2, [resp.animate.move_to([0, RES_Y, 0])], 0.8),
-                  (2, [ReplacementTransform(resp, ref)], 0.6), (2, [ref.animate.move_to([SX, RES_Y, 0])], 0.8)])
+        # ================= the port =================
+        pj = titled(code_block(["interface Courier {", "    String book(String address, int grams);", "}"], 26), "Java")
+        pk = titled(code_block(["fun interface Courier {", "    fun book(address: String, grams: Int): String", "}"], 26), "Kotlin")
+        pg = VGroup(pj, pk).arrange(DOWN, aligned_edge=LEFT, buff=0.4).move_to([0, 1.0, 0])
+        pdef = VGroup(T("a port:", 28, OURS), T("an interface in your own words, that your code depends on", 28)).arrange(RIGHT, buff=0.2)
+        pdef.scale(min(1, 12.6 / pdef.width)).move_to([0, -2.6, 0])
+        self.say("port")
+        self.play(FadeIn(pj, shift=UP * 0.1), FadeIn(pk, shift=UP * 0.1), run_time=0.8)
+        self.at(1)
+        self.play(Indicate(pj[1][1], color=OURS, scale_factor=1.04), Indicate(pk[1][1], color=OURS, scale_factor=1.04), run_time=1.0)
+        self.at(2)
+        self.play(FadeIn(pdef, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        ioe = token("IOException", ERR_C).move_to([VX, RES_Y, 0])
-        gu = token("GatewayUnavailable", OUR_C).move_to([0, RES_Y, 0])
-        self.seq("Errors get translated too. The vendor throws IOException, and the adapter throws your own GatewayUnavailable.",
-                 [(0, [FadeOut(ref)], 0.4), (1, [FadeIn(ioe, scale=0.8)], 0.4), (1, [ioe.animate.move_to([0, RES_Y, 0])], 0.8),
-                  (1, [ReplacementTransform(ioe, gu)], 0.6), (1, [gu.animate.move_to([SX, RES_Y, 0])], 0.8)])
+        # ================= the map =================
+        rows = [("the socket in the wall", "OldCourierClient: can't change it", THEIRS),
+                ("your charger", "the shop's code", OURS),
+                ("the shape of its plug", "the port, Courier", OURS),
+                ("the block in between", "the adapter, OldCourierAdapter", ADAPT)]
+        mp = VGroup()
+        for a, b, c in rows:
+            mp.add(VGroup(T(a, 28, c), Arrow(LEFT * 0.4, RIGHT * 0.4, buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.25), T(b, 28, WHITE)))
+        mp.arrange(DOWN, buff=0.42).move_to([0, 0.4, 0])
+        for r in mp:
+            r[1].move_to([-1.0, r.get_y(), 0])
+            r[0].next_to(r[1], LEFT, buff=0.3)
+            r[2].next_to(r[1], RIGHT, buff=0.3)
+        mp.scale(min(1, 12.6 / mp.width))
+        self.say("map")
+        for i in range(4):
+            self.at(i + 1)
+            self.play(FadeIn(mp[i], shift=RIGHT * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        self.seq("What if the adapter let IOException through?", [(0, [FadeOut(gu)], 0.4)], after=1.4)
+        # ================= follow one booking =================
+        lane_y = 0.6
+        shopc = lbl_box("shop code", "speaks Courier", OURS, w=2.6, h=1.3, mono=False).move_to([-5.0, lane_y, 0])
+        adb = RoundedRectangle(corner_radius=0.14, width=4.0, height=3.0).set_stroke(ADAPT, 3).set_fill(dim(ADAPT, 0.1), 1).move_to([-0.6, lane_y, 0])
+        adb_t = M("OldCourierAdapter", 24, ADAPT).next_to(adb, UP, buff=0.12)
+        oldc = lbl_box("OldCourierClient", "XML in, XML out", THEIRS, w=3.0, h=1.3).move_to([4.75, lane_y, 0])
+        oldc[1][0].scale(0.85)
+        req = vchip("book(\"12 Mill Lane\", 2500)", OURS, 22).move_to([-5.0, lane_y + 1.3, 0])
+        self.say("walk")
+        self.play(FadeIn(shopc), FadeIn(adb), FadeIn(adb_t), FadeIn(oldc), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(req, shift=DOWN * 0.1), run_time=0.5)
+        self.play(req.animate.move_to([-0.6, lane_y + 0.8, 0]), run_time=0.9)
+        self.at(2)
+        x1 = vchip("<parcel grams='2500' to='12 Mill Lane'/>", THEIRS, 20).move_to([-0.6, lane_y + 0.8, 0])
+        x1.scale(min(1, 3.8 / x1.width))
+        self.play(Transform(req, x1), run_time=0.9)
+        self.hold()
+        ans = vchip("<ok ref='R-2500'/>", THEIRS, 22).move_to([4.75, lane_y - 1.3, 0])
+        self.say("walk2")
+        self.play(req.animate.move_to(oldc.get_center() + UP * 1.1).scale(0.8), run_time=0.9)
+        self.play(FadeOut(req), Indicate(oldc[0], color=THEIRS, scale_factor=1.05), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(ans, shift=DOWN * 0.1), run_time=0.6)
+        self.hold()
+        self.say("walk3")
+        self.play(ans.animate.move_to([-0.6, lane_y - 0.8, 0]), run_time=0.9)
+        r2500 = vchip("R-2500", OURS, 24).move_to([-0.6, lane_y - 0.8, 0])
+        self.play(Transform(ans, r2500), run_time=0.8)
+        self.play(ans.animate.move_to([-5.0, lane_y - 1.3, 0]), run_time=0.8)
+        self.at(2)
+        edge = Line(adb.get_corner(UR), adb.get_corner(DR), stroke_width=6, color=ADAPT)
+        self.play(Create(edge), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(ans), FadeOut(edge), run_time=0.4)
 
-        leak = token("IOException", ERR_C).move_to([VX, RES_Y, 0])
-        self.seq("Then your code depends on the vendor, and a new issuer means changing every caller. "
-                 "That's a leaky adapter, the most common adapter bug.",
-                 [(0, [FadeIn(leak, scale=0.8)], 0.3), (0, [leak.animate.move_to([SX, RES_Y, 0])], 1.4),
-                  (0, [svc.animate.set_stroke(ERR_C), svc_t.animate.set_color(ERR_C)], 0.5),
-                  (1, [Indicate(adp_t, color=ERR_C, scale_factor=1.1)], 0.8)], after=0.5)
-        self.play(FadeOut(VGroup(svc, svc_t, port, port_n, ven, ven_t, api, api_n, api_e, adp, adp_t, leak)), run_time=0.6)
+        req2 = vchip("book(\"1 Nowhere Road\", 2500)", OURS, 22).move_to([-5.0, lane_y + 1.3, 0])
+        boom = vchip("IOException", BAD, 22).move_to([4.75, lane_y - 1.3, 0])
+        self.say("pred")
+        self.play(FadeIn(req2, shift=DOWN * 0.1), run_time=0.5)
+        self.play(req2.animate.move_to(oldc.get_center() + UP * 1.1).scale(0.8), run_time=1.2)
+        self.at(1)
+        self.play(FadeOut(req2), FadeIn(boom, scale=0.7), run_time=0.6)
+        self.play(boom.animate.move_to([-0.6, lane_y - 0.8, 0]), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.4)
+        ours = vchip("CourierUnavailable", OURS, 22).move_to([-0.6, lane_y - 0.8, 0])
+        ccode = M("catch (IOException e) { throw new CourierUnavailable(...); }", 20, ADAPT)
+        ccode.scale(min(1, 12.4 / ccode.width)).move_to([0, -2.75, 0])
+        self.say("catch")
+        self.play(Transform(boom, ours), run_time=0.8)
+        self.play(boom.animate.move_to([-5.0, lane_y - 1.3, 0]), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(ccode, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------- the adapter in code
-        jl = code(["record SoapGatewayAdapter(LegacySoapClient soap)",
-                   "        implements PaymentGateway { ...",
-                   "    catch (IOException e) { throw new GatewayUnavailable(...); }"], 24)
-        kl = code(["class SoapGatewayAdapter(private val soap: LegacySoapClient)",
-                   "        : PaymentGateway { ...",
-                   "    catch (e: IOException) { throw GatewayUnavailable(...) }"], 24)
-        for ln in [*jl, *kl]:
-            paint(ln, "PaymentGateway", OUR_C); paint(ln, "GatewayUnavailable", OUR_C)
-            paint(ln, "LegacySoapClient", VEN_C); paint(ln, "IOException", ERR_C)
-        jg = VGroup(T("Java", 26, GREY_B), jl).arrange(DOWN, buff=0.22, aligned_edge=LEFT)
-        kg = VGroup(T("Kotlin", 26, GREY_B), kl).arrange(DOWN, buff=0.22, aligned_edge=LEFT)
-        both = VGroup(jg, kg).arrange(DOWN, buff=0.6, aligned_edge=LEFT).move_to([0, 0.2, 0])
-        fit(both, 12.4)
-        self.seq("In Java, the port doesn't declare IOException, so javac won't let it escape. "
-                 "Kotlin has no checked exceptions, so the same leak compiles without a word.",
-                 [(0, [FadeIn(jg, shift=UP * 0.15)], 0.7), (0, [mark(part(jl[2], "IOException"), ERR_C, 0.6)], 1.2),
-                  (1, [FadeIn(kg, shift=UP * 0.15)], 0.7), (1, [mark(part(kl[2], "IOException"), ERR_C, 0.6)], 1.2)], after=0.5)
-        self.play(FadeOut(both), run_time=0.6)
+        # ================= the adapter code and the real output =================
+        aj = titled(code_block(["record OldCourierAdapter(OldCourierClient old) implements Courier {",
+                                "  public String book(String address, int grams) {",
+                                "    String xml = \"<parcel grams='\" + grams + \"' to='\" + address + \"'/>\";",
+                                "    try {", "      String answer = old.submit(xml);",
+                                "      return answer.substring(answer.indexOf(\"ref='\") + 5,",
+                                "          answer.lastIndexOf(\"'\"));",
+                                "    } catch (IOException e) {",
+                                "      throw new CourierUnavailable(\"courier unreachable\", e);",
+                                "    }", "  }", "}"], 22), "Java (the Kotlin twin does the same)")
+        aj.scale(min(1, 12.6 / aj.width)).move_to([-6.3, 3.4, 0], aligned_edge=UL)
+        out = term(["booked, ref R-2500", "caller sees CourierUnavailable: courier unreachable", "lambda adapter: QUICK-990"], 22,
+                   "XmlAdapterDemo, real output").move_to([0, 0.3, 0])
+        self.say("out")
+        self.play(FadeIn(out[0]), FadeIn(out[2]), FadeIn(out[1][0]), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(out[1][1]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(out[1][2]), run_time=0.5)
+        self.hold()
 
-        # ---------- the facade: one front door
-        CX, SBX, ROWS = -4.7, 4.9, [1.7, 0.0, -1.7]
-        callers = [sbox(n, WHITE, w=3.0, h=0.85) .move_to([CX, y, 0]) for n, y in zip(["REST resource", "Kafka consumer", "admin tool"], ROWS)]
-        subs = [sbox(n, c, w=2.6, h=0.85).move_to([SBX, y, 0]) for n, c, y in zip(["Inventory", "Payments", "Notifier"], [INV_C, PAY_C, NOT_C], ROWS)]
-        steps = [M(s, 22, c).next_to(b, DOWN, buff=0.1) for s, c, b in zip(["reserve", "charge", "send"], [INV_C, PAY_C, NOT_C], subs)]
-        self.seq("Now a different problem. Checkout is three steps: reserve the stock, charge the card, send a receipt.",
-                 [(1, [LaggedStart(*[FadeIn(VGroup(b, s), shift=LEFT * 0.15) for b, s in zip(subs, steps)], lag_ratio=0.5)], 1.6)])
+        # ================= break it on purpose =================
+        cut = VGroup(aj[1][3], aj[1][7], aj[1][8], aj[1][9])
+        crosses = VGroup(*[Line(l.get_left() + LEFT * 0.05, l.get_right() + RIGHT * 0.05, stroke_width=3, color=BAD) for l in cut])
+        self.say("break_q")
+        self.play(FadeOut(out), run_time=0.4)
+        self.play(FadeIn(aj, shift=UP * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(Create(crosses), cut.animate.set_opacity(0.35), run_time=0.9)
+        self.hold(after=0)
+        self.predict(2.6, pos=(6.4, -3.3), edge=RIGHT)
+        je = VGroup(T("Java", 22, GREY_B), VGroup(M("error:", 22, BAD), M("unreported exception IOException; must be caught", 22, GREY_A)).arrange(RIGHT, buff=0.15),
+                    M("or declared to be thrown", 22, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.08)
+        je.scale(min(1, 12.4 / je.width)).move_to([0, -3.0, 0])
+        self.say("java")
+        self.play(FadeIn(je, shift=UP * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(Indicate(aj[1][0], color=OURS, scale_factor=1.03), run_time=0.9)
+        self.hold()
+        ko = term(["caller sees IOException: courier office closed: 503"], 24, "Kotlin, with no catch: it compiles, and prints")
+        ko.move_to([0, -2.95, 0])
+        self.say("kotlin")
+        self.play(FadeOut(je), run_time=0.3)
+        self.at(1)
+        self.play(FadeIn(ko, shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(Indicate(part(ko[1][0], "IOException"), color=BAD, scale_factor=1.2), run_time=0.9)
+        self.hold()
+        self.say("fussy")
+        self.hold()
+        self.wipe()
 
-        wires = VGroup(*[Line(c[0].get_right(), s[0].get_left(), stroke_width=2, color=GREY_B) for c in callers for s in subs])
-        bad = VGroup(Line(callers[2][0].get_right(), subs[1][0].get_left(), stroke_width=4, color=ERR_C),
-                     Line(callers[2][0].get_right(), subs[0][0].get_left(), stroke_width=4, color=ERR_C))
-        oops = T("charges first, reserves second", 24, ERR_C).next_to(callers[2], DOWN, buff=0.25)
-        self.seq("The REST resource, the Kafka consumer and the admin tool each make those calls themselves, "
-                 "and each gets the order a little different. One charges before it reserves, and takes money for stock you don't have.",
-                 [(0, [LaggedStart(*[FadeIn(c, shift=RIGHT * 0.15) for c in callers], lag_ratio=0.3)], 0.9),
-                  (0, [LaggedStart(*[Create(w) for w in wires], lag_ratio=0.08)], 1.4),
-                  (1, [Create(bad[0])], 0.6), (1, [Create(bad[1]), FadeIn(oops, shift=UP * 0.1)], 0.6),
-                  (1, [Indicate(callers[2][1], color=ERR_C, scale_factor=1.1)], 0.8)])
+        # ================= where the picture breaks; the rule =================
+        so2 = socket(THEIRS, 1.1).move_to([4.6, 0.9, 0])
+        ad2 = adapter_block(1.1).next_to(so2, LEFT, buff=-0.2)
+        pl2 = plug(OURS, 1.1)
+        pl2.shift(ad2.get_left() - pl2[2].get_right() + RIGHT * 0.05)
+        bolt = VMobject(stroke_color=BAD, stroke_width=5).set_points_as_corners([[0, 0, 0], [-0.4, 0.25, 0], [-0.25, -0.05, 0], [-0.7, 0.2, 0]])
+        bolt.next_to(ad2, LEFT, buff=0.1).shift(UP * 0.7)
+        b1 = T("A plug fits, or it doesn't.", 26, GREY_A).move_to([-2.6, 2.6, 0])
+        b2 = T("A leaky adapter passes the foreign voltage through.", 26, BAD).move_to([0, -1.2, 0])
+        self.say("breaks")
+        self.play(FadeIn(so2), FadeIn(ad2), FadeIn(pl2), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(b1), run_time=0.5)
+        self.at(3)
+        self.play(Create(bolt), FadeIn(b2), run_time=0.8)
+        self.hold()
+        r1 = T("Translate at the edge, in both directions.", 34)
+        r2 = T("Let nothing foreign through.", 34, YELLOW_M)
+        rg = VGroup(r1, r2).arrange(DOWN, buff=0.22).move_to([0, -2.6, 0])
+        self.say("rule")
+        self.at(1)
+        self.play(FadeIn(r1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(r2, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        fac = sbox("CheckoutFacade", FAC_C, w=3.0, h=1.3, size=28).move_to([0.2, 0, 0])
-        fac_m = M("checkout()", 22, FAC_C).next_to(fac[1], DOWN, buff=0.1)
-        VGroup(fac[1], fac_m).move_to(fac[0])
-        ins = VGroup(*[Arrow(c[0].get_right(), fac[0].get_left(), buff=0.1, stroke_width=3, color=FAC_C,
-                             max_tip_length_to_length_ratio=0.12) for c in callers])
-        outs = VGroup(*[Arrow(fac[0].get_right(), s[0].get_left(), buff=0.1, stroke_width=3, color=GREY_B,
-                              max_tip_length_to_length_ratio=0.15) for s in subs])
-        self.seq("A facade gives them one front door. Each caller makes one call, checkout, and the steps move behind the door.",
-                 [(0, [FadeOut(wires), FadeOut(bad), FadeOut(oops), FadeIn(fac, scale=0.9), FadeIn(fac_m)], 0.9),
-                  (1, [LaggedStart(*[GrowArrow(a) for a in ins], lag_ratio=0.25)], 0.9),
-                  (1, [LaggedStart(*[GrowArrow(a) for a in outs], lag_ratio=0.25)], 0.9)])
+        # ================= a lambda is the adapter =================
+        lj = titled(code_block(["Courier quick = (address, grams) -> \"QUICK-\" + grams;"], 26), "Java")
+        lk = titled(code_block(["val quick = Courier { _, grams -> \"QUICK-$grams\" }"], 26), "Kotlin")
+        lg = VGroup(lj, lk).arrange(DOWN, aligned_edge=LEFT, buff=0.45)
+        lg.scale(min(1, 12.4 / lg.width)).move_to([0, 1.3, 0])
+        lo = term(["lambda adapter: QUICK-990"], 26, "XmlAdapterDemo, real output").move_to([0, -1.6, 0])
+        self.say("lambda")
+        self.at(1)
+        self.play(FadeIn(lj, shift=UP * 0.1), FadeIn(lk, shift=UP * 0.1), run_time=0.8)
+        self.at(3)
+        self.play(FadeIn(lo, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        nums = [T(str(i + 1), 26, FAC_C).move_to(a.point_from_proportion(0.5) + (UP * 0.3 if i < 2 else DOWN * 0.3)) for i, a in enumerate(outs)]
-        self.seq("The facade owns the order. Reserve, then charge, then send the receipt.",
-                 [(1, [FadeIn(nums[0]), outs[0].animate.set_color(FAC_C), Indicate(steps[0], color=WHITE)], 0.7),
-                  (1, [FadeIn(nums[1]), outs[1].animate.set_color(FAC_C), Indicate(steps[1], color=WHITE)], 0.7),
-                  (1, [FadeIn(nums[2]), outs[2].animate.set_color(FAC_C), Indicate(steps[2], color=WHITE)], 0.7)])
+        # ================= guardrail =================
+        core = RoundedRectangle(corner_radius=0.2, width=5.0, height=3.4).set_stroke(OURS, 3).set_fill(dim(OURS, 0.08), 1).move_to([-2.4, 0.4, 0])
+        core_t = T("the shop's code: only its own words", 24, OURS).next_to(core, UP, buff=0.12)
+        inside = VGroup(M("Courier", 24, OURS), M("book(address, grams)", 22, WHITE), M("CourierUnavailable", 22, WHITE)).arrange(DOWN, buff=0.25).move_to(core)
+        edgeb = lbl_box("OldCourierAdapter", "their names stop here", ADAPT, w=3.4, h=1.4).move_to([3.4, 0.4, 0])
+        leak = VGroup(M("IOException", 22, BAD), M("<parcel .../>", 22, BAD)).arrange(DOWN, buff=0.2)
+        g1 = T("Found one of these outside the adapter? That's a leak.", 26, BAD).move_to([0, -2.4, 0])
+        g2 = T("New courier = one new adapter, nothing else.", 28, YELLOW_M).move_to([0, -3.1, 0])
+        self.say("guard")
+        self.play(FadeIn(core), FadeIn(core_t), FadeIn(inside), FadeIn(edgeb), run_time=0.8)
+        self.at(1)
+        leak.next_to(edgeb, DOWN, buff=0.2)
+        self.play(FadeIn(leak), run_time=0.5)
+        self.play(leak.animate.move_to(core.get_corner(DR) + UL * 0.6), run_time=0.8)
+        self.play(FadeIn(g1), Indicate(leak, color=BAD, scale_factor=1.1), run_time=0.8)
+        self.at(2)
+        self.play(FadeOut(leak), FadeIn(g2), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        rel_l = M("release", 22, FAC_C).next_to(subs[0][0], UP, buff=0.1)
-        undo = CurvedArrow(fac[0].get_top() + RIGHT * 0.6, subs[0][0].get_left() + UP * 0.2, angle=-TAU / 8,
-                           color=FAC_C, stroke_width=3, tip_length=0.18)
-        self.seq("And it owns what each failure means. If the card is declined, it releases the reservation.",
-                 [(1, [Flash(subs[1][0].get_left(), color=ERR_C, flash_radius=0.4), subs[1][0].animate.set_stroke(ERR_C)], 0.6),
-                  (1, [Create(undo)], 0.9), (1, [FadeIn(rel_l, shift=DOWN * 0.1)], 0.5)], after=0.6)
-        self.play(FadeOut(VGroup(*callers, *subs, *steps, fac, fac_m, ins, outs, *nums, undo, rel_l)), run_time=0.7)
-
-        # ---------- the rule and a check
-        rule = VGroup(T("An adapter makes a class you can't change fit your port, both ways.", 30, ADP_C),
-                      T("A facade gives callers one door, and owns the steps behind it.", 30, FAC_C)).arrange(DOWN, buff=0.3).move_to([0, 1.9, 0])
-        fit(rule, 12.4)
-        self.seq("The rule. An adapter makes a class you can't change fit your port, both ways. "
-                 "A facade gives callers one door, and owns the steps behind it.",
-                 [(1, [FadeIn(rule[0], shift=UP * 0.1)], 0.7), (2, [FadeIn(rule[1], shift=UP * 0.1)], 0.7)])
-        q = VGroup(T("Check: the charge fails after the stock is reserved.", 28),
-                   T("Which class releases the stock?", 28)).arrange(DOWN, buff=0.2).move_to([0, -0.3, 0])
-        self.seq("Quick check. The charge fails after the stock is reserved. Which class releases the stock?",
-                 [(0, [FadeIn(q, shift=UP * 0.1)], 0.8)], after=2.0)
-        ans = T("The facade. The callers never see the steps.", 30, FAC_C).move_to([0, -2.1, 0])
-        self.seq("The facade. The callers never see the steps.", [(0, [FadeIn(ans, shift=UP * 0.1)], 0.7)])
-        self.wait(0.8)
+        # ================= moral and a check =================
+        mq = T("Why put anything in between?", 32)
+        m1 = T("Because the in-between is where their words stop.", 30)
+        m2 = VGroup(T("Shop:", 28, OURS), T("book this parcel.", 28), T("Adapter:", 28, ADAPT),
+                    T("says it in XML, and turns their trouble into ours.", 28)).arrange(RIGHT, buff=0.18)
+        mg = VGroup(mq, m1, m2).arrange(DOWN, buff=0.3).move_to(UP * 2.0)
+        mg.scale(min(1, 12.6 / mg.width))
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        qa = T("Check: a Kotlin adapter calls the old client with no try at all.", 28)
+        qb = T("The office closes. What does the shop's order page see?", 28, YELLOW_M)
+        qg = VGroup(qa, qb).arrange(DOWN, buff=0.18).move_to(DOWN * 0.8)
+        qg.scale(min(1, 12.6 / qg.width))
+        self.say("check")
+        self.play(FadeIn(qg, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.6, pos=(6.4, -3.3), edge=RIGHT)
+        ans = VGroup(M("IOException: courier office closed: 503", 26, BAD),
+                     T("It leaked through the port. Catch it in the adapter.", 26, GREY_A)).arrange(DOWN, buff=0.12).move_to(DOWN * 2.7)
+        self.say("check_a")
+        self.play(FadeIn(ans[0], shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(ans[1]), run_time=0.5)
+        self.hold(after=0)
+        self.wait(2.5)

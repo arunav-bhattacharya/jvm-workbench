@@ -1,380 +1,620 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form).
-fg.SAY[:0] = [(r"\bc1\b", "C one"), (r"\bc2\b", "C two"), (r"\bp1\b", "P one"), (r"\bp2\b", "P two"),
-              (r"\bsku-(\d)", r"skew \1"), (r"\bskus\b", "skews"), (r"copy\(\)", "copy"), (r"\binit\b", "in it"),
-              (r"Object\.clone\(\)", "object dot clone"), (r"List\.copyOf", "List dot copy of"),
-              (r"\bMutableMap\b", "mutable map"), (r"\bwither\b", "with-er"), (r"\bwithers\b", "with-ers")]
+# Spoken forms only (captions keep the written words). fg.py is shared, so these live here.
+fg.SAY[:0] = [
+    (r"\bc([12])\.items\b", r"c \1 dot items"), (r"\bc([12])\b", r"c \1"), (r"\bcopyTheArrows\b", "copy the arrows"),
+    (r"\bCopyTrap\b", "copy trap"), (r"\bConsistentCopyVisibility\b", "consistent copy visibility"),
+    (r"\bList\.copyOf\b", "list dot copy of"), (r"\bEmail\.of\b", "email dot of"), (r"copy\(\)", "copy"),
+    (r": -1\b", ": minus one"), (r"\binit\b", "in it"), (r"\bCloneable\b", "clone-able"),
+]
 
-# ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
 
+# ---- local helpers ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-class Beat(VoiceScene):
-    """VoiceScene plus captions split only where a new sentence starts, and seq() to start animations
-    at a given sentence of the line."""
-
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
-
-    def seq(self, text, plan=(), after=0.25):
-        """plan: (sentence index, [animations], run_time); each starts no earlier than its sentence."""
+    def say(self, key):
+        text = N[key]
         path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        sents = [x for x in _SENT.split(text.strip()) if x]
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
         total = sum(len(x) for x in sents) or 1
-        starts, t = [], 0.0
+        self._st = []
         for x in sents:
-            starts.append(t); t += dur * len(x) / total
-        assert all(i < len(starts) for i, _, _ in plan), "plan index past the last sentence"
-        now = 0.0
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now); now = starts[idx]
-            if callable(anims):
-                anims = anims()
-            self.play(*anims, run_time=rt); now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
         if after:
             self.wait(after)
 
+    def predict(self, secs=2.4, pos=(-6.4, 3.2), edge=LEFT):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
 
-class Pulse(Transform):
-    """Indicate for filled boxes: grows and recolours outlines only, so fills and text stay readable."""
-
-    def __init__(self, mobject, color=WHITE, scale_factor=1.08, **kwargs):
-        self.pulse_color, self.pulse_scale = color, scale_factor
-        kwargs.setdefault("rate_func", there_and_back)
-        super().__init__(mobject, **kwargs)
-
-    def create_target(self):
-        t = self.mobject.copy().scale(self.pulse_scale)
-        for sm in t.family_members_with_points():
-            if sm.get_stroke_width() > 0:
-                sm.set_stroke(color=self.pulse_color)
-        return t
+    def wipe(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
 
 
-def cline(text, size=24, color=WHITE):
-    t = Text("|" + text, font=MONO, font_size=size, color=color, disable_ligatures=True)
-    t.src = text
-    return t
-
-
-def code(lines, size=24, color=WHITE):
-    """Monospace lines that keep their indentation (the leading bar fixes the left edge, then goes)."""
-    pitch = M("|", size).height * 1.65
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        t = cline(ln, size, color)
-        t.shift(np.array([0, -i * pitch, 0]) - t[0].get_center())
-        g.add(t)
-    for t in g:
-        t.remove(t[0])
-    return g
-
-
-def part(t, sub, nth=0):
-    """Glyphs of substring sub in a line from code() (ligatures off: string index = glyph index)."""
-    i = -1
-    for _ in range(nth + 1):
-        i = t.src.index(sub, i + 1)
-    return VGroup(*t[i:i + len(sub)])
-
-
-def paint(t, sub, color):
-    i = t.src.find(sub)
-    n = 0
-    while i >= 0:
-        part(t, sub, n).set_color(color)
-        n += 1
-        i = t.src.find(sub, i + 1)
-    return t
-
-
-def mark(m, color=WHITE, hold=0.6):
-    """Underline a few glyphs, then take the line away."""
-    u = Line(m.get_corner(DL) + DOWN * 0.09, m.get_corner(DR) + DOWN * 0.09, color=color, stroke_width=4)
-    return Succession(Create(u, run_time=0.45), Wait(hold), FadeOut(u, run_time=0.35))
-
-
-def run_dot(a, b, color, run_time=0.8):
-    """A dot that runs from point a to point b and is gone before and after."""
-    a, b = np.array(a, dtype=float), np.array(b, dtype=float)
-    d = Dot(radius=0.11, color=color).move_to(a).set_opacity(0).set_z_index(30)
-
-    def upd(mob, t):
-        mob.move_to(a + (b - a) * smooth(t))
-        mob.set_opacity(1 if 0 < t < 1 else 0)
-    return UpdateFromAlphaFunc(d, upd, run_time=run_time, rate_func=linear)
-
-
-def tint(color, k=0.14):
+def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-C1, C2, LST, BAD, OK, VAL = BLUE_M, TEAL_M, YELLOW_M, RED_M, GREEN_M, GOLD_M   # two carts, the list, trouble, fix, values
-CX, Y1, Y2 = -2.3, 1.45, -1.15      # cart column and the two rows
-LX, LY = 3.5, 0.15                  # the list
-CW, CH = 3.3, 1.5
+# one colour per thing, for the whole patterns track (the small town and its corner shop)
+HALL, SHOP, PRICE, TA, TB, KEEP, BAD, OK = BLUE_M, TEAL_M, GOLD_M, YELLOW_M, PURPLE_M, GREY_A, RED_M, GREEN_M
+PAPER, INK = "#EDE6D6", "#161616"
 
 
-def var_box(name, color, y):
-    return mbox(name, color, w=1.15, h=0.75, size=28).move_to([-5.7, y, 0])
+def person(color, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def cart(idv, color, y):
-    r = RoundedRectangle(corner_radius=0.14, width=CW, height=CH, stroke_color=color, stroke_width=3).set_fill(tint(color), 1)
-    r.move_to([CX, y, 0])
-    left = r.get_left()[0] + 0.3
-    hd = T("Cart", 22, GREY_B).move_to([0, y + 0.45, 0], aligned_edge=LEFT).set_x(left, LEFT)
-    hd.set_x(left + hd.width / 2)
-    il = M("id", 26, GREY_A); il.move_to([left + il.width / 2, y + 0.0, 0])
-    iv = M(f'"{idv}"', 26, color); iv.move_to([left + 1.25 + iv.width / 2, y + 0.0, 0])
-    sl = M("skus", 26, GREY_A); sl.move_to([left + sl.width / 2, y - 0.45, 0])
-    dot = Dot(radius=0.1, color=color).move_to([r.get_right()[0] - 0.45, y - 0.45, 0])
-    return VGroup(r, hd, il, iv, sl, dot)
+def who(color, name, s=1.1, size=22):
+    p = person(color, s)
+    return VGroup(p, T(name, size, color).next_to(p, DOWN, buff=0.12))
 
 
-def lst(title, color, x, y, tcolor=None):
-    r = RoundedRectangle(corner_radius=0.14, width=3.6, height=1.1, stroke_color=color, stroke_width=3).set_fill(tint(color, 0.10), 1)
-    r.move_to([x, y, 0])
-    t = M(title, 24, tcolor or color).next_to(r, UP, buff=0.18)
-    return VGroup(r, t)
+def house(color=GREY_B, w=0.9, h=0.7):
+    b = Rectangle(width=w, height=h).set_stroke(color, 2.5).set_fill(dim(color, 0.2), 1)
+    roof = Polygon(b.get_corner(UL) + LEFT * 0.08, b.get_corner(UR) + RIGHT * 0.08, b.get_top() + UP * h * 0.55)
+    roof.set_stroke(color, 2.5).set_fill(dim(color, 0.35), 1)
+    door = Rectangle(width=w * 0.22, height=h * 0.45).set_stroke(color, 2).set_fill(BLACK, 1)
+    door.move_to(b.get_bottom() + UP * h * 0.225)
+    return VGroup(b, roof, door)
 
 
-def slot_pt(L, i):
-    return L[0].get_center() + RIGHT * (-0.85 + 1.7 * i)
+def town_hall(s=1.0, color=HALL):
+    base = Rectangle(width=2.6, height=1.5).set_stroke(color, 3).set_fill(dim(color, 0.18), 1)
+    step = Rectangle(width=2.9, height=0.16).set_stroke(color, 2.5).set_fill(dim(color, 0.35), 1).next_to(base, DOWN, buff=0)
+    ped = Polygon(base.get_corner(UL) + LEFT * 0.15, base.get_corner(UR) + RIGHT * 0.15, base.get_top() + UP * 0.6)
+    ped.set_stroke(color, 3).set_fill(dim(color, 0.32), 1)
+    cols = VGroup(*[Line(UP * 0.62, DOWN * 0.62, stroke_width=5, color=color) for _ in range(4)]).arrange(RIGHT, buff=0.55)
+    cols.move_to(base)
+    pole = Line(ped.get_top(), ped.get_top() + UP * 0.6, stroke_width=2.5, color=GREY_B)
+    flag = Polygon(pole.get_end(), pole.get_end() + RIGHT * 0.38 + DOWN * 0.1, pole.get_end() + DOWN * 0.2)
+    flag.set_stroke(PRICE, 2).set_fill(PRICE, 1)
+    return VGroup(base, step, ped, cols, pole, flag).scale(s)
 
 
-def item(text, color=WHITE):
-    c = chip(text, GREY_B, size=24, mono=True)
-    c[1].set_color(color)
-    return c
+def shop(s=1.0, color=SHOP):
+    b = Rectangle(width=2.4, height=1.6).set_stroke(color, 3).set_fill(dim(color, 0.18), 1)
+    aw = VGroup(*[Rectangle(width=0.4, height=0.32).set_stroke(color, 1.5).set_fill(color if i % 2 == 0 else dim(color, 0.3), 1)
+                  for i in range(6)]).arrange(RIGHT, buff=0).next_to(b, UP, buff=0)
+    win = Rectangle(width=1.0, height=0.6).set_stroke(color, 2).set_fill(BLACK, 1).move_to(b.get_center() + LEFT * 0.45 + DOWN * 0.1)
+    door = Rectangle(width=0.5, height=0.9).set_stroke(color, 2).set_fill(BLACK, 1).move_to(b.get_bottom() + RIGHT * 0.65 + UP * 0.45)
+    sign = T("corner shop", 22, color).next_to(aw, UP, buff=0.1)
+    return VGroup(b, aw, win, door, sign).scale(s)
 
 
-def ref(cart_g, L, dy, color):
-    a = cart_g[5].get_center()
-    b = L[0].get_left() + UP * dy
-    return Arrow(a, b, buff=0.0, stroke_width=4, color=color, max_tip_length_to_length_ratio=0.09, tip_length=0.25)
+def price_list(tag=None, s=1.0):
+    lines = ["PRICE LIST", "BREAD  450"]
+    t = M("\n".join(lines), 20, INK)
+    r = Rectangle(width=t.width + 0.34, height=t.height + 0.34).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    g = VGroup(r, t.move_to(r))
+    if tag:
+        b = VGroup(Circle(radius=0.24).set_stroke(PRICE, 2.5).set_fill(dim(PRICE, 0.5), 1), T(tag, 22, WHITE))
+        b[1].move_to(b[0])
+        b.move_to(r.get_corner(UR) + LEFT * 0.02 + DOWN * 0.02)
+        g.add(b)
+    return g.scale(s)
 
 
+def mini_list(tag=None, s=1.0):
+    r = Rectangle(width=0.5, height=0.64).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    ls = VGroup(*[Line(LEFT * 0.16, RIGHT * 0.16, stroke_width=2, color=INK) for _ in range(3)]).arrange(DOWN, buff=0.12).move_to(r)
+    g = VGroup(r, ls)
+    if tag:
+        b = VGroup(Circle(radius=0.17).set_stroke(PRICE, 2).set_fill(dim(PRICE, 0.5), 1), T(tag, 18, WHITE))
+        b[1].move_to(b[0])
+        b.move_to(r.get_corner(UR))
+        g.add(b)
+    return g.scale(s)
+
+
+def plot(w=3.0, h=1.5, color=GREY_B):
+    """The empty plot of land set aside for the town hall: a dashed fence with a little sign."""
+    fence = DashedVMobject(Rectangle(width=w, height=h), num_dashes=46).set_stroke(color, 2.5)
+    post = Line(ORIGIN, UP * 0.5, stroke_width=3, color=color)
+    board = VGroup(Rectangle(width=1.55, height=0.42).set_stroke(color, 2).set_fill("#1a1a1a", 1), M("instance", 20, WHITE))
+    board[1].move_to(board[0])
+    board.next_to(post, UP, buff=0)
+    sign = VGroup(post, board).next_to(fence, LEFT, buff=0.15).align_to(fence, DOWN)
+    return VGroup(fence, sign)
+
+
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def titled(code, title, color=GREY_B):
+    h = T(title, 22, color).next_to(code, UP, buff=0.22).align_to(code, LEFT)
+    return VGroup(h, code)
+
+
+def part(t, s, nth=0):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    flat = re.sub(r"\s", "", t.text)
+    i = -1
+    for _ in range(nth + 1):
+        i = flat.index(k, i + 1)
+    return t[i:i + len(k)]
+
+
+def term(lines, size=22, title="output", color=GREY_A):
+    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.5, height=t.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
+    t.move_to(r)
+    h = T(title, 20, GREY_B).next_to(r, UP, buff=0.1).align_to(r, LEFT)
+    return VGroup(r, t, h)
+
+
+def rule_row(text, size=28, color=WHITE):
+    return VGroup(tick(True, 0.15), T(text, size, color)).arrange(RIGHT, buff=0.2)
+
+
+class Bar(VGroup):
+    """A progress bar: an outline and a fill that grows from the left."""
+
+    def __init__(self, w, color, label=None, h=0.34):
+        super().__init__()
+        self.w, self.frac = w, 0.0
+        self.box = Rectangle(width=w, height=h).set_stroke(color, 2)
+        self.fill = Rectangle(width=0.001, height=h).set_stroke(width=0).set_fill(color, 0.6)
+        self.fill.align_to(self.box, LEFT)
+        self.add(self.box, self.fill)
+        if label:
+            self.lab = M(label, 20, color).next_to(self.box, UP, buff=0.1)
+            self.add(self.lab)
+
+    def to(self, frac, run_time=1.0):
+        a = self.frac
+        self.frac = frac
+
+        def upd(m, t):
+            f = a + (frac - a) * t
+            m.fill.stretch_to_fit_width(max(0.001, self.w * f))
+            m.fill.align_to(m.box, LEFT)
+
+        return UpdateFromAlphaFunc(self, upd, run_time=run_time, rate_func=linear)
+
+
+C1, C2, LST, NEWL = BLUE_M, PURPLE_M, GOLD_M, GREEN_M
+
+
+def copier(s=1.0, color=GREY_A):
+    body = RoundedRectangle(corner_radius=0.08, width=2.6, height=1.3).set_stroke(color, 3).set_fill(dim(color, 0.15), 1)
+    lid = Rectangle(width=2.6, height=0.22).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1).next_to(body, UP, buff=0.02)
+    tray = Polygon([0, 0, 0], [0.7, 0, 0], [0.8, -0.12, 0], [0, -0.12, 0]).set_stroke(color, 2).set_fill(dim(color, 0.3), 1)
+    tray.next_to(body, RIGHT, buff=0).shift(DOWN * 0.2)
+    light = Rectangle(width=1.6, height=0.08).set_stroke(width=0).set_fill(OK, 1).move_to(body.get_top() + DOWN * 0.25)
+    sign = T("print shop", 22, color).next_to(lid, UP, buff=0.15)
+    return VGroup(body, lid, tray, light, sign).scale(s)
+
+
+def form(s=1.0, name=None):
+    r = Rectangle(width=1.1, height=1.45).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    ls = VGroup(*[Line(LEFT * 0.36, RIGHT * 0.36, stroke_width=2, color=GREY_D) for _ in range(5)]).arrange(DOWN, buff=0.18).move_to(r)
+    g = VGroup(r, ls)
+    if name:
+        g.add(T(name, 18, INK).move_to(r.get_top() + DOWN * 0.2))
+        ls[0].set_opacity(0)
+    return g.scale(s)
+
+
+def clip_list(items, s=1.0):
+    t = M("\n".join(items), 18, INK)
+    r = Rectangle(width=max(0.9, t.width + 0.3), height=t.height + 0.42).set_stroke(LST, 2).set_fill("#F6E7B8", 1)
+    t.move_to(r).shift(DOWN * 0.06)
+    clip = RoundedRectangle(corner_radius=0.04, width=0.34, height=0.14).set_stroke(GREY_D, 2).set_fill(GREY_C, 1).move_to(r.get_top())
+    return VGroup(r, t, clip).scale(s)
+
+
+def cart(name, idv, color, w=3.0):
+    head = M(f"{name}: Cart", 24, color)
+    r1 = M(f'id    = "{idv}"', 22, WHITE)
+    r2 = M("items =", 22, WHITE)
+    rows = VGroup(head, r1, r2).arrange(DOWN, aligned_edge=LEFT, buff=0.16)
+    box = RoundedRectangle(corner_radius=0.12, width=w, height=rows.height + 0.5).set_stroke(color, 3).set_fill(dim(color, 0.12), 1)
+    rows.move_to(box).align_to(box, LEFT).shift(RIGHT * 0.25)
+    dot = Dot(radius=0.08, color=LST).next_to(r2, RIGHT, buff=0.3)
+    return VGroup(box, rows, dot)
+
+
+def lbox(items, color=LST, size=24):
+    t = M("[" + ", ".join(items) + "]", size, WHITE)
+    r = RoundedRectangle(corner_radius=0.1, width=t.width + 0.5, height=0.8).set_stroke(color, 3).set_fill(dim(color, 0.16), 1)
+    h = T("a list", 20, color).next_to(r, UP, buff=0.08)
+    return VGroup(r, t.move_to(r), h)
+
+
+def ref(c, l, color=LST):
+    return Arrow(c[2].get_center(), l[0].get_left(), buff=0.05, stroke_width=3.5, color=color, max_tip_length_to_length_ratio=0.1)
+
+
+# every spoken line, in order
 N = {
-    "a1": "Here is a cart called c1. Its skus field holds a list with one item, sku-1.",
-    "a2": "Copy it, and change only the id. Now there is a second cart, c2.",
-    "a3": "The copy takes each field's value as it is. But the value of skus is not the list. It is an arrow to the list. "
-          "So c2 gets a second arrow, to the same list.",
-    "a4": "Now add sku-2 to c2's list.",
-    "a5": "What does c1's list hold now?",
-    "a6": "Both items. Nobody touched c1. But there is only one list, and both carts point at it.",
-    "a7": "This is a shallow copy. It copies the fields, and shares every object they point to.",
-    "a8": "Kotlin's copy() works this way, and its docs say so. So does a Java record wither, and Object.clone().",
-    "b1": "So a copy is shallow until you make it deep, one nested object at a time. The simple way: store a list that can't change.",
-    "b2": "Now c2 can't add to the shared list.",
-    "b3": "To change c2's items, you build a new list: the old items plus sku-2. Only c2 points to it.",
-    "b4": "And c1 still holds one item.",
-    "b5": "In Kotlin, make the field a read-only List and change it with plus. "
-          "In Java, wrap it with List.copyOf in the compact constructor, and let withers build a new list.",
-    "c1": "Building an object from scratch has a different trap. Look at this call.",
-    "c2": "Which value is the timeout?",
-    "c3": "You have to count. The Java fix is a builder: a second class with one method per field.",
-    "c4": "Kotlin fixes it in the language. Arguments can carry names, and parameters can have defaults.",
-    "c5": "So the call sets the four values it needs, in any order, and the defaults fill the rest.",
-    "c6": "copy() gives you a changed copy. And checks in init run on every construction, copy included.",
-    "c7": "Java has no named arguments. If Java code calls the class a lot, give it a real builder.",
-    "r": "The rule. A copy shares every object its fields point to. Keep those objects unchangeable, and build a new one when you need a change.",
-    "q": "Quick check. A Payment holds a MutableMap of metadata. You make p2 with p1.copy(), then put a retry key into p2's map. Does p1 see it?",
-    "ans": "Yes. copy() copied the arrow, not the map. Both payments point at one map.",
+    "open": "Down the street from the corner shop is the print shop, with a big photocopier. Fill in a form once, copy "
+            "it, change two lines on each copy, and you've saved an hour.",
+    "shop": "The corner shop does the same thing every week. The Saturday breakfast box is set up once, and each "
+            "customer gets a copy with their own name and notes. Tests do it too: one sample order, copied and changed "
+            "in each test.",
+    "code": "In Kotlin, a data class gives you copy for free. Here's a cart with an id and a list of items. c1 holds "
+            "bread. c2 is a copy of c1, with a new id. Then we add milk to c2's items.",
+    "shyq": "Here's a question we're all a little shy to ask. copy made a new object. So the two carts are separate "
+            "now, right? What's in c1's items?",
+    "show": "The lesson's CopyTrap demo printed: c1.items after changing c2: bread, milk.",
+    "joke": "Well. Nobody put milk in cart one. And yet, there it is.",
+    "down": "Let's look one level down. A field that holds an object doesn't hold the object itself. It holds a "
+            "reference: an arrow that points to where the object lives. So c1's items field is an arrow to one list.",
+    "down2": "copy makes a new cart, and copies each field's value. The id is a plain value, so c2 gets its own. But "
+             "the value in items is an arrow. So copy copies the arrow, not the list. Two carts, one list.",
+    "down3": "Now c2 adds milk. It follows its arrow, and writes on the only list there is. c1 follows its arrow to the "
+             "same list, and sees milk.",
+    "name": "This is called a shallow copy. Each field's value is copied, and when the value is a reference, only the "
+            "reference is copied. The Kotlin docs say it plainly: copy creates a shallow copy.",
+    "rename": "If copy had an honest name, it would be called copyTheArrows. It's very obliging. It copies exactly "
+              "what you asked for, and not one thing more.",
+    "breaks": "And here the photocopier picture breaks. A photocopy is a separate sheet. Writing on it never changes "
+              "the original. But picture a form with a shopping list clipped to it. copy gives you a new form, with "
+              "the same shopping list clipped on. Write on the copy's list, and you've written on the original's.",
+    "proto": "Making a new object by copying one and changing a few fields is the pattern called Prototype. And now "
+             "you know its catch: every copy is shallow until you make it safe.",
+    "java": "Java is no different. A record's wither, a method that returns a copy with one field changed, passes the "
+            "same list along. And Java's original tool, Cloneable, is an interface with no clone method in it. A "
+            "promise with nothing inside. Skip it.",
+    "fix": "The fix is the same in both languages. Store a list that can't change: a read-only List in Kotlin, and "
+           "List.copyOf in the Java record's compact constructor. To add milk, build a new list: copy, with items "
+           "equal to items plus milk.",
+    "fix2": "Watch the arrows now. c2 gets a brand new list, bread and milk. c1 still points at its own list, just "
+            "bread. And sharing a list is harmless now, because nobody can write on the shared sheet.",
+    "rule": "So here's the rule. A copy is only as safe as the parts it shares. Share only parts that can't change.",
+    "trap2": "Kotlin has one more copy trap. Say Email has a private constructor, and a factory, Email.of, that checks "
+             "for an at sign. The generated copy is still public. So copy, with the value not-an-email, compiles, "
+             "and walks right past your factory.",
+    "trap2b": "The demo printed: copy() skipped the factory. Kotlin 2.4 only warns, at the line that calls copy, and "
+              "says this will become an error in language version 2.5.",
+    "trap2c": "Two fixes. Add ConsistentCopyVisibility, and copy becomes as private as the constructor. Or, safer "
+              "still, put the check in an init block, because copy runs it. The demo's Price checks for a negative "
+              "number there, and copy with minus one printed: negative price: -1.",
+    "moral": "So, is a copy separate from the original? Only as far as its fields go. Plain values are copied. Arrows "
+             "are copied as arrows. Make what's shared unchangeable, keep your checks in init, and copies are safe "
+             "again.",
+    "check": "Quick check. The breakfast box template holds a mutable list of tags. Anna's copy gets the tag no nuts, "
+             "added to its list. What do Ben's box and the template now say?",
+    "check_a": "No nuts, both of them, because all three share one list. With a read-only list and copy with tags plus "
+               "no nuts, only Anna's box changes.",
 }
 
 
-class Pat03Prototype(Beat):
-    """pat-03 s3 (and a short look at s0): a copy copies references, so a nested list stays shared;
-    named and default arguments replace most builders."""
-
-    def say(self, key, plan=(), after=0.25):
-        self.seq(N[key], plan, after)
+class Pat03Prototype(Narrated):
+    """pat-03, section 3: Prototype, every copy is shallow. The print shop's photocopier; the Saturday breakfast box;
+    the data class Cart; the shy question (copy made a new object, so they're separate?) with a prediction; CopyTrap's
+    real output [bread, milk]; one level down: references as arrows, copy copies the arrow; shallow copy named;
+    copyTheArrows; where the picture breaks (the clipped shopping list); Prototype named; the Java twin and
+    Cloneable; the fix with read-only lists and a new list; the rule; the private-constructor trap with the real
+    output and warning; @ConsistentCopyVisibility and init; moral and the breakfast box check."""
 
     def construct(self):
-        self.title_card("A copy still shares", "Prototype, and why Kotlin rarely needs a builder")
+        self.title_card("A copy that shares a list", "Prototype, and why every copy is shallow")
 
-        # ---------- one cart, one list
-        v1 = var_box("c1", C1, Y1)
-        k1 = cart("c1", C1, Y1)
-        a_v1 = Arrow(v1.get_right(), k1[0].get_left(), buff=0.1, stroke_width=3, color=C1, max_tip_length_to_length_ratio=0.3)
-        L = lst("MutableList", LST, LX, LY)
-        s1 = item("sku-1").move_to(slot_pt(L, 0))
-        r1 = ref(k1, L, 0.25, C1)
-        self.say("a1", [(0, [FadeIn(v1, shift=RIGHT * 0.1), GrowArrow(a_v1), FadeIn(k1)], 0.9),
-                        (1, [Pulse(k1[4], C1, 1.1)], 0.6), (1, [GrowArrow(r1), FadeIn(L), FadeIn(s1)], 0.9)])
+        # ================= hook: the photocopier =================
+        cp = copier(1.2).move_to([-3.4, 0.0, 0])
+        f0 = form(1.1).move_to([-3.4, 2.6, 0])
+        copies = VGroup(*[form(0.9, n) for n in ("Anna", "Ben", "Cleo")]).arrange(RIGHT, buff=0.4).move_to([3.0, 0.1, 0])
+        self.say("open")
+        self.play(FadeIn(cp), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(f0, shift=DOWN * 0.2), run_time=0.5)
+        self.play(f0.animate.move_to(cp[0]).scale(0.6).set_opacity(0), run_time=0.7)
+        self.play(LaggedStart(*[FadeIn(c, shift=RIGHT * 0.3) for c in copies], lag_ratio=0.3), run_time=1.2)
+        self.hold()
 
-        # ---------- copy it
-        v2 = var_box("c2", C2, Y2)
-        k2 = cart("c2", C2, Y2)
-        k2_pre = cart("c1", C2, Y2)
-        a_v2 = Arrow(v2.get_right(), k2[0].get_left(), buff=0.1, stroke_width=3, color=C2, max_tip_length_to_length_ratio=0.3)
-        self.say("a2", [(0, [TransformFromCopy(k1, k2_pre)], 1.0), (0, [Transform(k2_pre[3], k2[3])], 0.6),
-                        (1, [FadeIn(v2, shift=RIGHT * 0.1), GrowArrow(a_v2)], 0.7)])
-        k2 = k2_pre
+        box_t = T("the Saturday breakfast box", 26, LST).move_to([0, 2.7, 0])
+        tmpl = VGroup(RoundedRectangle(corner_radius=0.1, width=2.4, height=1.4).set_stroke(LST, 3).set_fill(dim(LST, 0.15), 1),
+                      T("template", 24, LST))
+        tmpl[1].move_to(tmpl[0])
+        tmpl.move_to([-3.6, -0.4, 0])
+        kids = VGroup(*[VGroup(RoundedRectangle(corner_radius=0.08, width=1.9, height=1.0).set_stroke(LST, 2.5).set_fill(dim(LST, 0.1), 1),
+                               T(n, 22, WHITE)) for n in ("Anna's", "Ben's", "Cleo's")])
+        for k in kids:
+            k[1].move_to(k[0])
+        kids.arrange(DOWN, buff=0.3).move_to([2.6, -0.4, 0])
+        ka = VGroup(*[Arrow(tmpl.get_right(), k.get_left(), buff=0.15, stroke_width=2.5, color=GREY_B, max_tip_length_to_length_ratio=0.1) for k in kids])
+        ct = T("copy", 22, GREY_B).next_to(ka[0], UP, buff=0.05)
+        self.say("shop")
+        self.play(FadeOut(VGroup(cp, copies)), run_time=0.5)
+        self.play(FadeIn(box_t), FadeIn(tmpl), run_time=0.6)
+        self.at(1)
+        self.play(LaggedStart(*[AnimationGroup(GrowArrow(a), FadeIn(k)) for a, k in zip(ka, kids)], lag_ratio=0.3), FadeIn(ct), run_time=1.3)
+        self.hold()
+        self.wipe()
 
-        r2 = ref(k2, L, -0.25, C2)
-        self.say("a3", [(0, [Pulse(k1[3], C1, 1.15)], 0.6),
-                        (1, [Pulse(k1[5], C1, 1.6)], 0.6),
-                        (2, [Pulse(r1, WHITE, 1.04)], 0.8),
-                        (3, [TransformFromCopy(r1, r2)], 1.2), (3, [Pulse(L[0], LST, 1.05)], 0.7)])
+        # ================= the code, and the shy question =================
+        kc = titled(code_block(["data class Cart(val id: String, val items: MutableList<String>)", "",
+                                "val c1 = Cart(\"c1\", mutableListOf(\"bread\"))", "val c2 = c1.copy(id = \"c2\")",
+                                "c2.items += \"milk\"", "println(c1.items)   // ?"], 26, hl={"// ?": YELLOW_M}), "Kotlin")
+        kc.scale(min(1, 12.4 / kc.width)).move_to([0, 1.2, 0])
+        self.say("code")
+        self.play(FadeIn(kc[0]), FadeIn(kc[1][0], shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(kc[1][2], shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(kc[1][3], shift=UP * 0.1), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(kc[1][4], shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        shy = T("a question we're shy to ask", 24, GREY_B).move_to([0, -1.6, 0])
+        q = T("copy made a new object. So they're separate now, right?", 30, YELLOW_M).move_to([0, -2.3, 0])
+        q.scale(min(1, 12.4 / q.width))
+        self.say("shyq")
+        self.play(FadeIn(shy), FadeIn(q, shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(kc[1][5], shift=UP * 0.1), run_time=0.5)
+        self.hold(after=0)
+        self.predict(2.6)
+        out = term(["c1.items after changing c2: [bread, milk]"], 26, "CopyTrap, real output").move_to([0, -2.4, 0])
+        self.say("show")
+        self.play(FadeOut(VGroup(shy, q)), run_time=0.3)
+        self.play(FadeIn(out, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.say("joke")
+        self.play(Indicate(part(out[1][0], "milk"), color=BAD, scale_factor=1.3), run_time=1.0)
+        self.hold()
+        self.wipe()
 
-        # ---------- add through c2
-        s2 = item("sku-2", C2).move_to(slot_pt(L, 1))
-        s2_fly = s2.copy().move_to(k2[5].get_center()).set_z_index(20)
-        path = VMobject().set_points_as_corners([k2[5].get_center(), r2.get_end(), slot_pt(L, 1)])
-        self.say("a4", [(0, [FadeIn(s2_fly, scale=0.6)], 0.4), (0, [MoveAlongPath(s2_fly, path, rate_func=smooth)], 1.2)])
-        self.add(s2); self.remove(s2_fly)
+        # ================= one level down: arrows =================
+        k1 = cart("c1", "c1", C1).move_to([-3.9, 1.5, 0])
+        lst = lbox(["bread"]).move_to([2.6, 0.0, 0])
+        a1 = ref(k1, lst)
+        rtag = T("a reference: an arrow to where the object lives", 24, GREY_A).move_to([0, 3.15, 0])
+        self.say("down")
+        self.play(FadeIn(k1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(lst), run_time=0.5)
+        self.at(2)
+        self.play(GrowArrow(a1), FadeIn(rtag), run_time=0.8)
+        self.at(3)
+        self.play(Indicate(k1[1][2], color=LST, scale_factor=1.1), run_time=0.8)
+        self.hold()
 
-        self.say("a5", [(0, [Pulse(k1[0], C1, 1.04)], 0.8)], after=1.8)
+        k2 = cart("c2", "c2", C2).move_to([-3.9, -1.6, 0])
+        a2 = ref(k2, lst)
+        tw = T("two carts, one list", 28, BAD).move_to([2.6, -2.9, 0])
+        self.say("down2")
+        self.play(TransformFromCopy(k1[0], k2[0]), FadeIn(k2[1][0]), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(k2[1][1], shift=RIGHT * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(k2[1][2]), FadeIn(k2[2]), run_time=0.4)
+        self.at(3)
+        self.play(GrowArrow(a2), run_time=0.8)
+        self.at(4)
+        self.play(FadeIn(tw), run_time=0.5)
+        self.hold()
 
-        rd = M("c1.skus = [sku-1, sku-2]", 26, BAD).move_to([CX, 2.75, 0])
-        self.say("a6", [(0, [run_dot(k1[5].get_center(), r1.get_end(), C1, 0.8)], 0.8),
-                        (0, [FadeIn(rd, shift=DOWN * 0.1), Pulse(s1, BAD, 1.1), Pulse(s2, BAD, 1.1)], 0.8),
-                        (2, [Pulse(r1, BAD, 1.03), Pulse(r2, BAD, 1.03)], 0.9)])
+        lst2 = lbox(["bread", "milk"]).move_to(lst)
+        self.say("down3")
+        dot = Dot(radius=0.11, color=C2).move_to(a2.get_start())
+        self.play(FadeIn(dot), run_time=0.2)
+        self.play(MoveAlongPath(dot, Line(a2.get_start(), a2.get_end())), run_time=0.9)
+        self.play(FadeOut(dot), Transform(lst, lst2), run_time=0.6)
+        self.at(2)
+        dot1 = Dot(radius=0.11, color=C1).move_to(a1.get_start())
+        self.play(FadeIn(dot1), run_time=0.2)
+        self.play(MoveAlongPath(dot1, Line(a1.get_start(), a1.get_end())), run_time=0.9)
+        self.play(FadeOut(dot1), Indicate(lst[1], color=BAD, scale_factor=1.15), run_time=0.8)
+        self.hold()
 
-        lab = T("shallow copy", 34, BAD).move_to([LX, 2.3, 0])
-        self.say("a7", [(0, [Write(lab)], 0.8), (1, [Pulse(k2[0], C2, 1.04)], 0.7),
-                        (1, [Pulse(r1, WHITE, 1.03), Pulse(r2, WHITE, 1.03)], 0.8)])
+        sc = VGroup(T("shallow copy:", 28, YELLOW_M), T("copy each field; for a reference, copy the arrow", 28)).arrange(RIGHT, buff=0.2)
+        sc.scale(min(1, 12.6 / sc.width)).move_to([0, 3.15, 0])
+        self.say("name")
+        self.play(FadeOut(rtag), FadeIn(sc, shift=DOWN * 0.1), run_time=0.7)
+        self.hold()
+        hn = VGroup(T("an honest name:", 24, GREY_A), M("copyTheArrows()", 26, LST)).arrange(RIGHT, buff=0.2).move_to([2.6, 1.6, 0])
+        self.say("rename")
+        self.play(FadeIn(hn, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        self.wipe()
 
-        kt = VGroup(T("Kotlin", 22, GREY_B), M('val c2 = c1.copy(id = "c2")', 24)).arrange(RIGHT, buff=0.3)
-        jv = VGroup(T("Java", 22, GREY_B), M('var c2 = c1.withId("c2");', 24)).arrange(RIGHT, buff=0.3)
-        trap = VGroup(kt, jv).arrange(RIGHT, buff=1.0).move_to([0, -2.95, 0])
-        fit(trap, 12.4)
-        self.say("a8", [(0, [FadeIn(kt, shift=UP * 0.1)], 0.6), (1, [FadeIn(jv, shift=UP * 0.1)], 0.6)], after=0.5)
+        # ================= the picture breaks: the clipped shopping list =================
+        fo = form(1.4, "Anna").move_to([-4.0, 0.3, 0])
+        fc = form(1.4, "Ben").move_to([0.0, 0.3, 0])
+        pc_t = VGroup(T("a photocopy:", 26, GREY_A), T("a separate sheet", 26, OK)).arrange(DOWN, buff=0.1).move_to([4.2, 0.3, 0])
+        self.say("breaks")
+        self.play(FadeIn(fo), run_time=0.5)
+        self.play(TransformFromCopy(fo, fc), run_time=0.8)
+        self.play(FadeIn(pc_t), run_time=0.5)
+        self.at(3)
+        shared = clip_list(["eggs", "bread"], 1.3).move_to([-2.0, 2.2, 0])
+        self.play(FadeOut(pc_t), FadeIn(shared, shift=DOWN * 0.2), run_time=0.7)
+        l1 = Line(fo[0].get_corner(UR), shared[0].get_corner(DL), stroke_width=3, color=LST)
+        l2 = Line(fc[0].get_corner(UL), shared[0].get_corner(DR), stroke_width=3, color=LST)
+        self.at(4)
+        self.play(Create(l1), Create(l2), run_time=0.8)
+        same = T("the same list, clipped to both", 24, LST).next_to(shared, RIGHT, buff=0.4)
+        self.play(FadeIn(same), run_time=0.5)
+        self.at(5)
+        new = clip_list(["eggs", "bread", "milk"], 1.3).move_to(shared)
+        self.play(Transform(shared, new), Indicate(fo, color=BAD, scale_factor=1.04), run_time=1.0)
+        self.hold()
+        self.wipe()
 
-        # ---------- the fix: a list that can't change, and a new list for a change
-        L_up = lst("List (read-only)", LST, LX, Y1, OK)
-        s1_up = item("sku-1").move_to(slot_pt(L_up, 0))
-        r1_up = ref(k1, L_up, -0.3, C1)
-        r2_up = ref(k2, L_up, -0.4, C2)
-        self.play(FadeOut(VGroup(s2, rd, lab, trap)), run_time=0.6)
-        self.say("b1", [(0, [Transform(L[0], L_up[0]), Transform(s1, s1_up), Transform(r1, r1_up), Transform(r2, r2_up),
-                             FadeTransform(L[1], L_up[1])], 1.0),
-                        (1, [Pulse(L[0], OK, 1.05)], 0.8)])
+        pr = VGroup(T("Prototype:", 34, YELLOW_M), T("a new object made by copying one", 32)).arrange(RIGHT, buff=0.25).move_to([0, 1.0, 0])
+        pr2 = T("Every copy is shallow until you make it safe.", 30, GREY_A).move_to([0, -0.2, 0])
+        self.say("proto")
+        self.play(FadeIn(pr, shift=UP * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(pr2), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        bump = item("sku-2", C2).move_to(k2[5].get_center()).set_z_index(20)
-        stop = r2_up.get_end() + (r2_up.get_start() - r2_up.get_end()) * 0.12
-        no = tick(False, 0.26).move_to(stop + DOWN * 0.15 + RIGHT * 0.65)
-        self.say("b2", [(0, [FadeIn(bump, scale=0.6)], 0.3), (0, [bump.animate.move_to(stop)], 0.8),
-                        (0, [Flash(stop, color=BAD, flash_radius=0.4), FadeIn(no, scale=0.5)], 0.5)])
+        # ================= Java twin =================
+        jc = titled(code_block(["record Cart(String id, List<String> items) {", "    Cart withId(String newId) {",
+                                "        return new Cart(newId, items);   // shares the list", "    }", "}",
+                                "var c2 = c1.withId(\"c2\");", "c2.items().add(\"milk\");   // c1.items() is now [bread, milk]"], 24,
+                               hl={"// shares the list": BAD, "// c1.items() is now [bread, milk]": GREY_B}), "Java")
+        jc.scale(min(1, 12.6 / jc.width)).move_to([0, 1.3, 0])
+        cl = VGroup(M("interface Cloneable { }", 26, GREY_A), T("a promise with nothing inside", 24, GREY_B)).arrange(DOWN, buff=0.12).move_to([0, -2.5, 0])
+        self.say("java")
+        self.play(FadeIn(jc, shift=UP * 0.1), run_time=0.8)
+        self.at_text("passes the", lead=0.3)
+        self.play(Indicate(jc[1][2], color=BAD, scale_factor=1.03), run_time=0.9)
+        self.at(1)
+        self.play(FadeIn(cl[0]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(cl[1]), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        L2 = lst("List (read-only)", C2, LX, Y2, OK)
-        n1 = item("sku-1").move_to(slot_pt(L2, 0))
-        n2 = item("sku-2", C2).move_to(slot_pt(L2, 1))
-        r2_new = ref(k2, L2, 0.0, C2)
-        L2[1].next_to(L2[0], DOWN, buff=0.18)
-        n1c = s1.copy()      # a copy that moves (TransformFromCopy hid this chip under the new box)
-        self.say("b3", [(0, [FadeOut(bump), FadeOut(no)], 0.4),
-                        (0, [FadeIn(L2)], 0.5), (0, lambda: [self.add(n1c) and None or n1c.animate.move_to(n1)], 0.8),
-                        (0, [FadeIn(n2, shift=LEFT * 0.2)], 0.5),
-                        (1, [Transform(r2, r2_new)], 0.8), (1, [Pulse(L2[0], C2, 1.05)], 0.6)])
+        # ================= the fix =================
+        fk = titled(code_block(["data class Cart(val id: String, val items: List<String>)", "",
+                                "val c2 = c1.copy(id = \"c2\", items = c1.items + \"milk\")"], 24, hl={"List<String>": OK, "c1.items + \"milk\"": OK}), "Kotlin")
+        fj = titled(code_block(["record Cart(String id, List<String> items) {", "    Cart { items = List.copyOf(items); }",
+                                "    // withers build a new list, never add to this one", "}"], 24, hl={"List.copyOf(items)": OK, "// withers build a new list, never add to this one": GREY_B}), "Java")
+        fg2 = VGroup(fk, fj).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
+        fg2.scale(min(1, 12.6 / fg2.width)).move_to([0, 1.6, 0])
+        self.say("fix")
+        self.play(FadeIn(fk, shift=UP * 0.1), run_time=0.7)
+        self.at_text("and List.copyOf", lead=0.3)
+        self.play(FadeIn(fj, shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(Indicate(part(fk[1][2], "c1.items + \"milk\""), color=OK, scale_factor=1.08), run_time=0.9)
+        self.hold()
+        self.play(FadeOut(fg2), run_time=0.5)
 
-        rd2 = M("c1.skus = [sku-1]", 26, OK).move_to([CX, 2.75, 0])
-        self.say("b4", [(0, [run_dot(k1[5].get_center(), r1.get_end(), C1, 0.8)], 0.8), (0, [FadeIn(rd2, shift=DOWN * 0.1)], 0.6),
-                        (0, [Pulse(L[0], C1, 1.04), Pulse(L2[0], C2, 1.04)], 0.8)], after=0.5)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
+        k1 = cart("c1", "c1", C1).move_to([-3.9, 1.5, 0])
+        k2 = cart("c2", "c2", C2).move_to([-3.9, -1.6, 0])
+        la = lbox(["bread"]).move_to([2.6, 1.5, 0])
+        la[2].become(T("read-only list", 20, LST).next_to(la[0], UP, buff=0.08))
+        lb = lbox(["bread", "milk"], NEWL).move_to([2.6, -1.6, 0])
+        lb[2].become(T("a new read-only list", 20, NEWL).next_to(lb[0], UP, buff=0.08))
+        a1 = ref(k1, la)
+        a2s = ref(k2, la)
+        a2n = ref(k2, lb, NEWL)
+        self.say("fix2")
+        self.play(FadeIn(k1), FadeIn(k2), FadeIn(la), GrowArrow(a1), GrowArrow(a2s), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(lb, shift=LEFT * 0.2), ReplacementTransform(a2s, a2n), run_time=1.0)
+        self.at(2)
+        self.play(Indicate(la[1], color=C1, scale_factor=1.15), run_time=0.8)
+        self.hold()
+        r1 = T("A copy is only as safe as the parts it shares.", 30)
+        r2 = T("Share only parts that can't change.", 30, YELLOW_M)
+        rg = VGroup(r1, r2).arrange(DOWN, buff=0.15).move_to([0, -3.15, 0])
+        self.say("rule")
+        self.play(VGroup(k1, k2, la, lb, a1, a2n).animate.shift(UP * 0.35), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(r1, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(r2, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        # ---------- the code
-        kl = code(["data class Cart(",
-                   "    val id: String,",
-                   "    val skus: List<String>,",
-                   ")",
-                   'val c2 = c1.copy(id = "c2",',
-                   '    skus = c1.skus + "sku-2")'], 24)
-        jl = code(["record Cart(String id,",
-                   "            List<String> skus) {",
-                   "    Cart {",
-                   "        skus = List.copyOf(skus);",
-                   "    }",
-                   "}"], 24)
-        paint(kl[2], "List<String>", OK); paint(kl[5], 'c1.skus + "sku-2"', OK)
-        paint(jl[3], "List.copyOf(skus)", OK)
-        kg = VGroup(T("Kotlin", 26, GREY_B), kl).arrange(DOWN, buff=0.25, aligned_edge=LEFT)
-        jg = VGroup(T("Java", 26, GREY_B), jl).arrange(DOWN, buff=0.25, aligned_edge=LEFT)
-        both = VGroup(kg, jg).arrange(RIGHT, buff=0.9, aligned_edge=UP).move_to([0, 0.3, 0])
-        fit(both, 12.4)
-        self.say("b5", [(0, [FadeIn(kg, shift=UP * 0.15)], 0.7), (0, [mark(part(kl[2], "List<String>"), OK, 0.4)], 1.2),
-                        (0, [mark(part(kl[5], 'c1.skus + "sku-2"'), OK, 0.4)], 1.2),
-                        (1, [FadeIn(jg, shift=UP * 0.15)], 0.7), (1, [mark(part(jl[3], "List.copyOf(skus)"), OK, 0.4)], 1.2)],
-                 after=0.4)
-        self.play(FadeOut(both), run_time=0.6)
+        # ================= the second trap: copy() and a private constructor =================
+        ec = titled(code_block(["data class Email private constructor(val value: String) {", "    companion object {",
+                                "        fun of(raw: String): Email {", "            require(\"@\" in raw) { \"not an email: $raw\" }",
+                                "            return Email(raw)", "        }", "    }", "}", "",
+                                "Email.of(\"anna@example.com\").copy(value = \"not-an-email\")"], 22,
+                               hl={"private constructor": C2, ".copy(value = \"not-an-email\")": BAD}), "Kotlin")
+        ec.scale(min(1, 12.6 / ec.width)).move_to([-6.3, 3.3, 0], aligned_edge=UL)
+        self.say("trap2")
+        self.play(FadeIn(ec, shift=UP * 0.1), run_time=0.9)
+        self.at_text("and a factory", lead=0.3)
+        self.play(Indicate(VGroup(ec[1][2], ec[1][3]), color=WHITE, scale_factor=1.03), run_time=0.9)
+        self.at(3)
+        self.play(Indicate(ec[1][9], color=BAD, scale_factor=1.04), run_time=0.9)
+        self.hold()
+        o2 = term(["copy() skipped the factory: Email(value=not-an-email)"], 22, "CopyTrap, real output")
+        w = VGroup(M("w: CopyTrap.kt:29:24 This 'copy()' exposes the non-public primary", 20, GREY_A),
+                   M("constructor of a 'data class'. ... This will become an error in", 20, GREY_A),
+                   M("language version 2.5.", 20, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.06)
+        wt = T("the Kotlin 2.4 warning", 20, GREY_B).next_to(w, UP, buff=0.08).align_to(w, LEFT)
+        bot = VGroup(o2, VGroup(wt, w)).arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([0, -2.4, 0])
+        self.say("trap2b")
+        self.play(FadeIn(o2, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(VGroup(wt, w)), run_time=0.7)
+        self.hold()
+        self.wipe()
 
-        # ---------- builder: the telescoping call
-        tele = code(['new ChargeRequest(1_250, "EUR", "tok_42", null, null, true, 2, 30_000);'], 26)[0]
-        fit(tele, 12.4).move_to([0, 1.6, 0])
-        vals = ['1_250', '"EUR"', '"tok_42"', 'null', 'true', '2', '30_000']
-        val_parts = [part(tele, 'null', 0), part(tele, 'null', 1), part(tele, 'true'), part(tele, ' 2,'), part(tele, '30_000')]
-        self.say("c1", [(1, [FadeIn(tele, shift=UP * 0.1)], 0.8)])
-        self.say("c2", [(0, [LaggedStart(*[Indicate(p, color=VAL, scale_factor=1.15) for p in val_parts], lag_ratio=0.25)], 1.6)],
-                 after=1.2)
-        bl = code(['ChargeRequest.builder(1_250, "EUR", "tok_42").maxRetries(2).build();'], 24)[0]
-        fit(bl, 12.4).move_to([0, -0.4, 0])
-        bnote = T("a second class, one method per field", 24, GREY_B).next_to(bl, DOWN, buff=0.3)
-        self.say("c3", [(0, [mark(part(tele, '30_000'), BAD, 0.6)], 1.4),
-                        (1, [FadeIn(bl, shift=UP * 0.1)], 0.7), (1, [FadeIn(bnote)], 0.5)])
+        fx1 = VGroup(M("@ConsistentCopyVisibility", 26, OK), T("copy() becomes as private as the constructor", 26)).arrange(DOWN, buff=0.12)
+        fx2 = titled(code_block(["data class Price(val cents: Long) {", "    init { require(cents >= 0) { \"negative price: $cents\" } }",
+                                 "}"], 24, hl={"init": OK}), "safer still: the check in init, which copy() runs")
+        o3 = term(["Price(5).copy(cents = -1): negative price: -1"], 24, "CopyTrap, real output")
+        fxg = VGroup(fx1, fx2, o3).arrange(DOWN, buff=0.45).move_to([0, 0.2, 0])
+        fxg.scale(min(1, 12.6 / fxg.width))
+        self.say("trap2c")
+        self.at(1)
+        self.play(FadeIn(fx1, shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(fx2, shift=UP * 0.1), run_time=0.7)
+        self.at(3)
+        self.play(FadeIn(o3, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------- named and default arguments
-        kc = code(['ChargeRequest(amountMinor = 1_250, currency = "EUR",',
-                   '              token = "tok_42", maxRetries = 2)'], 24)
-        kc.move_to([0, 2.65, 0])
-        for v in ['1_250', '"EUR"', '"tok_42"']:
-            paint(kc[0] if v != '"tok_42"' else kc[1], v, VAL)
-        part(kc[1], "2", 1).set_color(VAL)
-        params = [("amountMinor", "1_250", True), ("currency", '"EUR"', True), ("token", '"tok_42"', True),
-                  ("description", "null", False), ("capture", "true", False), ("maxRetries", "2", True),
-                  ("timeoutMs", "10_000", False)]
-        rows = VGroup()
-        for i, (name, v, named) in enumerate(params):
-            y = 1.25 - i * 0.6
-            nm = M(name, 24, GREY_A); nm.move_to([-3.2 - nm.width / 2, y, 0])
-            sl = RoundedRectangle(corner_radius=0.1, width=2.2, height=0.48, stroke_color=GREY_D, stroke_width=2).move_to([-1.75, y, 0])
-            vv = M(v, 24, VAL if named else GREY_B).move_to(sl)
-            rows.add(VGroup(nm, sl, vv))
-        src = {"1_250": part(kc[0], "1_250"), '"EUR"': part(kc[0], '"EUR"'), '"tok_42"': part(kc[1], '"tok_42"'),
-               "2": part(kc[1], "2", 1)}
-        self.say("c4", [(0, [FadeOut(VGroup(tele, bl, bnote))], 0.5), (0, [FadeIn(kc, shift=DOWN * 0.1)], 0.8),
-                        (1, [LaggedStart(*[FadeIn(VGroup(r[0], r[1])) for r in rows], lag_ratio=0.12)], 1.2),
-                        (1, [LaggedStart(*[FadeIn(r[2]) for r, p in zip(rows, params) if not p[2]], lag_ratio=0.3)], 0.9)])
-        named = [(r, p) for r, p in zip(rows, params) if p[2]]
-        self.say("c5", [(0, [LaggedStart(*[TransformFromCopy(src[p[1]], r[2]) for r, p in named], lag_ratio=0.35)], 2.0),
-                        (0, [LaggedStart(*[r[0].animate.set_color(VAL) for r, p in named], lag_ratio=0.1)], 0.5),
-                        (0, [LaggedStart(*[Pulse(r[1], GREY_B, 1.08) for r, p in zip(rows, params) if not p[2]], lag_ratio=0.25)], 1.0)])
-
-        cp = M("req.copy(timeoutMs = 30_000)", 24)
-        it = M("init { require(maxRetries >= 0) }", 24)
-        side = VGroup(cp, it).arrange(DOWN, buff=0.5, aligned_edge=LEFT)
-        fit(side, 6.0).move_to([3.3, 0.55, 0], aligned_edge=ORIGIN)
-        side.set_x(0.4 + side.width / 2)
-        self.say("c6", [(0, [FadeIn(cp, shift=LEFT * 0.1)], 0.7), (1, [FadeIn(it, shift=LEFT * 0.1)], 0.7),
-                        (1, [mark(it, OK, 0.5)], 1.2)])
-        jn = T("Java callers: no names, so give them a builder", 26, GREY_A)
-        fit(jn, 6.0).next_to(side, DOWN, buff=0.7, aligned_edge=LEFT)
-        self.say("c7", [(0, [FadeIn(jn, shift=UP * 0.1)], 0.7)], after=0.4)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
-
-        # ---------- rule and check
-        rule = VGroup(T("A copy shares every object its fields point to.", 32),
-                      T("Keep those objects unchangeable; build a new one to change it.", 32, OK)).arrange(DOWN, buff=0.3)
-        fit(rule, 12.4).move_to([0, 2.0, 0])
-        self.say("r", [(1, [FadeIn(rule[0], shift=UP * 0.1)], 0.7), (2, [FadeIn(rule[1], shift=UP * 0.1)], 0.7)])
-        q = VGroup(T("Check: a Payment holds a MutableMap of metadata.", 28),
-                   T("p2 = p1.copy(), then p2's map gets a retry key. Does p1 see it?", 28)).arrange(DOWN, buff=0.2)
-        fit(q, 12.4).move_to([0, -0.2, 0])
-        self.say("q", [(0, [FadeIn(q, shift=UP * 0.1)], 0.8)], after=2.4)
-        ans = T("Yes. copy() copied the arrow, not the map: one map, two payments.", 28, OK)
-        fit(ans, 12.4).move_to([0, -2.1, 0])
-        self.say("ans", [(0, [FadeIn(ans, shift=UP * 0.1)], 0.7)])
-        self.wait(0.8)
+        # ================= moral and a check =================
+        mq = T("Is a copy separate from the original?", 32)
+        m1 = T("Only as far as its fields go.", 30)
+        m2 = T("Plain values are copied. Arrows are copied as arrows.", 30, LST)
+        m3 = T("Share only what can't change, and keep the checks in init.", 28, YELLOW_M)
+        mg = VGroup(mq, m1, m2, m3).arrange(DOWN, buff=0.26).move_to(UP * 1.9)
+        mg.scale(min(1, 12.6 / mg.width))
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(m3), run_time=0.5)
+        self.hold()
+        qa = VGroup(T("Check: the template has", 26), M("val tags: MutableList<String>", 26, LST)).arrange(RIGHT, buff=0.2)
+        qb = VGroup(M("annasBox.tags += \"no nuts\"", 26, WHITE))
+        qc = T("What do Ben's box and the template now say?", 28, YELLOW_M)
+        qg = VGroup(qa, qb, qc).arrange(DOWN, buff=0.18).move_to(DOWN * 0.95)
+        qg.scale(min(1, 12.6 / qg.width))
+        self.say("check")
+        self.play(FadeIn(qg, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.6, pos=(6.4, -3.3), edge=RIGHT)
+        ans = VGroup(T("\"no nuts\", both of them: all three share one list.", 26, BAD),
+                     T("Read-only List plus copy(tags = tags + \"no nuts\"): only Anna's changes.", 26, OK)).arrange(DOWN, buff=0.1)
+        ans.scale(min(1, 12.6 / ans.width)).move_to(DOWN * 2.85)
+        self.say("check_a")
+        self.play(FadeIn(ans[0], shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(ans[1]), run_time=0.5)
+        self.hold(after=0)
+        self.wait(2.5)

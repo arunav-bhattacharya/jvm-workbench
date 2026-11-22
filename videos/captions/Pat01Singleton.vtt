@@ -1,169 +1,389 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:09.917
-Loading FxRates takes 20 ms, so you build it on first use: if the field is null, build one.
+00:00:02.700 --> 00:00:04.031
+Picture a small town.
 
 2
-00:00:10.133 --> 00:00:11.537
-Thread A asks first.
+00:00:04.031 --> 00:00:08.089
+It has one town hall, where people go to register a new address.
 
 3
-00:00:11.537 --> 00:00:13.923
-It sees null, and starts building.
+00:00:08.089 --> 00:00:11.893
+Nobody builds a second one, and everybody knows where it is.
 
 4
-00:00:14.367 --> 00:00:17.123
-While A is still building, thread B asks.
+00:00:12.900 --> 00:00:19.713
+The town has a corner shop, and the shop's order program needs a town hall of its own: the price list.
 
 5
-00:00:17.123 --> 00:00:18.199
-What does B see?
+00:00:19.713 --> 00:00:23.120
+Every part of the program asks it what things cost.
 
 6
-00:00:19.867 --> 00:00:20.293
-Null.
+00:00:23.120 --> 00:00:24.923
+A loaf of bread: 450 cents.
 
 7
-00:00:20.293 --> 00:00:22.767
-A hasn't stored anything yet.
+00:00:24.923 --> 00:00:26.793
+There should be exactly one.
 
 8
-00:00:22.767 --> 00:00:24.473
-So B builds one too.
+00:00:27.000 --> 00:00:32.127
+An object like that, one instance that everyone shares, is called a singleton.
 
 9
-00:00:24.700 --> 00:00:26.234
-A stores its object.
+00:00:33.033 --> 00:00:36.185
+Now here's a question that's easy to be shy about.
 
 10
-00:00:26.234 --> 00:00:28.840
-Then B stores another one over it.
+00:00:36.185 --> 00:00:38.643
+Making one of something sounds trivial.
 
 11
-00:00:28.840 --> 00:00:30.757
-Two threads, two FxRates.
+00:00:38.643 --> 00:00:40.786
+If there isn't one yet, build one.
 
 12
-00:00:30.967 --> 00:00:33.915
-That's the same check-then-act race as count++.
+00:00:40.786 --> 00:00:42.425
+Isn't a null check enough?
 
 13
-00:00:33.915 --> 00:00:36.676
-Eight threads arriving together build eight.
+00:00:43.700 --> 00:00:46.427
+Here's the version most of us write first.
 
 14
-00:00:37.533 --> 00:00:41.563
-The fix: one thread checks and builds, and the others wait.
+00:00:46.427 --> 00:00:53.958
+Loading the price list means reading the supplier's price file, which is slow, so we wait until somebody first asks.
 
 15
-00:00:41.563 --> 00:00:45.525
-The JVM already has a lock for that: class initialization.
+00:00:53.958 --> 00:00:55.191
+That's called lazy.
 
 16
-00:00:45.700 --> 00:00:48.804
-Put the instance in a nested class, Holder.
+00:00:55.191 --> 00:00:58.113
+If the field is null, build one and store it.
 
 17
-00:00:48.804 --> 00:00:53.351
-The JVM initializes Holder once, on first use, under that lock.
+00:00:58.113 --> 00:00:59.541
+Kotlin looks the same.
 
 18
-00:00:53.567 --> 00:00:56.450
-A gets there first and takes the lock.
+00:01:00.467 --> 00:01:01.530
+Back to the town.
 
 19
-00:00:56.450 --> 00:00:57.057
-B waits.
+00:01:01.530 --> 00:01:05.970
+Before the hall exists, there's an empty plot of land set aside for it.
 
 20
-00:00:57.567 --> 00:00:59.416
-A builds the one FxRates.
+00:01:05.970 --> 00:01:09.660
+The first builder who finds the plot empty builds the hall.
 
 21
-00:00:59.416 --> 00:01:03.041
-Then the lock opens, and B reads the same object.
+00:01:10.467 --> 00:01:11.317
+Let's map it.
 
 22
-00:01:03.267 --> 00:01:06.943
-Every later call is a plain static read, with no lock.
+00:01:11.317 --> 00:01:13.869
+The plot is the field, called instance.
 
 23
-00:01:07.833 --> 00:01:11.893
-If the object is cheap, use an enum with one constant.
+00:01:13.869 --> 00:01:15.504
+An empty plot means null.
 
 24
-00:01:11.893 --> 00:01:14.524
-The JVM makes exactly one INSTANCE.
+00:01:15.504 --> 00:01:17.860
+The town hall is the one price list.
 
 25
-00:01:14.700 --> 00:01:21.576
-Kotlin's object compiles to a static INSTANCE, set when the class initializes: the holder's mechanism.
+00:01:17.860 --> 00:01:25.711
+And the builders are threads: paths of work that run at the same time, one for each customer order the shop is handling.
 
 26
-00:01:21.800 --> 00:01:26.659
-And Kotlin's by lazy takes a lock by default, and runs the initializer once.
+00:01:26.633 --> 00:01:27.923
+Let's slow it down.
 
 27
-00:01:26.659 --> 00:01:29.536
-It's double-checked locking, written for you.
+00:01:27.923 --> 00:01:29.280
+Thread A asks first.
 
 28
-00:01:30.433 --> 00:01:32.120
-But look at the caller.
+00:01:29.280 --> 00:01:31.181
+It looks at the plot: empty.
 
 29
-00:01:32.120 --> 00:01:36.079
-PaymentPricer fetches FxRates itself, inside a method.
+00:01:31.181 --> 00:01:34.575
+So it starts building, and building takes a while.
 
 30
-00:01:36.267 --> 00:01:39.700
-A test wants a rate of 1.10, and can't reach in.
+00:01:34.800 --> 00:01:37.556
+While A is still building, thread B asks.
 
 31
-00:01:39.700 --> 00:01:44.493
-And a change one test makes to the global leaks into the next test.
+00:01:37.556 --> 00:01:38.632
+What does B see?
 
 32
-00:01:44.700 --> 00:01:47.928
-So pass it in through the constructor, as an interface.
+00:01:43.300 --> 00:01:43.780
+Empty.
 
 33
-00:01:48.133 --> 00:01:55.076
-In production, the container makes the one instance, like an @ApplicationScoped bean in Quarkus.
+00:01:43.780 --> 00:01:46.099
+A hasn't stored anything yet.
 
 34
-00:01:55.076 --> 00:01:57.896
-A test passes a fake that returns 1.10.
+00:01:46.099 --> 00:01:48.099
+So B starts building too.
 
 35
-00:01:58.867 --> 00:01:59.525
-The rule.
+00:01:48.300 --> 00:01:50.620
+A finishes and stores its price list.
 
 36
-00:01:59.525 --> 00:02:06.475
-Let the JVM or the container make the one instance, and pass it in, so a test can pass another.
+00:01:50.620 --> 00:01:54.006
+Then B finishes, and stores another one right over it.
 
 37
-00:02:06.667 --> 00:02:07.607
-Quick check.
+00:01:54.006 --> 00:01:58.645
+Two threads, two price lists, and nobody can say which one a caller holds.
 
 38
-00:02:07.607 --> 00:02:12.939
-One test sets object FxRates to a rate of 1.10, and never resets it.
+00:01:58.867 --> 00:02:00.887
+And here the town picture breaks.
 
 39
-00:02:12.939 --> 00:02:16.623
-A later test in another class prices a payment.
+00:02:00.887 --> 00:02:05.602
+Two real builders at an empty plot would see each other and agree who builds.
 
 40
-00:02:16.623 --> 00:02:18.427
-Which rate does it get?
+00:02:05.602 --> 00:02:07.806
+Threads can't see each other at all.
 
 41
-00:02:20.800 --> 00:02:21.219
-1.10.
+00:02:07.806 --> 00:02:09.581
+Each one sees only the field.
 
 42
-00:02:21.219 --> 00:02:28.600
-The object is one static INSTANCE per JVM, so the change outlives the test that made it.
+00:02:09.800 --> 00:02:15.161
+This is a check-then-act race: two separate steps, and another thread slips in between.
+
+43
+00:02:16.067 --> 00:02:17.583
+So how bad can it get?
+
+44
+00:02:17.583 --> 00:02:26.408
+The lesson's LazyRaceDemo lets eight threads ask at the same moment, with a constructor that takes 20 ms, like a slow file read.
+
+45
+00:02:26.408 --> 00:02:28.545
+How many price lists get built?
+
+46
+00:02:31.733 --> 00:02:32.159
+Eight.
+
+47
+00:02:32.159 --> 00:02:36.203
+The constructor ran 8 times, and callers saw 8 instances.
+
+48
+00:02:36.203 --> 00:02:40.246
+Eight threads asked for the one price list and got eight.
+
+49
+00:02:40.246 --> 00:02:41.381
+So much for one.
+
+50
+00:02:41.600 --> 00:02:44.647
+In the town, that's eight town halls on one plot.
+
+51
+00:02:44.647 --> 00:02:45.517
+Very generous.
+
+52
+00:02:45.517 --> 00:02:50.367
+Register your new address in one, and the other seven have never heard of you.
+
+53
+00:02:50.600 --> 00:02:52.281
+So the point really is this.
+
+54
+00:02:52.281 --> 00:02:54.682
+A null check can't promise one instance.
+
+55
+00:02:54.682 --> 00:02:57.383
+Something has to make the other threads wait.
+
+56
+00:02:58.300 --> 00:03:01.014
+Java gives us three good tools for that.
+
+57
+00:03:01.014 --> 00:03:02.779
+The first is the simplest.
+
+58
+00:03:02.779 --> 00:03:11.600
+If the object is cheap, or needed at startup anyway, like the counter that hands out order numbers, use an enum with one constant.
+
+59
+00:03:11.600 --> 00:03:17.911
+The JVM, the program that runs your Java and Kotlin code, creates that constant exactly once.
+
+60
+00:03:18.633 --> 00:03:23.581
+The second is for an expensive object you want lazily, like our price list.
+
+61
+00:03:23.581 --> 00:03:27.275
+Put the instance in a small nested class, called Holder.
+
+62
+00:03:27.275 --> 00:03:32.883
+The JVM sets up a class the first time anyone uses it, and it does that exactly once.
+
+63
+00:03:33.600 --> 00:03:37.213
+Think of the JVM as a strict doorkeeper at Holder's door.
+
+64
+00:03:37.213 --> 00:03:40.572
+Thread A arrives first, and goes in to run the setup.
+
+65
+00:03:40.572 --> 00:03:44.628
+Thread B arrives a moment later, and waits politely at the door.
+
+66
+00:03:44.833 --> 00:03:46.667
+A builds the one price list.
+
+67
+00:03:46.667 --> 00:03:50.729
+Only then does the door open, and B gets the very same object.
+
+68
+00:03:50.729 --> 00:03:54.987
+Nobody pushes past this doorkeeper, not even a thread in a hurry.
+
+69
+00:03:55.200 --> 00:04:00.213
+The demo agrees: the constructor ran once, and every caller saw one instance.
+
+70
+00:04:00.213 --> 00:04:05.030
+After that, every call is a plain read of a static field, with no waiting.
+
+71
+00:04:05.030 --> 00:04:10.303
+That's the holder idiom: a tiny class whose only job is to hold the one instance.
+
+72
+00:04:11.033 --> 00:04:17.865
+The third tool is for a lazy instance field, one per object, where a holder can't help: double-checked locking.
+
+73
+00:04:17.865 --> 00:04:19.958
+Read the field once, with no lock.
+
+74
+00:04:19.958 --> 00:04:26.605
+Only if it's still null, take a lock, and check again, because another thread may have won while you waited.
+
+75
+00:04:26.833 --> 00:04:28.509
+And mark the field volatile.
+
+76
+00:04:28.509 --> 00:04:33.357
+That makes a write to the field visible to every thread that reads it afterwards.
+
+77
+00:04:33.357 --> 00:04:38.864
+Leave volatile out, and another thread can see a price list whose contents it can't see yet.
+
+78
+00:04:39.767 --> 00:04:41.156
+So here's the rule.
+
+79
+00:04:41.156 --> 00:04:44.520
+A plain null check can't promise one instance.
+
+80
+00:04:44.520 --> 00:04:46.933
+Let the JVM or a lock promise it.
+
+81
+00:04:47.133 --> 00:04:50.419
+Kotlin moves two of these tools into the language.
+
+82
+00:04:50.419 --> 00:04:59.157
+An object declaration is a singleton made on first access, and by lazy is double-checked locking, written once and correctly for you.
+
+83
+00:05:00.067 --> 00:05:00.977
+One guardrail.
+
+84
+00:05:00.977 --> 00:05:07.283
+Remember the town hall's notice board: a note pinned there for one visitor gets read by the next.
+
+85
+00:05:07.283 --> 00:05:13.655
+Even a safe singleton is one global thing, and state a test leaves in it leaks into the next test.
+
+86
+00:05:14.367 --> 00:05:17.270
+So the best singleton is often one you don't write.
+
+87
+00:05:17.270 --> 00:05:22.679
+Make one price list where the program is put together, and pass it in to everyone who needs it.
+
+88
+00:05:23.600 --> 00:05:25.693
+So, isn't a null check enough?
+
+89
+00:05:25.693 --> 00:05:25.903
+No.
+
+90
+00:05:25.903 --> 00:05:30.578
+The check and the build are two steps, and threads slip in between.
+
+91
+00:05:30.578 --> 00:05:34.485
+Let the JVM's doorkeeper or a lock make the others wait.
+
+92
+00:05:34.700 --> 00:05:35.529
+Quick check.
+
+93
+00:05:35.529 --> 00:05:43.823
+You delete the slow sleep from the constructor, run the racy version three times, and it prints: constructor ran 1 time.
+
+94
+00:05:43.823 --> 00:05:45.067
+Is the race fixed?
+
+95
+00:05:48.233 --> 00:05:48.427
+No.
+
+96
+00:05:48.427 --> 00:05:53.076
+The gap between the check and the act just shrank to a few microseconds.
+
+97
+00:05:53.076 --> 00:05:57.725
+A real price file is slow, so the race comes back when the shop is busy.

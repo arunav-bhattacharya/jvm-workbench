@@ -253,7 +253,7 @@ class Fp07Errors(Narrated):
         self.play(FadeIn(c1), FadeIn(nt, shift=RIGHT * 0.2), FadeIn(l1), run_time=0.8)
         self.at(3)
         self.play(FadeIn(c2), FadeIn(pn), FadeIn(l2), run_time=0.6)
-        self.play(pn.animate.move_to([5.6, 2.4, 0]).rotate(-1.2), run_time=0.8)
+        self.play(pn.animate.move_to([4.7, 2.2, 0]).rotate(-1.2), run_time=0.8)
         self.hold()
         v1 = T("a returned value", 26, OK_C).next_to(l1, DOWN, buff=0.2)
         v2 = T("an exception", 26, ERR_C).next_to(l2, DOWN, buff=0.2)
@@ -266,7 +266,7 @@ class Fp07Errors(Narrated):
 
         # ================= the kitchen line with a side door =================
         steps, top, bot = railway(["check", "mix", "bake"], y=1.0)
-        tl = T("success", 22, OK_C).next_to(top, LEFT, buff=0.15)
+        tl = T("success", 22, OK_C).move_to([-5.7, 1.35, 0])
         bl = T("side door: errors", 22, ERR_C).move_to([-4.6, -0.95, 0])
         batter = Circle(radius=0.22).set_stroke(GOLD_M, 3).set_fill(dim(GOLD_M, 0.5), 1).move_to([-6.2, 1.0, 0])
         self.say("line")
@@ -490,13 +490,16 @@ class Fp07Errors(Narrated):
         self.wipe()
 
         # ================= zipOrAccumulate =================
-        zc = code_block(["fun accumulate(a: Int, u: String): Either<NonEmptyList<FormError>, Amount> = either {",
-                         "    zipOrAccumulate({ validAmount(a) }, { validUnit(u) }) { amount, unit -> Amount(amount, unit) }",
-                         "}"], 22)
-        fit(zc, 12.6).move_to([0, 1.6, 0])
-        zl = [SurroundingRectangle(part_of(zc[1], "{ validAmount(a) }"), color=STEP_C, buff=0.04),
-              SurroundingRectangle(part_of(zc[1], "{ validUnit(u) }"), color=STEP_C, buff=0.04),
-              SurroundingRectangle(part_of(zc[1], "{ amount, unit -> Amount(amount, unit) }"), color=OK_C, buff=0.04)]
+        zc = code_block(["fun accumulate(a: Int, u: String):",
+                         "        Either<NonEmptyList<FormError>, Amount> = either {",
+                         "    zipOrAccumulate({ validAmount(a) }, { validUnit(u) }) {",
+                         "        amount, unit -> Amount(amount, unit)",
+                         "    }",
+                         "}"], 26)
+        fit(zc, 12.4).move_to([0, 1.75, 0])
+        zl = [SurroundingRectangle(part_of(zc[2], "{ validAmount(a) }"), color=STEP_C, buff=0.04),
+              SurroundingRectangle(part_of(zc[2], "{ validUnit(u) }"), color=STEP_C, buff=0.04),
+              SurroundingRectangle(zc[3], color=OK_C, buff=0.06)]
         self.say("zip")
         self.play(FadeIn(zc), run_time=0.8)
         self.at(1)
@@ -507,9 +510,9 @@ class Fp07Errors(Narrated):
         self.say("zip_q")
         self.hold(after=0)
         self.predict()
-        o2 = M("accumulate: Either.Left([InvalidAmount(amount=-5), UnsupportedUnit(unit=oz)])", 24, ERR_C).move_to([0, -0.2, 0])
+        o2 = M("accumulate: Either.Left([InvalidAmount(amount=-5), UnsupportedUnit(unit=oz)])", 24, ERR_C).move_to([0, -0.75, 0])
         fit(o2, 12.6)
-        o3 = M("all good:   Either.Right(Amount(amount=250, unit=g))", 24, OK_C).move_to([0, -1.0, 0])
+        o3 = M("all good:   Either.Right(Amount(amount=250, unit=g))", 24, OK_C).move_to([0, -1.45, 0])
         fit(o3, 12.6).align_to(o2, LEFT)
         self.say("zip_a")
         self.play(FadeIn(o2, shift=UP * 0.1), run_time=0.7)
@@ -518,9 +521,9 @@ class Fp07Errors(Narrated):
         self.at(2)
         self.play(FadeIn(o3, shift=UP * 0.1), run_time=0.6)
         self.hold()
-        nb = SurroundingRectangle(part_of(zc[0], "NonEmptyList<FormError>"), color=CLIP_C, buff=0.05)
-        nd = T("NonEmptyList: always at least one item", 28, CLIP_C).move_to([0, -2.2, 0])
-        nd2 = T("a Left means at least one error, and the type says so", 26, GREY_A).move_to([0, -2.8, 0])
+        nb = SurroundingRectangle(part_of(zc[1], "NonEmptyList<FormError>"), color=CLIP_C, buff=0.05)
+        nd = T("NonEmptyList: always at least one item", 28, CLIP_C).move_to([0, -2.35, 0])
+        nd2 = T("a Left means at least one error, and the type says so", 26, GREY_A).move_to([0, -2.95, 0])
         self.say("nel")
         self.play(Create(nb), run_time=0.6)
         self.at(1)

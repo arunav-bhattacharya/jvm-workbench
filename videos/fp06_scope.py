@@ -446,7 +446,7 @@ class Fp06Scope(Narrated):
 
         # ================= each cell's habit =================
         gridg = VGroup(*cells.values(), *cellt.values(), *rowl, *coll)
-        self.play(FadeOut(q1), FadeOut(q2), gridg.animate.scale(0.72).move_to([-2.7, 0.7, 0]), run_time=0.8)
+        self.play(FadeOut(q1), FadeOut(q2), gridg.animate.scale(0.66).move_to([-3.3, 0.5, 0]), run_time=0.8)
         hab = [("apply", "set up a new tray", "OvenProgram().apply { minutes = 12 }"),
                ("also", "note it in passing", "menu.add(dish).also { log.info(...) }"),
                ("let", "taste: an answer back", "guest.favorite?.let { recipes.find(it) }"),
@@ -454,12 +454,10 @@ class Fp06Scope(Narrated):
                ("with", "read off the card in hand", "with(recipe) { \"$name for $servings\" }")]
         hv = VGroup()
         for k, (n, t, ex_) in enumerate(hab):
-            hv.add(VGroup(M(n, 26, FN_C[n]), T(t, 24, GREY_A), M(ex_, 20, GREY_B)).arrange(DOWN, aligned_edge=LEFT, buff=0.06))
-        hv.arrange(DOWN, aligned_edge=LEFT, buff=0.17)
-        fit(hv, 5.2)
-        if hv.height > 6.6:
-            hv.scale(6.6 / hv.height)
-        hv.move_to([3.75, 0.0, 0])
+            hv.add(VGroup(M(n, 30, FN_C[n]), T(t, 28, GREY_A)).arrange(RIGHT, buff=0.3))
+        hv.arrange(DOWN, aligned_edge=LEFT, buff=0.38)
+        fit(hv, 5.6)
+        hv.move_to([3.55, 0.3, 0])
         self.say("map")
         for k in range(5):
             self.at(k + 1)

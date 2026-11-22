@@ -218,11 +218,11 @@ N = {
     "why": "Follow the types, the way the compiler does. Each call returns its declared type, and the compiler goes by "
            "that, not by the object. ribbon returns a PlainGiftBoxBuilder, so grams can follow. But grams returns a "
            "PlainBuilder, because that's all the base class knows about itself.",
-    "demo": "So is the object still a gift box? It prints: after grams, static type "
+    "demo": "So is the object still a gift box? The lesson's demo prints: after grams, static type "
             "PlainBuilder, run-time class PlainGiftBoxBuilder. The object is fine. The form has just forgotten what kind "
             "of form it is.",
     "wish": "What we want is a base class that can say: I return whatever subclass I really am.",
-    "blank": "Print a blank at the top of the base form: this is a, blank, form. Each kind "
+    "blank": "So, on paper, print a blank at the top of the base form: this is a, blank, form. Each kind "
              "of form writes its own name in the blank. The gift-box form writes: gift box. Now, when the helper hands "
              "the form back, the blank says what kind of form it is.",
     "map": "Let's map it. The blank is a type parameter, B. The base form is Builder<B>. Writing your own name in the "
@@ -504,7 +504,7 @@ class Gen10Recursive(Narrated):
         fit(cg, 12.4).move_to([0, 0.35, 0])
         bs = VGroup(part(kt[1], "B", 0), part(kt[2], "B", 0), part(jv[1], "B", 0), part(jv[2], "B", 0))
         r1 = VGroup(chain_step("GiftBoxBuilder()", "GiftBoxBuilder", GIFT_C), chain_step(".grams(1_200)", "B = GiftBoxBuilder", GIFT_C),
-                    chain_step('.ribbon("red")', "GiftBoxBuilder", GIFT_C), chain_step(".build()", "String", WHITE)).arrange(RIGHT, buff=0.15, aligned_edge=UP)
+                    chain_step('.ribbon("red")', "GiftBoxBuilder", GIFT_C), chain_step(".build()", "String", WHITE)).arrange(RIGHT, buff=0.5, aligned_edge=UP)
         fit(r1, 12.4).move_to([0, 1.4, 0])
         out = term(["gift box, 1200 g, red ribbon"], 22, "SelfTypeDemo, real output").move_to([0, -1.0, 0])
         self.say("subst")
@@ -605,7 +605,7 @@ class Gen10Recursive(Narrated):
         fresh.move_to([3.4, -0.6, 0])
         fname = Text("gift box", font=FONT, font_size=22, color=PEN, slant=ITALIC).move_to(part(fresh[1][0], "________")).shift(UP * 0.05)
         fl_ = T("Liar().grams(5) gives back a new GiftBoxBuilder", 22, GIFT_C).next_to(fresh, UP, buff=0.2)
-        fit(fl_, 6.0)
+        fit(fl_, 5.4)
         self.say("break2")
         self.play(FadeOut(comp), run_time=0.3)
         self.at(1)
