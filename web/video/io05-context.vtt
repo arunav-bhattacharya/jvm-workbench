@@ -1,93 +1,357 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:04.198
-Vert.x runs on Netty.
+00:00:02.700 --> 00:00:07.450
+Four customers walk up to the price desk of our post office at the same moment.
 
 2
-00:00:04.198 --> 00:00:12.399
-A Vert.x instance starts a group of Netty event loops, by default twice the number of cores: 8 on a 4-core machine.
+00:00:07.450 --> 00:00:12.441
+Each one needs a lookup in the big price book, and each lookup takes half a second.
 
 3
-00:00:12.600 --> 00:00:16.685
-What Vert.x adds is a rule on top of those loops: the context.
+00:00:12.667 --> 00:00:17.807
+So the desk sends all four jobs to the back office, where twenty workers sit idle.
 
 4
-00:00:16.685 --> 00:00:22.021
-A context is the home of a piece of code, and it decides the thread that runs it.
+00:00:17.807 --> 00:00:20.878
+How long until all four customers have an answer?
 
 5
-00:00:22.233 --> 00:00:27.947
-Each verticle you deploy gets its own context, tied to one event loop for life.
+00:00:20.878 --> 00:00:22.884
+Make a guess, and hold on to it.
 
 6
-00:00:27.947 --> 00:00:34.023
-Every handler it registers, for HTTP, timers or the event bus, runs on that context.
+00:00:26.167 --> 00:00:30.518
+Before we answer, here's a question that's easy to be shy about.
 
 7
-00:00:35.433 --> 00:00:39.269
-So a verticle's code runs on one thread, one task at a time.
+00:00:30.518 --> 00:00:34.665
+Vert.x runs thousands of connections on a handful of threads.
 
 8
-00:00:39.269 --> 00:00:42.721
-Three events for verticle A arrive at the same moment.
+00:00:34.665 --> 00:00:36.704
+So who, exactly, runs my code?
 
 9
-00:00:42.933 --> 00:00:46.429
-The loop runs them one after another, never at once.
+00:00:37.533 --> 00:00:39.105
+Start with what we know.
 
 10
-00:00:46.429 --> 00:00:48.984
-So A's field, approved, needs no lock.
+00:00:39.105 --> 00:00:41.856
+In lesson 3, Netty hired a team of clerks.
 
 11
-00:00:49.800 --> 00:00:52.010
-The catch: that thread is shared.
+00:00:41.856 --> 00:00:46.833
+Each one owns a row of boxes for good, and never stops to make a phone call.
 
 12
-00:00:52.010 --> 00:00:54.891
-Verticle B's context sits on the same loop.
+00:00:47.067 --> 00:00:51.709
+Vert.x is a toolkit for network programs that runs on those same clerks.
 
 13
-00:00:55.100 --> 00:00:59.914
-Now A's handler makes a 500 millisecond JDBC call, right on the loop.
+00:00:51.709 --> 00:00:54.739
+What it adds is rules about who runs your code.
 
 14
-00:00:59.914 --> 00:01:06.612
-The loop can do nothing else until it returns, so B's requests wait, though B did nothing wrong.
+00:00:55.567 --> 00:01:01.253
+So picture desks on the counter: a weighing desk, a price desk, a lost-property desk.
 
 15
-00:01:07.433 --> 00:01:11.304
-executeBlocking moves the blocking part to a worker thread.
+00:01:01.253 --> 00:01:08.679
+Each desk has its own drawers, and a card on top that names its clerk, who always serves it, one job at a time.
 
 16
-00:01:11.304 --> 00:01:14.977
-A's handler returns at once, and the loop is free for B.
+00:01:08.900 --> 00:01:09.802
+Let's map it.
 
 17
-00:01:15.200 --> 00:01:20.369
-When the query is done, the Future completes back on A's context, on loop 0.
+00:01:09.802 --> 00:01:15.697
+A clerk is an event loop: one thread that serves many connections, one job at a time.
 
 18
-00:01:20.369 --> 00:01:25.197
-So the reply runs on A's own thread, and A's state still needs no lock.
+00:01:15.697 --> 00:01:19.373
+Vert.x starts two per core, so 8 on a 4-core machine.
 
 19
-00:01:26.100 --> 00:01:32.806
-One catch: executeBlocking is ordered by default, so calls from one context still run one at a time.
+00:01:19.600 --> 00:01:22.234
+A desk is a verticle, a class you deploy.
 
 20
-00:01:32.806 --> 00:01:35.287
-Pass false when they are independent.
+00:01:22.234 --> 00:01:27.696
+The card is its context: the home of its code, which decides the thread that runs it.
 
 21
-00:01:36.100 --> 00:01:43.189
-In the lesson's demo, four 500 millisecond queries took 2 seconds ordered, and half a second with false.
+00:01:27.696 --> 00:01:30.137
+The drawers are the verticle's fields.
 
 22
-00:01:44.000 --> 00:01:47.868
-Vert.x calls this the golden rule: don't block the event loop.
+00:01:30.367 --> 00:01:39.205
+And the jobs are handlers: your code that Vert.x calls when a request arrives, a timer fires, or a note comes in from another desk.
 
 23
-00:01:47.868 --> 00:01:54.168
-A checker thread looks every second, and warns when one task has held a loop for more than 2 seconds.
+00:01:39.933 --> 00:01:43.949
+Now three letters reach the weighing desk at the very same moment.
+
+24
+00:01:43.949 --> 00:01:46.261
+Does the clerk open all three at once?
+
+25
+00:01:48.933 --> 00:01:49.134
+No.
+
+26
+00:01:49.134 --> 00:01:51.413
+One, then the next, then the next.
+
+27
+00:01:51.413 --> 00:01:58.852
+The docs promise it: a handler never runs at the same time as itself, and always on the same event loop thread.
+
+28
+00:01:59.067 --> 00:02:03.520
+Which makes this the one office where nobody fights over the stapler.
+
+29
+00:02:03.520 --> 00:02:10.749
+Only one clerk ever opens these drawers, so a field that one context touches needs no lock, and no synchronized.
+
+30
+00:02:11.367 --> 00:02:12.479
+So far so good.
+
+31
+00:02:12.479 --> 00:02:14.999
+But look at the price desk's card.
+
+32
+00:02:14.999 --> 00:02:15.815
+Same clerk.
+
+33
+00:02:15.815 --> 00:02:18.113
+One clerk serves several desks.
+
+34
+00:02:18.333 --> 00:02:23.019
+Now the price desk does its half second lookup right there, on the clerk's own time.
+
+35
+00:02:23.019 --> 00:02:24.469
+The clerk is on the phone.
+
+36
+00:02:24.469 --> 00:02:28.764
+And while he waits, the weighing desk waits too, though it did nothing wrong.
+
+37
+00:02:28.967 --> 00:02:37.613
+Four customers in a row on one clerk: the lesson's demo took 2,201 milliseconds, all on vert.x-eventloop-thread-0.
+
+38
+00:02:38.433 --> 00:02:42.431
+Vert.x calls this the golden rule: don't block the event loop.
+
+39
+00:02:42.431 --> 00:02:44.236
+The docs even give a budget.
+
+40
+00:02:44.236 --> 00:02:50.362
+One event loop, ten thousand requests a second, and each request gets a tenth of a millisecond.
+
+41
+00:02:50.362 --> 00:02:53.521
+A half second lookup is five thousand times over.
+
+42
+00:02:54.333 --> 00:03:00.631
+Vert.x also hires a floor manager, a separate thread that walks past every clerk once a second.
+
+43
+00:03:00.631 --> 00:03:04.410
+A job that runs over 2 seconds gets a warning in the log.
+
+44
+00:03:04.410 --> 00:03:10.311
+Over 5 seconds, he adds the stack trace, the list of method calls the thread is stuck in.
+
+45
+00:03:10.533 --> 00:03:14.532
+In the lesson's demo, a clerk slept for 6 seconds.
+
+46
+00:03:14.532 --> 00:03:23.091
+The first warning came at 2,773 milliseconds, not 2,000, because the manager only walks past once a second.
+
+47
+00:03:23.300 --> 00:03:25.003
+And notice what he never does.
+
+48
+00:03:25.003 --> 00:03:27.331
+He doesn't tap the clerk on the shoulder.
+
+49
+00:03:27.331 --> 00:03:31.021
+He writes it down and walks on, and the clerk stays on the phone.
+
+50
+00:03:31.633 --> 00:03:33.429
+He has a blind spot, too.
+
+51
+00:03:33.429 --> 00:03:35.368
+He times one job at a time.
+
+52
+00:03:35.368 --> 00:03:42.192
+Ten calls of 300 milliseconds hold the clerk for 3 seconds, and not one of them gets a warning.
+
+53
+00:03:43.000 --> 00:03:48.137
+So, the obvious fix: send slow jobs to the back office, with executeBlocking.
+
+54
+00:03:48.137 --> 00:03:52.473
+Its worker pool has 20 ordinary threads that are allowed to wait.
+
+55
+00:03:52.473 --> 00:03:57.676
+And the answer comes back to the same desk, so its own clerk writes the reply.
+
+56
+00:03:57.900 --> 00:04:01.658
+The clerk is free, the warnings stop, and the tests pass.
+
+57
+00:04:01.658 --> 00:04:05.020
+Back to our four customers and twenty idle workers.
+
+58
+00:04:05.020 --> 00:04:05.877
+How long now?
+
+59
+00:04:08.567 --> 00:04:09.893
+2,012 milliseconds.
+
+60
+00:04:09.893 --> 00:04:11.637
+About the same as before.
+
+61
+00:04:11.637 --> 00:04:15.755
+And every lookup ran on one thread, vert.x-worker-thread-0.
+
+62
+00:04:15.967 --> 00:04:20.321
+Twenty workers in the back office, and one of them did all the work.
+
+63
+00:04:20.321 --> 00:04:23.842
+The other nineteen, I assume, were sorting paper clips.
+
+64
+00:04:23.842 --> 00:04:28.260
+So the clerk was free, and the customers still waited in single file.
+
+65
+00:04:28.260 --> 00:04:28.516
+Why?
+
+66
+00:04:28.733 --> 00:04:30.202
+One word in the docs.
+
+67
+00:04:30.202 --> 00:04:32.860
+executeBlocking is ordered by default.
+
+68
+00:04:32.860 --> 00:04:36.988
+Jobs from the same desk go into one queue, and run in turn.
+
+69
+00:04:36.988 --> 00:04:42.794
+And every request to one HTTP server, the web server, shares that server's context.
+
+70
+00:04:42.794 --> 00:04:45.172
+So all four joined the same queue.
+
+71
+00:04:45.400 --> 00:04:49.219
+Pass false, and the jobs stop waiting for each other.
+
+72
+00:04:49.219 --> 00:04:52.965
+Four workers pick them up at once: 511 milliseconds.
+
+73
+00:04:53.767 --> 00:04:56.068
+Here the desk picture breaks a little.
+
+74
+00:04:56.068 --> 00:05:00.550
+You can also deploy a worker verticle: a desk served from the back office.
+
+75
+00:05:00.550 --> 00:05:04.547
+It may get a different worker for each job, but never two at once.
+
+76
+00:05:04.547 --> 00:05:07.212
+One job at a time, without one fixed thread.
+
+77
+00:05:08.033 --> 00:05:11.068
+Here is the fix in code, in Java and in Kotlin.
+
+78
+00:05:11.068 --> 00:05:19.076
+The slow lookup goes to executeBlocking, and the second argument, false, says these calls don't need to wait for each other.
+
+79
+00:05:19.900 --> 00:05:21.276
+So, who runs my code?
+
+80
+00:05:21.276 --> 00:05:27.369
+The clerk named on its desk's card, one job at a time, which is why the drawers need no lock.
+
+81
+00:05:27.369 --> 00:05:29.137
+Don't make that clerk wait.
+
+82
+00:05:29.137 --> 00:05:34.903
+And when you send work to the back office, pass false, or it still waits in single file.
+
+83
+00:05:35.133 --> 00:05:35.911
+Quick check.
+
+84
+00:05:35.911 --> 00:05:41.812
+A desk sends mark weighed, then mark shipped, for the same parcel, through executeBlocking.
+
+85
+00:05:41.812 --> 00:05:43.239
+Should you pass false?
+
+86
+00:05:45.933 --> 00:05:46.121
+No.
+
+87
+00:05:46.121 --> 00:05:49.742
+Run them at once, and shipped could finish before weighed.
+
+88
+00:05:49.742 --> 00:05:52.177
+That's why ordered is the safe default.
+
+89
+00:05:52.177 --> 00:05:57.672
+Pass false only for jobs that don't depend on each other, like the price desk's lookups.
