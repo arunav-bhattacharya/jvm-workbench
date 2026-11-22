@@ -1,113 +1,389 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.252
-Over three sittings you build one program: a quote service.
+00:00:02.733 --> 00:00:05.015
+Picture the counter of a post office.
 
 2
-00:00:07.252 --> 00:00:15.663
-A client sends a line like 7 EURUSD, and within 300 milliseconds it gets the best price from three providers.
+00:00:05.015 --> 00:00:09.701
+A customer walks up with a parcel and asks: how much to send this to Lisbon?
 
 3
-00:00:15.867 --> 00:00:17.294
-Here it is, finished.
+00:00:09.867 --> 00:00:12.774
+The post office doesn't carry parcels that far.
 
 4
-00:00:17.294 --> 00:00:19.333
-A Netty server reads the line.
+00:00:12.774 --> 00:00:21.187
+So it asks three courier companies, Northline, Eastgate and Fjord, and tells the customer the cheapest price within a third of a second.
 
 5
-00:00:19.333 --> 00:00:26.809
-A coroutine service asks Northbank, Eastgate and Fjord at once, and the best price goes back with the same id.
+00:00:21.333 --> 00:00:27.239
+A program that does this is a quote service: it gives a price for a job before anyone books it.
 
 6
-00:00:27.033 --> 00:00:29.034
-You build it from the outside in.
+00:00:27.239 --> 00:00:29.539
+Over three sittings, we'll build one.
 
 7
-00:00:29.034 --> 00:00:32.913
-Each part comes from an earlier lesson, named under the diagram.
+00:00:30.467 --> 00:00:37.683
+A client, the program that asks, opens a connection to our server and sends one line of text: 7, Lisbon.
 
 8
-00:00:33.133 --> 00:00:35.661
-Sitting 1, in Java, is the Netty shell.
+00:00:37.683 --> 00:00:40.251
+The server answers with one line too.
 
 9
-00:00:35.661 --> 00:00:42.597
-One event-loop thread runs every handler on it, so a handler never waits: it hands the future back at once.
+00:00:40.400 --> 00:00:41.479
+Read it aloud.
 
 10
-00:00:42.800 --> 00:00:48.033
-The reply is written later, back on the same loop, so the handler's state needs no lock.
+00:00:41.479 --> 00:00:43.021
+Request 7 went fine.
 
 11
-00:00:48.267 --> 00:00:55.740
-Lines are capped at 64 bytes, and the loop reads only while the client keeps up and fewer than 16 requests wait.
+00:00:43.021 --> 00:00:48.804
+Sending the parcel to Lisbon costs 12.42, and Northline offered that price.
 
 12
-00:00:56.467 --> 00:00:59.066
-Sitting 2 writes the service in Kotlin.
+00:00:49.000 --> 00:00:55.382
+The 7 is the client's own number for its question, a request id, and the server repeats it on the answer.
 
 13
-00:00:59.066 --> 00:01:04.864
-Three async calls start together, so a request costs the slowest provider, not the sum.
+00:00:55.382 --> 00:00:58.117
+It works like the stub you get for your coat.
 
 14
-00:01:05.067 --> 00:01:10.620
-Each call gets the deadline with withTimeoutOrNull, so a late provider just drops out.
+00:00:58.117 --> 00:01:00.609
+Show the number, get the right coat back.
 
 15
-00:01:11.233 --> 00:01:15.101
-In a supervisorScope, a provider that fails, fails alone.
+00:01:00.609 --> 00:01:03.405
+We'll see in a minute why the client needs it.
 
 16
-00:01:15.633 --> 00:01:19.835
-When nobody answers, the last good price goes out, marked stale.
+00:01:04.333 --> 00:01:07.749
+The three sittings build the program from the outside in.
 
 17
-00:01:19.835 --> 00:01:21.279
-That rule is new here.
+00:01:07.749 --> 00:01:12.543
+This sitting builds the counter, on Netty, the Java library for network servers.
 
 18
-00:01:21.800 --> 00:01:25.243
-And scope.future gives the Java handler its future.
+00:01:12.543 --> 00:01:15.958
+The next one makes the phone calls to the three couriers.
 
 19
-00:01:25.243 --> 00:01:29.429
-When a client hangs up, cancelling it cancels all three calls.
+00:01:15.958 --> 00:01:19.613
+The last one keeps the service standing when a crowd arrives.
 
 20
-00:01:30.133 --> 00:01:33.235
-Sitting 3, still Kotlin, holds it up under load.
+00:01:20.533 --> 00:01:23.218
+Now, a question that's easy to be shy about.
 
 21
-00:01:33.235 --> 00:01:38.339
-Each provider gets its own bulkhead, sized from its contract with Little's law.
+00:01:23.218 --> 00:01:27.794
+The clerk at the counter needs a price, and the price is a phone call away.
 
 22
-00:01:38.567 --> 00:01:41.703
-Only idempotent calls are retried, with jitter.
+00:01:27.794 --> 00:01:30.662
+A courier answers in about a tenth of a second.
 
 23
-00:01:41.703 --> 00:01:44.105
-Fjord's firm quotes are called once.
+00:01:30.662 --> 00:01:33.286
+So why not just pick up the phone and wait?
 
 24
-00:01:44.333 --> 00:01:51.060
-Northbank's slow tail gets a hedge: a second call after 80 milliseconds, and the first answer wins.
+00:01:33.286 --> 00:01:35.116
+It's only a tenth of a second.
 
 25
-00:01:51.267 --> 00:01:57.567
-At the door, admission sheds the overflow at once with ERR busy, and shutdown stops everything in order.
+00:01:38.067 --> 00:01:40.318
+Let's look at the clerk more closely.
 
 26
-00:01:58.300 --> 00:02:00.168
-All of it rests on one rule.
+00:01:40.318 --> 00:01:44.334
+In this post office, each clerk owns a row of mailboxes, for good.
 
 27
-00:02:00.168 --> 00:02:01.969
-The event loop never waits.
+00:01:44.334 --> 00:01:49.201
+Letters from many customers land in that row, and the clerk serves them in turn.
 
 28
-00:02:01.969 --> 00:02:05.637
-The waiting happens in coroutines, inside the deadline.
+00:01:49.400 --> 00:01:50.380
+Let's map that.
+
+29
+00:01:50.380 --> 00:01:55.342
+The clerk is an event loop: one thread that serves many connections in turn.
+
+30
+00:01:55.342 --> 00:01:59.652
+Each mailbox is a channel, Netty's object for one open connection.
+
+31
+00:01:59.652 --> 00:02:02.525
+And the phone call is our call to a courier.
+
+32
+00:02:03.200 --> 00:02:08.217
+Ten customers send one question each, at the same moment, all into this clerk's row.
+
+33
+00:02:08.217 --> 00:02:13.951
+Each price takes the courier a tenth of a second, and the clerk waits on the phone for each one.
+
+34
+00:02:13.951 --> 00:02:16.340
+When does the last customer get a reply?
+
+35
+00:02:19.400 --> 00:02:24.725
+The clerk picks up the phone for the first letter and holds it until the price comes back.
+
+36
+00:02:24.725 --> 00:02:27.151
+Only then does he open the second letter.
+
+37
+00:02:27.151 --> 00:02:28.039
+Then the third.
+
+38
+00:02:28.000 --> 00:02:31.570
+Ten customers, ten phone calls, one after another.
+
+39
+00:02:31.570 --> 00:02:33.854
+About a second for the last one.
+
+40
+00:02:33.854 --> 00:02:42.207
+One run of the lesson's demo measured 1,163 milliseconds, and the courier never saw more than one question at a time.
+
+41
+00:02:42.933 --> 00:02:44.027
+Now the other way.
+
+42
+00:02:44.027 --> 00:02:51.382
+The clerk asks for the price, takes a ticket that says the answer will come later, and goes straight back to his letters.
+
+43
+00:02:51.382 --> 00:02:56.671
+When a price arrives, it lands in his in-tray, and he writes the reply between letters.
+
+44
+00:02:56.867 --> 00:02:59.529
+All ten questions are out at once.
+
+45
+00:02:59.529 --> 00:03:03.600
+The same demo answered everyone in 146 milliseconds.
+
+46
+00:03:04.533 --> 00:03:05.888
+And here's the trap.
+
+47
+00:03:05.888 --> 00:03:13.272
+The first version passes every test with one customer, which is exactly how many customers a simple test has.
+
+48
+00:03:13.467 --> 00:03:14.854
+So the point is this.
+
+49
+00:03:14.854 --> 00:03:18.355
+Waiting looks harmless until customers share a clerk.
+
+50
+00:03:18.355 --> 00:03:21.657
+Then one customer's wait becomes everybody's wait.
+
+51
+00:03:22.533 --> 00:03:25.977
+That gives the one rule every part of this service obeys.
+
+52
+00:03:25.977 --> 00:03:27.608
+The event loop never waits.
+
+53
+00:03:27.608 --> 00:03:32.260
+Hand the ticket back, and finish the job on the loop when the answer arrives.
+
+54
+00:03:33.133 --> 00:03:34.630
+Here our picture breaks.
+
+55
+00:03:34.630 --> 00:03:38.872
+A real post office would notice the queue and open a second counter.
+
+56
+00:03:38.872 --> 00:03:41.056
+Netty never adds a loop on its own.
+
+57
+00:03:41.056 --> 00:03:44.424
+It doesn't even notice that the clerk is on the phone.
+
+58
+00:03:44.600 --> 00:03:50.350
+And if you add a second clerk yourself, each one serves five customers, still on the phone.
+
+59
+00:03:50.350 --> 00:03:52.561
+About half a second instead of one.
+
+60
+00:03:52.561 --> 00:03:54.457
+More clerks divide the damage.
+
+61
+00:03:54.457 --> 00:03:55.784
+They don't remove it.
+
+62
+00:03:56.667 --> 00:03:59.132
+Two more details are there on purpose.
+
+63
+00:03:59.132 --> 00:04:02.376
+First, the server reads at most 64 bytes per line.
+
+64
+00:04:02.533 --> 00:04:11.371
+Without a limit, a client that sends bytes and never ends the line would make the server keep every one of them, waiting for a line that never ends.
+
+65
+00:04:11.371 --> 00:04:14.835
+A longer line gets an error, and the connection is closed.
+
+66
+00:04:15.533 --> 00:04:17.291
+Second, the request id.
+
+67
+00:04:17.291 --> 00:04:21.722
+One client sends two questions: 7, Lisbon, then 8, Dublin.
+
+68
+00:04:21.722 --> 00:04:24.167
+Dublin's price comes back first.
+
+69
+00:04:24.167 --> 00:04:26.077
+Which reply leaves first?
+
+70
+00:04:28.933 --> 00:04:29.597
+Dublin's.
+
+71
+00:04:29.597 --> 00:04:35.351
+A reply leaves when its price arrives, so a quick answer overtakes a slow one.
+
+72
+00:04:35.351 --> 00:04:37.342
+8, OK, Dublin, 9.80, Fjord.
+
+73
+00:04:37.342 --> 00:04:38.449
+Then 7, Lisbon.
+
+74
+00:04:38.449 --> 00:04:42.727
+The client matches them by their numbers, like coat stubs.
+
+75
+00:04:43.600 --> 00:04:47.633
+Here's the whole counter as a line of stations, called a pipeline.
+
+76
+00:04:47.633 --> 00:04:55.453
+Every message on a channel passes through it, and each station is a handler, a small object that reacts to the channel's events.
+
+77
+00:04:55.600 --> 00:04:59.871
+The frame station cuts the bytes into lines, at most 64 bytes each.
+
+78
+00:04:59.871 --> 00:05:04.970
+The decoder turns a line into text, and replies go back out through the encoder.
+
+79
+00:05:04.970 --> 00:05:08.030
+Flow control gets its own section of the lesson.
+
+80
+00:05:08.030 --> 00:05:11.663
+And the last station, QuoteHandler, answers the question.
+
+81
+00:05:11.663 --> 00:05:13.831
+That's where the phone call hides.
+
+82
+00:05:14.733 --> 00:05:18.279
+In code, the clerk on the phone is one innocent word: join.
+
+83
+00:05:18.279 --> 00:05:22.427
+It waits for the ticket's answer and holds the thread while it waits.
+
+84
+00:05:22.427 --> 00:05:27.836
+The fix asks for the price and says what to do when it arrives, on the channel's own loop.
+
+85
+00:05:27.836 --> 00:05:29.459
+Kotlin says the same thing.
+
+86
+00:05:30.333 --> 00:05:36.961
+So look in your own code for join, get, or runBlocking inside anything that runs on an event loop.
+
+87
+00:05:36.961 --> 00:05:39.328
+Each one is the clerk on the phone.
+
+88
+00:05:40.200 --> 00:05:42.755
+So, why not just wait a tenth of a second?
+
+89
+00:05:42.755 --> 00:05:45.370
+Because that tenth of a second isn't yours.
+
+90
+00:05:45.370 --> 00:05:47.925
+It belongs to everyone in the clerk's row.
+
+91
+00:05:47.925 --> 00:05:54.008
+The counter hands each question back as a ticket, numbers its replies, and never picks up the phone.
+
+92
+00:05:54.200 --> 00:05:55.060
+Quick check.
+
+93
+00:05:55.060 --> 00:05:57.928
+One client sends 9, Oslo, then 10, Rome.
+
+94
+00:05:57.928 --> 00:05:59.863
+Rome's price arrives first.
+
+95
+00:05:59.863 --> 00:06:04.595
+Which reply leaves first, and how does the client tell them apart?
+
+96
+00:06:07.800 --> 00:06:09.638
+The reply for 10 leaves first.
+
+97
+00:06:09.638 --> 00:06:15.152
+The client reads the number at the front of each reply and matches it to its own question.
