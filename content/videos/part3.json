@@ -214,7 +214,7 @@
       "slug": "pat01-singleton",
       "lesson": "pat-01",
       "section": 1,
-      "title": "Two threads that check a null field both build an FxRates; the holder idiom lets the JVM's class-init lock build exactly one, and a class that needs it takes it through its constructor so a test can pass a fake"
+      "title": "Eight threads ask for the one price list and get eight; an enum, the holder idiom or double-checked locking makes the others wait, and the best singleton is passed in"
     },
     {
       "slug": "gen11-workshop",

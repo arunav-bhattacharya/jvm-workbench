@@ -1,19 +1,19 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:07.977
+00:00:02.700 --> 00:00:07.944
 At the end of a busy day, the fruit shop keeps a few facts about each order.
 
 2
-00:00:07.977 --> 00:00:10.944
+00:00:07.944 --> 00:00:10.911
 Which varieties were chosen: Gala and Fuji.
 
 3
-00:00:10.944 --> 00:00:12.669
+00:00:10.911 --> 00:00:12.636
 The weight of each piece.
 
 4
-00:00:12.669 --> 00:00:14.877
+00:00:12.636 --> 00:00:14.844
 And the total weight: 330 grams.
 
 5
@@ -45,39 +45,39 @@ And remember Any?
 Back in the first lesson, we said its honest name would be whatever.
 
 12
-00:00:35.000 --> 00:00:38.371
+00:00:35.033 --> 00:00:38.405
 So every read needs a cast, a trust me to the compiler.
 
 13
-00:00:38.371 --> 00:00:39.720
+00:00:38.405 --> 00:00:39.753
 And names can collide.
 
 14
-00:00:39.720 --> 00:00:42.111
+00:00:39.753 --> 00:00:42.144
 Two helpers both pick the name weights.
 
 15
-00:00:42.111 --> 00:00:44.808
+00:00:42.144 --> 00:00:44.841
 One stores the weight of each piece, a list.
 
 16
-00:00:44.808 --> 00:00:47.505
+00:00:44.841 --> 00:00:47.538
 The other stores the total, a single number.
 
 17
-00:00:47.505 --> 00:00:53.941
+00:00:47.538 --> 00:00:53.975
 The second write lands in the same slot, and the first helper reads back a number where it wanted a list.
 
 18
-00:00:54.867 --> 00:00:57.750
+00:00:54.900 --> 00:00:57.783
 Here's a question that's easy to be shy about.
 
 19
-00:00:57.750 --> 00:00:59.066
+00:00:57.783 --> 00:00:59.099
 I already have names.
 
 20
-00:00:59.066 --> 00:01:02.012
+00:00:59.099 --> 00:01:02.045
 Why would a key need anything more than a name?
 
 21
@@ -101,285 +101,285 @@ The top line is a name: weights.
 The bottom line is the type of what goes on the card: a list of grams.
 
 26
-00:01:18.933 --> 00:01:21.148
+00:01:18.967 --> 00:01:21.181
 And at the drawer stands our clerk.
 
 27
-00:01:21.148 --> 00:01:24.122
+00:01:21.181 --> 00:01:24.156
 To file a card, you show the tab and the value.
 
 28
-00:01:24.122 --> 00:01:26.021
+00:01:24.156 --> 00:01:26.054
 The clerk reads the type line.
 
 29
-00:01:26.021 --> 00:01:28.868
+00:01:26.054 --> 00:01:28.901
 A list of names under the varieties tab fits.
 
 30
-00:01:28.868 --> 00:01:32.855
+00:01:28.901 --> 00:01:32.888
 The number 42 under the same tab doesn't, and it's turned away.
 
 31
-00:01:33.000 --> 00:01:33.877
+00:01:33.100 --> 00:01:33.977
 Let's map it.
 
 32
-00:01:33.877 --> 00:01:35.227
+00:01:33.977 --> 00:01:35.327
 The tab is a Key&lt;T&gt;.
 
 33
-00:01:35.227 --> 00:01:37.387
+00:01:35.327 --> 00:01:37.487
 The name line is the key's name.
 
 34
-00:01:37.387 --> 00:01:41.774
+00:01:37.487 --> 00:01:41.874
 The type line is a KType, made by typeOf when you create the key.
 
 35
-00:01:41.774 --> 00:01:47.241
+00:01:41.874 --> 00:01:47.341
 The drawer is the container, and the clerk is the compiler, checking every write.
 
 36
-00:01:48.133 --> 00:01:49.467
+00:01:48.267 --> 00:01:49.600
 Here it is in code.
 
 37
-00:01:49.467 --> 00:01:52.555
+00:01:49.600 --> 00:01:52.689
 Key is a data class with a name and a KType.
 
 38
-00:01:52.555 --> 00:01:57.820
+00:01:52.689 --> 00:01:57.953
 The key function is inline, with a reified T, so typeOf sees the real type.
 
 39
-00:01:57.820 --> 00:02:00.698
+00:01:57.953 --> 00:02:00.831
 VARIETIES is a key for a list of strings.
 
 40
-00:02:00.698 --> 00:02:02.593
+00:02:00.831 --> 00:02:02.726
 set takes a Key&lt;T&gt; and a T.
 
 41
-00:02:02.593 --> 00:02:06.243
+00:02:02.726 --> 00:02:06.376
 And get takes a Key&lt;T&gt;, and hands back a T, or null.
 
 42
-00:02:06.400 --> 00:02:14.575
+00:02:06.600 --> 00:02:14.775
 Java has no typeOf, so its key gets the full type from a super type token, the anonymous subclass trick from the same lesson.
 
 43
-00:02:14.575 --> 00:02:16.013
+00:02:14.775 --> 00:02:16.213
 The shape is the same.
 
 44
-00:02:16.933 --> 00:02:22.282
+00:02:17.133 --> 00:02:22.482
 The lesson's demo files the varieties and the total, then reads them back.
 
 45
-00:02:22.282 --> 00:02:24.884
+00:02:22.482 --> 00:02:25.084
 It prints: varieties, Gala and Fuji.
 
 46
-00:02:24.884 --> 00:02:26.113
+00:02:25.084 --> 00:02:26.313
 Total, 330 grams.
 
 47
-00:02:26.113 --> 00:02:27.558
+00:02:26.313 --> 00:02:27.758
 Now notice the read.
 
 48
-00:02:27.558 --> 00:02:31.462
+00:02:27.758 --> 00:02:31.662
 No cast at the call site, and no type argument either.
 
 49
-00:02:31.462 --> 00:02:33.485
+00:02:31.662 --> 00:02:33.685
 The key's T does the typing.
 
 50
-00:02:33.667 --> 00:02:37.016
+00:02:33.900 --> 00:02:37.249
 And the wrong write, 42 under the varieties key?
 
 51
-00:02:37.016 --> 00:02:43.086
+00:02:37.249 --> 00:02:43.320
 Kotlin says: argument type mismatch, actual type is Int, but List&lt;String&gt; was expected.
 
 52
-00:02:43.086 --> 00:02:48.599
+00:02:43.320 --> 00:02:48.832
 And Java says: method set in class Attributes cannot be applied to given types.
 
 53
-00:02:49.467 --> 00:02:52.032
+00:02:49.733 --> 00:02:52.299
 And our two helpers who both chose weights?
 
 54
-00:02:52.032 --> 00:02:58.238
+00:02:52.299 --> 00:02:58.504
 A key named weights for a list of ints, and a key named weights for a single Int, have different KTypes.
 
 55
-00:02:58.238 --> 00:03:02.116
+00:02:58.504 --> 00:03:02.383
 So they are different keys, and the two values land in two slots.
 
 56
-00:03:03.000 --> 00:03:06.168
+00:03:03.300 --> 00:03:06.468
 One cast is left, inside get, and it's unchecked.
 
 57
-00:03:06.168 --> 00:03:11.211
+00:03:06.468 --> 00:03:11.511
 It's safe because the only way in is set, and set only takes a T for a Key&lt;T&gt;.
 
 58
-00:03:11.211 --> 00:03:13.473
+00:03:11.511 --> 00:03:13.773
 That's called safe by construction.
 
 59
-00:03:14.400 --> 00:03:16.747
+00:03:14.700 --> 00:03:17.047
 Now let's be fair to a tempting idea.
 
 60
-00:03:16.747 --> 00:03:18.333
+00:03:17.047 --> 00:03:18.633
 A key never takes a T in.
 
 61
-00:03:18.333 --> 00:03:19.982
+00:03:18.633 --> 00:03:20.282
 It has no T member at all.
 
 62
-00:03:19.982 --> 00:03:24.042
+00:03:20.282 --> 00:03:24.342
 So, by the habit this track has built, it looks like a producer.
 
 63
-00:03:24.042 --> 00:03:27.340
+00:03:24.342 --> 00:03:27.640
 Why not declare it out T, and make it more flexible?
 
 64
-00:03:27.533 --> 00:03:31.323
+00:03:27.867 --> 00:03:31.657
 The lesson's demo tries exactly that, with a LeakyKey.
 
 65
-00:03:31.323 --> 00:03:34.201
+00:03:31.657 --> 00:03:34.534
 It writes 42 under a leaky varieties key.
 
 66
-00:03:34.201 --> 00:03:35.815
+00:03:34.534 --> 00:03:36.149
 Does that line compile?
 
 67
-00:03:35.815 --> 00:03:37.921
+00:03:36.149 --> 00:03:38.254
 And if something fails, where?
 
 68
-00:03:37.921 --> 00:03:39.044
+00:03:38.254 --> 00:03:39.377
 Pause and guess.
 
 69
-00:03:42.267 --> 00:03:43.752
+00:03:42.567 --> 00:03:44.052
 The write compiles.
 
 70
-00:03:43.752 --> 00:03:48.600
+00:03:44.052 --> 00:03:48.900
 With out T, a key for a list of strings is also a key for Any.
 
 71
-00:03:48.600 --> 00:03:51.884
+00:03:48.900 --> 00:03:52.184
 So T is inferred as Any, and 42 is an Any.
 
 72
-00:03:51.884 --> 00:04:01.344
+00:03:52.184 --> 00:04:01.644
 The failure comes later, at the read: ClassCastException, class java.lang.Integer cannot be cast to class java.util.List.
 
 73
-00:04:02.267 --> 00:04:08.203
+00:04:02.567 --> 00:04:08.503
 In the picture, out T lets a tab that says list of strings pose as a tab that says anything.
 
 74
-00:04:08.203 --> 00:04:11.752
+00:04:08.503 --> 00:04:12.052
 The clerk reads anything, and waves the 42 straight in.
 
 75
-00:04:11.933 --> 00:04:15.095
+00:04:12.267 --> 00:04:15.428
 So a key with out T is a wonderfully flexible key.
 
 76
-00:04:15.095 --> 00:04:19.141
+00:04:15.428 --> 00:04:19.474
 It opens every lock, including the ones you wanted to stay shut.
 
 77
-00:04:19.141 --> 00:04:25.969
+00:04:19.474 --> 00:04:26.303
 The point is this: a key decides what may be written, so it can't be a producer, however few members it has.
 
 78
-00:04:26.867 --> 00:04:27.759
+00:04:27.233 --> 00:04:28.126
 Now the names.
 
 79
-00:04:27.759 --> 00:04:31.774
+00:04:28.126 --> 00:04:32.141
 A key that carries the type of its value is called a typed key.
 
 80
-00:04:31.774 --> 00:04:37.511
+00:04:32.141 --> 00:04:37.877
 And keeping it invariant, neither out nor in, is the last variance decision of this track.
 
 81
-00:04:38.400 --> 00:04:39.386
+00:04:38.800 --> 00:04:39.786
 Two guardrails.
 
 82
-00:04:39.386 --> 00:04:42.804
+00:04:39.786 --> 00:04:43.204
 First, this is a good place to stop adding generics.
 
 83
-00:04:42.804 --> 00:04:50.166
+00:04:43.204 --> 00:04:50.566
 If a design needs much more than this, a sealed class and a when are usually easier for the next person to read.
 
 84
-00:04:50.166 --> 00:04:51.678
+00:04:50.566 --> 00:04:52.078
 Second, know the limit.
 
 85
-00:04:51.678 --> 00:04:54.241
+00:04:52.078 --> 00:04:54.641
 These designs check types, not meaning.
 
 86
-00:04:54.400 --> 00:05:00.085
+00:04:54.867 --> 00:05:00.552
 The compiler will happily file a weight of minus 50 grams under exactly the right key.
 
 87
-00:05:00.085 --> 00:05:02.861
+00:05:00.552 --> 00:05:03.328
 Perfectly typed, and perfectly impossible.
 
 88
-00:05:03.733 --> 00:05:06.190
+00:05:04.233 --> 00:05:06.690
 So, why would a key need more than a name?
 
 89
-00:05:06.190 --> 00:05:10.754
+00:05:06.690 --> 00:05:11.254
 Because the name says where a value goes, and the type says what may go there.
 
 90
-00:05:10.754 --> 00:05:14.147
+00:05:11.254 --> 00:05:14.647
 Let the key carry its value's type, so reads need no cast.
 
 91
-00:05:14.147 --> 00:05:17.072
+00:05:14.647 --> 00:05:17.572
 And keep the key invariant, because it writes too.
 
 92
-00:05:17.267 --> 00:05:18.131
+00:05:17.800 --> 00:05:18.665
 Quick check.
 
 93
-00:05:18.131 --> 00:05:23.680
+00:05:18.665 --> 00:05:24.213
 With Key declared out T, which line fails: the write of 42, or the next read?
 
 94
-00:05:26.933 --> 00:05:27.569
+00:05:27.400 --> 00:05:28.035
 The read.
 
 95
-00:05:27.569 --> 00:05:30.605
+00:05:28.035 --> 00:05:31.071
 The write compiles, with T inferred as Any.
 
 96
-00:05:30.605 --> 00:05:33.076
+00:05:31.071 --> 00:05:33.543
 The read throws ClassCastException.
