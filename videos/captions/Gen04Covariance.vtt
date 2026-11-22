@@ -1,125 +1,305 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.273
-A producer is a type that only hands values of T out.
+00:00:02.733 --> 00:00:05.298
+By the shop door stands an apple dispenser.
 
 2
-00:00:06.273 --> 00:00:09.239
-A feed of payments, an iterator, a Supplier.
+00:00:05.298 --> 00:00:07.623
+Pull the lever, and an apple drops out.
 
 3
-00:00:09.239 --> 00:00:11.531
-You call it, and it gives you a T.
+00:00:07.623 --> 00:00:13.467
+A customer who wants some fruit can use it happily, because every apple that drops out is a fruit.
 
 4
-00:00:12.233 --> 00:00:14.457
-Here is a source of card payments.
+00:00:13.467 --> 00:00:17.224
+There's no slot to put anything in, and that's the whole point.
 
 5
-00:00:14.457 --> 00:00:15.831
-It holds two of them.
+00:00:18.133 --> 00:00:25.888
+Last lesson, a crate of apples couldn't pass as a crate of fruit, because a crate of fruit takes any fruit, so a lemon could go in.
 
 6
-00:00:16.033 --> 00:00:17.470
-And here is totalCents.
+00:00:25.888 --> 00:00:27.960
+The dispenser has no way in at all.
 
 7
-00:00:17.470 --> 00:00:19.531
-It wants a source of any Payment.
+00:00:28.867 --> 00:00:32.094
+So here's a question that's easy to be shy about.
 
 8
-00:00:19.531 --> 00:00:23.029
-It calls next until it gets null, and adds up the cents.
+00:00:32.094 --> 00:00:33.741
+My dispenser has no slot.
 
 9
-00:00:23.233 --> 00:00:25.867
-Can you hand it your source of card payments?
+00:00:33.741 --> 00:00:39.143
+Why does the compiler still say a dispenser of apples is not a dispenser of fruit?
 
 10
-00:00:25.867 --> 00:00:29.028
-Run the substitution test from lesson 3 of this track.
+00:00:39.143 --> 00:00:41.053
+Can't it see there's no slot?
 
 11
-00:00:29.233 --> 00:00:33.416
-The only thing totalCents ever does with the source is call next.
+00:00:42.133 --> 00:00:44.457
+Here's the dispenser in Kotlin.
 
 12
-00:00:33.416 --> 00:00:35.668
-Each call hands back a CardPayment.
+00:00:44.457 --> 00:00:48.503
+next hands out the next item, or null when it's empty.
 
 13
-00:00:35.900 --> 00:00:39.085
-Every CardPayment is a Payment, so the sum works.
+00:00:48.503 --> 00:00:53.075
+totalGrams wants a Dispenser&lt;Fruit&gt;, and adds up the weights.
 
 14
-00:00:39.300 --> 00:00:43.083
-Nothing can go wrong, because nothing ever goes into a source.
+00:00:53.075 --> 00:00:58.096
+Our dispenser holds two apples: Gala at 180 grams, and Fuji at 150.
 
 15
-00:00:43.900 --> 00:00:46.641
-But the compiler can't see that by itself.
+00:00:58.267 --> 00:01:02.286
+Hand it the apples, and Kotlin says: argument type mismatch.
 
 16
-00:00:46.641 --> 00:00:50.100
-Generic types are invariant unless you say otherwise.
+00:01:02.286 --> 00:01:06.775
+Actual type is Dispenser&lt;Apple&gt;, but Dispenser&lt;Fruit&gt; was expected.
 
 17
-00:00:50.333 --> 00:00:53.625
-So this call fails, with an argument type mismatch.
+00:01:06.775 --> 00:01:10.124
+The compiler can't see the missing slot by itself.
 
 18
-00:00:53.833 --> 00:00:58.188
-In Kotlin you say otherwise once, on the declaration, with out.
+00:01:10.124 --> 00:01:13.675
+Generic types are invariant unless you say otherwise.
 
 19
-00:00:58.188 --> 00:01:00.055
-Now the same call compiles.
+00:01:14.600 --> 00:01:17.915
+So let's run the substitution test from last lesson.
 
 20
-00:01:00.867 --> 00:01:02.249
-This is covariance.
+00:01:17.915 --> 00:01:23.397
+Some code expects a dispenser of fruit, and we secretly hand it a dispenser of apples.
 
 21
-00:01:02.249 --> 00:01:04.869
-CardPayment is a subtype of Payment.
+00:01:23.397 --> 00:01:25.310
+What can that code do with it?
 
 22
-00:01:05.100 --> 00:01:10.760
-Because Source is declared out, a Source of CardPayment is a subtype of a Source of Payment.
+00:01:25.310 --> 00:01:26.712
+Can anything go wrong?
 
 23
-00:01:10.967 --> 00:01:15.923
-The arrow between the elements carries over to the sources, in the same direction.
+00:01:26.712 --> 00:01:27.732
+Pause and guess.
 
 24
-00:01:16.733 --> 00:01:18.475
-Java has no out keyword.
+00:01:30.733 --> 00:01:32.771
+All it can do is pull the lever.
 
 25
-00:01:18.475 --> 00:01:24.064
-Each Java method that takes a source says it at the use site, with ? extends.
+00:01:32.771 --> 00:01:36.846
+Every call to next returns an apple, and every apple is a fruit.
 
 26
-00:01:24.267 --> 00:01:26.926
-Kotlin's out is declaration-site variance.
+00:01:36.846 --> 00:01:40.858
+No move takes a fruit in, so there's nowhere for a lemon to go.
 
 27
-00:01:26.926 --> 00:01:30.979
-You write it once, on Source, and every caller gets it for free.
+00:01:40.858 --> 00:01:42.195
+Nothing can go wrong.
 
 28
-00:01:31.200 --> 00:01:33.953
-Java's ? extends is use-site variance.
+00:01:43.067 --> 00:01:48.368
+So we tell the compiler, once, on the declaration, with one small word: out.
 
 29
-00:01:33.953 --> 00:01:38.083
-A method that forgets it is stricter than it needs to be.
+00:01:48.368 --> 00:01:49.554
+Dispenser&lt;out T&gt;.
 
 30
-00:01:38.900 --> 00:01:42.107
-That is the promise out makes: T only comes out.
+00:01:49.554 --> 00:01:53.391
+It's a promise: values of T only come out of this type.
 
 31
-00:01:42.333 --> 00:01:48.740
-Add a method that takes a T in, and the compiler rejects the out, and tells you which position broke it.
+00:01:53.533 --> 00:01:55.056
+Same call as before.
+
+32
+00:01:55.056 --> 00:01:56.655
+Nothing else changed.
+
+33
+00:01:56.655 --> 00:01:58.102
+What does it print?
+
+34
+00:01:58.102 --> 00:01:59.320
+Pause and guess.
+
+35
+00:02:02.333 --> 00:02:08.558
+It compiles, and the lesson's ProducerDemo prints: apple total, 330 grams.
+
+36
+00:02:08.558 --> 00:02:13.184
+That's 180 plus 150, read through a dispenser of fruit.
+
+37
+00:02:14.067 --> 00:02:14.962
+Let's map it.
+
+38
+00:02:14.962 --> 00:02:18.820
+The lever is a return type: a T flows out to the caller.
+
+39
+00:02:18.820 --> 00:02:21.851
+A slot would be a parameter: a T flowing in.
+
+40
+00:02:21.851 --> 00:02:26.467
+And out is a sticker on the machine that says: lever only, no slot.
+
+41
+00:02:27.400 --> 00:02:29.105
+I know what you're thinking.
+
+42
+00:02:29.105 --> 00:02:31.784
+What stops someone from adding a slot later?
+
+43
+00:02:31.784 --> 00:02:34.097
+Say, a refill function that takes a T.
+
+44
+00:02:34.267 --> 00:02:35.417
+Follow it through.
+
+45
+00:02:35.417 --> 00:02:38.486
+A Dispenser&lt;Apple&gt; passes as a Dispenser&lt;Fruit&gt;.
+
+46
+00:02:38.486 --> 00:02:43.537
+Through that view, refill with a lemon type checks, because a lemon is a fruit.
+
+47
+00:02:43.537 --> 00:02:49.675
+Now the apple dispenser holds a lemon, and the next pull hands it to code that expects an apple.
+
+48
+00:02:49.867 --> 00:02:55.150
+An apple dispenser with a slot for any fruit isn't an apple dispenser any more.
+
+49
+00:02:55.150 --> 00:02:56.755
+It's a surprise machine.
+
+50
+00:02:56.755 --> 00:03:05.716
+So the compiler checks every member that outside code can call, and refuses the slot: T is declared out, but occurs in an in position.
+
+51
+00:03:06.600 --> 00:03:07.467
+Now the name.
+
+52
+00:03:07.467 --> 00:03:08.734
+This is covariance.
+
+53
+00:03:08.734 --> 00:03:16.537
+Co means together: the subtype arrow between the element types carries over to the dispensers, in the same direction.
+
+54
+00:03:16.537 --> 00:03:22.005
+Apple is a subtype of Fruit, so Dispenser&lt;Apple&gt; is a subtype of Dispenser&lt;Fruit&gt;.
+
+55
+00:03:22.005 --> 00:03:25.940
+And a type that only hands values out is called a producer.
+
+56
+00:03:26.867 --> 00:03:29.223
+Java has no out on a declaration.
+
+57
+00:03:29.223 --> 00:03:38.006
+Its Dispenser stays invariant, so every method that wants the flexible behavior says so where it's used, with a wildcard: ?
+
+58
+00:03:38.006 --> 00:03:41.219
+extends Fruit, meaning some subtype of Fruit.
+
+59
+00:03:41.219 --> 00:03:47.217
+Forget it, and javac says: Dispenser&lt;Apple&gt; cannot be converted to Dispenser&lt;Fruit&gt;.
+
+60
+00:03:48.133 --> 00:03:50.863
+That's the difference between the two styles.
+
+61
+00:03:50.863 --> 00:03:53.592
+Kotlin puts the sticker on the machine, once.
+
+62
+00:03:53.592 --> 00:03:59.656
+Java hands every customer a note to carry in their pocket, and anyone who forgets it is turned away.
+
+63
+00:03:59.656 --> 00:04:03.477
+The names are declaration-site variance, and use-site variance.
+
+64
+00:04:04.400 --> 00:04:05.532
+And the guardrail.
+
+65
+00:04:05.532 --> 00:04:12.260
+You can only make the out promise if it's true: T may appear only where values come out, like return types.
+
+66
+00:04:12.260 --> 00:04:15.153
+And out doesn't mean read-only, or unchanging.
+
+67
+00:04:15.153 --> 00:04:18.359
+Every pull still takes an apple out of the machine.
+
+68
+00:04:18.359 --> 00:04:20.497
+The end of this lesson shows that.
+
+69
+00:04:21.400 --> 00:04:24.412
+So, why couldn't the compiler see there's no slot?
+
+70
+00:04:24.412 --> 00:04:27.726
+Because it trusts what you declare, not what you meant.
+
+71
+00:04:27.726 --> 00:04:32.727
+Say out, and an apple dispenser is a fruit dispenser, because only apples come out.
+
+72
+00:04:32.867 --> 00:04:33.756
+Quick check.
+
+73
+00:04:33.756 --> 00:04:38.128
+Inside Dispenser&lt;out T&gt;, which of these two lines compiles?
+
+74
+00:04:41.333 --> 00:04:42.466
+Only val latest.
+
+75
+00:04:42.466 --> 00:04:45.653
+A val only has a getter, so T only comes out.
+
+76
+00:04:45.653 --> 00:04:53.300
+A var also has a setter, a slot, so T would go in too: the compiler says it occurs in an invariant position.

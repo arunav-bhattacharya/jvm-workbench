@@ -370,7 +370,7 @@ class Io08ZeroCopy(Narrated):
 
         # ================= transferTo: dock to van =================
         zz = Arrow(pcache[0].get_right(), sbuf[0].get_left(), buff=0.12, stroke_width=5, color=ZERO, max_tip_length_to_length_ratio=0.06)
-        zl = VGroup(M("FileChannel.transferTo", 22, ZERO), T("on Linux: one sendfile call", 22, ZERO)).arrange(DOWN, buff=0.08).next_to(zz, UP, buff=0.1)
+        zl = VGroup(M("FileChannel.transferTo", 22, ZERO), T("on Linux: one sendfile call", 22, ZERO)).arrange(DOWN, buff=0.08).next_to(zz, DOWN, buff=0.2)
         zn = T("zero-copy: no copy through your program's memory", 26, ZERO).move_to([-0.6, -2.85, 0])
         self.say("name")
         self.play(FadeOut(VGroup(up, dn, upl, dnl, rd, trip)), buf.animate.set_opacity(0.3), run_time=0.6)
@@ -382,7 +382,7 @@ class Io08ZeroCopy(Narrated):
         self.at(3)
         self.play(FadeIn(zn), run_time=0.6)
         self.hold()
-        mp = VGroup(T("packed sacks", 22, CARD).next_to(sk2, UP, buff=0.12),
+        mp = VGroup(T("packed sacks", 22, CARD).next_to(sk2, DOWN, buff=0.15),
                     T("the van", 22, CARD).next_to(sbuf, DOWN, buff=0.15),
                     T("the counter", 22, CARD).next_to(buf, RIGHT, buff=0.3))
         self.say("map")
@@ -501,7 +501,8 @@ class Io08ZeroCopy(Narrated):
         self.play(FadeIn(sub), FadeIn(com), FadeIn(kk), GrowArrow(a1), GrowArrow(a2), run_time=0.9)
         self.at(2)
         self.play(FadeIn(rq, shift=UP * 0.1), run_time=0.5)
-        self.play(rq.copy().animate.scale(0.3).move_to(sub[0][0]), Indicate(sub[0][0], color=URG), run_time=0.7)
+        tok = RoundedRectangle(corner_radius=0.04, width=0.3, height=0.2).set_stroke(URG, 2).set_fill(URG, 0.8).move_to(rq)
+        self.play(tok.animate.move_to(sub[0][0]), Indicate(sub[0][0], color=URG), run_time=0.7)
         self.at(3)
         self.play(Indicate(kk, color=KERN), run_time=0.6)
         self.play(FadeIn(rr, shift=UP * 0.1), Indicate(com[0][0], color=URG), run_time=0.6)

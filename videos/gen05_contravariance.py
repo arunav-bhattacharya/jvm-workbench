@@ -203,8 +203,8 @@ def dispenser(label="apples", s=1.0, color=BOX):
     return VGroup(body, win, fr, lever, chute, lab).scale(s)
 
 
-def sticker(text, color=OK, size=22):
-    t = T(text, size, WHITE)
+def sticker(text, color=OK, size=22, mono=False):
+    t = (M if mono else T)(text, size, WHITE)
     r = RoundedRectangle(corner_radius=0.06, width=t.width + 0.36, height=t.height + 0.26).set_stroke(color, 3).set_fill(dim(color, 0.3), 1)
     return VGroup(r, t.move_to(r))
 
@@ -421,7 +421,7 @@ class Gen05Contravariance(Narrated):
         FL = -2.3
         floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
         b = compost_bin("compost", 1.0).move_to([2.6, FL + 1.15, 0])
-        job = sticker("throwOut: expects a Bin<Apple>", GREY_A, 24).move_to([-3.2, 2.6, 0])
+        job = sticker("throwOut(apples, into: Bin<Apple>)", GREY_A, 22, mono=True).move_to([-3.2, 2.6, 0])
         hp = who(BACK, "throwOut", 1.1, 22).move_to([-3.6, FL + 0.75, 0])
         sec = T("secretly: the compost bin", 24, BIN).next_to(b, UP, buff=0.35)
         self.say("test_q")
@@ -600,7 +600,7 @@ class Gen05Contravariance(Narrated):
         FL = -2.3
         floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
         real = compost_bin("a real bin", 0.95).move_to([-3.4, FL + 1.1, 0])
-        week = T("tipped out every week", 24, GREY_A).next_to(real, UP, buff=0.35)
+        week = T("tipped out every week", 24, GREY_A).move_to([-3.6, 1.9, 0])
         spill = VGroup(apple(0.17), lemon(0.16), apple(0.17)).arrange(RIGHT, buff=0.12).next_to(real, RIGHT, buff=0.15).align_to(real, DOWN)
         code_b = compost_bin("Bin<in T>", 0.95).move_to([3.2, FL + 1.1, 0])
         oneway = Arrow(code_b[2].get_center() + UP * 1.2, code_b[2].get_center() + UP * 0.1, buff=0, stroke_width=5, color=OK, max_tip_length_to_length_ratio=0.25)
@@ -639,31 +639,31 @@ class Gen05Contravariance(Narrated):
         self.wipe()
 
         # ================= Java: ? super, side by side =================
-        jc = code_block(["interface Bin<T> {", "    void drop(T item);", "}", "",
-                         "static void throwOut(List<Apple> apples,", "        Bin<? super Apple> into) { ... }", "",
-                         "throwOut(bruised, compost);   // fine",
-                         "Bin<Apple> strict = compost;  // error"], 22)
-        kc = code_block(["interface Bin<in T> {", "    fun drop(item: T)", "}", "",
-                         "fun throwOut(apples: List<Apple>,", "        into: Bin<Apple>) { ... }", "",
-                         "throwOut(bruised, compost)    // fine",
-                         "val appleBin: Bin<Apple> = compost // fine"], 22)
-        fit(jc, 6.1)
-        fit(kc, 6.1)
-        jg = titled(jc, "Java").move_to([-3.3, 1.2, 0])
-        kg = titled(kc, "Kotlin").move_to([3.3, 1.2, 0]).align_to(jg, UP)
-        rd = T("a bin for Apple, or for a type above it, such as Fruit", 26, GREY_A).move_to([0, -2.1, 0])
+        jc = code_block(["interface Bin<T> { void drop(T item); }",
+                         "static void throwOut(List<Apple> a, Bin<? super Apple> into)",
+                         "throwOut(bruised, compost);    // fine",
+                         "Bin<Apple> strict = compost;   // error"], 22)
+        kc = code_block(["interface Bin<in T> { fun drop(item: T) }",
+                         "fun throwOut(a: List<Apple>, into: Bin<Apple>)",
+                         "throwOut(bruised, compost)            // fine",
+                         "val appleBin: Bin<Apple> = compost    // fine"], 22)
+        fit(jc, 12.0)
+        fit(kc, 12.0)
+        jg = titled(jc, "Java").move_to([0, 2.45, 0])
+        kg = titled(kc, "Kotlin").move_to([0, 0.1, 0]).align_to(jg, LEFT)
+        rd = T("a bin for Apple, or for a type above it, such as Fruit", 26, GREY_A).move_to([0, -1.9, 0])
         er = err_line("incompatible types: Bin<Fruit> cannot be converted to Bin<Apple>", 22)
-        fit(er, 12.4).move_to([0, -3.0, 0])
+        fit(er, 12.4).move_to([0, -2.8, 0])
         self.say("java")
         self.play(FadeIn(jg, shift=UP * 0.1), FadeIn(kg, shift=UP * 0.1), run_time=0.8)
         self.at(1)
         self.play(part(kc[0], "<inT>")[1:3].animate.set_color(OK), run_time=0.5)
         self.at(2)
-        self.play(part(jc[5], "Bin<?superApple>").animate.set_color(OK), run_time=0.6)
+        self.play(part(jc[1], "Bin<?superApple>").animate.set_color(OK), run_time=0.6)
         self.at(3)
         self.play(FadeIn(rd, shift=UP * 0.1), run_time=0.6)
         self.at(4)
-        self.play(part(jc[8], "Bin<Apple>strict=compost;").animate.set_color(BAD), FadeIn(er, shift=UP * 0.1), run_time=0.6)
+        self.play(part(jc[3], "Bin<Apple>strict=compost;").animate.set_color(BAD), FadeIn(er, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.wipe()
 

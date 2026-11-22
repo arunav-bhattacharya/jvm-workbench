@@ -1,153 +1,413 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.260
-A consumer is a type that only takes values of T in.
+00:00:02.733 --> 00:00:06.423
+Last lesson, by the shop door, stood the apple dispenser.
 
 2
-00:00:06.260 --> 00:00:09.341
-An audit log, an event handler, a Comparator.
+00:00:06.423 --> 00:00:07.782
+A lever, and no slot.
 
 3
-00:00:09.341 --> 00:00:12.832
-You hand it a T, and it hands nothing typed T back.
+00:00:07.782 --> 00:00:13.218
+Since apples only come out, an apple dispenser could stand in for a fruit dispenser.
 
 4
-00:00:13.533 --> 00:00:15.517
-Here is forwardAuthorizations.
+00:00:13.218 --> 00:00:16.584
+The arrow from apple to fruit carried straight over.
 
 5
-00:00:15.517 --> 00:00:19.883
-It holds card authorizations, and it needs a sink to pass them to.
+00:00:17.467 --> 00:00:19.935
+Now walk round to the back of the shop.
 
 6
-00:00:20.100 --> 00:00:21.705
-And here is an audit log.
+00:00:19.935 --> 00:00:21.327
+There's a compost bin.
 
 7
-00:00:21.705 --> 00:00:24.017
-It accepts any payment event at all.
+00:00:21.327 --> 00:00:26.454
+Bruised fruit goes in, any kind at all: apples, lemons, whatever is past selling.
 
 8
-00:00:24.233 --> 00:00:26.016
-Can the audit log stand in?
+00:00:26.454 --> 00:00:30.315
+Nothing ever comes back out, and nobody has ever asked it to.
 
 9
-00:00:26.016 --> 00:00:29.516
-Run the substitution test again, the other way round.
+00:00:30.467 --> 00:00:35.670
+One morning, a helper who is sorting apples asks you for a bin for bruised apples.
 
 10
-00:00:29.733 --> 00:00:32.151
-Every call passes a CardAuthorized.
+00:00:35.670 --> 00:00:37.510
+You point at the compost bin.
 
 11
-00:00:32.367 --> 00:00:36.213
-The audit log takes every PaymentEvent, so it takes these too.
+00:00:37.510 --> 00:00:39.540
+It's a perfectly good apple bin.
 
 12
-00:00:36.433 --> 00:00:40.899
-So for a consumer, the more general type is the one that can stand in.
+00:00:39.540 --> 00:00:42.459
+It takes every fruit, so it takes every apple.
 
 13
-00:00:40.899 --> 00:00:45.492
-A Sink of PaymentEvent works where a Sink of CardAuthorized is expected.
+00:00:42.459 --> 00:00:46.329
+The bin isn't fussy, and that's exactly what makes it useful.
 
 14
-00:00:46.300 --> 00:00:48.582
-The other way fails, and it should.
+00:00:47.200 --> 00:00:48.976
+But look which way that went.
 
 15
-00:00:48.582 --> 00:00:53.993
-A Sink of CardAuthorized might be a fraud check built only for card authorizations.
+00:00:48.976 --> 00:00:51.793
+Here's a question that's easy to be shy about.
 
 16
-00:00:54.200 --> 00:00:57.370
-Suppose you could view it as a Sink of PaymentEvent.
+00:00:51.793 --> 00:00:53.385
+Apple is the smaller type.
 
 17
-00:00:57.370 --> 00:00:59.504
-Then anyone could hand it a refund.
+00:00:53.385 --> 00:00:58.775
+So how can the bin for the bigger type be the one that fits, where apples are asked for?
 
 18
-00:00:59.733 --> 00:01:02.065
-So the compiler refuses that view.
+00:00:58.775 --> 00:01:00.673
+Did the arrow just turn around?
 
 19
-00:01:02.867 --> 00:01:04.662
-Here is the whole picture.
+00:01:01.800 --> 00:01:04.208
+Let's write it down, in Kotlin first.
 
 20
-00:01:04.662 --> 00:01:07.701
-CardAuthorized is a subtype of PaymentEvent.
+00:01:04.208 --> 00:01:07.527
+A Bin has one function, drop, that puts an item in.
 
 21
-00:01:07.933 --> 00:01:09.722
-A producer keeps the arrow.
+00:01:07.527 --> 00:01:12.604
+CompostBin is a Bin&lt;Fruit&gt;: it takes any fruit, and prints it with its weight.
 
 22
-00:01:09.722 --> 00:01:13.365
-A Source of CardAuthorized is a Source of PaymentEvent.
+00:01:12.604 --> 00:01:14.752
+And throwOut is the helper's job.
 
 23
-00:01:13.567 --> 00:01:18.203
-Start the consumer the same way, with Sink of CardAuthorized on the bottom.
+00:01:14.752 --> 00:01:19.177
+It takes a list of apples and a Bin&lt;Apple&gt;, and drops each apple in.
 
 24
-00:01:18.433 --> 00:01:21.964
-But the Sink of PaymentEvent is the one that stands in.
+00:01:19.333 --> 00:01:26.160
+Hand throwOut the compost bin, with no extra word on Bin, and Kotlin says: argument type mismatch.
 
 25
-00:01:21.964 --> 00:01:23.633
-So it swaps to the bottom.
+00:01:26.160 --> 00:01:29.991
+Actual type is Bin&lt;Fruit&gt;, but Bin&lt;Apple&gt; was expected.
 
 26
-00:01:23.633 --> 00:01:25.173
-The subtype arrow flips.
+00:01:29.991 --> 00:01:35.076
+Just like last time, a generic type is invariant until you say otherwise.
 
 27
-00:01:25.400 --> 00:01:27.092
-This is contravariance.
+00:01:36.000 --> 00:01:38.333
+So let's run the substitution test.
 
 28
-00:01:27.900 --> 00:01:31.806
-Kotlin declares this once, on the interface, with in.
+00:01:38.333 --> 00:01:43.066
+throwOut expects an apple bin, and we secretly hand it the compost bin.
 
 29
-00:01:31.806 --> 00:01:34.164
-Java writes ? super at each use.
+00:01:43.066 --> 00:01:44.999
+What can throwOut do with it?
 
 30
-00:01:34.367 --> 00:01:38.619
-Either way, forwardAuthorizations now accepts the audit log.
+00:01:44.999 --> 00:01:46.465
+Can anything go wrong?
 
 31
-00:01:39.433 --> 00:01:41.934
-Java programmers learn this as PECS.
+00:01:46.465 --> 00:01:47.532
+Pause and guess.
 
 32
-00:01:41.934 --> 00:01:44.227
-Producer extends, consumer super.
+00:01:50.533 --> 00:01:53.566
+All throwOut can ever do is drop an apple in.
 
 33
-00:01:44.227 --> 00:01:47.005
-It is the same rule, with Java spelling.
+00:01:53.566 --> 00:01:57.543
+The compost bin takes every fruit, so it takes every apple.
 
 34
-00:01:47.233 --> 00:01:49.771
-So for each parameter, ask one question.
+00:01:57.543 --> 00:01:58.959
+Nothing can go wrong.
 
 35
-00:01:49.771 --> 00:01:53.071
-Does it give you values of T, or take them from you?
+00:01:59.867 --> 00:02:05.303
+So we tell the compiler, once, on the declaration, with one small word: in.
 
 36
-00:01:53.300 --> 00:01:56.033
-Give: out, or ? extends.
+00:02:05.303 --> 00:02:06.028
+Bin&lt;in T&gt;.
 
 37
-00:01:56.033 --> 00:01:58.424
-Take: in, or ? super.
+00:02:06.028 --> 00:02:09.145
+It's a promise that values of T only go in.
 
 38
-00:01:58.424 --> 00:02:00.019
-Both: plain T.
+00:02:09.333 --> 00:02:10.807
+Same call as before.
+
+39
+00:02:10.807 --> 00:02:12.354
+Nothing else changed.
+
+40
+00:02:12.354 --> 00:02:14.048
+What does it print now?
+
+41
+00:02:14.048 --> 00:02:15.227
+Pause and guess.
+
+42
+00:02:18.267 --> 00:02:23.368
+It compiles, and BinDemo prints: compost, Gala, 180 grams.
+
+43
+00:02:23.368 --> 00:02:25.566
+Compost, Fuji, 150 grams.
+
+44
+00:02:25.566 --> 00:02:34.009
+The bin can even be stored as a Bin&lt;Apple&gt;, and one more Fuji, 140 grams, lands in the same bin.
+
+45
+00:02:34.933 --> 00:02:35.820
+Let's map it.
+
+46
+00:02:35.820 --> 00:02:39.982
+The opening on top of the bin is a parameter: a T flowing in.
+
+47
+00:02:39.982 --> 00:02:43.871
+The dispenser's lever was a return type: a T flowing out.
+
+48
+00:02:43.871 --> 00:02:48.101
+And in is a sticker on the bin that says: slot only, no lever.
+
+49
+00:02:49.000 --> 00:02:50.872
+Now put the two side by side.
+
+50
+00:02:50.872 --> 00:02:52.680
+Apple is a subtype of Fruit.
+
+51
+00:02:52.680 --> 00:02:55.585
+With out, the dispenser keeps that direction.
+
+52
+00:02:55.585 --> 00:02:59.716
+With in, the arrow flips: Bin&lt;Fruit&gt; is a subtype of Bin&lt;Apple&gt;.
+
+53
+00:02:59.716 --> 00:03:02.815
+The bin for more stands in for the bin for less.
+
+54
+00:03:03.733 --> 00:03:06.295
+So does it work the other way round, too?
+
+55
+00:03:06.295 --> 00:03:08.919
+Can an apple bin stand in for a fruit bin?
+
+56
+00:03:08.919 --> 00:03:09.919
+Pause and guess.
+
+57
+00:03:12.933 --> 00:03:13.138
+No.
+
+58
+00:03:13.138 --> 00:03:19.565
+A Bin&lt;Apple&gt; might be the cook's pot for apple sauce, where every item is treated as an apple.
+
+59
+00:03:19.565 --> 00:03:24.214
+Through a Bin&lt;Fruit&gt; view, anyone could drop a lemon into the sauce.
+
+60
+00:03:24.214 --> 00:03:27.154
+Kotlin stops it: initializer type mismatch.
+
+61
+00:03:27.154 --> 00:03:29.820
+Expected Bin&lt;Fruit&gt;, actual Bin&lt;Apple&gt;.
+
+62
+00:03:30.000 --> 00:03:34.716
+A lemon in the apple sauce is the kind of mistake a kitchen only makes once.
+
+63
+00:03:34.716 --> 00:03:37.757
+The compiler makes sure you never make it at all.
+
+64
+00:03:38.667 --> 00:03:40.468
+I know what you're thinking.
+
+65
+00:03:40.468 --> 00:03:42.656
+Fine, but I'd like to peek inside.
+
+66
+00:03:42.656 --> 00:03:46.580
+Let me add a function, last, that returns the last item: a T.
+
+67
+00:03:46.733 --> 00:03:47.919
+Follow it through.
+
+68
+00:03:47.919 --> 00:03:53.057
+Look at the compost bin through a Bin&lt;Apple&gt; view, and last promises an apple.
+
+69
+00:03:53.057 --> 00:03:55.363
+But the bin may be holding a lemon.
+
+70
+00:03:55.363 --> 00:04:01.160
+So the compiler refuses: type parameter T is declared as in, but occurs in out position.
+
+71
+00:04:02.067 --> 00:04:04.623
+And that's where the bin picture breaks.
+
+72
+00:04:04.623 --> 00:04:09.737
+A real compost bin gets tipped out every week, and anyone can see what's inside.
+
+73
+00:04:09.737 --> 00:04:12.486
+A Bin&lt;in T&gt; gives you no typed way to look.
+
+74
+00:04:12.486 --> 00:04:14.979
+Through in, values travel one way only.
+
+75
+00:04:15.867 --> 00:04:16.722
+Now the name.
+
+76
+00:04:16.722 --> 00:04:18.236
+This is contravariance.
+
+77
+00:04:18.236 --> 00:04:24.159
+Contra means against: the arrow between the bins runs against the arrow between the fruit.
+
+78
+00:04:24.159 --> 00:04:27.976
+And a type that only takes values in is called a consumer.
+
+79
+00:04:27.976 --> 00:04:30.411
+So the compiler isn't being contrary.
+
+80
+00:04:30.411 --> 00:04:32.056
+It's being contravariant.
+
+81
+00:04:32.933 --> 00:04:35.192
+Java has no in on a declaration.
+
+82
+00:04:35.192 --> 00:04:41.755
+Its Bin stays invariant, so the method says it where the type is used, with a wildcard: Bin&lt;?
+
+83
+00:04:41.755 --> 00:04:42.672
+super Apple&gt;.
+
+84
+00:04:42.672 --> 00:04:47.400
+Read it as: a bin for Apple, or for a type above it, such as Fruit.
+
+85
+00:04:47.400 --> 00:04:52.693
+Leave it out, and javac says: Bin&lt;Fruit&gt; cannot be converted to Bin&lt;Apple&gt;.
+
+86
+00:04:53.600 --> 00:04:54.714
+And the guardrail.
+
+87
+00:04:54.714 --> 00:04:57.065
+Only make the in promise if it's true.
+
+88
+00:04:57.065 --> 00:04:59.973
+T may appear in parameters, where values go in.
+
+89
+00:04:59.973 --> 00:05:03.747
+Not in return types, and not in a val, where values come out.
+
+90
+00:05:03.747 --> 00:05:07.459
+And the consumer you'll meet most often isn't one you write.
+
+91
+00:05:07.459 --> 00:05:12.285
+It's a Comparator, which takes two values in, and only says which comes first.
+
+92
+00:05:13.200 --> 00:05:15.107
+So, did the arrow turn around?
+
+93
+00:05:15.107 --> 00:05:16.823
+Yes, and for a good reason.
+
+94
+00:05:16.823 --> 00:05:21.081
+Something that only takes things in doesn't mind how general it is.
+
+95
+00:05:21.081 --> 00:05:24.132
+The bin for any fruit is happy with your apples.
+
+96
+00:05:24.132 --> 00:05:26.801
+Say in, and the compiler lets it stand in.
+
+97
+00:05:27.000 --> 00:05:27.844
+Quick check.
+
+98
+00:05:27.844 --> 00:05:29.954
+A function needs a Bin&lt;Apple&gt;.
+
+99
+00:05:29.954 --> 00:05:33.752
+You have a Bin&lt;Any&gt;, a bin that takes anything at all.
+
+100
+00:05:33.752 --> 00:05:34.877
+Can you pass it?
+
+101
+00:05:38.133 --> 00:05:38.417
+Yes.
+
+102
+00:05:38.417 --> 00:05:41.542
+A bin that takes anything takes every apple.
+
+103
+00:05:41.542 --> 00:05:43.743
+The arrow flips all the way up.

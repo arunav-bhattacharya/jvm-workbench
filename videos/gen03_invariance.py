@@ -268,7 +268,7 @@ class Gen03Invariance(Narrated):
         helper = who(BACK, "helper").move_to([-3.2, FL + 0.75, 0])
         told = paper(["bring a crate", "of fruit"], 20).next_to(helper, UP, buff=0.3)
         ok_ = VGroup(tick(True, 0.15), T("every apple is a fruit", 22, OK)).arrange(RIGHT, buff=0.15).move_to([0, 2.3, 0])
-        lm = lemon(0.2).move_to([-3.2, 1.0, 0])
+        lm = lemon(0.2).move_to([-4.7, 0.2, 0])
         self.say("open")
         self.play(Create(floor), FadeIn(c), FadeIn(row, shift=DOWN * 0.2), run_time=0.9)
         self.at(1)
@@ -393,8 +393,8 @@ class Gen03Invariance(Narrated):
         self.hold()
 
         # one crate, two labels
-        self.play(cg.animate.scale(0.75).move_to([0, 2.35, 0]), run_time=0.7)
-        FL = -2.3
+        self.play(FadeOut(cg), run_time=0.6)
+        FL = -1.0
         floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
         c2 = crate(3.4, 1.7, None).move_to([0, FL + 0.85, 0])
         l_ap = paper(["apples"], 22).move_to(c2[0].get_center() + LEFT * 0.75 + DOWN * 0.1)
@@ -407,13 +407,13 @@ class Gen03Invariance(Narrated):
         self.play(Create(floor), FadeIn(c2), FadeIn(g1), FadeIn(l_ap), run_time=0.6)
         self.play(FadeIn(l_fr, shift=DOWN * 0.1), FadeIn(one), run_time=0.5)
         self.at(1)
-        lm = lemon(0.2).move_to([5.5, 0.0, 0])
-        self.play(Indicate(l_fr, color=YELLOW_M, scale_factor=1.15), Indicate(VGroup(jc[2], kc[2]), color=WHITE, scale_factor=1.02), run_time=0.7)
+        lm = lemon(0.2).move_to([5.5, 1.3, 0])
+        self.play(Indicate(l_fr, color=YELLOW_M, scale_factor=1.15), run_time=0.7)
         self.play(FadeIn(lm), run_time=0.2)
         self.play(lm.animate.move_to(c2[0].get_top() + UP * 0.14 + RIGHT * 0.35), run_time=0.8)
         self.at(2)
         reader = who(COUNTER, "reads item 1 as Apple", 1.0, 20).move_to([-4.6, FL + 0.7, 0])
-        self.play(FadeIn(reader), Indicate(l_ap, color=APPLE, scale_factor=1.15), Indicate(VGroup(jc[3], kc[3]), color=WHITE, scale_factor=1.02), run_time=0.8)
+        self.play(FadeIn(reader), Indicate(l_ap, color=APPLE, scale_factor=1.15), run_time=0.8)
         self.at(3)
         self.play(lm.animate.move_to(reader[0][1].get_center() + RIGHT * 0.35 + UP * 0.05), run_time=0.8)
         self.play(FadeIn(sour(reader[0])), Flash(reader[0][1], color=BAD, line_length=0.25), run_time=0.6)
