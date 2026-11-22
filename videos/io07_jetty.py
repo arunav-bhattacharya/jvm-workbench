@@ -309,7 +309,7 @@ class Io07Jetty(Narrated):
                      VGroup(T("Tomcat:", 24, POOL), T("every request goes to a pool of 200 threads", 24)).arrange(RIGHT, buff=0.2),
                      VGroup(T("Jetty 12:", 24, CARD), T("decides job by job", 24)).arrange(RIGHT, buff=0.2))
         fam.arrange(DOWN, buff=0.18, aligned_edge=LEFT).move_to([0, 0.1, 0])
-        bg = BackgroundRectangle(fam, color=BLACK, fill_opacity=0.92, buff=0.25)
+        bg = RoundedRectangle(corner_radius=0.15, width=fam.width + 0.7, height=fam.height + 0.6).set_stroke(GREY_B, 2).set_fill(BLACK, 1).move_to(fam)
         self.say("familiar")
         self.play(FadeIn(bg), run_time=0.3)
         for i in range(3):
@@ -331,9 +331,9 @@ class Io07Jetty(Narrated):
         self.play(FadeIn(lh), run_time=0.5)
         self.hold()
         cnt = VGroup(M("cpus=4 acceptors=1 selectors=2", 22, GREY_A),
-                     M("QueuedThreadPool min=8 max=200 started=8 leased=3", 22, GREY_A)).arrange(DOWN, buff=0.1, aligned_edge=LEFT)
-        cnt.move_to([-3.6, -2.2, 0])
-        fit(cnt, 5.6)
+                     VGroup(M("QueuedThreadPool min=8 max=200", 22, GREY_A),
+                            M("started=8 leased=3", 22, GREY_A)).arrange(DOWN, buff=0.1, aligned_edge=LEFT)).arrange(DOWN, buff=0.1, aligned_edge=LEFT)
+        cnt.move_to([-3.3, -2.5, 0])
         self.say("count")
         self.play(sr.animate.move_to([3.4, -2.0, 0]), run_time=0.6)
         self.play(FadeIn(cnt[0]), run_time=0.5)
@@ -406,7 +406,7 @@ class Io07Jetty(Narrated):
         self.play(Indicate(VGroup(sb, room[5]), color=STANDBY, scale_factor=1.15), run_time=0.8)
         self.at(1)
         self.play(sb.animate.next_to(wl, RIGHT, buff=0.35), FadeOut(room[5]), run_time=1.0)
-        sbl = T("minds the lights", 20, STANDBY).next_to(sb, DOWN, buff=0.1)
+        sbl = T("minds the lights", 20, STANDBY).next_to(sb, RIGHT, buff=0.15)
         self.play(FadeIn(sbl), FadeIn(task), Indicate(wt, color=WATCH, scale_factor=1.15), run_time=0.7)
         self.at(3)
         self.play(FadeIn(m3), run_time=0.6)

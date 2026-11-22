@@ -288,7 +288,7 @@ class Io02Selector(Narrated):
         self.at(1)
         self.play(FadeIn(card, shift=DOWN * 0.2), run_time=0.7)
         self.at(2)
-        self.play(Indicate(card, color=LIGHT, scale_factor=1.05), *[Indicate(grid[i][2], color=LIGHT, scale_factor=1.4) for i in on_ids],
+        self.play(Indicate(card[1], color=LIGHT, scale_factor=1.1), *[Indicate(grid[i][2], color=LIGHT, scale_factor=1.4) for i in on_ids],
                   run_time=1.0)
         self.hold()
 
@@ -444,7 +444,7 @@ class Io02Selector(Narrated):
         self.play(Create(strike), FadeIn(visA), FadeIn(visB), run_time=0.6)
         for n in range(2, 8):
             nb = T(str(n), 34, BAD).move_to(cntB)
-            self.play(Indicate(lists[1][3], color=BAD, scale_factor=1.1), Transform(cntB, nb), run_time=0.32)
+            self.play(Indicate(lists[1][3][1], color=BAD, scale_factor=1.15), Transform(cntB, nb), run_time=0.32)
         self.hold()
 
         self.say("rm_joke")
@@ -556,7 +556,7 @@ class Io02Selector(Narrated):
         pace = person(CLERK, 1.0).move_to([2.1, 1.55, 0])
         steps = T("> 1,000 trips a millisecond", 24, CLERK).next_to(pace, UP, buff=0.2)
         core = VGroup(T("one core at 100%,", 26, BAD), T("no traffic at all", 26, GREY_A)).arrange(RIGHT, buff=0.2).move_to([0.6, -2.95, 0])
-        rule2 = T("Ask for OP_WRITE only while a reply is waiting.", 30, YELLOW_M).move_to([0.6, -2.95, 0])
+        rule2 = VGroup(T("Ask for", 30, YELLOW_M), M("OP_WRITE", 28, WR), T("only while a reply is waiting.", 30, YELLOW_M)).arrange(RIGHT, buff=0.2).move_to([0.6, -2.95, 0])
         self.say("write3")
         self.play(FadeOut(VGroup(sb, sb_t)), run_time=0.3)
         self.play(FadeIn(pace), FadeIn(steps), run_time=0.5)

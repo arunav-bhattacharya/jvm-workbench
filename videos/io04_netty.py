@@ -1,44 +1,78 @@
 from fg import *
 import fg
 
-# Kokoro misreads these; fix the spoken form only (captions keep the real words).
-fg.SAY[:0] = [(r"\bctx\.write\b", "C T X dot write"), (r"\bByteBuf\b", "byte buff"), (r"\bisWritable\(\)", "is writable"),
-              (r"\bsetAutoRead\(false\)", "set auto read false,"), (r"\bKiB\b", "kilobytes"), (r"\bPARANOID\b", "paranoid"),
-              (r"\bTCP\b", "T C P")]
+# Spoken forms only (captions keep the written words). Kokoro misreads these.
+fg.SAY[:0] = [(r"\bByteToMessageDecoder\b", "Byte To Message Decoder"), (r"\bCodecDemo\b", "Codec Demo"),
+              (r"\bLengthFieldBasedFrameDecoder\b", "Length Field Based Frame Decoder"),
+              (r"\bTooLongFrameException\b", "Too Long Frame Exception"), (r"\breaderIndex\b", "reader index"),
+              (r"\bJavadoc\b", "Java doc"), (r"\bNOTE-1\b", "note one"), (r"\bPARCEL-1\b", "parcel one"),
+              (r"\bnote-1\b", "note one"), (r"\bparcel-1\b", "parcel one"), (r"\b1024\b", "ten twenty-four"),
+              (r"\b5004\b", "five thousand and four"), (r"@Sharable", "Sharable")]
 
 # every spoken line, in order
 N = {
-    "open": "A card terminal sends payment messages over TCP: a 4-byte length, a type byte, and a body. "
-            "But TCP delivers bytes, cut into chunks of any size.",
-    "c1_q": "Netty's decoder keeps every byte so far in one buffer, and runs decode on each chunk. "
-            "The first chunk is 3 bytes. What can it do?",
-    "c1": "Nothing. 3 bytes aren't even the length. It returns and waits.",
-    "c2": "The next chunk brings 10. decode peeks at the length, 5, without moving the reader index. "
-          "9 bytes are there, so it skips the length and passes the frame on, as a slice of the same memory.",
-    "c3": "The rest says 3, but there's no body yet. So it returns again, and the last chunk completes the frame.",
-    "write": "Replies go the other way. ctx.write never blocks. Netty queues the bytes in your own memory, "
-             "and the socket drains them only as fast as the client reads.",
-    "slow_q": "This client sends fast and reads slowly. What happens to the queue?",
-    "slow": "It keeps growing: past a megabyte in the lesson's demo. So Netty marks two levels, 64 KiB high and 32 KiB low. "
-            "Past the high mark, isWritable() turns false.",
-    "stop": "Netty still takes your writes, so you act. setAutoRead(false) stops reading from the client, and TCP slows it down. "
-            "Below the low mark, you read again.",
-    "pool": "Last, the memory itself. Each ByteBuf comes from a pool of direct memory, and counts its owners. "
-            "It starts at 1, release takes one off, and at 0 it goes back to the pool. The last one to touch it releases it.",
-    "leak_q": "This audit handler copies the message and passes the copy on, but never releases the original. What happens to it?",
-    "leak": "Its count stays at 1, and nothing throws. Every message leaks one more, until the service runs out of direct memory. "
-            "PARANOID leak detection in tests reports it.",
-    "code": "The same three rules in code, Java first, then Kotlin.",
-    "rule": "So frame the bytes before you decode them. Stop reading when you can't write. "
-            "And give every buffer one last owner, who releases it.",
-    "check": "Quick check. A frame's length field says 7, and it arrives as 2, 4 and 6 bytes. "
-             "After which chunk does decode pass it on?",
+    "open": "Back to the sorting line. This morning, letters don't arrive as letters. They arrive as a stream of "
+            "pages, and the pages of one letter run straight into the next.",
+    "shyq": "Here's a question that's easy to be shy about. If the client sends one message, with one write, why "
+            "doesn't the server get it in one read?",
+    "pain": "Because TCP, the network's way of delivering bytes in order, delivers a stream, not messages. A read "
+            "hands you whatever has arrived: half a message, or one and a half. The cuts fall wherever the network "
+            "made them.",
+    "wish": "So the first station needs a way to tell where one letter ends. The post office has a trick for that: "
+            "write the page count on the front of every envelope.",
+    "fmt": "That's our letter link. Each letter has a type number and a body of text. On the wire it goes behind "
+           "its length: four bytes of length, one byte of type, then the body. And the length counts the type byte "
+           "and the body, not itself.",
+    "ex": "The lesson's CodecDemo encodes two letters. note-1, type 1, has six bytes of body, so its length is 7. "
+          "parcel-1, type 7, has a length of 9. Together, that's 24 bytes on the wire.",
+    "map": "Now let's name the parts. One whole letter on the wire is a frame. Finding where frames begin and end "
+           "is framing. A station that turns bytes into messages is a decoder, one that turns messages back into "
+           "bytes is an encoder, and the pair is a codec.",
+    "pile": "In Netty, a decoder extends ByteToMessageDecoder. It keeps every byte that has arrived so far on one "
+            "pile, and calls your decode method each time more bytes come in. Your job: take whole frames off the "
+            "pile, and leave the rest for later.",
+    "walk": "Read it as the clerk at the first station. Fewer than four bytes? The page count isn't even here yet, "
+            "so wait. Then peek at the length, without taking it. Is the whole body here? If not, wait again. "
+            "Only then skip the four length bytes, and hand on one whole frame.",
+    "p_q": "Now the demo feeds those 24 bytes to the server in awkward slices, cut after byte 3, byte 9 and byte "
+           "14. The last station stamps each letter: it sends it back in capitals, with the type plus one. Which "
+           "slices get a reply?",
+    "p_a1": "Bytes 0 to 3: nothing. That's three quarters of a page count, which isn't much to go on.",
+    "p_a2": "Bytes 3 to 9: nothing again. The length says 7, and only part of the body is here.",
+    "p_a3": "Bytes 9 to 14 complete the first letter, and start the second. Out comes NOTE-1, type 2. And 14 to 24 "
+            "complete the second: PARCEL-1, type 8.",
+    "breaks": "Here the post office picture breaks. A real envelope arrives whole, page count and all. On the wire, "
+              "even the four-byte length can arrive in two pieces, as it just did. That's what the first check is "
+              "for.",
+    "max_q": "One more job for the first station. What if an envelope claims to hold a million pages? Or a client "
+             "sends a length of two billion?",
+    "max_a": "A decoder without a limit would sit on two gigabytes of bytes, waiting patiently for the rest. So we "
+             "set a maximum, here 1024 bytes. In the demo, a length of 5,000 is turned away at once: "
+             "TooLongFrameException. Adjusted frame length exceeds 1024: 5004. That's the 5,000, plus the four "
+             "bytes of the length itself.",
+    "max_j": "A length you didn't limit is memory a stranger can claim. The first station is polite, but it isn't "
+             "gullible.",
+    "lf": "And you don't have to write this station yourself. LengthFieldBasedFrameDecoder does the same job, with "
+          "five numbers. Frames of at most 1024 bytes. The length field starts at byte 0, and it's 4 bytes long. "
+          "No adjustment. And strip those 4 bytes before passing the frame on.",
+    "lf2": "So the next station sees just the type and the body, and turns them into a Letter. On the way out, an "
+           "encoder writes the three fields back.",
+    "rules": "If you do write your own, four rules from the Javadoc. Return without taking anything when a frame "
+             "isn't complete. Read from readerIndex, where the unread bytes start, never from 0. Hand frames on "
+             "as slices, views of the same memory, not copies. And never mark the decoder @Sharable: it keeps a "
+             "pile for one connection.",
+    "code": "Here's the server's line in code, in Java and in Kotlin: frame first, then decode, then the stamp.",
+    "moral": "So why doesn't one write arrive as one read? Because TCP moves pages, not letters. Frame before you "
+             "decode: put the length on the envelope, wait for whole frames, and always set a maximum.",
+    "check": "Quick check. Move the cut at byte 9 to byte 11. Which slice now answers NOTE-1?",
+    "check_a": "Bytes 3 to 11. The first letter is 11 bytes long, so that slice ends on its last byte. Then 11 to "
+               "14 gets nothing.",
 }
 
 
 # ---- local helpers (fg.py is shared, so they live here) ----
 class Narrated(VoiceScene):
-    """say() starts a voice line; plays may follow; at_text() waits for a point in the line; hold() waits for its end."""
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
     def say(self, key):
         text = N[key]
@@ -47,6 +81,17 @@ class Narrated(VoiceScene):
         self.add_sound(path)
         t0 = self.renderer.time
         self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
 
     def at_text(self, sub, lead=0.2):
         text, t0, dur = self._line
@@ -54,354 +99,542 @@ class Narrated(VoiceScene):
         if rest > 0.02:
             self.wait(rest)
 
-    def hold(self, after=0.15):
+    def hold(self, after=0.25):
         rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def predict(self, secs=1.6):
-        tag = T("pause and predict", 24, GREY_B).move_to([6.5, 3.2, 0], aligned_edge=RIGHT)
+    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
         self.play(FadeIn(tag), run_time=0.3)
         self.wait(secs)
         self.play(FadeOut(tag), run_time=0.3)
+
+    def clear_all(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
 
 
 def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-M1, M2, IDX, WATER, BAD, OK, BUF = BLUE_M, GREEN_M, YELLOW_M, TEAL_M, RED_M, GREEN_M, GOLD_M
-
-# ---------------- part 1 geometry: bytes and the decoder's buffer ----------------
-CW, CH = 0.55, 0.62
-XC0 = -4.4
-Y_WIRE, Y_CUM, Y_DEC, Y_OUT = 2.45, 0.95, -0.85, -2.25
-BYTES = list("0005tauth") + list("0003tok")
-OWN = [M1] * 9 + [M2] * 7
-LEN = set(range(0, 4)) | set(range(9, 13))
-TYPE = {4, 13}
+# one colour per thing, for the whole io track's post office
+CLERK, CUST, LIGHT, LETTER, BAD, OK = BLUE_M, TEAL_M, YELLOW_M, GOLD_M, RED_M, GREEN_M
 
 
-def cx(i):
-    return XC0 + CW * (i + 0.5)
+def person(color=CLERK, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def cell(i, color=None):
-    color = color or OWN[i]
-    if i in LEN:
-        fill, tc = dim(color, 0.32), WHITE
-    elif i in TYPE:
-        fill, tc = dim(color, 0.6), WHITE
+def envelope(color=LETTER, s=1.0):
+    r = Rectangle(width=0.6, height=0.4).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    flap = VMobject().set_points_as_corners([r.get_corner(UL), r.get_center() + DOWN * 0.02, r.get_corner(UR)])
+    flap.set_stroke(color, 2)
+    return VGroup(r, flap).scale(s)
+
+
+def wallbox(lit=False, s=1.0, color=LIGHT):
+    sq = RoundedRectangle(corner_radius=0.06, width=0.62, height=0.5).set_stroke(GREY_B, 2.2).set_fill("#101010", 1)
+    slot = Line(LEFT * 0.18, RIGHT * 0.18, stroke_width=3, color=GREY_C).move_to(sq.get_center() + UP * 0.06)
+    lamp = Circle(radius=0.08).next_to(sq, UP, buff=0.07)
+    set_lamp(lamp, lit, color)
+    return VGroup(sq, slot, lamp).scale(s)
+
+
+def set_lamp(lamp, lit, color=LIGHT):
+    if lit:
+        lamp.set_stroke(color, 2.5).set_fill(color, 1)
     else:
-        fill, tc = color, BLACK
-    r = Rectangle(width=CW - 0.06, height=CH, stroke_color=color, stroke_width=2).set_fill(fill, 1)
-    return VGroup(r, M(BYTES[i], 26, tc).move_to(r)).set_z_index(3)
+        lamp.set_stroke(GREY_C, 2).set_fill("#1a1a1a", 1)
+    return lamp
+
+
+def code_block(src, size=22, hl=None):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def printout(rows, size=22, buff=0.14):
+    """Monospace output lines, one (text, colour) per row, left aligned."""
+    return VGroup(*[M(s, size, c) for s, c in rows]).arrange(DOWN, aligned_edge=LEFT, buff=buff)
+
+
+def panel(m, color=GREY_D, buff=0.3):
+    r = SurroundingRectangle(m, buff=buff, corner_radius=0.12).set_stroke(color, 2).set_fill("#0b0b0b", 1)
+    return r
+
+
+def part(t, s):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = s.replace(" ", "")
+    i = t.text.replace(" ", "").index(k)
+    return t[i:i + len(k)]
+
+
+def cross(m, s=0.22, buff=0.25):
+    return tick(False, s).next_to(m, RIGHT, buff=buff)
+
+
+def maprow(left, right, lc=WHITE, rc=WHITE, size=26, mono_right=False):
+    a = T(left, size, lc)
+    ar = Arrow(LEFT * 0.4, RIGHT * 0.4, buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.25)
+    b = (M if mono_right else T)(right, size - 2 if mono_right else size, rc)
+    return VGroup(a, ar, b)
+
+
+def maptable(rows, x_arrow=0.0, y0=2.0, dy=0.72):
+    """Rows of (left, arrow, right) with the arrows in one column at x_arrow."""
+    for i, r in enumerate(rows):
+        y = y0 - i * dy
+        r[1].move_to([x_arrow, y, 0])
+        r[0].next_to(r[1], LEFT, buff=0.3)
+        r[2].next_to(r[1], RIGHT, buff=0.3)
+    return VGroup(*rows)
+
+
+LEN, TYP, B1, B2, CUT = GOLD_M, PURPLE_M, TEAL_M, BLUE_M, RED_M
+WIRE = "00000007016e6f74652d31000000090770617263656c2d31"
+HEX = [WIRE[i:i + 2] for i in range(0, len(WIRE), 2)]
+CW, RY = 0.47, 0.9            # cell width, row height centre
+
+
+def cell_color(i):
+    if i < 4 or 11 <= i < 15:
+        return LEN
+    if i in (4, 15):
+        return TYP
+    return B1 if i < 11 else B2
+
+
+def byte_row(y=RY, size=17):
+    cells = VGroup()
+    for i, h in enumerate(HEX):
+        c = cell_color(i)
+        r = Rectangle(width=CW, height=0.62).set_stroke(c, 2).set_fill(dim(c, 0.2), 1)
+        cells.add(VGroup(r, M(h, size, WHITE).move_to(r)))
+    cells.arrange(RIGHT, buff=0).move_to([0, y, 0])
+    return cells
+
+
+def cut_at(cells, k, color=CUT):
+    x = cells[k][0].get_left()[0] if k < len(cells) else cells[-1][0].get_right()[0]
+    y = cells.get_center()[1]
+    return DashedLine([x, y + 0.6, 0], [x, y - 0.6, 0], dash_length=0.08).set_stroke(color, 3.5)
+
+
+def page(color, s=1.0):
+    r = Rectangle(width=0.42, height=0.56).set_stroke(color, 2).set_fill(dim(color, 0.25), 1)
+    ls = VGroup(*[Line(LEFT * 0.13, RIGHT * 0.13, stroke_width=1.5, color=color).move_to(r.get_center() + UP * (0.14 - 0.1 * i))
+                  for i in range(3)])
+    return VGroup(r, ls).scale(s)
 
 
 class Io04Netty(Narrated):
-    """io-04 sections 0, 3 and 1: a decoder frames bytes that arrive in arbitrary chunks; writability and auto-read stop a slow
-    peer from filling the outbound buffer; a reference-counted buffer that nobody releases leaks pooled memory."""
+    """io-04, section 0: envelopes with a page count. Pages of letters running into each other; the shy question
+    (one write, why not one read?); TCP is a stream; the page count on the envelope; the letter link wire format;
+    CodecDemo's two letters (note-1, parcel-1) as 24 real bytes; frame, framing, decoder, encoder, codec; the pile
+    in ByteToMessageDecoder and the four steps; cuts at 3, 9, 14 predicted then shown; the picture breaks (the
+    length itself arrives in pieces); the maximum (5,000 rejected, 5004); LengthFieldBasedFrameDecoder's five
+    numbers on the wire; four decoder rules; the code; the moral; a check (cut at 11)."""
 
     def construct(self):
-        self.title_card("Netty: frames, flow control and leaks", "bytes in chunks, a queue that fills, a buffer nobody frees")
+        self.title_card("Envelopes with a page count", "cutting a stream of bytes into whole messages")
 
-        # ================= framing =================
-        cells = [cell(i).move_to([cx(i), Y_WIRE, 0]) for i in range(16)]
-        term = box("card terminal", WHITE, w=2.1, h=0.62, size=24).move_to([-5.3, 3.05, 0])
-        parts = VGroup(
-            T("length", 22, GREY_B).move_to([(cx(0) + cx(3)) / 2, Y_WIRE - 0.6, 0]),
-            T("type", 22, GREY_B).move_to([cx(4), Y_WIRE - 0.6, 0]),
-            T("body", 22, GREY_B).move_to([(cx(5) + cx(8)) / 2, Y_WIRE - 0.6, 0]))
-        tags = VGroup(T("message 1", 24, M1).move_to([(cx(0) + cx(8)) / 2, Y_WIRE + 0.6, 0]),
-                      T("message 2", 24, M2).move_to([(cx(9) + cx(15)) / 2, Y_WIRE + 0.6, 0]))
+        # ================= hook: a stream of pages =================
+        st_box = RoundedRectangle(corner_radius=0.12, width=2.2, height=1.6).set_stroke(GREY_B, 3).set_fill("#121212", 1)
+        st_t = T("first station", 24, GREY_A).next_to(st_box, DOWN, buff=0.15)
+        stg = VGroup(st_box, st_t).move_to([4.6, 0.3, 0])
+        belt = Line([-6.4, -0.35, 0], [3.4, -0.35, 0], stroke_width=4, color=GREY_C)
+        cols = [B1] * 3 + [B2] * 4 + [GREEN_M] * 2
+        pages = VGroup(*[page(c, 1.1) for c in cols]).arrange(RIGHT, buff=0.12).next_to(belt, UP, buff=0.08)
+        pages.align_to(belt, LEFT).shift(LEFT * 3.0)
         self.say("open")
-        self.play(FadeIn(term), run_time=0.5)
-        self.play(LaggedStart(*[FadeIn(c, shift=RIGHT * 0.2) for c in cells], lag_ratio=0.06), FadeIn(tags), run_time=1.6)
-        self.at_text("a 4-byte")
-        self.play(FadeIn(parts), run_time=0.6)
-        self.at_text("But TCP")
-        chunks = [list(range(0, 3)), list(range(3, 13)), list(range(13, 16))]
-        sh = [-0.3, 0.0, 0.3]
-        ctags = VGroup(*[T(f"{len(ch)} bytes", 22, IDX).move_to([(cx(ch[0]) + cx(ch[-1])) / 2 + s, Y_WIRE + 0.6, 0])
-                         for ch, s in zip(chunks, sh)])
-        self.play(FadeOut(parts), FadeOut(tags), FadeOut(term), *[cells[i].animate.shift(RIGHT * s) for ch, s in zip(chunks, sh) for i in ch],
-                  run_time=0.8)
-        self.play(FadeIn(ctags), run_time=0.5)
+        self.play(FadeIn(stg), Create(belt), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(pages), pages.animate.shift(RIGHT * 4.2), run_time=2.0, rate_func=linear)
+        self.at(2)
+        run_in = T("where does one letter end?", 26, YELLOW_M).move_to([-1.5, 1.6, 0])
+        self.play(pages.animate.shift(RIGHT * 1.2), FadeIn(run_in), run_time=1.0, rate_func=linear)
         self.hold()
 
-        # the decoder's buffer: empty slots, a reader index
-        slots = VGroup(*[DashedVMobject(Rectangle(width=CW - 0.06, height=CH, stroke_color=GREY_D, stroke_width=1.5), num_dashes=12)
-                         .move_to([cx(i), Y_CUM, 0]) for i in range(16)])
-        clab = T("the decoder's buffer: every byte so far", 24, GREY_B).move_to([XC0, Y_CUM + 0.62, 0], aligned_edge=LEFT)
-        ri = [0]
-
-        def marker(i):
-            tri = Triangle(color=IDX, stroke_width=0).set_fill(IDX, 1).scale(0.13).move_to([XC0 + CW * i, Y_CUM - 0.5, 0])
-            lab = T("readerIndex", 22, IDX).next_to(tri, DOWN, buff=0.08)
-            return VGroup(tri, lab)
-
-        mk = marker(0)
-        status = [VMobject()]
-
-        def say_status(text, color=IDX):
-            new = M(text, 26, color).move_to([0.0, Y_DEC, 0])
-            old = status[0]
-            status[0] = new
-            return [FadeOut(old), FadeIn(new, shift=UP * 0.1)]
-
-        def land(k):
-            # chunk k drops from the wire into its slots
-            return [cells[i].animate.move_to([cx(i), Y_CUM, 0]) for i in chunks[k]] + [FadeOut(ctags[k])]
-
-        self.say("c1_q")
-        self.play(FadeIn(slots), FadeIn(clab), FadeIn(mk), run_time=0.8)
-        self.at_text("The first chunk")
-        self.play(*land(0), run_time=0.8)
+        q1 = T("One message, sent with one write.", 30)
+        q2 = T("Why doesn't the server get it in one read?", 30, YELLOW_M)
+        qg = VGroup(q1, q2).arrange(DOWN, buff=0.2).move_to([0, -2.4, 0])
+        self.say("shyq")
+        self.at(1)
+        self.play(FadeIn(q1, shift=UP * 0.1), run_time=0.6)
+        self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
-        self.predict()
+        self.predict(2.2)
+        self.clear_all()
 
-        self.say("c1")
-        self.play(*say_status("3 readable < 4: return"), run_time=0.6)
+        # ================= the pain: TCP is a stream =================
+        w = RoundedRectangle(corner_radius=0.1, width=5.0, height=0.7).set_stroke(B1, 3).set_fill(dim(B1, 0.2), 1)
+        w_t = T("one message, one write", 24, B1).move_to(w)
+        wg = VGroup(w, w_t).move_to([0, 2.4, 0])
+        tcp = T("TCP: a stream of bytes, in order", 26, GREY_A).move_to([0, 1.3, 0])
+        reads = VGroup(RoundedRectangle(corner_radius=0.08, width=2.0, height=0.6), RoundedRectangle(corner_radius=0.08, width=1.2, height=0.6),
+                       RoundedRectangle(corner_radius=0.08, width=3.6, height=0.6)).arrange(RIGHT, buff=0.45)
+        for r, c in zip(reads, (B1, B1, B1)):
+            r.set_stroke(c, 2.5).set_fill(dim(c, 0.2), 1)
+        reads[2].set_stroke(B1, 2.5)
+        nxt = RoundedRectangle(corner_radius=0.08, width=1.4, height=0.6).set_stroke(B2, 2.5).set_fill(dim(B2, 0.2), 1)
+        nxt.next_to(reads[2], RIGHT, buff=0).shift(LEFT * 1.4)
+        reads.move_to([0, 0.0, 0])
+        nxt.move_to(reads[2].get_right() + LEFT * 0.7)
+        rl = VGroup(T("read 1", 22, GREY_A).next_to(reads[0], DOWN, buff=0.15), T("read 2", 22, GREY_A).next_to(reads[1], DOWN, buff=0.15),
+                    T("read 3: the end of it, and the start of the next", 22, GREY_A).next_to(reads[2], DOWN, buff=0.15))
+        rl[2].align_to(reads[2], LEFT)
+        fit(rl[2], 6.4 - rl[2].get_left()[0])
+        anyw = T("the cuts fall wherever the network made them", 26, YELLOW_M).move_to([0, -2.2, 0])
+        self.say("pain")
+        self.play(FadeIn(wg), run_time=0.6)
+        self.at_text("delivers a stream", lead=0.3)
+        self.play(FadeIn(tcp), run_time=0.5)
+        self.at(1)
+        self.play(LaggedStart(FadeIn(reads[0]), FadeIn(rl[0]), FadeIn(reads[1]), FadeIn(rl[1]), lag_ratio=0.3), run_time=1.2)
+        self.play(FadeIn(reads[2]), FadeIn(nxt), FadeIn(rl[2]), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(anyw), run_time=0.6)
+        self.hold()
+        self.clear_all()
+
+        # ================= the wish: a page count on the envelope =================
+        env = envelope(LETTER, 4.0).move_to([0, 0.5, 0])
+        cnt = T("7 pages", 40, LETTER).move_to(env[0].get_center() + DOWN * 0.35)
+        self.say("wish")
+        self.play(FadeIn(env), run_time=0.7)
+        self.at(1)
+        self.play(Write(cnt), run_time=1.0)
+        self.hold()
+        self.clear_all()
+
+        # ================= the letter link: wire format =================
+        def field(label, w, c):
+            r = Rectangle(width=w, height=0.8).set_stroke(c, 3).set_fill(dim(c, 0.2), 1)
+            return VGroup(r, M(label, 22, c).move_to(r))
+
+        fmt = VGroup(field("length: 4 bytes", 3.4, LEN), field("type: 1", 1.8, TYP), field("body: UTF-8 text", 4.4, B1)).arrange(RIGHT, buff=0)
+        fmt.move_to([0, 1.6, 0])
+        br = Brace(VGroup(fmt[1], fmt[2]), DOWN, color=GREY_B)
+        br_t = T("the length counts these: 1 + body bytes", 24, GREY_A).next_to(br, DOWN, buff=0.1)
+        lt = VGroup(T("a letter:", 26, GREY_A), T("a type number and a body", 26)).arrange(RIGHT, buff=0.2).move_to([0, 3.0, 0])
+        self.say("fmt")
+        self.at(1)
+        self.play(FadeIn(lt), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(fmt[0]), run_time=0.5)
+        self.play(FadeIn(fmt[1]), run_time=0.4)
+        self.play(FadeIn(fmt[2]), run_time=0.4)
+        self.at(3)
+        self.play(GrowFromCenter(br), FadeIn(br_t), run_time=0.7)
         self.hold()
 
-        self.say("c2")
-        self.play(*land(1), run_time=0.8)
-        self.at_text("decode peeks")
-        peek = SurroundingRectangle(VGroup(*cells[0:4]), color=IDX, buff=0.06, stroke_width=3)
-        self.play(Create(peek), *say_status("peek getInt(readerIndex) = 5"), run_time=0.7)
-        self.at_text("9 bytes")
-        need = SurroundingRectangle(VGroup(*cells[0:9]), color=IDX, buff=0.06, stroke_width=3)
-        self.play(Transform(peek, need), *say_status("13 readable >= 4 + 5: a whole frame"), run_time=0.7)
-        self.at_text("so it skips")
-        outlab = T("next handler", 24, GREY_B).move_to([-6.4, Y_OUT, 0], aligned_edge=LEFT)
-        f1 = [cell(i).move_to([-3.6 + CW * k, Y_OUT, 0]) for k, i in enumerate(range(4, 9))]
-        self.play(FadeOut(peek), *[cells[i].animate.set_opacity(0.25) for i in range(0, 4)], mk.animate.move_to(marker(4)),
-                  run_time=0.6)
-        cps = [cells[i].copy() for i in range(4, 9)]
-        self.add(*cps)
-        slice_lab = T("a slice: same memory, no copy", 22, M1).move_to([-2.5, Y_OUT - 0.62, 0])
-        self.play(*[Transform(c, f) for c, f in zip(cps, f1)], FadeIn(outlab), *[cells[i].animate.set_opacity(0.25) for i in range(4, 9)],
-                  mk.animate.move_to(marker(9)), run_time=1.0)
-        self.play(FadeIn(slice_lab), run_time=0.4)
+        row = byte_row(y=-1.2)
+        n1 = VGroup(M("note-1", 24, B1), T("type 1, length 7", 22, GREY_A)).arrange(DOWN, buff=0.08)
+        n1.next_to(VGroup(*row[:11]), DOWN, buff=0.2)
+        n2 = VGroup(M("parcel-1", 24, B2), T("type 7, length 9", 22, GREY_A)).arrange(DOWN, buff=0.08)
+        n2.next_to(VGroup(*row[11:]), DOWN, buff=0.2)
+        tot = T("24 bytes on the wire", 24, GREY_A).next_to(row, UP, buff=0.2)
+        cd = M("CodecDemo", 22, GREY_B).next_to(tot, LEFT, buff=0.4)
+        self.say("ex")
+        self.play(FadeOut(VGroup(lt)), FadeIn(cd), run_time=0.4)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(c) for c in row[:11]], lag_ratio=0.06), run_time=1.0)
+        self.play(FadeIn(n1), run_time=0.5)
+        self.at(2)
+        self.play(LaggedStart(*[FadeIn(c) for c in row[11:]], lag_ratio=0.06), run_time=1.0)
+        self.play(FadeIn(n2), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(tot), run_time=0.5)
         self.hold()
 
-        self.say("c3")
-        peek = SurroundingRectangle(VGroup(*cells[9:13]), color=IDX, buff=0.06, stroke_width=3)
-        self.play(Create(peek), *say_status("length 3, 4 readable < 4 + 3: return"), run_time=0.7)
-        self.at_text("the last chunk")
-        self.play(*land(2), run_time=0.7)
-        f2 = [cell(i).move_to([1.2 + CW * k, Y_OUT, 0]) for k, i in enumerate(range(13, 16))]
-        cps2 = [cells[i].copy() for i in range(13, 16)]
-        self.add(*cps2)
-        self.play(FadeOut(peek), *say_status("7 readable >= 4 + 3: a whole frame"), run_time=0.5)
-        self.play(*[Transform(c, f) for c, f in zip(cps2, f2)], *[cells[i].animate.set_opacity(0.25) for i in range(9, 16)],
-                  mk.animate.move_to(marker(16)), run_time=0.9)
-        self.hold(after=0.1)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
-        self.clear()
+        # names
+        fb1 = Brace(VGroup(*row[:11]), UP, color=B1, buff=0.08)
+        fb2 = Brace(VGroup(*row[11:]), UP, color=B2, buff=0.08)
+        f1 = T("a frame", 24, B1).next_to(fb1, UP, buff=0.08)
+        f2 = T("a frame", 24, B2).next_to(fb2, UP, buff=0.08)
+        names = VGroup(T("framing: finding where frames begin and end", 26, YELLOW_M),
+                       T("decoder: bytes to messages    encoder: messages to bytes    codec: the pair", 24))
+        names.arrange(DOWN, buff=0.2).move_to([0, -3.15, 0])
+        fit(names, 12.4)
+        self.say("map")
+        self.play(FadeOut(VGroup(fmt, br, br_t, tot, cd)), run_time=0.4)
+        self.play(FadeOut(n1), FadeOut(n2), row.animate.move_to([0, 0.2, 0]), run_time=0.6)
+        fb1 = Brace(VGroup(*row[:11]), UP, color=B1, buff=0.08)
+        fb2 = Brace(VGroup(*row[11:]), UP, color=B2, buff=0.08)
+        f1.next_to(fb1, UP, buff=0.08)
+        f2.next_to(fb2, UP, buff=0.08)
+        self.at(1)
+        self.play(GrowFromCenter(fb1), FadeIn(f1), GrowFromCenter(fb2), FadeIn(f2), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(names[0]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(names[1]), run_time=0.6)
+        self.hold()
+        self.clear_all()
 
-        # ================= flow control: the outbound buffer =================
-        TX, TW, TB, TH = -0.2, 2.6, -2.25, 3.85
-        HIGH, LOW = 0.5, 0.25
-        lvl, tap = ValueTracker(0.0), ValueTracker(1.0)
-        tank = VMobject(stroke_color=WHITE, stroke_width=3).set_points_as_corners(
-            [[TX - TW / 2, TB + TH, 0], [TX - TW / 2, TB, 0], [TX + TW / 2, TB, 0], [TX + TW / 2, TB + TH, 0]])
-        water = always_redraw(lambda: Rectangle(width=TW - 0.08, height=max(0.001, TH * min(lvl.get_value(), 1.0)), stroke_width=0)
-                              .set_fill(WATER, 0.5).move_to([TX, TB + TH * min(lvl.get_value(), 1.0) / 2, 0]))
-        tlab = T("outbound buffer, in your memory", 24, GREY_B).move_to([TX, TB - 0.4, 0])
-        hbox = box("your handler", WHITE, w=2.5, h=0.8, size=26).move_to([-4.6, 2.55, 0])
-        hcall = M("ctx.write(reply)", 24, WATER).next_to(hbox, DOWN, buff=0.15)
-        PX = TX - 0.5
-        pipe = VMobject(stroke_color=GREY_B, stroke_width=6).set_points_as_corners(
-            [hbox.get_right(), [PX, hbox.get_y(), 0], [PX, TB + TH + 0.3, 0]])
-        stream = always_redraw(lambda: Rectangle(width=0.16, height=max(0.001, (TB + TH + 0.3) - (TB + TH * min(lvl.get_value(), 1.0))),
-                                                 stroke_width=0).set_fill(WATER, 0.75 * tap.get_value())
-                               .move_to([PX, ((TB + TH + 0.3) + (TB + TH * min(lvl.get_value(), 1.0))) / 2, 0]))
-        drain = Arrow([TX + TW / 2, TB + 0.25, 0], [3.55, TB + 0.25, 0], buff=0, stroke_width=4, color=WATER,
-                      max_tip_length_to_length_ratio=0.12)
-        dlab = T("socket", 22, GREY_B).next_to(drain, UP, buff=0.1)
-        client = box("slow client", WHITE, w=2.3, h=0.8, size=26).move_to([4.85, TB + 0.25, 0])
-        self.say("write")
-        self.play(FadeIn(hbox), FadeIn(hcall), Create(tank), FadeIn(tlab), run_time=0.9)
-        self.add(water)
-        self.at_text("Netty queues")
-        self.play(Create(pipe), run_time=0.5)
-        self.add(stream)
-        self.play(lvl.animate.set_value(0.12), run_time=1.2, rate_func=linear)
-        self.at_text("and the socket")
-        self.play(GrowArrow(drain), FadeIn(dlab), FadeIn(client), lvl.animate.set_value(0.16), run_time=1.0, rate_func=linear)
+        # ================= the first station: the pile and the four steps =================
+        stn = RoundedRectangle(corner_radius=0.14, width=5.6, height=4.4).set_stroke(GREY_B, 3).set_fill("#101010", 1)
+        stn.move_to([-3.5, -0.1, 0])
+        stn_t = VGroup(M("ByteToMessageDecoder", 22, GREY_A), T("the first station", 22, GREY_B)).arrange(DOWN, buff=0.08)
+        stn_t.next_to(stn, UP, buff=0.12)
+        pile = VGroup(*[Rectangle(width=CW, height=0.36).set_stroke(cell_color(i), 1.5).set_fill(dim(cell_color(i), 0.3), 1)
+                        for i in range(7)])
+        for i, p in enumerate(pile):
+            p.move_to(stn.get_bottom() + UP * (0.45 + 0.37 * i) + LEFT * 1.9 + RIGHT * (0.05 * ((-1) ** i)))
+        pile_t = T("the pile: every byte so far", 22, GREY_A).next_to(pile, RIGHT, buff=0.35)
+        self.say("pile")
+        self.play(FadeIn(stn), FadeIn(stn_t), run_time=0.6)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(p, shift=DOWN * 0.3) for p in pile], lag_ratio=0.15), run_time=1.3)
+        self.play(FadeIn(pile_t), run_time=0.4)
+        self.at(2)
+        take = T("take whole frames, leave the rest", 24, YELLOW_M).move_to([-3.5, 1.55, 0])
+        self.play(FadeIn(take), run_time=0.5)
         self.hold()
 
-        self.say("slow_q")
-        self.play(lvl.animate.set_value(0.2), run_time=1.0, rate_func=linear)
+        steps = VGroup(VGroup(T("1.", 26, GREY_B), T("fewer than 4 bytes?", 26), T("wait", 26, CUT)).arrange(RIGHT, buff=0.2),
+                       VGroup(T("2.", 26, GREY_B), T("peek at the length, don't take it", 26, LEN)).arrange(RIGHT, buff=0.2),
+                       VGroup(T("3.", 26, GREY_B), T("whole body here? if not,", 26), T("wait", 26, CUT)).arrange(RIGHT, buff=0.2),
+                       VGroup(T("4.", 26, GREY_B), T("skip 4, hand on one whole frame", 26, OK)).arrange(RIGHT, buff=0.2))
+        steps.arrange(DOWN, aligned_edge=LEFT, buff=0.45)
+        fit(steps, 6.0).move_to([3.35, -0.1, 0])
+        self.say("walk")
+        self.at(1)
+        self.play(FadeIn(steps[0]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(steps[1]), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(steps[2]), run_time=0.5)
+        self.at(6)
+        self.play(FadeIn(steps[3]), run_time=0.5)
+        self.hold()
+        self.clear_all()
+
+        # ================= predict: the cuts at 3, 9 and 14 =================
+        row = byte_row(y=1.3)
+        cuts = VGroup(*[cut_at(row, k) for k in (3, 9, 14)])
+        ctl = VGroup(*[T(str(k), 22, CUT).next_to(c, UP, buff=0.05) for k, c in zip((3, 9, 14), cuts)])
+        stamp = VGroup(T("the last station stamps each letter:", 24, GREY_A), M("CAPITALS", 24, WHITE),
+                       T("and type + 1", 24, GREY_A)).arrange(RIGHT, buff=0.2).move_to([0, 2.9, 0])
+        fit(stamp, 12.4)
+        self.say("p_q")
+        self.play(FadeIn(row), run_time=0.6)
+        self.at_text("cut after", lead=0.3)
+        self.play(LaggedStart(*[AnimationGroup(Create(c), FadeIn(t)) for c, t in zip(cuts, ctl)], lag_ratio=0.4), run_time=1.4)
+        self.at(1)
+        self.play(FadeIn(stamp), run_time=0.6)
         self.hold(after=0)
-        self.predict()
+        self.predict(2.6, pos=(6.4, -3.35), edge=RIGHT)
 
-        self.say("slow")
-        over = T("over 1 MB in the demo", 26, BAD).move_to([TX, TB + TH + 0.25, 0]).shift(RIGHT * 2.6)
-        self.play(lvl.animate.set_value(1.0), run_time=2.0, rate_func=linear)
-        self.play(tank.animate.set_stroke(BAD), FadeIn(over), Flash([TX, TB + TH, 0], color=BAD, flash_radius=0.9), run_time=0.6)
-        self.at_text("So Netty marks")
-        self.play(lvl.animate.set_value(0.0), tank.animate.set_stroke(WHITE), FadeOut(over), tap.animate.set_value(0), run_time=0.7)
-        hi = DashedLine([TX - TW / 2, TB + TH * HIGH, 0], [TX + TW / 2, TB + TH * HIGH, 0], dash_length=0.1, stroke_width=2.5, color=BAD)
-        lo = DashedLine([TX - TW / 2, TB + TH * LOW, 0], [TX + TW / 2, TB + TH * LOW, 0], dash_length=0.1, stroke_width=2.5, color=OK)
-        hil = T("high: 64 KiB", 24, BAD).next_to(hi, RIGHT, buff=0.2)
-        lol = T("low: 32 KiB", 24, OK).next_to(lo, RIGHT, buff=0.2)
-        wr = [M("isWritable() = true", 26, OK).move_to([4.5, 1.15, 0])]
-        ar = [M("autoRead = true", 24, GREY_B).next_to(hcall, DOWN, buff=0.2)]
+        def slice_box(a, b, color):
+            g = VGroup(*row[a:b])
+            return SurroundingRectangle(g, buff=0.06, color=color, stroke_width=3)
 
-        def set_wr(v):
-            new = M(f"isWritable() = {'true' if v else 'false'}", 26, OK if v else BAD).move_to(wr[0])
-            old = wr[0]
-            wr[0] = new
-            return [FadeOut(old), FadeIn(new)]
+        ry = -0.35
 
-        def set_ar(v):
-            new = M(f"autoRead = {'true' if v else 'false'}", 24, GREY_B if v else BAD).move_to(ar[0])
-            old = ar[0]
-            ar[0] = new
-            return [FadeOut(old), FadeIn(new)]
+        def res(a, b, text, color):
+            x = (row[a][0].get_left()[0] + row[b - 1][0].get_right()[0]) / 2
+            lab = M(f"[{a},{b})", 20, GREY_B).move_to([x, ry, 0])
+            out = T(text, 22, color).next_to(lab, DOWN, buff=0.12)
+            return VGroup(lab, out)
 
-        self.play(Create(hi), Create(lo), FadeIn(hil), FadeIn(lol), FadeIn(wr[0]), FadeIn(ar[0]), tap.animate.set_value(1), run_time=0.8)
-        self.at_text("Past the high")
-        self.play(lvl.animate.set_value(HIGH), run_time=1.2, rate_func=linear)
-        self.play(*set_wr(False), Flash(wr[0], color=BAD, flash_radius=1.6, line_length=0.2), run_time=0.5)
+        r1 = res(0, 3, "nothing", GREY_B)
+        r2 = res(3, 9, "nothing", GREY_B)
+        r3 = res(9, 14, "NOTE-1, type 2", B1)
+        r4 = res(14, 24, "PARCEL-1, type 8", B2)
+        s1 = slice_box(0, 3, GREY_A)
+        self.say("p_a1")
+        self.play(Create(s1), FadeIn(r1), run_time=0.7)
+        self.hold()
+        s2 = slice_box(3, 9, GREY_A)
+        self.say("p_a2")
+        self.play(ReplacementTransform(s1, s2), FadeIn(r2), run_time=0.7)
+        self.at(1)
+        self.play(Indicate(row[3][1], color=LEN, scale_factor=1.4), run_time=0.7)
+        self.hold()
+        s3 = slice_box(9, 14, B1)
+        s4 = slice_box(14, 24, B2)
+        self.say("p_a3")
+        self.play(ReplacementTransform(s2, s3), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(r3), run_time=0.5)
+        self.at(2)
+        self.play(ReplacementTransform(s3, s4), FadeIn(r4), run_time=0.7)
         self.hold()
 
-        self.say("stop")
-        self.play(lvl.animate.set_value(HIGH + 0.03), run_time=0.5, rate_func=linear)
-        self.at_text("setAutoRead")
-        self.play(*set_ar(False), tap.animate.set_value(0), run_time=0.6)
-        self.play(Indicate(ar[0], color=BAD, scale_factor=1.15), run_time=0.6)
-        self.play(lvl.animate.set_value(LOW + 0.07), run_time=1.6, rate_func=linear)
-        self.at_text("Below the low")
-        self.play(lvl.animate.set_value(LOW), run_time=0.4, rate_func=linear)
-        self.play(*set_wr(True), *set_ar(True), tap.animate.set_value(1), run_time=0.6)
-        self.play(lvl.animate.set_value(LOW + 0.12), run_time=0.8, rate_func=linear)
-        self.hold(after=0.1)
-        self.remove(water, stream)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
-        self.clear()
+        out = printout([("bytes [ 0, 3) -> replies []", GREY_A), ("bytes [ 3, 9) -> replies []", GREY_A),
+                        ("bytes [ 9,14) -> replies [type=2 NOTE-1]", B1), ("bytes [14,24) -> replies [type=8 PARCEL-1]", B2)], 21, 0.1)
+        out.move_to([0, -2.55, 0])
+        lbox = SurroundingRectangle(VGroup(*row[0:4]), buff=0.08, color=LEN, stroke_width=3.5)
+        twop = T("even the length arrived in two pieces", 26, LEN).move_to([0, 2.9, 0])
+        self.say("breaks")
+        self.play(FadeOut(s4), FadeOut(stamp), FadeIn(out), run_time=0.6)
+        self.at(2)
+        self.play(Create(lbox), FadeIn(twop), Indicate(cuts[0], color=CUT), run_time=0.8)
+        self.hold()
+        self.clear_all()
 
-        # ================= reference counts: a buffer nobody releases =================
-        SL = [[-5.6 + 0.72 * j, 2.55 - 0.68 * r, 0] for r in range(2) for j in range(4)]
-        pool = RoundedRectangle(corner_radius=0.15, width=3.4, height=1.6, stroke_color=BUF, stroke_width=2.5).move_to([-4.52, 2.21, 0])
-        plab = T("pool of direct memory", 24, BUF).next_to(pool, RIGHT, buff=0.3).shift(UP * 0.35)
-        blocks = [Square(0.5, stroke_width=0).set_fill(BUF, 0.85).move_to(p) for p in SL]
-        holes = [DashedVMobject(Square(0.5, stroke_color=GREY_D, stroke_width=1.5), num_dashes=12).move_to(p) for p in SL]
-        HY, HX = -0.55, [-4.4, 0.0, 4.4]
-        hs = [box(n, WHITE, w=2.6, h=0.85, size=28).move_to([x, HY, 0]) for n, x in zip(["decoder", "audit", "business"], HX)]
-        harr = [Arrow(hs[i].get_right(), hs[i + 1].get_left(), buff=0.12, stroke_width=3, color=GREY_B,
-                      max_tip_length_to_length_ratio=0.15) for i in range(2)]
-        CY = HY + 0.95
-
-        def chip(n, color=BUF):
-            r = RoundedRectangle(corner_radius=0.1, width=1.8, height=0.6, stroke_color=color, stroke_width=2.5).set_fill(dim(color, 0.3), 1)
-            return VGroup(r, M(f"refCnt {n}", 24).move_to(r)).set_z_index(5)
-
-        def recount(c, n, color=BUF):
-            return Transform(c, chip(n, color).move_to(c))
-
-        rule = T("the last one to touch it releases it", 26, GREY_B).move_to([0.6, -2.0, 0])
-        self.say("pool")
-        self.play(Create(pool), FadeIn(plab), *[FadeIn(b) for b in blocks], *[FadeIn(h) for h in holes],
-                  *[FadeIn(h) for h in hs], *[GrowArrow(a) for a in harr], run_time=1.0)
-        c = chip(1).move_to(SL[0])
-        self.at_text("It starts at 1")
-        self.play(FadeOut(blocks[0]), FadeIn(c), run_time=0.4)
-        self.play(c.animate.move_to([HX[0], CY, 0]), run_time=0.7)
-        self.play(c.animate.move_to([HX[1], CY, 0]), run_time=0.5)
-        self.play(c.animate.move_to([HX[2], CY, 0]), run_time=0.5)
-        self.at_text("release takes")
-        self.play(recount(c, 0), Indicate(hs[2][1], color=OK), run_time=0.6)
-        self.play(c.animate.move_to(SL[0]).scale(0.3), run_time=0.8)
-        self.play(FadeOut(c), FadeIn(blocks[0]), run_time=0.3)
-        self.at_text("The last one")
-        self.play(FadeIn(rule), run_time=0.5)
+        # ================= the maximum =================
+        menv = envelope(LETTER, 4.6).move_to([-3.6, 0.8, 0])
+        mcnt = T("1,000,000 pages", 24, LETTER).move_to(menv[0].get_center() + DOWN * 0.25)
+        big = T("length: 2,000,000,000", 26, BAD).move_to([2.6, 1.6, 0])
+        self.say("max_q")
+        self.at(1)
+        self.play(FadeIn(menv), FadeIn(mcnt), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(big), run_time=0.5)
         self.hold()
 
-        # the leak: the audit handler copies, passes the copy on, forgets the original
-        self.say("leak_q")
-        orig = chip(1).move_to(SL[0])
-        self.play(FadeOut(blocks[0]), FadeIn(orig), run_time=0.3)
-        self.play(orig.animate.move_to([HX[0], CY, 0]), run_time=0.6)
-        self.play(orig.animate.move_to([HX[1], CY, 0]), run_time=0.5)
-        cp = chip(1).move_to(SL[1])
-        cl = M("msg.copy()", 24, BUF).move_to([HX[1], CY + 0.75, 0])
-        self.play(FadeOut(blocks[1]), FadeIn(cp), FadeIn(cl), run_time=0.4)
-        self.play(cp.animate.move_to([HX[2], CY, 0]), run_time=0.9)
-        self.play(recount(cp, 0), run_time=0.4)
-        self.play(cp.animate.move_to(SL[1]).scale(0.3), run_time=0.7)
-        self.play(FadeOut(cp), FadeIn(blocks[1]), run_time=0.3)
-        self.hold(after=0)
-        self.predict()
+        gb = T("a pile of 2 GB, waiting for the rest", 24, GREY_A).next_to(big, DOWN, buff=0.2)
+        mx = VGroup(T("maximum:", 28, YELLOW_M), M("1024 bytes", 26)).arrange(RIGHT, buff=0.2).move_to([2.6, 0.0, 0])
+        err = printout([("length 5000 -> TooLongFrameException:", BAD),
+                        ("Adjusted frame length exceeds 1024: 5004 - discarded", BAD)], 21, 0.1).move_to([0, -1.75, 0])
+        sum_t = T("5,000 + the 4 bytes of the length = 5,004", 24, GREY_A).next_to(err, DOWN, buff=0.3)
+        self.say("max_a")
+        self.play(FadeIn(gb), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(mx), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(err), run_time=0.7)
+        self.at(4)
+        self.play(FadeIn(sum_t), run_time=0.6)
+        self.hold()
 
-        self.say("leak")
-        lk = T("leaked", 26, BAD).next_to(orig, RIGHT, buff=0.3).shift(UP * 0.25)
-        self.play(orig[0].animate.set_stroke(BAD), FadeOut(cl), run_time=0.5)
-        self.play(Circumscribe(orig, color=BAD, buff=0.08), FadeIn(lk), run_time=0.9)
-        self.at_text("Every message")
-        stack = [orig]
-        for k in (2, 3, 4):
-            o = chip(1, BAD).move_to(SL[k])
-            self.play(FadeOut(blocks[k]), FadeIn(o), run_time=0.25)
-            self.play(o.animate.move_to([HX[1], CY + 0.16 * len(stack), 0]), run_time=0.45)
-            stack.append(o)
-        rest = [blocks[k] for k in range(5, 8)]
-        dry = T("out of direct memory", 26, BAD).move_to(plab).shift(DOWN * 0.7)
-        self.play(*[FadeOut(b) for b in rest], FadeIn(dry), run_time=0.9)
-        self.at_text("PARANOID")
-        para = T("PARANOID leak detection: a buffer garbage-collected with refCnt above 0 is reported", 24, IDX)
-        fit(para, 12.4).move_to([0, -2.75, 0])
-        self.play(FadeOut(rule), FadeIn(para), run_time=0.6)
-        self.hold(after=0.2)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
-        self.clear()
+        door = VGroup(T("A length you didn't limit", 30), T("is memory a stranger can claim.", 30, YELLOW_M)).arrange(DOWN, buff=0.15)
+        door.move_to([0, -1.9, 0])
+        away = VGroup(tick(False, 0.5).move_to(menv), T("turned away at the door", 24, BAD).next_to(menv, DOWN, buff=0.25))
+        self.say("max_j")
+        self.play(FadeOut(VGroup(err, sum_t)), FadeIn(door), run_time=0.6)
+        self.at(1)
+        self.play(menv.animate.set_opacity(0.4), mcnt.animate.set_opacity(0.4), Create(away[0]), FadeIn(away[1]), run_time=0.8)
+        self.hold()
+        self.clear_all()
+
+        # ================= LengthFieldBasedFrameDecoder: five numbers on the wire =================
+        ctor = M("new LengthFieldBasedFrameDecoder(1024, 0, 4, 0, 4)", 26).move_to([0, 3.0, 0])
+        args = [part(ctor, "1024"), None, None, None, None]
+        # find the four single digits after "1024," in order
+        txt = ctor.text.replace(" ", "")
+        start = txt.index("1024") + 4
+        idx = [i for i in range(start, len(txt)) if txt[i].isdigit()]
+        args[1:] = [ctor[i] for i in idx]
+        meanings = ["at most 1024 bytes", "length starts at byte 0", "length is 4 bytes", "no adjustment", "strip 4 before passing on"]
+        acol = [YELLOW_M, LEN, LEN, GREY_A, TYP]
+        mrow = VGroup(*[T(m, 22, c) for m, c in zip(meanings, acol)])
+        mrow.arrange(DOWN, aligned_edge=LEFT, buff=0.22).move_to([3.2, 0.55, 0])
+        wr = VGroup(*byte_row(y=0, size=17)[:11]).move_to([-3.4, 0.55, 0])
+        lbr = Brace(VGroup(*wr[:4]), DOWN, color=LEN, buff=0.08)
+        lbr_t = T("offset 0, 4 bytes", 20, LEN).next_to(lbr, DOWN, buff=0.06)
+        self.say("lf")
+        self.play(FadeIn(ctor), run_time=0.7)
+        self.play(FadeIn(wr), run_time=0.5)
+        self.at(2)
+        self.play(Indicate(args[0], color=YELLOW_M), FadeIn(mrow[0]), run_time=0.6)
+        self.at(3)
+        self.play(Indicate(args[1], color=LEN, scale_factor=1.6), FadeIn(mrow[1]), GrowFromCenter(lbr), run_time=0.6)
+        self.play(Indicate(args[2], color=LEN, scale_factor=1.6), FadeIn(mrow[2]), FadeIn(lbr_t), run_time=0.6)
+        self.at(4)
+        self.play(Indicate(args[3], color=GREY_A, scale_factor=1.6), FadeIn(mrow[3]), run_time=0.5)
+        self.at(5)
+        self.play(Indicate(args[4], color=TYP, scale_factor=1.6), FadeIn(mrow[4]), run_time=0.5)
+        self.hold()
+
+        rest = VGroup(*wr[4:])
+        letter_t = M('Letter(type=1, body="note-1")', 24, B1).move_to([-3.0, -2.4, 0])
+        enc = T("on the way out, an encoder writes all three fields back", 22, GREY_A).move_to([0, -3.3, 0])
+        self.say("lf2")
+        self.play(FadeOut(VGroup(*wr[:4]), shift=UP * 0.3), FadeOut(lbr), FadeOut(lbr_t), run_time=0.6)
+        self.play(rest.animate.move_to([-3.0, -1.2, 0]), run_time=0.6)
+        self.play(FadeIn(letter_t, shift=DOWN * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(enc), run_time=0.6)
+        self.hold()
+        self.clear_all()
+
+        # ================= four rules for your own decoder =================
+        rules = VGroup(
+            VGroup(T("1.", 28, GREY_B), T("frame incomplete? return, take nothing", 28)).arrange(RIGHT, buff=0.25),
+            VGroup(T("2.", 28, GREY_B), T("read from", 28), M("readerIndex()", 26, LEN), T(", never from 0", 28)).arrange(RIGHT, buff=0.15),
+            VGroup(T("3.", 28, GREY_B), T("hand frames on as slices, not copies", 28)).arrange(RIGHT, buff=0.25),
+            VGroup(T("4.", 28, GREY_B), T("never", 28), M("@Sharable", 26, BAD), T(": one pile per connection", 28)).arrange(RIGHT, buff=0.15))
+        rules.arrange(DOWN, aligned_edge=LEFT, buff=0.5).move_to([0, 0.2, 0])
+        rh = T("writing your own? four rules from the Javadoc", 26, GREY_A).move_to([0, 2.8, 0])
+        self.say("rules")
+        self.play(FadeIn(rh), run_time=0.5)
+        for i in range(4):
+            self.at(1 + i)
+            self.play(FadeIn(rules[i], shift=RIGHT * 0.1), run_time=0.5)
+        self.hold()
+        self.clear_all()
 
         # ================= the code, last =================
-        hl = {"LengthFieldBasedFrameDecoder": M1, "1024": M1, "setAutoRead": WATER, "isAutoRead": WATER, "isWritable": WATER,
-              "release": BUF}
-
-        def code(head, lines):
-            g = VGroup(*[M("|" + l, 24, t2c=hl) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-            for t in g:
-                t[0].set_opacity(0)
-            return VGroup(T(head, 22, GREY_B), g).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-
-        jv = code("Java", ["ch.pipeline().addLast(new LengthFieldBasedFrameDecoder(1024, 0, 4, 0, 4));",
-                           "if (!ch.isWritable()) ch.config().setAutoRead(false);  // stop reading",
-                           "ReferenceCountUtil.release(msg);                       // last owner"])
-        kt = code("Kotlin", ["ch.pipeline().addLast(LengthFieldBasedFrameDecoder(1024, 0, 4, 0, 4))",
-                             "if (!ch.isWritable) ch.config().isAutoRead = false     // stop reading",
-                             "ReferenceCountUtil.release(msg)                        // last owner"])
-        codes = VGroup(jv, kt).arrange(DOWN, aligned_edge=LEFT, buff=0.5)
-        fit(codes, 12.6).move_to(ORIGIN)
+        hl = {"LengthFieldBasedFrameDecoder(1024, 0, 4, 0, 4)": LEN, "LetterFrameDecoder()": B1, "LetterFrameEncoder()": TYP,
+              "stamper": BLUE_M}
+        j = code_block(["ch.pipeline().addLast(",
+                        "        new LengthFieldBasedFrameDecoder(1024, 0, 4, 0, 4),   // frame",
+                        "        new LetterFrameDecoder(),                             // [type][body] to Letter",
+                        "        new LetterFrameEncoder(),                             // Letter to bytes",
+                        "        stamper);                                             // the last station"], 21, hl)
+        k = code_block(["ch.pipeline().addLast(",
+                        "    LengthFieldBasedFrameDecoder(1024, 0, 4, 0, 4),",
+                        "    LetterFrameDecoder(), LetterFrameEncoder(), stamper)"], 21, hl)
+        jc = VGroup(T("Java", 24, GREY_B), j).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
+        kc = VGroup(T("Kotlin", 24, GREY_B), k).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
+        cols = VGroup(jc, kc).arrange(DOWN, aligned_edge=LEFT, buff=0.5)
+        fit(cols, 12.4).move_to([0, 0.1, 0])
         self.say("code")
-        self.play(FadeIn(jv, shift=UP * 0.15), run_time=0.7)
-        self.play(FadeIn(kt, shift=UP * 0.15), run_time=0.7)
-        self.hold(after=2.4)
-        self.play(FadeOut(codes), run_time=0.6)
-
-        # ================= the rule and a check =================
-        r1 = T("Frame the bytes before you decode them.", 32, t2c={"Frame": M1})
-        r2 = T("Stop reading when you can't write.", 32, t2c={"Stop reading": WATER})
-        r3 = T("Give every buffer one last owner, who releases it.", 32, t2c={"one last owner": BUF})
-        rule = VGroup(r1, r2, r3).arrange(DOWN, buff=0.3).move_to(UP * 1.2)
-        fit(rule, 12.4)
-        self.say("rule")
-        self.play(FadeIn(r1, shift=UP * 0.1), run_time=0.6)
-        self.at_text("Stop reading")
-        self.play(FadeIn(r2, shift=UP * 0.1), run_time=0.6)
-        self.at_text("And give")
-        self.play(FadeIn(r3, shift=UP * 0.1), run_time=0.6)
+        self.play(FadeIn(jc, shift=UP * 0.1), run_time=0.7)
+        self.play(FadeIn(kc, shift=UP * 0.1), run_time=0.7)
+        self.at_text("frame first", lead=0.2)
+        self.play(Circumscribe(VGroup(j[1], k[1]), color=LEN, buff=0.05), run_time=0.8)
+        self.play(Circumscribe(j[2], color=B1, buff=0.05), run_time=0.7)
+        self.play(Circumscribe(j[4], color=BLUE_M, buff=0.05), run_time=0.7)
         self.hold()
-        qq = VGroup(T("Check:", 30, YELLOW_M),
-                    T("A frame's length field says 7. It arrives in chunks of 2, 4 and 6 bytes.", 28),
-                    T("After which chunk does decode pass it on?", 28)).arrange(DOWN, buff=0.2).move_to(DOWN * 1.7)
-        fit(qq, 12.4)
+        self.clear_all()
+
+        # ================= the moral and a check =================
+        mq = T("Why doesn't one write arrive as one read?", 32).move_to(UP * 2.6)
+        m1 = T("TCP moves pages, not letters.", 30, B1).move_to(UP * 1.85)
+        m2 = T("Frame before you decode: length on the envelope,", 30, LEN).move_to(UP * 1.15)
+        m3 = T("wait for whole frames, and always set a maximum.", 30, YELLOW_M).move_to(UP * 0.6)
+        for m in (mq, m1, m2, m3):
+            fit(m, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(m2, shift=UP * 0.1), FadeIn(m3, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+
+        self.play(FadeOut(VGroup(m1, m2, m3)), mq.animate.set_opacity(0.5), run_time=0.4)
+        row = byte_row(y=0.6)
+        cuts = VGroup(cut_at(row, 3), cut_at(row, 11), cut_at(row, 14))
+        cl = VGroup(*[T(str(k), 22, CUT).next_to(c, UP, buff=0.05) for k, c in zip((3, 11, 14), cuts)])
+        qa = VGroup(T("Check:", 28, YELLOW_M), T("cut at 3, 11 and 14. Which slice answers NOTE-1?", 28)).arrange(RIGHT, buff=0.25)
+        qa.move_to(DOWN * 1.0)
+        fit(qa, 12.4)
         self.say("check")
-        self.play(FadeIn(qq, shift=UP * 0.1), run_time=0.8)
+        self.play(FadeIn(row), Create(cuts), FadeIn(cl), FadeIn(qa), run_time=0.9)
         self.hold(after=0)
-        self.wait(1.5)
+        self.predict(2.6, pos=(6.4, -3.35), edge=RIGHT)
+        sb = SurroundingRectangle(VGroup(*row[3:11]), buff=0.06, color=B1, stroke_width=3)
+        ans = T("[3,11): it ends on the first letter's 11th byte. Then [11,14) gets nothing.", 28, YELLOW_M).move_to(DOWN * 2.3)
+        fit(ans, 12.4)
+        self.say("check_a")
+        self.play(Create(sb), FadeIn(ans, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
+        self.wait(2.5)

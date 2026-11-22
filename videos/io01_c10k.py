@@ -579,7 +579,7 @@ class Io01C10k(Narrated):
                      VGroup(T("asking the wall", 24, CLERK), T("= epoll (Linux), kqueue (macOS)", 24)).arrange(RIGHT, buff=0.15))
         lab.arrange(DOWN, aligned_edge=LEFT, buff=0.18).move_to([0.6, -2.55, 0])
         fit(lab, 12.0)
-        rn = T("readiness notification", 26, YELLOW_M).next_to(cg, DOWN, buff=0.22)
+        rn = T("readiness notification", 26, YELLOW_M).move_to([-4.6, 2.45, 0])
         self.say("wall2")
         self.play(FadeOut(zz), FadeIn(lab[0]), run_time=0.6)
         self.at(1)

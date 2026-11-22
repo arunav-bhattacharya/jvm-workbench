@@ -1,19 +1,19 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.734
+00:00:02.700 --> 00:00:05.701
 Picture the storeroom behind a small fruit shop.
 
 2
-00:00:05.734 --> 00:00:10.548
+00:00:05.701 --> 00:00:10.515
 Boxes sit on the shelves, each with a label: Gala apples, lemons, paper bags.
 
 3
-00:00:10.548 --> 00:00:14.174
+00:00:10.515 --> 00:00:14.141
 Someone in the back room fills them before the shop opens.
 
 4
-00:00:14.174 --> 00:00:16.925
+00:00:14.141 --> 00:00:16.892
 The person at the counter trusts the labels.
 
 5
@@ -41,19 +41,19 @@ In Java, Object.
 So what's wrong with it?
 
 11
-00:00:32.000 --> 00:00:32.946
+00:00:31.967 --> 00:00:32.913
 Let's find out.
 
 12
-00:00:32.946 --> 00:00:37.740
+00:00:32.913 --> 00:00:37.707
 One morning, the counter opens the box for today's apple, to write the sign.
 
 13
-00:00:37.740 --> 00:00:40.831
+00:00:37.707 --> 00:00:40.798
 Inside, where a name should be, is the number 12.
 
 14
-00:00:40.831 --> 00:00:44.805
+00:00:40.798 --> 00:00:44.772
 The back room wrote how many apples there were, not which kind.
 
 15
@@ -93,31 +93,31 @@ A cast tells the compiler: trust me.
 The real check waits until the program runs.
 
 24
-00:01:08.200 --> 00:01:10.298
+00:01:08.267 --> 00:01:10.365
 So where does this program fail?
 
 25
-00:01:10.298 --> 00:01:13.379
+00:01:10.365 --> 00:01:13.446
 On the line that puts 12 in, or at the counter?
 
 26
-00:01:13.379 --> 00:01:14.428
+00:01:13.446 --> 00:01:14.495
 Pause and guess.
 
 27
-00:01:18.200 --> 00:01:21.123
+00:01:18.167 --> 00:01:21.090
 Here's what the lesson's AnyBoxDemo printed.
 
 28
-00:01:21.123 --> 00:01:24.113
+00:01:21.090 --> 00:01:24.080
 restock returned, and nothing has failed yet.
 
 29
-00:01:24.113 --> 00:01:27.900
+00:01:24.080 --> 00:01:27.867
 Then a ClassCastException, thrown in signFor, at line 13.
 
 30
-00:01:27.900 --> 00:01:29.960
+00:01:27.867 --> 00:01:29.927
 That's the cast at the counter.
 
 31
@@ -129,269 +129,269 @@ The counter did nothing wrong, and the function with the bug isn't even in the t
 In a bigger program, that read could come hours later.
 
 33
-00:01:39.000 --> 00:01:42.374
+00:01:39.033 --> 00:01:42.408
 If Any had an honest name, it would be called whatever.
 
 34
-00:01:42.374 --> 00:01:47.099
+00:01:42.408 --> 00:01:47.132
 It says yes to everything, and leaves the bad news for whoever opens the box.
 
 35
-00:01:47.267 --> 00:01:48.493
+00:01:47.333 --> 00:01:48.560
 So the point is this.
 
 36
-00:01:48.493 --> 00:01:50.188
+00:01:48.560 --> 00:01:50.254
 Any doesn't remove the check.
 
 37
-00:01:50.188 --> 00:01:53.050
+00:01:50.254 --> 00:01:53.117
 It moves the check to the read, far from the bug.
 
 38
-00:01:53.050 --> 00:01:58.600
+00:01:53.117 --> 00:01:58.667
 What we really want is a check at the storeroom door, on the line that puts the wrong thing in.
 
 39
-00:01:59.533 --> 00:02:01.992
+00:01:59.600 --> 00:02:02.059
 So let's print a label with a gap in it.
 
 40
-00:02:01.992 --> 00:02:03.529
+00:02:02.059 --> 00:02:03.595
 Box of, and then a blank.
 
 41
-00:02:03.529 --> 00:02:07.216
+00:02:03.595 --> 00:02:07.283
 The person who makes the box has no idea what will go in it.
 
 42
-00:02:07.216 --> 00:02:10.781
+00:02:07.283 --> 00:02:10.848
 Whoever takes the box writes in the gap: apple names, say.
 
 43
-00:02:10.933 --> 00:02:14.757
+00:02:11.067 --> 00:02:14.891
 And at the storeroom door stands a clerk who reads every label.
 
 44
-00:02:14.757 --> 00:02:17.003
+00:02:14.891 --> 00:02:17.137
 A name like Fuji fits, so it goes in.
 
 45
-00:02:17.003 --> 00:02:20.767
+00:02:17.137 --> 00:02:20.900
 The number 12 doesn't match, so it's turned away, at the door.
 
 46
-00:02:20.933 --> 00:02:21.798
+00:02:21.133 --> 00:02:21.998
 Let's map it.
 
 47
-00:02:21.798 --> 00:02:25.591
+00:02:21.998 --> 00:02:25.791
 The printed label is class Box, with T in angle brackets.
 
 48
-00:02:25.591 --> 00:02:26.722
+00:02:25.791 --> 00:02:26.922
 The gap is the T.
 
 49
-00:02:26.722 --> 00:02:31.313
+00:02:26.922 --> 00:02:31.513
 What you write in the gap is a real type, like String in Box&lt;String&gt;.
 
 50
-00:02:31.313 --> 00:02:34.108
+00:02:31.513 --> 00:02:34.308
 And the clerk at the door is the compiler.
 
 51
-00:02:35.000 --> 00:02:38.421
+00:02:35.233 --> 00:02:38.654
 Now give restock a Box&lt;String&gt;, and try the same move.
 
 52
-00:02:38.421 --> 00:02:44.123
+00:02:38.654 --> 00:02:44.356
 The compiler stops it right there, on the line with the bug, before the program ever runs.
 
 53
-00:02:44.267 --> 00:02:48.631
+00:02:44.567 --> 00:02:48.931
 kotlinc, the Kotlin compiler, says: assignment type mismatch.
 
 54
-00:02:48.631 --> 00:02:51.779
+00:02:48.931 --> 00:02:52.079
 Actual type is Int, but String was expected.
 
 55
-00:02:51.779 --> 00:02:56.788
+00:02:52.079 --> 00:02:57.088
 And javac, the Java compiler, says: int cannot be converted to String.
 
 56
-00:02:56.933 --> 00:02:59.277
+00:02:57.300 --> 00:02:59.644
 The counter needs no cast any more.
 
 57
-00:02:59.277 --> 00:03:05.437
+00:02:59.644 --> 00:03:05.804
 The value in a Box&lt;String&gt; is already a String, so signFor can't throw a ClassCastException.
 
 58
-00:03:06.333 --> 00:03:08.902
+00:03:06.733 --> 00:03:09.302
 Here's a trick that predicts any call.
 
 59
-00:03:08.902 --> 00:03:13.838
+00:03:09.302 --> 00:03:14.238
 The box gets a method, replace: put a new value in, get the old one back.
 
 60
-00:03:13.838 --> 00:03:18.165
+00:03:14.238 --> 00:03:18.565
 We make two boxes: variety, holding Gala, and count, holding 12.
 
 61
-00:03:18.165 --> 00:03:21.072
+00:03:18.565 --> 00:03:21.472
 Will count dot replace, with Fuji, compile?
 
 62
-00:03:21.072 --> 00:03:22.153
+00:03:21.472 --> 00:03:22.553
 Pause and guess.
 
 63
-00:03:25.200 --> 00:03:26.435
+00:03:25.533 --> 00:03:26.768
 Fill in the blank.
 
 64
-00:03:26.435 --> 00:03:29.932
+00:03:26.768 --> 00:03:30.266
 count is a Box&lt;Int&gt;, so read every T in Box as Int.
 
 65
-00:03:29.932 --> 00:03:33.979
+00:03:30.266 --> 00:03:34.312
 For this call, replace takes an Int, and gives back an Int.
 
 66
-00:03:33.979 --> 00:03:36.448
+00:03:34.312 --> 00:03:36.781
 Fuji is a String, so it doesn't fit.
 
 67
-00:03:36.600 --> 00:03:39.797
+00:03:37.000 --> 00:03:40.197
 The compiler agrees: argument type mismatch.
 
 68
-00:03:39.797 --> 00:03:42.993
+00:03:40.197 --> 00:03:43.393
 Actual type is String, but Int was expected.
 
 69
-00:03:42.993 --> 00:03:48.951
+00:03:43.393 --> 00:03:49.351
 The same call on variety is fine, and the demo prints: variety was Gala, now Fuji.
 
 70
-00:03:49.867 --> 00:03:54.526
+00:03:50.267 --> 00:03:54.926
 So one class gives you many types: Box&lt;String&gt;, Box&lt;Int&gt;, Box&lt;Apple&gt;.
 
 71
-00:03:54.526 --> 00:03:58.307
+00:03:54.926 --> 00:03:58.707
 To the compiler, they're as different as String and Int.
 
 72
-00:03:58.467 --> 00:04:00.649
+00:03:58.933 --> 00:04:01.116
 Functions can have a blank too.
 
 73
-00:04:00.649 --> 00:04:03.325
+00:04:01.116 --> 00:04:03.791
 In Kotlin, the T goes right after fun.
 
 74
-00:04:03.325 --> 00:04:05.578
+00:04:03.791 --> 00:04:06.045
 In Java, before the return type.
 
 75
-00:04:05.578 --> 00:04:09.591
+00:04:06.045 --> 00:04:10.058
 A list of apples goes in, and an apple or null comes out.
 
 76
-00:04:09.591 --> 00:04:10.788
+00:04:10.058 --> 00:04:11.255
 No cast anywhere.
 
 77
-00:04:11.667 --> 00:04:12.532
+00:04:12.167 --> 00:04:13.032
 Now the names.
 
 78
-00:04:12.532 --> 00:04:15.806
+00:04:13.032 --> 00:04:16.306
 T is called a type parameter: the blank on the label.
 
 79
-00:04:15.806 --> 00:04:19.512
+00:04:16.306 --> 00:04:20.012
 The real type you write in, like String, is a type argument.
 
 80
-00:04:19.512 --> 00:04:25.752
+00:04:20.012 --> 00:04:26.252
 A class or function with a blank is generic, and that's where this track's name comes from: generics.
 
 81
-00:04:26.667 --> 00:04:30.119
+00:04:27.167 --> 00:04:30.619
 The picture breaks in one place, and it matters later.
 
 82
-00:04:30.119 --> 00:04:32.037
+00:04:30.619 --> 00:04:32.537
 A real label stays on the box.
 
 83
-00:04:32.037 --> 00:04:35.425
+00:04:32.537 --> 00:04:35.925
 The compiler checks the label, and then tears it off.
 
 84
-00:04:35.425 --> 00:04:41.307
+00:04:35.925 --> 00:04:41.807
 When the program runs, on the JVM, there is only one Box class, and the String part is gone.
 
 85
-00:04:41.467 --> 00:04:47.952
+00:04:42.033 --> 00:04:48.519
 So our clerk is strict at the door, with one odd habit: every label goes in the bin before the shop opens.
 
 86
-00:04:47.952 --> 00:04:51.379
+00:04:48.519 --> 00:04:51.945
 That's fine, because by then every box has been checked.
 
 87
-00:04:52.267 --> 00:04:53.083
+00:04:52.867 --> 00:04:53.683
 Three rules.
 
 88
-00:04:53.083 --> 00:04:58.183
+00:04:53.683 --> 00:04:58.783
 One: a cast like as String, on a value from Any, marks a box with no label.
 
 89
-00:04:58.183 --> 00:05:01.447
+00:04:58.783 --> 00:05:02.047
 Two: don't widen a type to Any to feel flexible.
 
 90
-00:05:01.447 --> 00:05:03.556
+00:05:02.047 --> 00:05:04.156
 Here, flexible means unchecked.
 
 91
-00:05:03.556 --> 00:05:08.044
+00:05:04.156 --> 00:05:08.644
 Three: a plain T promises nothing, and the next lesson fixes that.
 
 92
-00:05:08.933 --> 00:05:10.815
+00:05:09.567 --> 00:05:11.448
 So, why put a label on the box?
 
 93
-00:05:10.815 --> 00:05:13.971
+00:05:11.448 --> 00:05:14.604
 Because a cast checks at the read, far from the bug.
 
 94
-00:05:13.971 --> 00:05:19.129
+00:05:14.604 --> 00:05:19.763
 A type parameter puts the check at the write, on the very line that made the mistake.
 
 95
-00:05:19.267 --> 00:05:20.087
+00:05:19.967 --> 00:05:20.787
 Quick check.
 
 96
-00:05:20.087 --> 00:05:24.802
+00:05:20.787 --> 00:05:25.502
 Someone writes the line on the screen: a Box&lt;String&gt;, filled with 42.
 
 97
-00:05:24.802 --> 00:05:26.647
+00:05:25.502 --> 00:05:27.347
 Where do you hear about it?
 
 98
-00:05:29.867 --> 00:05:37.595
+00:05:30.533 --> 00:05:38.262
 Right on that line, before the program runs: initializer type mismatch, expected Box&lt;String&gt;, actual Box&lt;Int&gt;.
 
 99
-00:05:37.595 --> 00:05:39.352
+00:05:38.262 --> 00:05:40.019
 The clerk read the label.

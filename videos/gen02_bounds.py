@@ -401,7 +401,8 @@ class Gen02Bounds(Narrated):
 
         clerk = person(CLERK, 1.1).move_to([-4.2, -2.2, 0])
         you = person(BACK, 1.1).move_to([-5.6, -2.2, 0])
-        b1 = paper(["a ripe apple, please"], 20).next_to(you, UP, buff=0.25).shift(LEFT * 0.2)
+        b1 = paper(["a ripe apple, please"], 20).next_to(you, UP, buff=0.25)
+        b1.align_to(you, LEFT).shift(LEFT * 0.3)
         b2 = paper(["the paper bags are", "the wrong shape"], 20).next_to(clerk, RIGHT, buff=0.3).shift(UP * 0.4)
         read = VGroup(T("read it as:", 24, GREY_B), T("this isn't defined for T", 26, YELLOW_M)).arrange(RIGHT, buff=0.2)
         read.move_to([2.6, -2.9, 0])
@@ -431,12 +432,12 @@ class Gen02Bounds(Narrated):
         self.at(1)
         self.play(FadeIn(sb, shift=DOWN * 0.2), run_time=0.6)
         self.at(2)
-        for item in (ham, till):
+        for item, dx in ((ham, -6.1), (till, -4.9)):
             self.play(FadeIn(item), run_time=0.25)
             self.play(item.animate.move_to([-3.0, 0.2, 0]), run_time=0.45)
             x = tick(False, 0.2).next_to(item, UP, buff=0.12)
             self.play(FadeIn(x), Indicate(clerk[0], color=CLERK, scale_factor=1.15), run_time=0.35)
-            self.play(item.animate.move_to([-5.8, -1.1, 0]).scale(0.7), FadeOut(x), run_time=0.45)
+            self.play(item.animate.move_to([dx, -1.1, 0]).scale(0.7), FadeOut(x), run_time=0.45)
         self.at(3)
         for item in (ap, lm):
             self.play(FadeIn(item), run_time=0.2)
@@ -468,28 +469,29 @@ class Gen02Bounds(Narrated):
         self.wipe()
 
         # ================= heavier with T : Fruit =================
-        jc = code_block(["interface Fruit { String name(); int grams(); }",
-                         "record Apple(String name, int grams)", "    implements Fruit {}", "",
-                         "static <T extends Fruit> T heavier(T a, T b) {",
-                         "    return a.grams() >= b.grams() ? a : b;", "}"], 22)
-        kc = code_block(["interface Fruit { val name: String; val grams: Int }",
-                         "data class Apple(override val name: String,", "    override val grams: Int) : Fruit", "",
+        jc = code_block(["interface Fruit {", "    String name(); int grams();", "}",
+                         "record Apple(String name, int grams)", "    implements Fruit {}",
+                         "static <T extends Fruit>", "T heavier(T a, T b) {",
+                         "    return a.grams() >= b.grams()", "        ? a : b;", "}"], 22)
+        kc = code_block(["interface Fruit {", "    val name: String; val grams: Int", "}",
+                         "data class Apple(", "    override val name: String,", "    override val grams: Int) : Fruit",
                          "fun <T : Fruit> heavier(a: T, b: T): T =",
                          "    if (a.grams >= b.grams) a else b"], 22)
         fit(jc, 6.1)
         fit(kc, 6.1)
-        jg = titled(jc, "Java").move_to([-3.3, 1.3, 0])
-        kg = titled(kc, "Kotlin").move_to([3.3, 1.3, 0]).align_to(jg, UP)
+        jg = titled(jc, "Java").move_to([-3.3, 1.0, 0])
+        jg.align_to(UP * 3.3, UP)
+        kg = titled(kc, "Kotlin").move_to([3.3, 1.0, 0]).align_to(jg, UP)
         self.say("code")
         self.play(FadeIn(jg, shift=UP * 0.1), FadeIn(kg, shift=UP * 0.1), run_time=0.9)
         self.at(1)
-        self.play(Indicate(jc[0], color=WHITE, scale_factor=1.03), Indicate(kc[0], color=WHITE, scale_factor=1.03), run_time=0.8)
+        self.play(Indicate(jc[0:3], color=WHITE, scale_factor=1.03), Indicate(kc[0:3], color=WHITE, scale_factor=1.03), run_time=0.8)
         self.at(2)
-        self.play(Indicate(VGroup(jc[1], jc[2]), color=APPLE, scale_factor=1.03), Indicate(VGroup(kc[1], kc[2]), color=APPLE, scale_factor=1.03), run_time=0.8)
+        self.play(Indicate(jc[3:5], color=APPLE, scale_factor=1.03), Indicate(kc[3:6], color=APPLE, scale_factor=1.03), run_time=0.8)
         self.at(3)
-        self.play(part(jc[4], "<T extends Fruit>").animate.set_color(OK), part(kc[4], "<T : Fruit>").animate.set_color(OK), run_time=0.6)
+        self.play(part(jc[5], "<T extends Fruit>").animate.set_color(OK), part(kc[6], "<T : Fruit>").animate.set_color(OK), run_time=0.6)
         self.at(4)
-        self.play(part(jc[5], "a.grams()").animate.set_color(YELLOW_M), part(kc[5], "a.grams").animate.set_color(YELLOW_M), run_time=0.6)
+        self.play(part(jc[7], "a.grams()").animate.set_color(YELLOW_M), part(kc[7], "a.grams").animate.set_color(YELLOW_M), run_time=0.6)
         self.hold()
 
         out = term(["Apple(name=Gala, grams=180)"], 22, "MaxDemo, real output")
@@ -499,7 +501,7 @@ class Gen02Bounds(Narrated):
         row1 = VGroup(call, out).arrange(RIGHT, buff=0.5)
         row2 = VGroup(call2, er).arrange(RIGHT, buff=0.4)
         rr = VGroup(row1, row2).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
-        fit(rr, 12.6).move_to([0, -2.3, 0])
+        fit(rr, 12.6).move_to([0, -2.65, 0])
         self.say("run")
         self.play(FadeIn(call, shift=UP * 0.1), run_time=0.6)
         self.at(1)
@@ -546,9 +548,9 @@ class Gen02Bounds(Narrated):
         self.wipe()
 
         # ================= T : Comparable<T> =================
-        jm = code_block(["static <T extends Comparable<T>> T maxOf2(T a, T b) {",
+        jm = code_block(["static <T extends Comparable<T>>", "T maxOf2(T a, T b) {",
                          "    return a.compareTo(b) >= 0 ? a : b;", "}"], 22)
-        km = code_block(["fun <T : Comparable<T>> maxOf2(a: T, b: T): T =",
+        km = code_block(["fun <T : Comparable<T>>", "maxOf2(a: T, b: T): T =",
                          "    if (a > b) a else b"], 22)
         fit(jm, 6.1)
         fit(km, 6.1)
@@ -563,13 +565,14 @@ class Gen02Bounds(Narrated):
         self.at(2)
         self.play(FadeIn(aloud, shift=UP * 0.1), run_time=0.6)
         self.at(3)
-        self.play(Indicate(part(km[1], "a > b"), color=YELLOW_M, scale_factor=1.3), Indicate(part(jm[1], "a.compareTo(b)"), color=YELLOW_M, scale_factor=1.1), run_time=0.9)
+        self.play(Indicate(part(km[2], "a > b"), color=YELLOW_M, scale_factor=1.3), Indicate(part(jm[2], "a.compareTo(b)"), color=YELLOW_M, scale_factor=1.1), run_time=0.9)
         self.hold()
 
         r1 = VGroup(M("maxOf2(180, 150)", 24, WHITE), M("180", 24, NUM)).arrange(RIGHT, buff=0.5)
         r2 = VGroup(M('maxOf2("Gala", "Fuji")', 24, WHITE), M("Gala", 24, APPLE)).arrange(RIGHT, buff=0.5)
         rs = VGroup(r1, r2).arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to([-2.2, -1.2, 0])
-        r2[1].align_to(r1[1], LEFT)
+        r1[1].next_to(r2[0], RIGHT, buff=0.5).match_y(r1[0])
+        r2[1].next_to(r2[0], RIGHT, buff=0.5)
         rl = T("MaxDemo, real output", 20, GREY_B).next_to(rs, RIGHT, buff=0.6)
         self.say("cmp2")
         self.play(FadeIn(r1, shift=UP * 0.1), FadeIn(rl), run_time=0.6)
@@ -633,7 +636,7 @@ class Gen02Bounds(Narrated):
         sb = sign_board("fruit only", OK, 26).next_to(big, UP, buff=0.25)
         eyes = VGroup(T("a person looks at the item", 24, GREY_A)).move_to([-3.8, 2.3, 0])
         decl = VGroup(T("the compiler reads", 24, GREY_A), T("only what the type declares", 24, CLERK)).arrange(DOWN, buff=0.08).move_to([0.6, 2.4, 0])
-        imp = paper(["has grams = 900", "but never says", "it's a Fruit"], 20).move_to([-4.2, 0.1, 0])
+        imp = paper(["has grams,", "but never says", "it's a Fruit"], 20).move_to([-4.2, 0.1, 0])
         self.say("breaks")
         self.play(Create(floor), Create(dr), FadeIn(clerk), FadeIn(big), FadeIn(sb), run_time=0.8)
         self.at(1)
@@ -642,7 +645,7 @@ class Gen02Bounds(Narrated):
         self.play(FadeIn(decl), run_time=0.5)
         self.at(3)
         self.play(FadeIn(imp, shift=RIGHT * 0.2), run_time=0.5)
-        self.play(imp.animate.move_to([-2.1, 0.1, 0]), run_time=0.6)
+        self.play(imp.animate.move_to([-2.7, 0.1, 0]), run_time=0.6)
         x = tick(False, 0.22).next_to(imp, UP, buff=0.12)
         self.play(FadeIn(x), Indicate(clerk[0], color=CLERK, scale_factor=1.2), run_time=0.5)
         self.play(imp.animate.move_to([-4.6, 0.1, 0]), FadeOut(x), run_time=0.6)

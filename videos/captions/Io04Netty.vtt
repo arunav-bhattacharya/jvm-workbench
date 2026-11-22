@@ -1,161 +1,317 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:09.699
-A card terminal sends payment messages over TCP: a 4-byte length, a type byte, and a body.
+00:00:02.700 --> 00:00:04.290
+Back to the sorting line.
 
 2
-00:00:09.699 --> 00:00:13.743
-But TCP delivers bytes, cut into chunks of any size.
+00:00:04.290 --> 00:00:07.215
+This morning, letters don't arrive as letters.
 
 3
-00:00:13.867 --> 00:00:19.734
-Netty's decoder keeps every byte so far in one buffer, and runs decode on each chunk.
+00:00:07.215 --> 00:00:12.875
+They arrive as a stream of pages, and the pages of one letter run straight into the next.
 
 4
-00:00:19.734 --> 00:00:21.598
-The first chunk is 3 bytes.
+00:00:13.100 --> 00:00:15.891
+Here's a question that's easy to be shy about.
 
 5
-00:00:21.598 --> 00:00:22.633
-What can it do?
+00:00:15.891 --> 00:00:21.412
+If the client sends one message, with one write, why doesn't the server get it in one read?
 
 6
-00:00:24.800 --> 00:00:25.426
-Nothing.
+00:00:24.900 --> 00:00:30.795
+Because TCP, the network's way of delivering bytes in order, delivers a stream, not messages.
 
 7
-00:00:25.426 --> 00:00:27.850
-3 bytes aren't even the length.
+00:00:30.795 --> 00:00:35.422
+A read hands you whatever has arrived: half a message, or one and a half.
 
 8
-00:00:27.850 --> 00:00:29.492
-It returns and waits.
+00:00:35.422 --> 00:00:38.275
+The cuts fall wherever the network made them.
 
 9
-00:00:29.600 --> 00:00:31.177
-The next chunk brings 10.
+00:00:39.200 --> 00:00:43.062
+So the first station needs a way to tell where one letter ends.
 
 10
-00:00:31.177 --> 00:00:35.150
-decode peeks at the length, 5, without moving the reader index.
+00:00:43.062 --> 00:00:48.579
+The post office has a trick for that: write the page count on the front of every envelope.
 
 11
-00:00:35.150 --> 00:00:41.268
-9 bytes are there, so it skips the length and passes the frame on, as a slice of the same memory.
+00:00:49.500 --> 00:00:50.899
+That's our letter link.
 
 12
-00:00:41.400 --> 00:00:43.977
-The rest says 3, but there's no body yet.
+00:00:50.899 --> 00:00:53.879
+Each letter has a type number and a body of text.
 
 13
-00:00:43.977 --> 00:00:47.749
-So it returns again, and the last chunk completes the frame.
+00:00:53.879 --> 00:00:59.534
+On the wire it goes behind its length: four bytes of length, one byte of type, then the body.
 
 14
-00:00:48.533 --> 00:00:50.278
-Replies go the other way.
+00:00:59.534 --> 00:01:03.244
+And the length counts the type byte and the body, not itself.
 
 15
-00:00:50.278 --> 00:00:51.883
-ctx.write never blocks.
+00:01:03.467 --> 00:01:06.634
+The lesson's CodecDemo encodes two letters.
 
 16
-00:00:51.883 --> 00:00:59.071
-Netty queues the bytes in your own memory, and the socket drains them only as fast as the client reads.
+00:01:06.634 --> 00:01:10.906
+note-1, type 1, has six bytes of body, so its length is 7.
 
 17
-00:00:59.200 --> 00:01:01.820
-This client sends fast and reads slowly.
+00:01:10.906 --> 00:01:13.558
+parcel-1, type 7, has a length of 9.
 
 18
-00:01:01.820 --> 00:01:03.523
-What happens to the queue?
+00:01:13.558 --> 00:01:16.357
+Together, that's 24 bytes on the wire.
 
 19
-00:01:05.700 --> 00:01:09.875
-It keeps growing: past a megabyte in the lesson's demo.
+00:01:16.567 --> 00:01:18.226
+Now let's name the parts.
 
 20
-00:01:09.875 --> 00:01:13.974
-So Netty marks two levels, 64 KiB high and 32 KiB low.
+00:01:18.226 --> 00:01:20.881
+One whole letter on the wire is a frame.
 
 21
-00:01:13.974 --> 00:01:17.389
-Past the high mark, isWritable() turns false.
+00:01:20.881 --> 00:01:23.934
+Finding where frames begin and end is framing.
 
 22
-00:01:17.500 --> 00:01:20.344
-Netty still takes your writes, so you act.
+00:01:23.934 --> 00:01:32.828
+A station that turns bytes into messages is a decoder, one that turns messages back into bytes is an encoder, and the pair is a codec.
 
 23
-00:01:20.344 --> 00:01:25.219
-setAutoRead(false) stops reading from the client, and TCP slows it down.
+00:01:33.733 --> 00:01:36.971
+In Netty, a decoder extends ByteToMessageDecoder.
 
 24
-00:01:25.219 --> 00:01:27.589
-Below the low mark, you read again.
+00:01:36.971 --> 00:01:44.571
+It keeps every byte that has arrived so far on one pile, and calls your decode method each time more bytes come in.
 
 25
-00:01:28.367 --> 00:01:29.901
-Last, the memory itself.
+00:01:44.571 --> 00:01:49.263
+Your job: take whole frames off the pile, and leave the rest for later.
 
 26
-00:01:29.901 --> 00:01:34.439
-Each ByteBuf comes from a pool of direct memory, and counts its owners.
+00:01:49.467 --> 00:01:52.200
+Read it as the clerk at the first station.
 
 27
-00:01:34.439 --> 00:01:39.106
-It starts at 1, release takes one off, and at 0 it goes back to the pool.
+00:01:52.200 --> 00:01:53.632
+Fewer than four bytes?
 
 28
-00:01:39.106 --> 00:01:41.471
-The last one to touch it releases it.
+00:01:53.632 --> 00:01:56.496
+The page count isn't even here yet, so wait.
 
 29
-00:01:41.600 --> 00:01:47.964
-This audit handler copies the message and passes the copy on, but never releases the original.
+00:01:56.496 --> 00:01:59.295
+Then peek at the length, without taking it.
 
 30
-00:01:47.964 --> 00:01:49.251
-What happens to it?
+00:01:59.295 --> 00:02:00.792
+Is the whole body here?
 
 31
-00:01:51.433 --> 00:01:54.123
-Its count stays at 1, and nothing throws.
+00:02:00.792 --> 00:02:02.028
+If not, wait again.
 
 32
-00:01:54.123 --> 00:01:58.978
-Every message leaks one more, until the service runs out of direct memory.
+00:02:02.028 --> 00:02:06.324
+Only then skip the four length bytes, and hand on one whole frame.
 
 33
-00:01:58.978 --> 00:02:01.864
-PARANOID leak detection in tests reports it.
+00:02:07.233 --> 00:02:14.638
+Now the demo feeds those 24 bytes to the server in awkward slices, cut after byte 3, byte 9 and byte 14.
 
 34
-00:02:02.733 --> 00:02:06.601
-The same three rules in code, Java first, then Kotlin.
+00:02:14.638 --> 00:02:21.047
+The last station stamps each letter: it sends it back in capitals, with the type plus one.
 
 35
-00:02:09.600 --> 00:02:12.157
-So frame the bytes before you decode them.
+00:02:21.047 --> 00:02:22.827
+Which slices get a reply?
 
 36
-00:02:12.157 --> 00:02:14.226
-Stop reading when you can't write.
+00:02:26.000 --> 00:02:27.552
+Bytes 0 to 3: nothing.
 
 37
-00:02:14.226 --> 00:02:17.513
-And give every buffer one last owner, who releases it.
+00:02:27.552 --> 00:02:32.136
+That's three quarters of a page count, which isn't much to go on.
 
 38
-00:02:17.633 --> 00:02:18.507
-Quick check.
+00:02:32.367 --> 00:02:34.348
+Bytes 3 to 9: nothing again.
 
 39
-00:02:18.507 --> 00:02:23.310
-A frame's length field says 7, and it arrives as 2, 4 and 6 bytes.
+00:02:34.348 --> 00:02:38.097
+The length says 7, and only part of the body is here.
 
 40
-00:02:23.310 --> 00:02:26.293
-After which chunk does decode pass it on?
+00:02:38.300 --> 00:02:43.226
+Bytes 9 to 14 complete the first letter, and start the second.
+
+41
+00:02:43.226 --> 00:02:45.212
+Out comes NOTE-1, type 2.
+
+42
+00:02:45.212 --> 00:02:49.264
+And 14 to 24 complete the second: PARCEL-1, type 8.
+
+43
+00:02:49.467 --> 00:02:51.695
+Here the post office picture breaks.
+
+44
+00:02:51.695 --> 00:02:54.790
+A real envelope arrives whole, page count and all.
+
+45
+00:02:54.790 --> 00:02:59.743
+On the wire, even the four-byte length can arrive in two pieces, as it just did.
+
+46
+00:02:59.743 --> 00:03:01.909
+That's what the first check is for.
+
+47
+00:03:02.833 --> 00:03:04.939
+One more job for the first station.
+
+48
+00:03:04.939 --> 00:03:08.007
+What if an envelope claims to hold a million pages?
+
+49
+00:03:08.007 --> 00:03:10.533
+Or a client sends a length of two billion?
+
+50
+00:03:10.767 --> 00:03:17.893
+A decoder without a limit would sit on two gigabytes of bytes, waiting patiently for the rest.
+
+51
+00:03:17.893 --> 00:03:20.698
+So we set a maximum, here 1024 bytes.
+
+52
+00:03:20.698 --> 00:03:26.536
+In the demo, a length of 5,000 is turned away at once: TooLongFrameException.
+
+53
+00:03:26.536 --> 00:03:29.644
+Adjusted frame length exceeds 1024: 5004.
+
+54
+00:03:29.644 --> 00:03:34.117
+That's the 5,000, plus the four bytes of the length itself.
+
+55
+00:03:34.333 --> 00:03:37.943
+A length you didn't limit is memory a stranger can claim.
+
+56
+00:03:37.943 --> 00:03:41.173
+The first station is polite, but it isn't gullible.
+
+57
+00:03:42.100 --> 00:03:45.427
+And you don't have to write this station yourself.
+
+58
+00:03:45.427 --> 00:03:49.818
+LengthFieldBasedFrameDecoder does the same job, with five numbers.
+
+59
+00:03:49.818 --> 00:03:51.748
+Frames of at most 1024 bytes.
+
+60
+00:03:51.748 --> 00:03:55.541
+The length field starts at byte 0, and it's 4 bytes long.
+
+61
+00:03:55.541 --> 00:03:56.472
+No adjustment.
+
+62
+00:03:56.472 --> 00:03:59.932
+And strip those 4 bytes before passing the frame on.
+
+63
+00:04:00.133 --> 00:04:04.933
+So the next station sees just the type and the body, and turns them into a Letter.
+
+64
+00:04:04.933 --> 00:04:08.211
+On the way out, an encoder writes the three fields back.
+
+65
+00:04:09.133 --> 00:04:12.683
+If you do write your own, four rules from the Javadoc.
+
+66
+00:04:12.683 --> 00:04:16.561
+Return without taking anything when a frame isn't complete.
+
+67
+00:04:16.561 --> 00:04:20.899
+Read from readerIndex, where the unread bytes start, never from 0.
+
+68
+00:04:20.899 --> 00:04:25.040
+Hand frames on as slices, views of the same memory, not copies.
+
+69
+00:04:25.040 --> 00:04:29.839
+And never mark the decoder @Sharable: it keeps a pile for one connection.
+
+70
+00:04:30.767 --> 00:04:37.280
+Here's the server's line in code, in Java and in Kotlin: frame first, then decode, then the stamp.
+
+71
+00:04:38.200 --> 00:04:41.112
+So why doesn't one write arrive as one read?
+
+72
+00:04:41.112 --> 00:04:43.560
+Because TCP moves pages, not letters.
+
+73
+00:04:43.560 --> 00:04:50.508
+Frame before you decode: put the length on the envelope, wait for whole frames, and always set a maximum.
+
+74
+00:04:51.133 --> 00:04:52.057
+Quick check.
+
+75
+00:04:52.057 --> 00:04:54.676
+Move the cut at byte 9 to byte 11.
+
+76
+00:04:54.676 --> 00:04:57.063
+Which slice now answers NOTE-1?
+
+77
+00:05:00.233 --> 00:05:01.367
+Bytes 3 to 11.
+
+78
+00:05:01.367 --> 00:05:07.113
+The first letter is 11 bytes long, so that slice ends on its last byte.
+
+79
+00:05:07.113 --> 00:05:09.299
+Then 11 to 14 gets nothing.

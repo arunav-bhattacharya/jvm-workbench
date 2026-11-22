@@ -1,109 +1,313 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.316
-Netty is the select loop from the last lesson, written well.
+00:00:02.700 --> 00:00:06.673
+Our post office has outgrown its one clerk, so it hires a team.
 
 2
-00:00:06.316 --> 00:00:11.801
-An event loop is one thread that runs a selector over many channels, plus a queue of tasks.
+00:00:06.673 --> 00:00:10.078
+Each clerk keeps a row of boxes in the wall, for good.
 
 3
-00:00:12.033 --> 00:00:15.709
-Each new connection is registered with one loop for life.
+00:00:10.078 --> 00:00:14.240
+And every letter from those boxes passes along a line of stations.
 
 4
-00:00:15.709 --> 00:00:22.351
-So all of a channel's events run on that one thread, one after another, and handlers rarely need locks.
+00:00:14.467 --> 00:00:17.284
+The counter in this lesson is the price desk.
 
 5
-00:00:23.867 --> 00:00:30.401
-Every channel also has a pipeline: a list of handlers between a head, next to the socket, and a tail.
+00:00:17.284 --> 00:00:23.608
+A customer sends a line describing a letter or a parcel, and the desk answers with a line of its own.
 
 6
-00:00:30.633 --> 00:00:34.075
-Inbound events start at the head and move toward the tail.
+00:00:23.608 --> 00:00:27.991
+Our demo desk is simpler still: it shouts every line back in capitals.
 
 7
-00:00:34.300 --> 00:00:36.427
-The first read brings three bytes.
+00:00:28.900 --> 00:00:31.749
+Here's a question that's easy to be shy about.
 
 8
-00:00:36.427 --> 00:00:40.244
-The frame decoder keeps them, because the line has not ended.
+00:00:31.749 --> 00:00:36.086
+In Netty, you build that line with addLast, one handler after another.
 
 9
-00:00:40.467 --> 00:00:44.558
-The next read brings the end of the line and the start of another.
+00:00:36.086 --> 00:00:38.130
+So is that the order they run in?
 
 10
-00:00:44.558 --> 00:00:48.587
-Now the decoder passes on one ByteBuf, hello, and keeps the rest.
+00:00:38.130 --> 00:00:41.599
+And why does a reply sometimes skip a handler you added?
 
 11
-00:00:48.800 --> 00:00:51.438
-The string decoder turns it into a String.
+00:00:45.067 --> 00:00:49.332
+Let's map the line onto Netty, a Java library for network servers.
 
 12
-00:00:51.438 --> 00:00:54.829
-The read skips the encoder, which only handles writes.
+00:00:49.332 --> 00:00:54.632
+Each connection is a channel, and each channel has a pipeline: a line of handlers.
 
 13
-00:00:54.829 --> 00:00:56.713
-Your handler sees whole lines.
+00:00:54.632 --> 00:01:00.255
+A handler is one station, a small object that reacts to what happens on the connection.
 
 14
-00:00:56.933 --> 00:00:58.570
-Writes go the other way.
+00:01:00.467 --> 00:01:01.936
+The line has two ends.
 
 15
-00:00:58.570 --> 00:01:03.752
-Your handler calls ctx.writeAndFlush, and the message moves toward the head.
+00:01:01.936 --> 00:01:05.542
+The head sits next to the socket, the box in the wall.
 
 16
-00:01:03.967 --> 00:01:09.093
-The string encoder turns the String back into bytes, and the head hands them to the socket.
+00:01:05.542 --> 00:01:07.145
+The tail is the far end.
 
 17
-00:01:09.300 --> 00:01:14.299
-So reads see the handlers in the order you added them, and writes see them in reverse.
+00:01:07.145 --> 00:01:13.891
+And each handler gets a ctx, its own place on the line, with ways to pass things to the next station.
 
 18
-00:01:15.200 --> 00:01:18.956
-One thread runs every handler of every channel on its loop.
+00:01:14.100 --> 00:01:15.823
+Our desk has four stations.
 
 19
-00:01:18.956 --> 00:01:20.739
-So never block in a handler.
+00:01:15.823 --> 00:01:19.907
+LineBasedFrameDecoder cuts the stream of bytes into whole lines.
 
 20
-00:01:21.467 --> 00:01:27.896
-Client A asks for SLOW, and the handler sleeps for one second, standing in for a JDBC call.
+00:01:19.907 --> 00:01:24.119
+StringDecoder reads the handwriting: it turns bytes into a String.
 
 21
-00:01:27.896 --> 00:01:31.357
-Client B asks for FAST, fifty milliseconds later.
+00:01:24.119 --> 00:01:26.607
+The business handler writes the answer.
 
 22
-00:01:31.567 --> 00:01:37.243
-The loop thread is stuck in A's handler, so it cannot even read B's request.
+00:01:26.607 --> 00:01:31.776
+And StringEncoder is the packing station, which turns the answer back into bytes.
 
 23
-00:01:37.243 --> 00:01:39.857
-B's reply takes 1,011 milliseconds.
+00:01:32.400 --> 00:01:34.665
+Letters coming in are inbound events.
 
 24
-00:01:40.067 --> 00:01:43.427
-The fix is to hand the slow part to your own executor.
+00:01:34.665 --> 00:01:40.359
+They start at the head and travel toward the tail: framing, then decoding, then your handler.
 
 25
-00:01:43.427 --> 00:01:47.845
-The loop thread is free at once, and FAST comes back in 2 milliseconds.
+00:01:40.359 --> 00:01:43.727
+So your handler only ever sees whole lines, as Strings.
 
 26
-00:01:48.767 --> 00:01:53.301
-In code: leave the loop, block in your pool, and write the reply from there.
+00:01:43.933 --> 00:01:45.223
+Replies are outbound.
 
 27
-00:01:53.301 --> 00:01:59.148
-Netty sees the write is not on the loop thread, and queues it as a task on the channel's own loop.
+00:01:45.223 --> 00:01:49.337
+A write starts where you call it, and travels back toward the head.
+
+28
+00:01:49.337 --> 00:01:54.065
+On the way, it passes the packing station, so it reaches the socket as bytes.
+
+29
+00:01:54.267 --> 00:01:58.570
+So the order of addLast is the order inbound events see the handlers.
+
+30
+00:01:58.570 --> 00:02:00.253
+Writes see them in reverse.
+
+31
+00:02:00.867 --> 00:02:01.862
+Let's watch it.
+
+32
+00:02:01.862 --> 00:02:08.693
+The lesson's PipelineDemo puts taps between the stations, small handlers that print whatever passes by.
+
+33
+00:02:08.693 --> 00:02:12.541
+Then it feeds in two lines, cut into three awkward pieces.
+
+34
+00:02:12.541 --> 00:02:14.995
+What comes out after the first piece?
+
+35
+00:02:18.167 --> 00:02:19.104
+Nothing at all.
+
+36
+00:02:19.104 --> 00:02:23.919
+The framing station kept the three bytes, and waited for the end of the line.
+
+37
+00:02:24.133 --> 00:02:26.118
+The second piece finishes hello.
+
+38
+00:02:26.118 --> 00:02:29.964
+The tap after framing sees a ByteBuf, Netty's buffer of bytes.
+
+39
+00:02:29.964 --> 00:02:32.135
+The business handler sees a String.
+
+40
+00:02:32.135 --> 00:02:36.043
+And HELLO, with its newline, goes out to the wire as a ByteBuf.
+
+41
+00:02:36.043 --> 00:02:38.524
+The third piece does the same for world.
+
+42
+00:02:38.733 --> 00:02:42.443
+The framing station also has a limit: 64 bytes a line.
+
+43
+00:02:42.443 --> 00:02:46.771
+Picture a customer who talks and talks, and never says newline.
+
+44
+00:02:46.771 --> 00:02:50.550
+Without a limit, the station keeps those bytes forever.
+
+45
+00:02:50.550 --> 00:02:55.153
+With it, a 100-byte line fails at once, with TooLongFrameException.
+
+46
+00:02:55.153 --> 00:02:58.244
+Some customers simply need to be interrupted.
+
+47
+00:02:58.867 --> 00:03:03.163
+Now let's test the easy model, that handlers just run in addLast order.
+
+48
+00:03:03.163 --> 00:03:06.673
+Move the outbound tap so it comes right after the encoder.
+
+49
+00:03:06.673 --> 00:03:10.728
+If that model were right, the tap would still print the same thing.
+
+50
+00:03:10.728 --> 00:03:12.120
+What does it print now?
+
+51
+00:03:15.300 --> 00:03:16.152
+String, HELLO.
+
+52
+00:03:16.152 --> 00:03:23.458
+The write leaves the business handler and travels toward the head, so now it reaches the tap before the packing station.
+
+53
+00:03:23.458 --> 00:03:26.563
+A handler's place on the line decides what it sees.
+
+54
+00:03:27.167 --> 00:03:31.200
+One more detail decides which stations a write passes.
+
+55
+00:03:31.200 --> 00:03:37.100
+ctx.writeAndFlush starts at the current handler, and skips everything after it.
+
+56
+00:03:37.100 --> 00:03:43.224
+ctx.channel().writeAndFlush starts at the tail, and passes every outbound station.
+
+57
+00:03:43.224 --> 00:03:48.079
+Inside a handler, use ctx, unless you really want the whole line.
+
+58
+00:03:49.000 --> 00:03:51.290
+Here the post office picture breaks.
+
+59
+00:03:51.290 --> 00:03:56.250
+On a real sorting line, every station has its own worker, all working at once.
+
+60
+00:03:56.250 --> 00:04:03.055
+In Netty, one clerk carries each letter through every station, start to finish, before picking up the next.
+
+61
+00:04:03.055 --> 00:04:04.391
+One clerk, four hats.
+
+62
+00:04:04.391 --> 00:04:10.751
+So one slow station holds up the whole row of boxes, and that's the golden rule of the next section.
+
+63
+00:04:11.667 --> 00:04:14.663
+And notice, PipelineDemo has no socket at all.
+
+64
+00:04:14.663 --> 00:04:18.441
+It runs on an EmbeddedChannel, a channel you feed by hand.
+
+65
+00:04:18.441 --> 00:04:25.281
+writeInbound pushes bytes in at the head, and readOutbound collects what reaches the head on the way out.
+
+66
+00:04:25.281 --> 00:04:27.821
+It's the fastest way to test a station.
+
+67
+00:04:28.733 --> 00:04:36.399
+Here's the desk's line in code, in Java and in Kotlin: two decoders, the encoder, and the desk, in addLast order.
+
+68
+00:04:37.300 --> 00:04:39.549
+So, do handlers run in addLast order?
+
+69
+00:04:39.549 --> 00:04:41.495
+Inbound, yes: from head to tail.
+
+70
+00:04:41.495 --> 00:04:45.568
+Writes go the other way, from where you start them toward the head.
+
+71
+00:04:45.568 --> 00:04:49.337
+Picture the line, and you can predict what every station sees.
+
+72
+00:04:49.567 --> 00:04:50.381
+Quick check.
+
+73
+00:04:50.381 --> 00:04:55.197
+You add a logging station at the very end, after your business handler.
+
+74
+00:04:55.197 --> 00:04:58.724
+The business handler replies with ctx.writeAndFlush.
+
+75
+00:04:58.724 --> 00:05:01.369
+Does the logging station see the reply?
+
+76
+00:05:04.567 --> 00:05:04.743
+No.
+
+77
+00:05:04.743 --> 00:05:11.043
+That write starts at the business handler and travels toward the head, so a station after it never sees it.
+
+78
+00:05:11.043 --> 00:05:14.635
+Put the logger nearer the head, or write through the channel.

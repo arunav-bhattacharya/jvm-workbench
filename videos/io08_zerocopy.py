@@ -18,9 +18,9 @@ N = {
             "back. The dock hands it straight to the van.",
     "shyq": "Here's a question that's easy to be shy about. Sending a file over the network is just read, then "
             "write, in a loop. We've all written it that way. So what could be wasteful about it?",
-    "setup": "Let's look at what that loop really does. A socket is a program's end of a network connection. The "
-             "kernel, the core of the operating system, keeps recently used file pages in memory, in its page "
-             "cache. Those are our packed sacks.",
+    "setup": "Let's look inside that loop. A socket is a program's end of a network connection. The kernel, the "
+            "core of the operating system, keeps recently used file pages in memory, in its page cache: our "
+            "packed sacks.",
     "copy1": "Your loop calls read. That's a system call: a switch from your program into the kernel and back. The "
              "kernel copies a chunk of the file up into your buffer. Copy one.",
     "copy2": "Then you call write. Another system call, and the kernel copies the same bytes back down, into the "
@@ -36,40 +36,38 @@ N = {
             "memory.",
     "map": "Let's map it. The page cache is the stack of packed sacks. The socket's send buffer is the van. Your "
            "program is the counter, and with zero-copy, the sack never comes to the counter at all.",
-    "pq": "The lesson's ZeroCopyDemo sends a 64 MiB file both ways, and strace, a Linux tool that lists every "
-          "system call, counted them. How many calls for each? Make a guess.",
+    "pq": "The lesson's ZeroCopyDemo sent a 64 MiB file both ways, and strace, a Linux tool that lists system "
+          "calls, counted them. How many for each? Make a guess.",
     "pa": "transferTo: one sendfile call. The copy: 2,119 reads and 1,037 writes, and the reads include the "
           "receiving side.",
     "bq": "About three thousand calls against one. So zero-copy must be much faster, right?",
     "ba": "Well. The two passes took 78 and 74 milliseconds in one run, and 56 and 38 in the next. Close, and not "
           "the same way round twice.",
-    "bwhy": "Why so close? The file was already in the page cache, and the socket went from the machine to itself, "
-            "so copying 64 MiB is quick. One timing proves nothing either way. The honest measure here is the "
-            "system calls: they count the work that zero-copy removes.",
+    "bwhy": "Why so close? The file was already in memory, and the socket went from the machine to itself, so "
+           "copying was quick. One timing proves nothing either way. The honest measure is the system calls: "
+           "they count the work that zero-copy removes.",
     "loop": "Two guardrails. First, transferTo may move fewer bytes than you asked for. It returns how many it "
             "moved, so call it in a loop, just like a partial write in lesson 2.",
     "cond": "Second, the bytes must leave exactly as they sit in the file. If the JVM encrypts them with TLS, the "
             "encryption behind https, or compresses them, they have to come up into your memory anyway. A sack that "
             "must be opened on the way can't go straight to the van.",
-    "tomcat": "Tomcat, a Java web server, shows the trade-off: for static files over 48 KiB, it uses sendfile and "
-              "skips compression.",
-    "ready": "Zero-copy saves the copies. The next question is how a server learns which sockets are ready at all. "
-             "Everything in this track so far used epoll, Linux's board of lit boxes. You register each socket "
-             "once, and epoll_wait returns only the lit ones. Then your loop makes each read call itself.",
-    "ready2": "That's called readiness. The kernel says: this box has mail, come and get it.",
+    "ready": "Zero-copy saves the copies. Next: how does a server learn which sockets are ready? So far, this "
+            "track used epoll, Linux's board of lit boxes. You register each socket once, and epoll_wait returns "
+            "only the lit ones. Then your loop makes each read call itself.",
+    "ready2": "That's readiness: this box has mail, come and get it.",
     "uring": "io_uring is a newer Linux interface, and it works by completion. Your program and the kernel share "
              "two rings in memory, like a drop box with two trays. You drop requests in one tray: read up to 16 "
              "KiB from this socket. The kernel does the work and puts results in the other tray: done, 4,096 "
              "bytes.",
-    "uring2": "One system call can hand over and collect many jobs, and the kernel, not your thread, moves the "
-              "bytes. On the JVM you reach it through Netty, where it's a full transport since version 4.2.",
+    "uring2": "One system call can carry many jobs, and the kernel, not your thread, moves the bytes. On the JVM, "
+             "you reach it through Netty 4.2.",
     "fq": "So the new drop box must be faster, right? The lesson's TransportsDemo sent 32 MiB over each transport "
           "on this machine. Guess the winner.",
     "fa": "Every transport delivered all 33,554,432 bytes. nio took 137 milliseconds, epoll 35, and io_uring 59.",
-    "fa2": "And not just once. The Kotlin twin measured 40 against 48, and the research runs 86 against 159. The "
-           "gaps moved from run to run, and epoll kept winning.",
-    "joke2": "Newer is a date, not a speed. It tells you when something was made, not how fast it runs on your "
-             "machine. So measure your own workload before you switch. The switch is one factory and one channel "
+    "fa2": "Other runs agreed: the Kotlin twin measured 40 against 48, and the research runs 86 against 159. The "
+          "gaps moved, but epoll kept winning.",
+    "joke2": "Newer is a date, not a speed. So measure your own workload before you "
+             "switch. The switch is one factory and one channel "
              "class, cheap to try and cheap to undo.",
     "code": "Here's the zero-copy loop in Java and in Kotlin. Keep calling transferTo until every byte is sent.",
     "moral": "So, what was wasteful about read and write? Every byte made a round trip through your program. When "
@@ -227,7 +225,7 @@ def ring(m, color=BAD, r=0.55):
     return Circle(radius=r).set_stroke(color, 4).move_to(m)
 
 
-PROG, KERN, SACK, COPY, ZERO, EP, UR = BLUE_M, PURPLE_M, GOLD_M, RED_M, GREEN_M, BLUE_M, TEAL_M
+PROG, KERN, SACK, COPY, ZERO, EPL, URG = BLUE_M, PURPLE_M, GOLD_M, RED_M, GREEN_M, BLUE_M, TEAL_M
 
 
 def sack(color=SACK, s=1.0):
@@ -319,8 +317,8 @@ class Io08ZeroCopy(Narrated):
         # ================= what the loop really does =================
         pz = zone(12.6, 1.9, PROG, "your program").move_to([0, 2.15, 0])
         kz = zone(12.6, 3.6, KERN, "the kernel").move_to([0, -1.55, 0])
-        buf = box("your buffer", PROG, size=24).move_to([-1.0, 2.0, 0])
-        pcache = VGroup(box("page cache", SACK, size=24), T("the file's pages", 20, GREY_A)).arrange(DOWN, buff=0.12).move_to([-4.2, -1.2, 0])
+        buf = box("your buffer", PROG, size=24).move_to([0.0, 2.0, 0])
+        pcache = VGroup(box("page cache", SACK, size=24), T("the file's pages", 20, GREY_A)).arrange(DOWN, buff=0.12).move_to([-3.5, -1.2, 0])
         sbuf = VGroup(box("socket send buffer", ZERO, size=24), T("leaves for the network", 20, GREY_A)).arrange(DOWN, buff=0.12).move_to([2.6, -1.2, 0])
         nic = box("network card", GREY_B, size=22).move_to([5.3, -2.75, 0])
         self.say("setup")
@@ -329,12 +327,12 @@ class Io08ZeroCopy(Narrated):
         self.play(FadeIn(sbuf), run_time=0.5)
         self.at(2)
         self.play(FadeIn(pcache), run_time=0.5)
-        self.at(3)
+        self.at_text("our packed", lead=0.3)
         sk2 = sack(SACK, 0.55).next_to(pcache, LEFT, buff=0.2)
         self.play(FadeIn(sk2), run_time=0.5)
         self.hold()
         up = Arrow(pcache[0].get_top(), buf.get_left() + LEFT * 0.05, buff=0.1, stroke_width=4, color=COPY, max_tip_length_to_length_ratio=0.08)
-        upl = T("read: system call + copy 1", 22, COPY).move_to([-4.0, 0.95, 0])
+        upl = T("read: system call + copy 1", 22, COPY).move_to([-2.75, 0.72, 0], aligned_edge=RIGHT)
         self.say("copy1")
         self.play(FadeIn(buf), run_time=0.4)
         self.at(1)
@@ -343,7 +341,7 @@ class Io08ZeroCopy(Narrated):
         self.play(travel(up, SACK, 1.0), FadeIn(upl), run_time=1.1)
         self.hold()
         dn = Arrow(buf.get_right() + RIGHT * 0.05, sbuf[0].get_top(), buff=0.1, stroke_width=4, color=COPY, max_tip_length_to_length_ratio=0.08)
-        dnl = T("write: system call + copy 2", 22, COPY).move_to([3.4, 0.95, 0])
+        dnl = T("write: system call + copy 2", 22, COPY).move_to([2.2, 0.72, 0], aligned_edge=LEFT)
         out = Arrow(sbuf[0].get_right(), nic.get_top(), buff=0.1, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.15)
         self.say("copy2")
         self.play(GrowArrow(dn), FadeIn(dnl), run_time=0.8)
@@ -357,12 +355,9 @@ class Io08ZeroCopy(Narrated):
         self.play(FadeIn(rd[0]), run_time=0.5)
         self.at(1)
         self.play(FadeIn(rd[1]), run_time=0.5)
-        for _ in range(2):
-            self.play(travel(up, SACK, 0.35), run_time=0.4)
-            self.play(travel(dn, SACK, 0.35), run_time=0.4)
         self.hold()
-        trip = T("a round trip, and the bytes never change", 26, CARD).move_to([4.0, 2.0, 0])
-        fit(trip, 4.4)
+        trip = T("a round trip, and the bytes never change", 24, CARD).move_to([3.9, 2.0, 0])
+        fit(trip, 4.6)
         self.say("joke")
         self.play(travel(up, SACK, 0.6), run_time=0.7)
         self.play(travel(dn, SACK, 0.6), run_time=0.7)
@@ -464,11 +459,6 @@ class Io08ZeroCopy(Narrated):
         self.play(FadeIn(sk3), FadeIn(lk), FadeIn(sl), run_time=0.7)
         self.play(GrowArrow(upp), FadeIn(upt), run_time=0.6)
         self.hold()
-        tc = T("Tomcat: sendfile for static files over 48 KiB, and no compression for them", 24, GREY_A).move_to([0, -2.7, 0])
-        fit(tc, 12.4)
-        self.say("tomcat")
-        self.play(FadeIn(tc), run_time=0.6)
-        self.hold()
         self.clear()
 
         # ================= readiness: the board of lit boxes =================
@@ -476,33 +466,33 @@ class Io08ZeroCopy(Narrated):
         wbs = VGroup(*[wallbox(False) for _ in range(12)]).arrange_in_grid(rows=3, cols=4, buff=(0.15, 0.2)).move_to([-3.6, 0.6, 0])
         board = VGroup(*[b[:2] for b in wbs])
         lights = VGroup(*[b[2] for b in wbs])
-        bt = T("epoll: the board of lit boxes", 26, EP).next_to(board, UP, buff=0.3)
-        th = person(EP, 1.0).move_to([1.2, 0.7, 0])
-        thl = T("your loop's thread", 22, EP).next_to(th, DOWN, buff=0.15)
+        bt = T("epoll: the board of lit boxes", 26, EPL).next_to(board, UP, buff=0.3)
+        th = person(EPL, 1.0).move_to([1.2, 0.7, 0])
+        thl = T("your loop's thread", 22, EPL).next_to(th, DOWN, buff=0.15)
         self.say("ready")
         self.play(FadeIn(board), FadeIn(lights), FadeIn(bt), FadeIn(th), FadeIn(thl), run_time=0.8)
         self.at(3)
         self.play(*[lights[i].animate.set_fill(YELLOW_M, 1).set_stroke(YELLOW_M, 2.5) for i in lit], run_time=0.6)
-        wl = M("epoll_wait -> 3 lit boxes", 22, EP).move_to([1.6, 2.6, 0])
+        wl = M("epoll_wait -> 3 lit boxes", 22, EPL).move_to([1.6, 2.6, 0])
         self.play(FadeIn(wl), run_time=0.4)
         self.at(4)
-        rs = VGroup(*[Arrow(th.get_left(), board[i].get_right(), buff=0.12, stroke_width=2.5, color=EP, max_tip_length_to_length_ratio=0.12) for i in lit])
-        rsl = T("then one read call per lit box", 22, EP).next_to(thl, DOWN, buff=0.2)
+        rs = VGroup(*[Arrow(th.get_left(), board[i].get_right(), buff=0.12, stroke_width=2.5, color=EPL, max_tip_length_to_length_ratio=0.12) for i in lit])
+        rsl = T("then one read call per lit box", 22, EPL).next_to(thl, DOWN, buff=0.2)
         self.play(LaggedStart(*[GrowArrow(a) for a in rs], lag_ratio=0.3), FadeIn(rsl), run_time=1.0)
         self.hold()
-        rn = T("readiness: \"this box has mail, come and get it\"", 28, EP).move_to([0, -2.6, 0])
+        rn = T("readiness: \"this box has mail, come and get it\"", 28, EPL).move_to([0, -2.6, 0])
         self.say("ready2")
         self.play(FadeIn(rn), run_time=0.6)
         self.hold()
         self.clear()
 
         # ================= completion: the drop box with two trays =================
-        sub = ring_buf(UR, "requests tray: submission ring").move_to([-3.4, 0.6, 0])
-        com = ring_buf(UR, "results tray: completion ring").move_to([3.4, 0.6, 0])
+        sub = ring_buf(URG, "requests tray: submission ring").move_to([-3.4, 0.6, 0])
+        com = ring_buf(URG, "results tray: completion ring").move_to([3.4, 0.6, 0])
         kk = box("kernel", KERN, size=24).move_to([0, 0.75, 0])
-        ut = T("io_uring: a drop box with two trays", 28, UR).move_to([0, 2.9, 0])
-        rq = chip("read up to 16 KiB from this socket", UR, 22).move_to([-3.4, -1.8, 0])
-        rr = chip("done, 4,096 bytes", UR, 22).move_to([3.4, -1.8, 0])
+        ut = T("io_uring: a drop box with two trays", 28, URG).move_to([0, 2.9, 0])
+        rq = chip("read up to 16 KiB from this socket", URG, 22).move_to([-3.4, -1.8, 0])
+        rr = chip("done, 4,096 bytes", URG, 22).move_to([3.4, -1.8, 0])
         a1 = Arrow(sub[0].get_right(), kk.get_left(), buff=0.15, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.15)
         a2 = Arrow(kk.get_right(), com[0].get_left(), buff=0.15, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.15)
         self.say("uring")
@@ -511,10 +501,10 @@ class Io08ZeroCopy(Narrated):
         self.play(FadeIn(sub), FadeIn(com), FadeIn(kk), GrowArrow(a1), GrowArrow(a2), run_time=0.9)
         self.at(2)
         self.play(FadeIn(rq, shift=UP * 0.1), run_time=0.5)
-        self.play(rq.copy().animate.scale(0.3).move_to(sub[0][0]), Indicate(sub[0][0], color=UR), run_time=0.7)
+        self.play(rq.copy().animate.scale(0.3).move_to(sub[0][0]), Indicate(sub[0][0], color=URG), run_time=0.7)
         self.at(3)
         self.play(Indicate(kk, color=KERN), run_time=0.6)
-        self.play(FadeIn(rr, shift=UP * 0.1), Indicate(com[0][0], color=UR), run_time=0.6)
+        self.play(FadeIn(rr, shift=UP * 0.1), Indicate(com[0][0], color=URG), run_time=0.6)
         self.hold()
         u2 = VGroup(T("one system call: many jobs in, many results out", 24, GREY_A),
                     T("on the JVM: through Netty, a full transport since 4.2", 24, GREY_A)).arrange(DOWN, buff=0.15).move_to([0, -3.05, 0])
@@ -529,7 +519,7 @@ class Io08ZeroCopy(Narrated):
         hdr = T("TransportsDemo: 32 MiB over each transport (one run, a busy 4-core machine)", 24, GREY_A).move_to([0, 3.0, 0])
         fit(hdr, 12.4)
         X0, K = -2.2, 7.0 / 137
-        rows = [("nio", 137, GREY_B), ("epoll", 35, EP), ("io_uring", 59, UR)]
+        rows = [("nio", 137, GREY_B), ("epoll", 35, EPL), ("io_uring", 59, URG)]
         tn = VGroup(*[M(n, 24, c) for n, _, c in rows], M("kqueue", 24, GREY_D)).arrange(DOWN, buff=0.45, aligned_edge=RIGHT).move_to([X0 - 1.2, 0.8, 0])
         tbars = VGroup(*[bar(X0, X0 + v * K, tn[i].get_y(), c, h=0.42) for i, (_, v, c) in enumerate(rows)])
         tv = VGroup(*[M(f"{v} ms", 22, c).next_to(tbars[i], RIGHT, buff=0.15) for i, (_, v, c) in enumerate(rows)])

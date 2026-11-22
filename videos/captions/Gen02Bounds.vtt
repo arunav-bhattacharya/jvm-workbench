@@ -1,189 +1,385 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.578
-You want one function that returns the bigger of two values.
+00:00:02.700 --> 00:00:04.143
+Back in the storeroom.
 
 2
-00:00:06.578 --> 00:00:08.776
-Amounts, currency codes, anything.
+00:00:04.143 --> 00:00:10.442
+Last lesson, every box got a label with a blank: Box of, and then whatever the caller writes in.
 
 3
-00:00:08.776 --> 00:00:11.168
-So you write it once, for any type T.
+00:00:10.442 --> 00:00:11.820
+Any caller, any type.
 
 4
-00:00:11.367 --> 00:00:14.662
-In Kotlin, a &gt; b means a.compareTo(b).
+00:00:11.820 --> 00:00:15.100
+That freedom has a price, and it surprises people.
 
 5
-00:00:14.662 --> 00:00:16.223
-Does this compile?
+00:00:16.033 --> 00:00:18.961
+Here's a question that's easy to be shy about.
 
 6
-00:00:18.000 --> 00:00:18.223
-No.
+00:00:18.961 --> 00:00:21.380
+I only ever pass fruit to my function.
 
 7
-00:00:18.223 --> 00:00:22.315
-T has no bound, so the caller may pick any type at all.
+00:00:21.380 --> 00:00:24.690
+So why can't my generic code ask a T for its weight?
 
 8
-00:00:22.315 --> 00:00:24.399
-An Int, a String, a Payment.
+00:00:24.690 --> 00:00:26.855
+Can't the compiler see my callers?
 
 9
-00:00:24.600 --> 00:00:28.460
-Inside, your code may only use what all of them share.
+00:00:27.933 --> 00:00:31.017
+Start with a plain T, with no sign on it.
 
 10
-00:00:28.460 --> 00:00:32.248
-Kotlin's default bound is Any?, and Java's is Object.
+00:00:31.017 --> 00:00:35.606
+describe takes any T, and prints its value and its hash code.
 
 11
-00:00:32.248 --> 00:00:35.393
-Both give you toString, hashCode and equals.
+00:00:35.606 --> 00:00:37.937
+Gala, 180, even null: all fine.
 
 12
-00:00:35.600 --> 00:00:37.682
-And a Payment has no order.
+00:00:38.167 --> 00:00:43.075
+That works because toString, hashCode and equals exist on every type.
 
 13
-00:00:37.682 --> 00:00:41.307
-Should it compare by amount, by time, or by id?
+00:00:43.075 --> 00:00:47.913
+In Kotlin, the type that covers every value, null included, is Any?.
 
 14
-00:00:41.307 --> 00:00:43.620
-So the compiler refuses a &gt; b.
+00:00:47.913 --> 00:00:49.763
+A plain T can do what Any?
 
 15
-00:00:43.833 --> 00:00:46.119
-Java says it can't find compareTo.
+00:00:49.763 --> 00:00:51.541
+can do, and nothing more.
 
 16
-00:00:46.119 --> 00:00:49.884
-Kotlin finds only String's compareTo, which doesn't fit.
+00:00:52.467 --> 00:00:54.912
+Now ask for something more specific.
 
 17
-00:00:50.067 --> 00:00:52.557
-The fix is to promise more about T.
+00:00:54.912 --> 00:00:56.950
+lengthOf returns x dot length.
 
 18
-00:00:52.557 --> 00:00:54.265
-Write T : Comparable&lt;T&gt;.
+00:00:56.950 --> 00:01:00.075
+Every caller you have in mind passes a String.
 
 19
-00:00:54.265 --> 00:00:58.748
-Read it as: T is something that can be compared with another T.
+00:01:00.075 --> 00:01:01.162
+Does it compile?
 
 20
-00:00:58.933 --> 00:01:01.502
-Now the bound is a gate at the call site.
+00:01:01.162 --> 00:01:02.249
+Pause and guess.
 
 21
-00:01:01.502 --> 00:01:04.384
-Int and String are comparable, so they get in.
+00:01:05.233 --> 00:01:07.364
+No: unresolved reference, length.
 
 22
-00:01:04.384 --> 00:01:06.953
-A call with a Payment no longer compiles.
+00:01:07.364 --> 00:01:09.366
+The compiler isn't being fussy.
 
 23
-00:01:07.167 --> 00:01:09.490
-Inside, the body gains a tool.
+00:01:09.366 --> 00:01:13.370
+Someone could call lengthOf with 42, and an Int has no length.
 
 24
-00:01:09.490 --> 00:01:13.516
-The bound guarantees a compareTo, so a &gt; b compiles.
+00:01:13.370 --> 00:01:20.151
+A generic function must work for every type a caller may pick, so it can only use what all of them share.
 
 25
-00:01:13.700 --> 00:01:14.790
-That is the trade.
+00:01:21.067 --> 00:01:23.914
+Comparing fails too, with a stranger message.
 
 26
-00:01:14.790 --> 00:01:19.452
-A bound lets fewer types in, and lets your code do more with the one it gets.
+00:01:23.914 --> 00:01:28.850
+Write a greater than b on two T's, and Kotlin talks about compareTo on String.
 
 27
-00:01:19.800 --> 00:01:22.084
-Now a function needs two abilities.
+00:01:28.850 --> 00:01:30.559
+You never mentioned String.
 
 28
-00:01:22.084 --> 00:01:26.716
-shortestLabel finds the shortest label, and breaks ties alphabetically.
+00:01:30.767 --> 00:01:36.693
+It's like asking the clerk for a ripe apple, and hearing that the paper bags are the wrong shape.
 
 29
-00:01:26.716 --> 00:01:28.673
-It needs length and compareTo.
+00:01:36.693 --> 00:01:37.671
+A roundabout no.
 
 30
-00:01:28.833 --> 00:01:31.212
-Angle brackets hold only one bound.
+00:01:37.671 --> 00:01:42.925
+So when an error names some other type's method, read it as: this isn't defined for T.
 
 31
-00:01:31.212 --> 00:01:35.561
-The second goes in a where clause, and T must pass both at once.
+00:01:43.833 --> 00:01:45.232
+Back to the storeroom.
 
 32
-00:01:35.561 --> 00:01:36.512
-A String does.
+00:01:45.232 --> 00:01:47.457
+One box carries a sign: fruit only.
 
 33
-00:01:36.700 --> 00:01:41.480
-An Int is comparable, but it has no characters, so it stops at the second gate.
+00:01:47.457 --> 00:01:50.509
+The sign shuts out the hammer and the till roll.
 
 34
-00:01:41.480 --> 00:01:43.113
-Payment stops at the first.
+00:01:50.509 --> 00:01:59.028
+In return, whoever unpacks the box knows something about every item in it: each one has a weight, so it can go straight on the scales.
 
 35
-00:01:43.333 --> 00:01:44.961
-What about a StringBuilder?
+00:01:59.233 --> 00:02:00.117
+Let's map it.
 
 36
-00:01:46.233 --> 00:01:47.087
-It gets in.
+00:02:00.117 --> 00:02:05.761
+The sign is a bound on T, written T : Fruit in Kotlin, and T extends Fruit in Java.
 
 37
-00:01:47.087 --> 00:01:50.657
-Since JDK 11, StringBuilder is comparable too.
+00:02:05.761 --> 00:02:09.501
+The hammer at the door is a caller the bound shuts out.
 
 38
-00:01:50.657 --> 00:01:53.528
-Now the body may call length as well.
+00:02:09.501 --> 00:02:14.193
+And the scales are the function's body, which may now use the weight.
 
 39
-00:01:54.500 --> 00:02:00.757
-Java writes a bound with extends, even for an interface, and joins two bounds with an ampersand.
+00:02:15.100 --> 00:02:17.154
+Here's the shop's fruit in code.
 
 40
-00:02:00.967 --> 00:02:06.627
-At most one bound may be a class, because a JVM class has only one superclass.
+00:02:17.154 --> 00:02:20.749
+Fruit is an interface with a name and a weight in grams.
 
 41
-00:02:07.500 --> 00:02:08.097
-The rule.
+00:02:20.749 --> 00:02:23.766
+Apple is a small data class that implements it.
 
 42
-00:02:08.097 --> 00:02:13.935
-A bound shuts some callers out, and in return your code may use what the bound promises.
+00:02:23.766 --> 00:02:28.645
+heavier takes two T's, where T must be a Fruit, and returns the heavier one.
 
 43
-00:02:14.133 --> 00:02:14.972
-Quick check.
+00:02:28.645 --> 00:02:33.267
+Inside, a dot grams compiles, because every T is now some kind of Fruit.
 
 44
-00:02:14.972 --> 00:02:16.999
-lengthOf only reads x.length.
+00:02:33.500 --> 00:02:37.468
+Two apples: Gala at 180 grams, and Fuji at 150.
 
 45
-00:02:16.999 --> 00:02:21.193
-Which bound makes it compile, and can you still pass an Int?
+00:02:37.468 --> 00:02:40.170
+The demo prints Gala, 180 grams.
 
 46
-00:02:22.967 --> 00:02:24.248
-T : CharSequence.
+00:02:40.170 --> 00:02:41.521
+And two strings?
 
 47
-00:02:24.248 --> 00:02:28.847
-And no: an Int has no characters, so that call won't compile.
+00:02:41.521 --> 00:02:47.431
+Argument type mismatch: actual type is String, but Fruit was expected.
+
+48
+00:02:47.431 --> 00:02:50.301
+The sign did its job, at the door.
+
+49
+00:02:51.233 --> 00:02:53.596
+You might be thinking: why a T at all?
+
+50
+00:02:53.596 --> 00:02:56.767
+Just take two Fruit parameters, and return a Fruit.
+
+51
+00:02:56.767 --> 00:02:59.253
+Fewer angle brackets, same thing, right?
+
+52
+00:02:59.467 --> 00:03:01.085
+Let's be fair, and try it.
+
+53
+00:03:01.085 --> 00:03:03.574
+Two apples go in, and a Fruit comes out.
+
+54
+00:03:03.574 --> 00:03:08.801
+To get your Apple back, you'd need a cast: the very thing the last lesson took away.
+
+55
+00:03:08.801 --> 00:03:11.291
+With T, two apples in give an Apple out.
+
+56
+00:03:12.200 --> 00:03:15.350
+The most common bound isn't a class you wrote.
+
+57
+00:03:15.350 --> 00:03:16.445
+It's Comparable.
+
+58
+00:03:16.445 --> 00:03:22.196
+Read T : Comparable&lt;T&gt; aloud as: T is something that can be compared with another T.
+
+59
+00:03:22.196 --> 00:03:26.989
+Now a greater than b compiles, because the bound promises a compareTo.
+
+60
+00:03:27.200 --> 00:03:29.388
+So 180 and 150 give 180.
+
+61
+00:03:29.388 --> 00:03:35.768
+And Gala and Fuji give Gala, the one that comes later in the alphabet.
+
+62
+00:03:36.000 --> 00:03:38.262
+Now hand maxOf2 two apples.
+
+63
+00:03:38.262 --> 00:03:39.351
+What happens?
+
+64
+00:03:39.351 --> 00:03:40.692
+Pause and guess.
+
+65
+00:03:44.267 --> 00:03:48.798
+It fails: actual type is Apple, but a Comparable was expected.
+
+66
+00:03:48.798 --> 00:03:50.771
+Apple has no natural order.
+
+67
+00:03:50.771 --> 00:03:53.402
+Should two apples compare by weight?
+
+68
+00:03:53.402 --> 00:03:53.987
+By name?
+
+69
+00:03:53.987 --> 00:03:54.644
+By price?
+
+70
+00:03:54.644 --> 00:03:58.664
+The compiler refuses to pick favorites, and it's right.
+
+71
+00:03:59.567 --> 00:04:00.478
+So you choose.
+
+72
+00:04:00.478 --> 00:04:03.669
+Make Apple a Comparable of Apple, by weight, say.
+
+73
+00:04:03.669 --> 00:04:11.875
+Or, usually better, keep Apple plain, and pass a Comparator, a small object that compares two values, where you need an order.
+
+74
+00:04:12.800 --> 00:04:15.051
+The sign picture breaks in one place.
+
+75
+00:04:15.051 --> 00:04:19.250
+A real fruit only sign is checked by a person, who looks at the item.
+
+76
+00:04:19.250 --> 00:04:22.170
+The compiler only trusts what the types declare.
+
+77
+00:04:22.170 --> 00:04:27.099
+A class with a grams property that doesn't say it's a Fruit is still turned away.
+
+78
+00:04:28.000 --> 00:04:28.855
+Now the name.
+
+79
+00:04:28.855 --> 00:04:34.311
+A sign like this is called an upper bound: T must be this type, or a subtype of it.
+
+80
+00:04:34.311 --> 00:04:40.227
+For now, read subtype as a class that inherits from it, the way Apple inherits from Fruit.
+
+81
+00:04:40.227 --> 00:04:42.725
+The next lesson makes that word exact.
+
+82
+00:04:43.633 --> 00:04:44.822
+And the guardrail.
+
+83
+00:04:44.822 --> 00:04:48.652
+A bound shuts some callers out, and lets the body do more.
+
+84
+00:04:48.652 --> 00:04:51.161
+So ask for exactly what the body uses.
+
+85
+00:04:51.161 --> 00:04:54.463
+Every extra demand turns callers away for nothing.
+
+86
+00:04:54.463 --> 00:05:01.331
+Later in this lesson, a where clause asks for two things at once, and T : Any keeps null out of the box.
+
+87
+00:05:02.233 --> 00:05:04.877
+So, why can't a plain T tell you its weight?
+
+88
+00:05:04.877 --> 00:05:07.701
+Because the compiler doesn't know your callers.
+
+89
+00:05:07.701 --> 00:05:09.143
+It only knows the label.
+
+90
+00:05:09.143 --> 00:05:13.289
+Put a sign on the label, and the body may use what the sign promises.
+
+91
+00:05:13.500 --> 00:05:14.466
+Quick check.
+
+92
+00:05:14.466 --> 00:05:16.880
+maxOf2 of 1, and the string a.
+
+93
+00:05:16.880 --> 00:05:18.490
+Both are comparable.
+
+94
+00:05:18.490 --> 00:05:19.777
+Does it compile?
+
+95
+00:05:22.967 --> 00:05:23.197
+No.
+
+96
+00:05:23.197 --> 00:05:29.956
+One T can't be an Int and a String at once: actual type is String, but Int was expected.
