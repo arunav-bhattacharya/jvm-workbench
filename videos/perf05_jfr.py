@@ -1,329 +1,636 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form).
-fg.SAY[:0] = [(r"\bJFR\.dump\b", "J F R dot dump"), (r"\bjfr summary\b", "J F R summary"), (r"\bjfr view\b", "J F R view"),
-           (r"\ballocation-by-site\b", "allocation by site"), (r"\bmaxage\b", "max age"), (r"\bmaxsize\b", "max size"),
-           (r"(\d+) MB", r"\1 megabytes"), (r"(\d+)%", r"\1 percent")]
+# Spoken forms only (captions keep the written words). fg.py is shared, so these live here.
+fg.SAY[:0] = [(r"\bJFR\.dump\b", "J F R dot dump"), (r"\bJFR\.start\b", "J F R dot start"), (r"\bjfr summary\b", "J F R summary"),
+              (r"\bmaxage\b", "max age"), (r"\bmaxsize\b", "max size"), (r"\b9:14\b", "nine fourteen"),
+              (r"\b10:14\b", "ten fourteen"), (r"\b10:30\b", "ten thirty"), (r"\bwash-up\b", "wash up")]
 
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
-
-YOU_C, GC_C, JIT_C, LOCK_C, CPU_C, ALLOC_C = GOLD_M, TEAL_M, GREY_B, PURPLE_M, BLUE_M, GREEN_M
-REC_C, BAD_C, FILE_C = BLUE_M, RED_M, WHITE
-
+# every spoken line, in order
 N = {
-    "s1": "An authorization was slow. Your log line says how long the issuer call took: one number. "
-          "It can't say whether a GC stopped every thread, or your thread waited for a lock.",
-    "s2": "JDK Flight Recorder can. It's built into the JVM, and it writes events: small records, each with a timestamp.",
-    "s3": "GC pauses, JIT compilations, lock waits, sampled stacks and sampled allocations. Your own code can add events too.",
-    "s4": "They all land on one timeline, on one clock. So you can see what else happened during the slow call.",
-    "s5": "Where do the events go? Into a recording, which keeps them in memory buffers and writes them to disk.",
-    "s6": "Picture it as a ring. New events go in at the front. Set maxage or maxsize, and once the ring is full, the oldest part falls off.",
-    "s7": "Set no limit, and the JVM picks one for you: 250 MB.",
-    "s8": "When something goes wrong, JFR.dump copies what the ring holds into a file. The JVM keeps running, and keeps recording.",
-    "q": "You have the file. What do you read first?",
-    "s9": "jfr summary. It lists every event type in the file, with its count and size. Now you know what the recording holds.",
-    "s10": "Then ask a question with jfr view. Each view is a query over the events.",
-    "s11": "allocation-by-site takes every allocation sample, groups the samples by the method at the top of the stack, and adds up their weight.",
-    "s12": "In the demo, one fee method made almost 41% of the allocation pressure. Other views answer other questions: hot methods, GC pauses, lock contention.",
-    "s13": "You can also start a recording from code. This one keeps the last hour, within 200 MB. The API is the same from Java and Kotlin.",
-    "r": "The rule. JFR keeps a rolling window of timestamped events from the whole JVM. "
-         "Keep a recording on with limits, dump it when something is slow, then read the summary, then a view.",
-    "c": "Quick check. Your recording keeps one hour. The slow payment happened two hours ago. Is it in the dump?",
-    "a": "No. It fell off the ring. Pick limits that match how far back you need to look.",
+    "open": "Back in the restaurant, a long night is over. A customer says the soup took forty minutes. "
+            "The cook remembers making it in six.",
+    "both": "And here's the awkward part: both of them are telling the truth. Maybe the bowl sat on the counter, "
+            "waiting for the only waiter. Maybe the whole kitchen stopped to wash up. Two honest people and one "
+            "bowl of soup. That's the hardest argument to settle, because nobody wrote anything down.",
+    "shy": "Our program has the same argument. The report service from the earlier lessons fetches each document "
+           "from a document store: another program that keeps the documents and answers over the network. "
+           "Some fetches are slow. So we do what we all do. We wrap a timer around the call, and log: "
+           "fetch took 46 milliseconds.",
+    "shyq": "So here's the question that's easy to be shy about. The log line already has the duration. "
+            "What more could any tool possibly tell us?",
+    "pain": "Look at what that line can't say. Was every thread paused right then, for a garbage collection? "
+            "The garbage collector, or GC, is the part of the JVM that frees memory nobody uses. "
+            "Did our thread wait for a lock, a guard that lets one thread at a time into a piece of code? "
+            "Did something grab a pile of memory that second?",
+    "witness": "The log line is one number, for one call, on a clock of its own. It's a witness who watched one "
+               "table all night. Honest, and blind to the rest of the room.",
+    "wish": "What we'd love is one log of everything the kitchen did: every order, every wait, every wash-up, on one "
+            "clock. And cheap enough to keep every night, because nobody knows which night will go wrong.",
+    "name": "The JVM, the program that runs your Java and Kotlin, keeps a log like that. It's already in your JDK, "
+            "and it's called JDK Flight Recorder, or JFR.",
+    "map1": "Let's map the kitchen onto it. Each cook is a thread, a line of work that runs side by side with the "
+            "others. Each line in the log book is an event: a small record with a start time, often a duration, "
+            "the thread, and usually a stack trace, the chain of method calls that led there.",
+    "map2": "The whole kitchen washing up is a GC pause, and it hits every thread at once. Waiting for the only "
+            "waiter is a wait for a lock. And the JVM writes plenty more on its own, such as samples of what the "
+            "running threads are doing.",
+    "map3": "Our own code can add lines too, like the cook's own notes: one for every call to the store. "
+            "And all of them sit on one timeline, on one clock. That's the whole point.",
+    "farm": "Here the kitchen picture has a limit. The log covers our kitchen only. The document store is another "
+            "program, like the farm that grows the vegetables. If the farm is slow, our log shows us waiting, "
+            "but not why. The farm would need a book of its own.",
+    "ring": "One session of this log is called a recording. It keeps events in memory, and moves them to disk in "
+            "chunks. Picture a log book that tears out its oldest pages when it's full. maxage says how far back "
+            "to keep. maxsize says how many bytes. Set neither, and the JVM keeps 250 megabytes.",
+    "start": "You can start a recording when the JVM starts, with one option on the java command. Or on a JVM that's "
+             "already running, with jcmd, a JDK tool that sends commands to a running JVM. Here's what the report "
+             "service answered.",
+    "dump": "And when something goes wrong, JFR.dump copies the pages written so far into a file. It stops nothing. "
+            "You don't have to close the restaurant to read the log book.",
+    "dump2": "That's why a recording that's always on pays off. When the bad night comes, the last hour is already "
+             "in the book.",
+    "cheap": "But always on only works if it's cheap. JFR comes with two settings files. default calls itself safe for "
+             "continuous use in production, typically less than 1 percent overhead. profile says around 2 percent, "
+             "and records more.",
+    "cheap2": "default samples running threads every 20 milliseconds, and keeps lock waits of 20 milliseconds or "
+              "more. profile samples every 10, and keeps lock waits from 10. So: default to leave on, and profile "
+              "for a short hunt.",
+    "summ_q": "Now let's ask a real recording what's in it. The lesson's demo runs four threads for 4 seconds, under "
+              "profile. Each one counts words, asks a fake document store for a document, and now and then holds "
+              "a shared lock for 15 milliseconds. Which kind of event will have the highest count? And how many "
+              "samples of running code will 4 seconds give us?",
+    "summ_a": "jfr summary lists every event type, with a count. Here's part of one run. At the top, the garbage "
+              "collector's paperwork: 1,951 events. Then ours: 1,361 store calls. Then 1,207 allocation samples, "
+              "and 560 sleeps.",
+    "summ_joke": "Only the garbage collector writes more than we do. Every kitchen has one colleague like that. "
+                 "And it's good news, because its lines sit right next to ours, on the same clock.",
+    "forty": "Now look near the bottom. Execution samples, the snapshots of running code: 40. "
+             "Just 40, in 4 seconds, on four threads.",
+    "forty2": "Why so few? The threads spent most of their time asleep, waiting for the store, and the sampler only "
+              "counts threads that are running Java code. A cook waiting for the delivery isn't cooking. "
+              "Keep that 40 in mind.",
+    "guard": "So, a few rules. Set maxage or maxsize, or the book grows to 250 megabytes. Use default to leave it "
+             "on, and profile for short investigations. Don't expect it to see inside another program. And 40 "
+             "samples are enough to spot a method that takes most of the time, but far too few to see what "
+             "happens inside it. That takes a profiler with thousands, and that's the next lesson.",
+    "moral": "So, what can a recording tell you that the log line can't? What else happened at the same moment: a GC "
+             "pause, a lock wait, a burst of allocation, all on one clock. A cheap recording that's always on is "
+             "evidence you already have. Dump it, instead of restarting.",
+    "check": "Quick check. A request was slow at 9:14 last night. The program has run a recording all week, with "
+             "maxage set to one hour. It's now 10:30. Is 9:14 still in the book?",
+    "check_a": "No. The book only keeps the last hour, so 9:14 was torn out at 10:14. Keep enough of the book to "
+               "cover the time it takes you to notice.",
 }
-PAUSE = {"q": 1.8, "c": 2.4}
 
 
-def cline(text, size=24, color=WHITE):
-    t = Text("|" + text, font=MONO, font_size=size, color=color, disable_ligatures=True)
-    t.src = text
-    return t
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-
-def one(text, size=24, color=WHITE):
-    t = cline(text, size, color)
-    t.remove(t[0])
-    return t
-
-
-def code(lines, size=24, color=WHITE):
-    pitch = M("|", size).height * 1.65
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        t = cline(ln, size, color)
-        t.shift(np.array([0, -i * pitch, 0]) - t[0].get_center())
-        g.add(t)
-    for t in g:
-        t.remove(t[0])
-    return g
-
-
-def part(t, sub, nth=0):
-    i = -1
-    for _ in range(nth + 1):
-        i = t.src.index(sub, i + 1)
-    return VGroup(*t[i:i + len(sub)])
-
-
-def mark(m, color=WHITE, hold=0.6):
-    u = Line(m.get_corner(DL) + DOWN * 0.09, m.get_corner(DR) + DOWN * 0.09, color=color, stroke_width=4)
-    return Succession(Create(u, run_time=0.45), Wait(hold), FadeOut(u, run_time=0.35))
-
-
-def shade(c, k=0.14):
-    return interpolate_color(ManimColor("#000000"), ManimColor(c), k)
-
-
-def ev(x0, x1, y, color, h=0.34):
-    """One duration event on a lane."""
-    return Rectangle(width=max(0.06, x1 - x0), height=h, stroke_color=color, stroke_width=2).set_fill(shade(color, 0.6), 1).move_to(
-        [(x0 + x1) / 2, y, 0])
-
-
-def file_icon(label="rec.jfr", w=1.7, h=2.0):
-    body = Polygon([-w / 2, h / 2, 0], [w / 2 - 0.4, h / 2, 0], [w / 2, h / 2 - 0.4, 0], [w / 2, -h / 2, 0], [-w / 2, -h / 2, 0],
-                   stroke_color=FILE_C, stroke_width=3).set_fill(BLACK, 1)
-    t = M(label, 24).move_to(body.get_center() + DOWN * 0.15)
-    return VGroup(body, t)
-
-
-class Perf05Jfr(VoiceScene):
-    """perf-05 sections 0 and 1: JFR events on one timeline; a recording as a ring that keeps the newest data within maxage/maxsize;
-    JFR.dump copies it out; read jfr summary first, then a view (a query over events)."""
-
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
-
-    def say(self, key, plan=(), after=0.25):
+    def say(self, key):
         text = N[key]
         path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents)
-        starts, t = [], 0.0
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
         for x in sents:
-            starts.append(t)
-            t += dur * len(x) / total
-        assert all(i < len(starts) for i, _, _ in plan), f"{key}: plan index past the last sentence"
-        now = 0.0
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now)
-                now = starts[idx]
-            self.play(*(anims() if callable(anims) else anims), run_time=rt)
-            now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
-        self.wait(PAUSE.get(key, after))
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+        if after:
+            self.wait(after)
+
+    def predict(self, secs=2.6, pos=(6.4, -3.3), edge=RIGHT):
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def clear_all(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
+
+
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
+
+
+# one colour per thing, for the whole video
+COOK, CUST, GC_C, LOCK_C, OURS, SAMP, CLOCK, BAD = BLUE_M, TEAL_M, RED_M, PURPLE_M, GOLD_M, GREEN_M, YELLOW_M, RED_M
+
+
+def person(color=COOK, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
+
+
+def bubble(text, color, size=26):
+    t = T(text, size, color)
+    r = RoundedRectangle(corner_radius=0.15, width=t.width + 0.5, height=t.height + 0.4).set_stroke(color, 2).set_fill("#0d0d0d", 1)
+    return VGroup(r, t.move_to(r))
+
+
+def bowl(s=1.0):
+    b = Arc(radius=0.4, start_angle=PI, angle=PI).set_stroke(GOLD_M, 3)
+    rim = Line(LEFT * 0.48, RIGHT * 0.48, stroke_width=3, color=GOLD_M).move_to(b.get_top())
+    steam = VGroup(*[ArcBetweenPoints([x, 0.12, 0], [x + 0.05, 0.5, 0], angle=0.8).set_stroke(GREY_B, 2) for x in (-0.18, 0.02, 0.22)])
+    steam.next_to(rim, UP, buff=0.05)
+    return VGroup(b, rim, steam).scale(s)
+
+
+def clock_icon(r=0.28, color=CLOCK):
+    c = Circle(radius=r).set_stroke(color, 2.5)
+    h1 = Line(ORIGIN, UP * r * 0.65, stroke_width=2.5, color=color)
+    h2 = Line(ORIGIN, RIGHT * r * 0.5, stroke_width=2.5, color=color)
+    return VGroup(c, h1, h2)
+
+
+def page(color=GREY_B, s=1.0, fill="#151515"):
+    r = Rectangle(width=0.62, height=0.82).set_stroke(color, 2).set_fill(fill, 1)
+    ls = VGroup(*[Line(LEFT * 0.2, RIGHT * 0.2, stroke_width=1.5, color=GREY_C).move_to(r.get_center() + UP * (0.22 - 0.14 * i))
+                  for i in range(4)])
+    return VGroup(r, ls).scale(s)
+
+
+def printout(rows, size=22, buff=0.14):
+    return VGroup(*[M(s, size, c) for s, c in rows]).arrange(DOWN, aligned_edge=LEFT, buff=buff)
+
+
+def panel(m, color=GREY_D, buff=0.3):
+    return SurroundingRectangle(m, buff=buff, corner_radius=0.12).set_stroke(color, 2).set_fill("#0b0b0b", 1)
+
+
+def maprow(left, right, lc=WHITE, rc=WHITE, size=26):
+    a = T(left, size, lc)
+    ar = Arrow(LEFT * 0.4, RIGHT * 0.4, buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.25)
+    b = T(right, size, rc)
+    return VGroup(a, ar, b)
+
+
+def maptable(rows, x_arrow=0.0, y0=2.0, dy=0.72):
+    for i, r in enumerate(rows):
+        y = y0 - i * dy
+        r[1].move_to([x_arrow, y, 0])
+        r[0].next_to(r[1], LEFT, buff=0.3)
+        r[2].next_to(r[1], RIGHT, buff=0.3)
+    return VGroup(*rows)
+
+
+# ---- the timeline: one clock, four threads ----
+TX0, TX1 = -4.2, 6.3
+LANES = [1.75, 0.95, 0.15, -0.65]
+
+
+def tx(t):            # t in 0..10
+    return TX0 + (TX1 - TX0) * t / 10
+
+
+def bar(lane, t0, t1, color, h=0.36):
+    r = RoundedRectangle(corner_radius=0.06, width=tx(t1) - tx(t0), height=h).set_stroke(color, 2).set_fill(dim(color, 0.45), 1)
+    return r.move_to([(tx(t0) + tx(t1)) / 2, LANES[lane], 0])
+
+
+class Perf05Jfr(Narrated):
+    """perf-05, section 0: the kitchen's log book. A soup that took 40 minutes and 6 (both true); the log line that
+    says 46 ms and nothing else; the wish for one log on one clock; JFR named; the map (cooks are threads, lines are
+    events, wash-up is a GC pause, waiting for the waiter is a lock wait, our notes are our events); where it breaks
+    (the farm keeps its own book); the recording that tears out old pages (maxage, maxsize, 250 MB); jcmd start and
+    dump; default vs profile; predict the summary, see 40 execution samples; guardrails; moral; a check."""
 
     def construct(self):
-        self.title_card("JDK Flight Recorder", "events on one clock, a recording that keeps the newest")
+        self.title_card("The kitchen's log book", "JDK Flight Recorder: everything on one clock")
 
-        # ---------- lanes on one timeline
-        XL, XR = -4.0, 6.1
-        names = [("your events", YOU_C), ("GC", GC_C), ("JIT", JIT_C), ("locks", LOCK_C), ("CPU samples", CPU_C), ("allocations", ALLOC_C)]
-        LY = [1.75, 1.05, 0.35, -0.35, -1.05, -1.75]
-        lanes = VGroup(*[Line([XL, y, 0], [XR, y, 0], stroke_width=1.5, color=GREY_D) for y in LY])
-        lane_l = VGroup(*[T(n, 26, c).move_to([-5.2, y, 0]) for (n, c), y in zip(names, LY)])
-        CA, CB = 0.6, 2.9                                   # the slow issuer call
-        call = VGroup(ev(CA, CB, LY[0], YOU_C, 0.42), T("issuer call", 22, WHITE).move_to([(CA + CB) / 2, LY[0], 0]))
-        logl = one('log.info("issuer call took {} ms", ms)', 26, GREY_A).move_to([0.3, 2.85, 0])
-        qs = VGroup(*[T("?", 30, GREY_B).move_to([(CA + CB) / 2, y, 0]) for y in LY[1:3]])
-        self.say("s1", [(0, [Create(lanes[0]), FadeIn(lane_l[0]), FadeIn(call)], 0.9),
-                        (1, [FadeIn(logl, shift=DOWN * 0.1)], 0.7),
-                        (2, [FadeIn(lanes[1:]), FadeIn(lane_l[1:]), FadeIn(qs)], 0.9)])
+        # ================= hook: the soup =================
+        cust = person(CUST, 1.8).move_to([-4.2, -0.6, 0])
+        cook = person(COOK, 1.8).move_to([4.2, -0.6, 0])
+        cust_t = T("customer", 26, CUST).next_to(cust, DOWN, buff=0.2)
+        cook_t = T("cook", 26, COOK).next_to(cook, DOWN, buff=0.2)
+        soup = bowl(1.5).move_to([0, -0.7, 0])
+        b1 = bubble("forty minutes!", CUST, 30).next_to(cust, UP, buff=0.35)
+        b2 = bubble("six minutes.", COOK, 30).next_to(cook, UP, buff=0.35)
+        self.say("open")
+        self.play(FadeIn(soup), run_time=0.6)
+        self.play(FadeIn(cust), FadeIn(cust_t), FadeIn(cook), FadeIn(cook_t), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(b1, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(b2, shift=UP * 0.1), run_time=0.5)
+        self.hold()
 
-        jfr_t = T("JDK Flight Recorder: timestamped events", 30, YELLOW_M).move_to([0.3, 2.85, 0])
-        self.say("s2", [(0, [FadeOut(logl)], 0.4), (0, [FadeIn(jfr_t)], 0.6), (1, [FadeOut(qs)], 0.4)])
+        tr1 = tick(True, 0.25).next_to(b1, RIGHT, buff=0.15)
+        tr2 = tick(True, 0.25).next_to(b2, LEFT, buff=0.15)
+        waiter = person(GREY_B, 1.1).move_to([-1.3, 2.4, 0])
+        waiter_t = T("the only waiter", 22, GREY_B).next_to(waiter, UP, buff=0.12)
+        sink = VGroup(RoundedRectangle(corner_radius=0.1, width=1.5, height=0.6).set_stroke(GC_C, 2.5).set_fill(dim(GC_C, 0.25), 1),
+                      T("washing up", 22, GC_C)).move_to([1.6, 2.4, 0])
+        sink[1].next_to(sink[0], UP, buff=0.12)
+        none = T("nobody wrote anything down", 26, GREY_B).move_to([0, -3.2, 0])
+        self.say("both")
+        self.play(Create(tr1), Create(tr2), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(waiter), FadeIn(waiter_t), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(sink), run_time=0.6)
+        self.at(4)
+        self.play(FadeIn(none), run_time=0.6)
+        self.hold()
+        self.clear_all()
 
-        rng = np.random.default_rng(6)
-        gc = VGroup(ev(-3.2, -2.85, LY[1], GC_C), ev(3.9, 4.25, LY[1], GC_C))
-        jit = VGroup(*[ev(a, a + w, LY[2], JIT_C) for a, w in [(-3.7, 0.5), (-2.2, 0.3), (-0.4, 0.6), (4.8, 0.4)]])
-        lock = VGroup(ev(0.9, 2.6, LY[3], LOCK_C), ev(-1.5, -1.2, LY[3], LOCK_C))
-        cpu = VGroup(*[Line([x, LY[4] - 0.17, 0], [x, LY[4] + 0.17, 0], stroke_width=3, color=CPU_C) for x in np.arange(-3.8, 6.0, 0.4)])
-        allocs_x = np.sort(rng.uniform(-3.8, 5.9, 26))
-        alloc = VGroup(*[Dot([x, LY[5], 0], radius=0.07, color=ALLOC_C) for x in allocs_x])
-        mine = VGroup(ev(-2.6, -1.9, LY[0], YOU_C, 0.42), ev(4.4, 5.1, LY[0], YOU_C, 0.42))
-        self.say("s3", [(0, [LaggedStart(FadeIn(gc), FadeIn(jit), FadeIn(lock), Create(cpu), FadeIn(alloc), lag_ratio=0.3)], 2.4),
-                        (1, [FadeIn(mine)], 0.6)])
+        # ================= our version: the log line =================
+        svc = box("report service", COOK, w=3.6, h=1.0, size=28).move_to([-3.6, 1.2, 0])
+        store = box("document store", GREY_B, w=3.6, h=1.0, size=28).move_to([3.6, 1.2, 0])
+        arr = edge_arrow(svc, store, GREY_B)
+        net = T("another program, over the network", 22, GREY_B).next_to(store, DOWN, buff=0.2)
+        logl = M("fetch took 46 ms", 32, WHITE)
+        logp = VGroup(panel(logl, GREY_D, 0.28), logl).move_to([0, -1.2, 0])
+        self.say("shy")
+        self.play(FadeIn(svc), run_time=0.5)
+        self.at_text("from a document store", lead=0.3)
+        self.play(GrowArrow(arr), FadeIn(store), run_time=0.7)
+        self.play(FadeIn(net), run_time=0.4)
+        self.at_text("We wrap a timer", lead=0.3)
+        self.play(FadeIn(logp, shift=UP * 0.1), run_time=0.7)
+        self.hold()
 
-        win = Rectangle(width=CB - CA, height=LY[0] - LY[5] + 0.8, stroke_color=YOU_C, stroke_width=2).set_fill(YOU_C, 0.08)
-        win.move_to([(CA + CB) / 2, (LY[0] + LY[5]) / 2, 0])
-        self.say("s4", [(0, [FadeIn(win)], 0.8), (1, [Indicate(lane_l[3], color=LOCK_C, scale_factor=1.15), lock[0].animate.set_stroke(WHITE, 3)], 1.0)])
-        timeline = VGroup(lanes, lane_l, call, gc, jit, lock, cpu, alloc, mine, win)
-        self.play(FadeOut(jfr_t), FadeOut(win), lock[0].animate.set_stroke(LOCK_C, 2), run_time=0.5)
+        q1 = T("The log line already has the duration.", 30)
+        q2 = T("What more could any tool tell us?", 30, YELLOW_M)
+        qg = VGroup(q1, q2).arrange(DOWN, buff=0.2).move_to([0, -2.9, 0])
+        self.say("shyq")
+        self.at(1)
+        self.play(FadeIn(q1, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.5)
+        self.hold(after=0)
+        self.predict(2.2)
+        self.play(FadeOut(qg), FadeOut(net), run_time=0.4)
 
-        # ---------- the recording: a ring that keeps the newest
-        self.play(timeline.animate.scale(0.36).move_to([-4.2, 0.4, 0]), run_time=1.0)
-        RC = np.array([1.6, 0.2, 0])
-        NSEG = 12
-        R_IN, R_OUT = 1.35, 2.3
-        seg_angle = TAU / NSEG
-        segs = VGroup(*[AnnularSector(inner_radius=R_IN, outer_radius=R_OUT, angle=seg_angle * 0.94, start_angle=PI / 2 - (k + 1) * seg_angle,
-                                      stroke_color=GREY_B, stroke_width=2, fill_color=BLACK, fill_opacity=1).shift(RC) for k in range(NSEG)])
-        rec_l = VGroup(T("recording", 30, REC_C), T("memory buffers,", 22, GREY_B), T("then disk", 22, GREY_B)).arrange(DOWN, buff=0.08).move_to(RC)
-        feed = Arrow([-1.85, 0.4, 0], RC + np.array([-R_OUT - 0.1, 0.2, 0]), buff=0, stroke_width=4, color=GREY_B,
-                     max_tip_length_to_length_ratio=0.12)
+        qs = [VGroup(T("?", 30, GC_C), T("every thread paused for a garbage collection", 26)).arrange(RIGHT, buff=0.25),
+              VGroup(T("?", 30, LOCK_C), T("our thread waiting for a lock", 26)).arrange(RIGHT, buff=0.25),
+              VGroup(T("?", 30, SAMP), T("a pile of memory grabbed that second", 26)).arrange(RIGHT, buff=0.25)]
+        qv = VGroup(*qs).arrange(DOWN, aligned_edge=LEFT, buff=0.32).move_to([0, -2.55, 0])
+        gcdef = T("garbage collector (GC): frees memory nobody uses", 22, GC_C).move_to([0, 3.15, 0])
+        lockdef = T("lock: lets one thread at a time into a piece of code", 22, LOCK_C).move_to([0, 3.15, 0])
+        self.say("pain")
+        self.play(logp.animate.move_to([0, -0.6, 0]), run_time=0.5)
+        self.at_text("Was every", lead=0.3)
+        self.play(FadeIn(qs[0], shift=LEFT * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(gcdef), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(qs[1], shift=LEFT * 0.1), FadeOut(gcdef), FadeIn(lockdef), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(qs[2], shift=LEFT * 0.1), run_time=0.5)
+        self.hold()
 
-        def fill(k, color=REC_C):
-            return segs[k % NSEG].animate.set_fill(shade(color, 0.55), 1).set_stroke(color, 2)
+        own = clock_icon(0.3).next_to(logp, RIGHT, buff=0.3)
+        own_t = T("its own clock", 22, CLOCK).next_to(own, RIGHT, buff=0.15)
+        self.say("witness")
+        self.play(FadeOut(lockdef), Create(own), FadeIn(own_t), run_time=0.8)
+        self.at(1)
+        self.play(*[Indicate(q[0], color=WHITE, scale_factor=1.3) for q in qs], run_time=1.0)
+        self.hold()
+        self.clear_all()
 
-        self.say("s5", [(0, [FadeIn(segs), FadeIn(rec_l), GrowArrow(feed)], 1.0),
-                        (1, [LaggedStart(*[fill(k) for k in range(5)], lag_ratio=0.5)], 1.6)])
+        # ================= the wish and the name =================
+        w1 = T("one log of everything", 34)
+        w2 = T("on one clock", 34, CLOCK)
+        w3 = T("cheap enough to keep every night", 34, SAMP)
+        wv = VGroup(w1, w2, w3).arrange(DOWN, buff=0.35).move_to([0, 0.9, 0])
+        self.say("wish")
+        self.play(FadeIn(w1, shift=UP * 0.1), run_time=0.6)
+        self.at_text("on one", lead=0.3)
+        self.play(FadeIn(w2, shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(w3, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        nm = T("JDK Flight Recorder (JFR)", 44, YELLOW_M).move_to([0, -1.6, 0])
+        nm_s = T("already in your JDK", 26, GREY_B).next_to(nm, DOWN, buff=0.25)
+        self.say("name")
+        self.at(1)
+        self.play(Write(nm), run_time=1.2)
+        self.play(FadeIn(nm_s), run_time=0.4)
+        self.hold()
+        self.clear_all()
 
-        head = Arrow(RC + np.array([0, R_OUT + 0.55, 0]), RC + np.array([0, R_OUT + 0.05, 0]), buff=0, stroke_width=4, color=YELLOW_M,
-                     max_tip_length_to_length_ratio=0.3)
+        # ================= the map: the timeline =================
+        lane_t = VGroup(*[M(f"report-{i}", 22, COOK).move_to([-6.45, y, 0], aligned_edge=LEFT) for i, y in enumerate(LANES)])
+        cooks = VGroup(*[person(COOK, 0.62).move_to([-4.68, y, 0]) for y in LANES])
+        guides = VGroup(*[DashedLine([TX0, y, 0], [TX1, y, 0], dash_length=0.08, stroke_width=1.2, color=GREY_D) for y in LANES])
+        axis = Arrow([TX0, -1.35, 0], [TX1 + 0.15, -1.35, 0], buff=0, stroke_width=3, color=CLOCK,
+                     max_tip_length_to_length_ratio=0.02, max_stroke_width_to_length_ratio=10)
+        ax_t = VGroup(clock_icon(0.2), T("one clock", 24, CLOCK)).arrange(RIGHT, buff=0.15).next_to(axis, DOWN, buff=0.15).align_to(axis, RIGHT)
+        ev = bar(0, 0.6, 2.2, OURS)
+        card_l = VGroup(T("event:", 26, OURS), T("start time, duration, thread, stack trace", 26)).arrange(RIGHT, buff=0.2)
+        card_l.move_to([0, -2.6, 0])
+        thr = T("thread: a line of work that runs side by side with others", 22, COOK).move_to([0, 3.2, 0])
+        self.say("map1")
+        self.play(FadeIn(cooks), FadeIn(lane_t), Create(guides), run_time=0.9)
+        self.play(FadeIn(thr), run_time=0.4)
+        self.at(1)
+        self.play(GrowArrow(axis), FadeIn(ax_t), run_time=0.7)
+        self.play(FadeIn(ev, scale=0.8), run_time=0.5)
+        self.play(FadeIn(card_l, shift=UP * 0.1), Circumscribe(ev, color=OURS, buff=0.06), run_time=0.8)
+        self.hold()
 
-        def head_at(k):
-            a = PI / 2 - (k + 0.5) * seg_angle
-            d = np.array([np.cos(a), np.sin(a), 0])
-            return Arrow(RC + d * (R_OUT + 0.6), RC + d * (R_OUT + 0.06), buff=0, stroke_width=4, color=YELLOW_M,
-                         max_tip_length_to_length_ratio=0.3)
+        gc = Rectangle(width=tx(5.3) - tx(4.6), height=LANES[0] - LANES[-1] + 0.7).set_stroke(GC_C, 2.5).set_fill(GC_C, 0.28)
+        gc.move_to([(tx(4.6) + tx(5.3)) / 2, (LANES[0] + LANES[-1]) / 2, 0]).set_z_index(3)
+        gc_t = T("GC pause: the kitchen washes up", 24, GC_C).next_to(gc, UP, buff=0.12)
+        lk = bar(2, 6.4, 7.8, LOCK_C)
+        lk_t = T("lock wait", 22, LOCK_C).next_to(lk, DOWN, buff=0.08)
+        samples = VGroup(*[Dot(radius=0.07, color=SAMP).move_to([tx(t), LANES[l] + 0.3, 0])
+                           for t, l in [(1.2, 1), (2.9, 3), (3.6, 0), (6.0, 1), (9.0, 3), (8.6, 0), (9.3, 2)]])
+        smp_t = T("samples of running threads", 22, SAMP).move_to([tx(8.0), 2.95, 0])
+        self.say("map2")
+        self.play(FadeOut(thr), FadeOut(card_l), run_time=0.4)
+        self.play(FadeIn(gc), FadeIn(gc_t), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(lk, scale=0.8), FadeIn(lk_t), run_time=0.7)
+        self.at(2)
+        self.play(LaggedStart(*[FadeIn(d, scale=0.5) for d in samples], lag_ratio=0.15), FadeIn(smp_t), run_time=1.2)
+        self.hold()
 
-        head = head_at(4)
-        new_l = T("newest", 24, YELLOW_M)
-        old_l = T("oldest", 24, GREY_B)
+        ours = VGroup(bar(1, 2.6, 4.3, OURS), bar(3, 3.9, 5.9, OURS), bar(0, 7.2, 8.2, OURS), bar(2, 8.4, 9.6, OURS))
+        ours_t = T("our notes: one for every call to the store", 24, OURS).move_to([0.5, -2.6, 0])
+        self.say("map3")
+        self.play(LaggedStart(*[FadeIn(b, scale=0.8) for b in ours], lag_ratio=0.2), FadeIn(ours_t), run_time=1.2)
+        self.at(1)
+        cross_t = T("the store call that met the GC pause", 22, GREY_A).move_to([0.6, -3.25, 0])
+        self.play(Circumscribe(ours[1], color=WHITE, buff=0.06), Indicate(gc_t, color=WHITE), run_time=1.0)
+        self.play(FadeIn(cross_t), run_time=0.4)
+        self.hold()
+        tl = VGroup(lane_t, cooks, guides, axis, ax_t, ev, gc, gc_t, lk, lk_t, samples, smp_t, ours, ours_t, cross_t)
+        self.play(FadeOut(tl), run_time=0.7)
 
-        def label_at(lbl, k, r=R_OUT + 1.3):
-            a = PI / 2 - (k + 0.5) * seg_angle
-            return lbl.move_to(RC + r * np.array([np.cos(a), np.sin(a), 0]))
+        # map table, as a recap of the picture
+        rows = [maprow("the kitchen's log book", "a JFR recording", GREY_A, YELLOW_M),
+                maprow("a cook", "a thread", COOK, COOK),
+                maprow("a line in the book", "an event", OURS, OURS),
+                maprow("the kitchen washing up", "a GC pause", GC_C, GC_C),
+                maprow("waiting for the waiter", "a lock wait", LOCK_C, LOCK_C),
+                maprow("the cook's own notes", "your own events", OURS, OURS)]
+        tbl = maptable(rows, x_arrow=0.3, y0=2.6, dy=0.66)
+        self.play(LaggedStart(*[FadeIn(r) for r in rows], lag_ratio=0.25), run_time=2.0)
+        self.wait(1.2)
 
-        lim_l = VGroup(M("maxage", 26, BAD_C), M("maxsize", 26, BAD_C)).arrange(DOWN, buff=0.12, aligned_edge=LEFT).move_to([5.6, 2.6, 0])
-        steps = []
-        for k in range(5, NSEG):
-            steps.append(AnimationGroup(fill(k), Transform(head, head_at(k)), run_time=0.35))
-        drops = []
-        for k in range(NSEG, NSEG + 3):
-            drops.append(Succession(segs[k % NSEG].animate(run_time=0.3).set_fill(shade(BAD_C, 0.6), 1).set_stroke(BAD_C, 2),
-                                    AnimationGroup(fill(k), Transform(head, head_at(k)), run_time=0.45)))
-        self.say("s6", [(0, [GrowArrow(head)], 0.4),
-                        (1, [Succession(*steps)], 2.4),
-                        (2, [FadeIn(lim_l, shift=LEFT * 0.1)], 0.5),
-                        (2, [Succession(*drops), FadeIn(label_at(new_l, NSEG + 2)), FadeIn(label_at(old_l, NSEG + 3))], 2.3)])
+        # ================= where it breaks: the farm =================
+        kit = DashedVMobject(RoundedRectangle(corner_radius=0.2, width=6.4, height=2.6), num_dashes=60).set_stroke(COOK, 2)
+        kit.move_to([-2.9, -1.95, 0])
+        kit_t = T("our kitchen: our JVM, our book", 22, COOK).next_to(kit, UP, buff=0.08).align_to(kit, LEFT)
+        bk = page(OURS, 1.2).move_to([-2.9, -2.0, 0])
+        farm = box("document store: the farm", GREY_B, w=4.4, h=1.0, size=24).move_to([3.9, -1.95, 0])
+        farm_b = page(GREY_B, 0.8).next_to(farm, DOWN, buff=0.15)
+        farm_t = T("its own book", 20, GREY_B).next_to(farm_b, RIGHT, buff=0.15)
+        wt = edge_arrow(kit, farm, GREY_B)
+        self.say("farm")
+        self.play(tbl.animate.scale(0.75).move_to([0, 1.85, 0]), run_time=0.7)
+        self.play(Create(kit), FadeIn(kit_t), FadeIn(bk), run_time=0.8)
+        self.at(2)
+        self.play(FadeIn(farm), GrowArrow(wt), run_time=0.7)
+        self.at(3)
+        self.play(Circumscribe(bk, color=WHITE, buff=0.08), run_time=0.8)
+        self.at(4)
+        self.play(FadeIn(farm_b), FadeIn(farm_t), run_time=0.6)
+        self.hold()
+        self.clear_all()
 
-        start = VGroup(one("Started recording 1. No limit specified,", 22, GREY_A),
-                       one("using maxsize=250MB as default.", 22, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        part(start[1], "maxsize=250MB").set_color(BAD_C)
-        start.move_to([0.8, -3.0, 0])
-        self.say("s7", [(0, [FadeIn(start, shift=UP * 0.1)], 0.8), (0, [mark(part(start[1], "maxsize=250MB"), BAD_C, 0.5)], 1.2)])
+        # ================= the recording: a book that tears out its oldest pages =================
+        rec_t = T("a recording", 32, YELLOW_M).move_to([0, 3.0, 0])
+        mem = T("memory, then disk in chunks", 24, GREY_B).next_to(rec_t, DOWN, buff=0.15)
+        pages = [page(GREY_B, 1.1).move_to([-3.0 + 1.0 * i, 0.3, 0]) for i in range(7)]
+        nw_t = T("newest", 22, OURS).move_to([3.0, 1.3, 0])
+        old_t = T("oldest", 22, GREY_B).move_to([-3.0, 1.3, 0])
+        self.say("ring")
+        self.play(FadeIn(rec_t), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(mem), LaggedStart(*[FadeIn(p, shift=LEFT * 0.2) for p in pages], lag_ratio=0.12), run_time=1.2)
+        self.at(2)
+        self.play(FadeIn(old_t), FadeIn(nw_t), run_time=0.4)
+        for k in range(2):
+            newp = page(OURS, 1.1).move_to([3.0, 0.3, 0])
+            self.play(FadeOut(pages[0], shift=UP * 0.6, rate_func=rush_into), *[p.animate.shift(LEFT * 1.0) for p in pages[1:]],
+                      FadeIn(newp, shift=LEFT * 0.3), run_time=0.7)
+            pages = pages[1:] + [newp]
+        lim = VGroup(VGroup(M("maxage", 26, YELLOW_M), T("how far back to keep", 26)).arrange(RIGHT, buff=0.25),
+                     VGroup(M("maxsize", 26, YELLOW_M), T("how many bytes", 26)).arrange(RIGHT, buff=0.25),
+                     VGroup(T("neither set:", 26, BAD), T("the JVM keeps 250 MB", 26)).arrange(RIGHT, buff=0.25))
+        lim.arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([0, -2.2, 0])
+        self.at(3)
+        self.play(FadeIn(lim[0], shift=UP * 0.1), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(lim[1], shift=UP * 0.1), run_time=0.5)
+        self.at(5)
+        self.play(FadeIn(lim[2], shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.clear_all()
 
-        fic = file_icon("pay.jfr", 1.4, 1.7).move_to([5.6, -1.75, 0])
-        dump = one("jcmd <pid> JFR.dump name=pay filename=pay.jfr", 24, WHITE).move_to([0.6, -3.0, 0])
-        copies = VGroup(*[segs[k].copy() for k in range(NSEG)])
-        more = [AnimationGroup(fill(k), Transform(head, head_at(k)), run_time=0.45) for k in range(NSEG + 3, NSEG + 5)]
-        self.say("s8", [(0, [FadeOut(start), FadeIn(dump, shift=UP * 0.1), FadeIn(fic, shift=LEFT * 0.2), FadeOut(lim_l), FadeOut(new_l), FadeOut(old_l)], 0.8),
-                        (0, [LaggedStart(*[c.animate.scale(0.25).move_to(fic.get_center() + UP * 0.25).set_opacity(0) for c in copies],
-                                         lag_ratio=0.08)], 1.5),
-                        (1, [Succession(*more)], 1.0)])
-        self.play(FadeOut(VGroup(timeline, segs, rec_l, feed, head, dump)), fic.animate.move_to([-4.8, 0.4, 0]), run_time=0.9)
+        # ================= start and dump =================
+        c1 = M("java -XX:StartFlightRecording:filename=rec.jfr,settings=profile -jar app.jar", 22, GREY_A)
+        c2 = M("jcmd <pid> JFR.start name=reports settings=profile", 22, WHITE)
+        o1 = M("Started recording 1. No limit specified, using maxsize=250MB as default.", 22, SAMP)
+        o2 = M("Use jcmd 30725 JFR.dump name=reports filename=FILEPATH to copy recording data to file.", 22, SAMP)
+        c3 = M("jcmd <pid> JFR.dump name=reports filename=reports.jfr", 22, WHITE)
+        cmds = VGroup(c1, c2, o1, o2, c3).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
+        fit(cmds, 12.4)
+        cmds.move_to([0, 0.6, 0])
+        l1 = T("when the JVM starts", 22, GREY_B).next_to(c1, UP, buff=0.12).align_to(c1, LEFT)
+        l2 = T("on a JVM that's already running (pid: the process number)", 22, GREY_B).next_to(c2, UP, buff=0.12).align_to(c2, LEFT)
+        self.say("start")
+        self.play(FadeIn(c1), FadeIn(l1), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(c2), FadeIn(l2), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(o1), FadeIn(o2), run_time=0.7)
+        self.play(Circumscribe(part_of(o1, "maxsize=250MB"), color=YELLOW_M, buff=0.05), run_time=1.0)
+        self.hold()
+        stops = VGroup(T("copies the pages so far", 26, OURS), T("stops nothing", 26, SAMP)).arrange(RIGHT, buff=0.6)
+        stops.move_to([0, -2.6, 0])
+        self.say("dump")
+        self.play(FadeIn(c3, shift=UP * 0.1), Indicate(c3, color=OURS, scale_factor=1.03), run_time=0.9)
+        self.play(FadeIn(stops[0]), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(stops[1]), run_time=0.4)
+        self.hold()
+        hour = T("when the bad night comes, the last hour is already in the book", 26, YELLOW_M).move_to([0, -3.3, 0])
+        self.say("dump2")
+        self.play(FadeIn(hour, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        self.clear_all()
 
-        # ---------- what to read first
-        qq = T("What do you read first?", 32).move_to([0, 2.8, 0])
-        self.say("q", [(0, [FadeIn(qq)], 0.6)])
+        # ================= cheap: default vs profile =================
+        def col(name, color, lines):
+            h = M(name, 30, color)
+            ls = VGroup(*[T(s, 26) for s in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.28)
+            g = VGroup(h, ls).arrange(DOWN, aligned_edge=LEFT, buff=0.4)
+            return g
+        dcol = col("default.jfc", SAMP, ["less than 1% overhead", "running threads: every 20 ms",
+                                         "lock waits: 20 ms or more", "allocation: up to 150 samples a second"])
+        pcol = col("profile.jfc", OURS, ["around 2% overhead", "running threads: every 10 ms",
+                                         "lock waits: from 10 ms", "allocation: up to 300 samples a second"])
+        cols = VGroup(dcol, pcol).arrange(RIGHT, buff=1.2, aligned_edge=UP)
+        fit(cols, 12.4)
+        cols.move_to([0, 0.6, 0])
+        self.say("cheap")
+        self.play(FadeIn(dcol[0]), FadeIn(pcol[0]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(dcol[1][0]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(pcol[1][0]), run_time=0.5)
+        self.hold()
+        use = VGroup(T("leave it on", 28, SAMP).next_to(dcol, DOWN, buff=0.45).align_to(dcol, LEFT),
+                     T("a short hunt", 28, OURS).next_to(pcol, DOWN, buff=0.45).align_to(pcol, LEFT))
+        self.say("cheap2")
+        self.play(FadeIn(dcol[1][1]), FadeIn(dcol[1][2]), FadeIn(dcol[1][3]), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(pcol[1][1]), FadeIn(pcol[1][2]), FadeIn(pcol[1][3]), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(use[0]), FadeIn(use[1]), run_time=0.6)
+        self.hold()
+        self.clear_all()
 
-        sm = one("jfr summary pay.jfr", 30, YELLOW_M).move_to([0.9, 2.8, 0])
-        types = ["jdk.ExecutionSample", "jdk.ObjectAllocationSample", "jdk.JavaMonitorEnter", "jdk.Deoptimization",
-                 "workbench.IssuerCall"]
-        cols = [CPU_C, ALLOC_C, LOCK_C, JIT_C, YOU_C]
-        rows = VGroup()
-        for i, (n, c) in enumerate(zip(types, cols)):
-            nm = M(n, 24, c).move_to([-2.8, 1.6 - i * 0.62, 0], aligned_edge=LEFT)
-            rows.add(nm)
-        head_r = VGroup(T("event type", 24, GREY_B).move_to([-2.8, 2.15, 0], aligned_edge=LEFT),
-                        T("count", 24, GREY_B).move_to([2.6, 2.15, 0]), T("size", 24, GREY_B).move_to([4.6, 2.15, 0]))
-        bars = VGroup(*[Rectangle(width=w, height=0.3, stroke_width=0).set_fill(c, 0.7).move_to([2.0 + w / 2, rows[i].get_y(), 0])
-                        for i, (w, c) in enumerate(zip([1.5, 1.1, 0.3, 0.2, 0.5], cols))])
-        szs = VGroup(*[Rectangle(width=w, height=0.3, stroke_width=0).set_fill(c, 0.35).move_to([4.0 + w / 2, rows[i].get_y(), 0])
-                       for i, (w, c) in enumerate(zip([1.3, 0.9, 0.2, 0.15, 0.4], cols))])
-        sch = T("bars are a sketch, not real counts", 20, GREY_B).move_to([3.4, -1.4, 0])
-        self.say("s9", [(0, [ReplacementTransform(qq, sm)], 0.7),
-                        (1, [FadeIn(head_r), LaggedStart(*[FadeIn(r, shift=RIGHT * 0.1) for r in rows], lag_ratio=0.2)], 1.2),
-                        (1, [LaggedStart(*[GrowFromEdge(b, LEFT) for b in bars], lag_ratio=0.1),
-                             LaggedStart(*[GrowFromEdge(b, LEFT) for b in szs], lag_ratio=0.1), FadeIn(sch)], 1.0),
-                        (2, [Indicate(fic[1], color=YELLOW_M, scale_factor=1.15)], 0.8)])
-        self.play(FadeOut(VGroup(head_r, bars, szs, sch, *[rows[i] for i in (0, 2, 3, 4)])), rows[1].animate.move_to([-6.1, 2.0, 0], aligned_edge=LEFT),
-                  FadeOut(fic), run_time=0.7)
+        # ================= predict, then show: jfr summary =================
+        dem = VGroup(T("the demo: 4 threads, 4 seconds, settings=profile", 28),
+                     T("count words, ask the store, sometimes hold a shared lock for 15 ms", 24, GREY_B)).arrange(DOWN, buff=0.2)
+        dem.move_to([0, 2.7, 0])
+        pq1 = T("1.  Which event type has the highest count?", 28)
+        pq2 = T("2.  How many samples of running code in 4 seconds?", 28)
+        pq = VGroup(pq1, pq2).arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([0, 0.5, 0])
+        self.say("summ_q")
+        self.play(FadeIn(dem[0]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(dem[1]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(pq1), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(pq2), run_time=0.5)
+        self.hold(after=0)
+        self.predict(2.6)
+        self.play(FadeOut(pq), FadeOut(dem[1]), dem[0].animate.scale(0.85).move_to([0, 3.2, 0]), run_time=0.6)
 
-        # a view is a query over events
-        vw = one("jfr view allocation-by-site pay.jfr", 30, YELLOW_M).move_to([0.6, 2.8, 0])
-        q_sql = VGroup(one("SELECT stackTrace.topFrame AS S, SUM(weight) AS W", 22, GREY_A),
-                       one("FROM ObjectAllocationSample GROUP BY S ORDER BY W DESC", 22, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        q_sql.move_to([0, -2.85, 0])
-        self.say("s10", [(0, [ReplacementTransform(sm, vw)], 0.8), (1, [FadeIn(q_sql, shift=UP * 0.1)], 0.8)])
+        data = [("jdk.GCPhaseParallel", 1951, GC_C), ("workbench.StoreCall", 1361, OURS),
+                ("jdk.ObjectAllocationSample", 1207, SAMP), ("jdk.ThreadSleep", 560, GREY_B),
+                ("jdk.ExecutionSample", 40, COOK), ("jdk.JavaMonitorEnter", 29, LOCK_C)]
+        head = M("jfr summary", 24, YELLOW_M).move_to([-6.3, 2.45, 0], aligned_edge=LEFT)
+        names, counts, bars = VGroup(), VGroup(), VGroup()
+        y0 = 1.75
+        for i, (n, c, col_) in enumerate(data):
+            y = y0 - i * 0.62 - (0.35 if i >= 4 else 0)
+            names.add(M(n, 22, col_).move_to([-6.3, y, 0], aligned_edge=LEFT))
+            counts.add(M(f"{c:,}", 22).move_to([0.55, y, 0], aligned_edge=RIGHT))
+            w = max(0.05, 5.4 * c / 1951)
+            bars.add(Rectangle(width=w, height=0.34).set_stroke(col_, 2).set_fill(dim(col_, 0.5), 1).move_to([0.9 + w / 2, y, 0]))
+        dots3 = M("...", 22, GREY_B).move_to([-6.3, y0 - 4 * 0.62 + 0.3, 0], aligned_edge=LEFT)
+        self.say("summ_a")
+        self.play(FadeIn(head), run_time=0.4)
+        self.at(2)
+        self.play(FadeIn(names[0]), FadeIn(counts[0]), GrowFromEdge(bars[0], LEFT), run_time=0.7)
+        self.at(3)
+        self.play(FadeIn(names[1]), FadeIn(counts[1]), GrowFromEdge(bars[1], LEFT), run_time=0.7)
+        self.at(4)
+        self.play(*[a for i in (2, 3) for a in (FadeIn(names[i]), FadeIn(counts[i]), GrowFromEdge(bars[i], LEFT))], run_time=0.8)
+        self.hold()
+        self.say("summ_joke")
+        self.play(Circumscribe(VGroup(names[0], bars[0]), color=GC_C, buff=0.08), run_time=0.9)
+        self.at(2)
+        self.play(Circumscribe(VGroup(names[1], bars[1]), color=OURS, buff=0.08), run_time=0.9)
+        self.hold()
+        self.say("forty")
+        self.play(FadeIn(dots3), FadeIn(names[4]), FadeIn(counts[4]), FadeIn(bars[4]),
+                  FadeIn(names[5]), FadeIn(counts[5]), FadeIn(bars[5]), run_time=0.8)
+        self.at(1)
+        ring40 = SurroundingRectangle(VGroup(names[4], counts[4]), buff=0.1, corner_radius=0.08).set_stroke(YELLOW_M, 3)
+        self.play(Create(ring40), run_time=0.7)
+        self.hold()
+        why = VGroup(T("threads mostly asleep, waiting for the store", 26),
+                     T("the sampler only counts threads running Java code", 26, COOK)).arrange(DOWN, buff=0.18)
+        why.move_to([0, -3.05, 0])
+        self.say("forty2")
+        self.play(FadeIn(why[0], shift=UP * 0.1), run_time=0.6)
+        self.at_text("and the sampler", lead=0.3)
+        self.play(FadeIn(why[1], shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(Indicate(counts[4], color=YELLOW_M, scale_factor=1.4), run_time=0.9)
+        self.hold()
+        self.clear_all()
 
-        rng2 = np.random.default_rng(3)
-        sites = [("PaymentWorkload.fee(String)", 40.82), ("StringLatin1.toChars(byte[])", 26.97), ("everything else", 32.21)]
-        SC = [ALLOC_C, TEAL_M, GREY_M]
-        n_per = [11, 7, 8]
-        samples = VGroup()
-        owner = []
-        for s_i, n in enumerate(n_per):
-            for _ in range(n):
-                samples.add(Dot([rng2.uniform(-6.0, 6.0), rng2.uniform(0.9, 1.6), 0], radius=0.08, color=ALLOC_C))
-                owner.append(s_i)
-        perm = rng2.permutation(len(samples))
-        BX0, BW = -1.2, 6.5                          # bar for 100% would be BW wide
-        bar_y = [0.25, -0.55, -1.35]
-        site_l = VGroup(*[M(n, 24, c if i < 2 else GREY_B).move_to([BX0 - 0.25, y, 0], aligned_edge=RIGHT)
-                          for i, ((n, p), c, y) in enumerate(zip(sites, SC, bar_y))])
-        site_b = VGroup(*[Rectangle(width=BW * p / 100, height=0.42, stroke_width=0).set_fill(c, 0.75).move_to([BX0 + BW * p / 200, y, 0])
-                          for (n, p), c, y in zip(sites, SC, bar_y)])
-        site_p = VGroup(*[M(f"{p:.2f}%", 24, WHITE).next_to(b, RIGHT, buff=0.15) for (n, p), b in zip(sites[:2], site_b[:2])])
-        targets = []
-        for j in range(len(samples)):
-            s_i = owner[j]
-            b = site_b[s_i]
-            k = sum(1 for jj in range(j) if owner[jj] == s_i)
-            x = b.get_left()[0] + (k + 0.5) * b.width / n_per[s_i]
-            targets.append(np.array([x, bar_y[s_i], 0]))
-        self.say("s11", [(0, [LaggedStart(*[FadeIn(samples[i], scale=0.5) for i in perm], lag_ratio=0.05)], 1.2),
-                         (0, [FadeIn(site_l)], 0.6),
-                         (0, [*[samples[j].animate.move_to(targets[j]) for j in range(len(samples))]], 1.4),
-                         (0, [FadeIn(site_b), FadeOut(samples), FadeIn(site_p)], 0.8),
-                         (0, [mark(part(q_sql[1], "GROUP BY S"), WHITE, 0.3), mark(part(q_sql[0], "SUM(weight)"), WHITE, 0.3)], 1.1)])
+        # ================= guardrails =================
+        rules = VGroup(
+            VGroup(T("1", 30, YELLOW_M), T("Set maxage or maxsize, or the book grows to 250 MB.", 28)).arrange(RIGHT, buff=0.35),
+            VGroup(T("2", 30, YELLOW_M), T("default to leave on; profile for short investigations.", 28)).arrange(RIGHT, buff=0.35),
+            VGroup(T("3", 30, YELLOW_M), T("It can't see inside another program.", 28)).arrange(RIGHT, buff=0.35),
+            VGroup(T("4", 30, YELLOW_M), T("40 samples spot a big method, not what happens inside it.", 28)).arrange(RIGHT, buff=0.35),
+        ).arrange(DOWN, aligned_edge=LEFT, buff=0.45)
+        fit(rules, 12.4)
+        rules.move_to([0, 0.4, 0])
+        nxt = T("next lesson: a profiler with thousands of samples", 24, GREY_B).move_to([0, -2.8, 0])
+        self.say("guard")
+        self.play(FadeIn(rules[0], shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(rules[1], shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(rules[2], shift=UP * 0.1), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(rules[3], shift=UP * 0.1), run_time=0.5)
+        self.at(5)
+        self.play(FadeIn(nxt), run_time=0.5)
+        self.hold()
+        self.clear_all()
 
-        others = VGroup(*[chip(v, YELLOW_M, 24, mono=True) for v in ["hot-methods", "gc-pauses", "contention-by-site"]]).arrange(RIGHT, buff=0.35)
-        others.move_to([0, -2.85, 0])
-        self.say("s12", [(0, [Indicate(site_p[0], color=ALLOC_C, scale_factor=1.15)], 0.9),
-                         (1, [FadeOut(q_sql), FadeIn(others, shift=UP * 0.1)], 0.8)])
-        self.play(FadeOut(VGroup(vw, rows[1], site_l, site_b, site_p, others)), run_time=0.6)
+        # ================= moral and check =================
+        mq = T("What can a recording tell you that the log line can't?", 30).move_to(UP * 2.6)
+        m1 = T("What else happened at the same moment, on one clock.", 30, CLOCK).move_to(UP * 1.8)
+        m2 = T("A cheap recording that's always on is evidence you already have.", 30, YELLOW_M).move_to(UP * 0.9)
+        m3 = T("Dump it, instead of restarting.", 30, YELLOW_M).move_to(UP * 0.35)
+        for m in (mq, m1, m2, m3):
+            fit(m, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.5)
+        self.hold()
 
-        # ---------- the code, as a check of the picture
-        jl = code(['Recording r = new Recording(Configuration.getConfiguration("default"));',
-                   "r.setMaxAge(Duration.ofHours(1));",
-                   "r.setMaxSize(200L * 1024 * 1024);",
-                   "r.start();"], 22)
-        kl = code(['val r = Recording(Configuration.getConfiguration("default"))',
-                   "r.maxAge = Duration.ofHours(1)",
-                   "r.maxSize = 200L * 1024 * 1024",
-                   "r.start()"], 22)
-        for l in (jl, kl):
-            l[1].set_color(BAD_C)
-            l[2].set_color(BAD_C)
-        jg = VGroup(T("Java", 24, GREY_B), jl).arrange(DOWN, buff=0.2, aligned_edge=LEFT)
-        kg = VGroup(T("Kotlin", 24, GREY_B), kl).arrange(DOWN, buff=0.2, aligned_edge=LEFT)
-        both = VGroup(jg, kg).arrange(DOWN, buff=0.5, aligned_edge=LEFT).move_to([0, 0.1, 0])
-        fit(both, 12.4)
-        self.say("s13", [(0, [FadeIn(jg, shift=UP * 0.15), FadeIn(kg, shift=UP * 0.15)], 0.9),
-                         (1, [mark(VGroup(jl[1], jl[2]), BAD_C, 0.4), mark(VGroup(kl[1], kl[2]), BAD_C, 0.4)], 1.2)])
-        self.play(FadeOut(both), run_time=0.6)
+        ck = VGroup(T("Check:", 28, YELLOW_M), T("slow request at 9:14;  maxage = 1 hour;  now it's 10:30.", 28)).arrange(RIGHT, buff=0.25)
+        ck2 = T("Is 9:14 still in the book?", 28)
+        ckg = VGroup(ck, ck2).arrange(DOWN, buff=0.2).move_to(DOWN * 1.1)
+        fit(ckg, 12.4)
+        self.say("check")
+        self.play(FadeIn(ckg, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.6)
+        ans = T("No: the book keeps 9:30 to 10:30.  9:14 was torn out at 10:14.", 28, YELLOW_M).move_to(DOWN * 2.55)
+        fit(ans, 12.4)
+        self.say("check_a")
+        self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
+        self.wait(2.5)
 
-        # ---------- the rule and a check
-        rule = VGroup(T("JFR keeps a rolling window of timestamped JVM events.", 30),
-                      T("Keep one on with limits. Dump it when something is slow.", 30, REC_C),
-                      T("Read jfr summary first, then a view.", 30, YELLOW_M)).arrange(DOWN, buff=0.3).move_to([0, 1.7, 0])
-        fit(rule, 12.4)
-        self.say("r", [(1, [FadeIn(rule[0], shift=UP * 0.1)], 0.7), (2, [FadeIn(rule[1:], shift=UP * 0.1)], 0.8)])
-        chk = VGroup(T("Check: the recording keeps one hour. The slow payment", 28),
-                     T("was two hours ago. Is it in the dump?", 28)).arrange(DOWN, buff=0.2).move_to([0, -0.85, 0])
-        self.say("c", [(0, [FadeIn(chk, shift=UP * 0.1)], 0.8)])
-        ans = T("No: it fell off the ring.", 30, BAD_C).move_to([0, -2.5, 0])
-        self.say("a", [(0, [FadeIn(ans, shift=UP * 0.1)], 0.6)])
-        self.wait(1.0)
+
+def part_of(t, s):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = s.replace(" ", "")
+    i = t.text.replace(" ", "").index(k)
+    return t[i:i + len(k)]

@@ -367,7 +367,7 @@ class Mem06Gclog(Narrated):
         fit(VGroup(row1, row2), 12.4).move_to([0, 0.2, 0])
         labs = ["when", "level", "tag", "which round", "the event", "young only", "why", "before -> after (committed)",
                 "threads stopped"]
-        labt = VGroup(*[T(l, 22, LINE0[k][1] if LINE0[k][1] != GREY_B else GREY_B).next_to(chips[k], DOWN, buff=0.15)
+        labt = VGroup(*[T(l, 22, LINE0[k][1]).next_to(chips[k], DOWN, buff=0.15)
                         for k, l in enumerate(labs)])
 
         def show(ks):
