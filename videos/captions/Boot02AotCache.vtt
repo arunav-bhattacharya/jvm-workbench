@@ -1,121 +1,349 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.290
-Every time a JVM starts, it redoes the same work.
+00:00:02.733 --> 00:00:04.235
+Back to the corner shop.
 
 2
-00:00:06.290 --> 00:00:13.103
-The first time code touches a class, the JVM loads it, links it, and resolves its references.
+00:00:04.235 --> 00:00:08.740
+Unpacking every box each morning is silly when the stock hardly changes.
 
 3
-00:00:13.300 --> 00:00:15.741
-The first call of a lambda does more.
+00:00:08.740 --> 00:00:15.809
+So a sensible shopkeeper leaves yesterday's filled shelves in the back room, and wheels them out at opening time.
 
 4
-00:00:15.741 --> 00:00:21.548
-Its invokedynamic instruction runs a bootstrap method that generates the lambda's class.
+00:00:16.000 --> 00:00:19.884
+That's the archive from earlier in this lesson.
 
 5
-00:00:21.767 --> 00:00:31.907
-On JDK 25, one start of a 300-class app took 431 ms of wall time, and the next start pays it all again.
+00:00:19.884 --> 00:00:27.653
+The JDK ships one for its own classes, and AppCDS, application class data sharing, adds yours.
 
 6
-00:00:32.733 --> 00:00:36.281
-Project Leyden moves that work out of production runs.
+00:00:27.653 --> 00:00:34.513
+On the lesson's archive ladder, a small program loaded 909 classes with no sharing.
 
 7
-00:00:36.281 --> 00:00:40.683
-Its first result is the AOT cache, which you build in three phases.
+00:00:34.513 --> 00:00:38.149
+With AppCDS, 794 of its 826 came ready made.
 
 8
-00:00:40.900 --> 00:00:42.634
-First, a training run.
+00:00:39.067 --> 00:00:41.825
+So here's a question you might be shy to ask.
 
 9
-00:00:42.634 --> 00:00:46.339
-You run the app with a representative workload.
+00:00:41.825 --> 00:00:45.688
+The classes are already on the shelves, so what's left to save?
 
 10
-00:00:46.339 --> 00:00:55.640
-The JVM records what the app loaded and linked into an AOT configuration file, and on JDK 25 also its method profiles.
+00:00:45.688 --> 00:00:48.324
+Why yet another thing, called an AOT cache?
 
 11
-00:00:55.867 --> 00:00:57.094
-Second, assembly.
+00:00:49.400 --> 00:00:52.724
+Because full shelves are not yet a shop that runs itself.
 
 12
-00:00:57.094 --> 00:00:59.908
-The JVM turns that file into the cache.
+00:00:52.724 --> 00:00:55.756
+A class taken from the shelf still has to be linked.
 
 13
-00:00:59.908 --> 00:01:02.073
-Your application does not run.
+00:00:55.756 --> 00:00:58.089
+Every lambda is still built on the spot.
 
 14
-00:01:02.233 --> 00:01:03.416
-Third, production.
+00:00:58.089 --> 00:01:00.947
+And the JIT still learns everything from scratch.
 
 15
-00:01:03.416 --> 00:01:05.980
-Every start after that names the cache.
+00:01:01.133 --> 00:01:04.442
+Linking sounds grand, so let's make it small.
 
 16
-00:01:06.167 --> 00:01:11.911
-On JDK 25, one command with AOTCacheOutput does the first two phases.
+00:01:04.442 --> 00:01:09.001
+A class file names other code by text, like java/util/Map.get.
 
 17
-00:01:11.911 --> 00:01:16.740
-It trains, then starts a second JVM to assemble the cache.
+00:01:09.001 --> 00:01:17.089
+The first time an instruction runs, the JVM looks that name up, and swaps it for a pointer to the real method.
 
 18
-00:01:17.833 --> 00:01:22.127
-The cache stores the results of start-up work from the training run.
+00:01:18.000 --> 00:01:24.410
+In the shop, a customer asks for tea, and the shopkeeper checks the floor plan to find the right shelf.
 
 19
-00:01:22.127 --> 00:01:24.274
-Classes already loaded and linked.
+00:01:24.410 --> 00:01:25.842
+The tea is right there.
 
 20
-00:01:24.274 --> 00:01:27.810
-Symbolic references already resolved to the real method.
+00:01:25.842 --> 00:01:29.327
+She still has to find it, the first time, every morning.
 
 21
-00:01:27.810 --> 00:01:30.020
-Lambda call sites already resolved.
+00:01:29.467 --> 00:01:30.788
+A lambda costs more.
 
 22
-00:01:30.200 --> 00:01:35.172
-Objects the JVM would build at start-up, such as its module graph.
+00:01:30.788 --> 00:01:38.781
+Its first run builds a small hidden class on the spot, like a gift basket put together the first time someone orders one.
 
 23
-00:01:35.172 --> 00:01:40.069
-And on JDK 25, the method profiles that tell the JIT what is hot.
+00:01:38.933 --> 00:01:41.420
+Wouldn't it be nice if she kept notes?
 
 24
-00:01:41.667 --> 00:01:47.379
-In production, the JVM loads and links every cached class before main even starts.
+00:01:41.420 --> 00:01:42.532
+Tea, shelf three.
 
 25
-00:01:47.379 --> 00:01:50.235
-Then main runs without stopping for them.
+00:01:42.532 --> 00:01:44.364
+Gift basket, already packed.
 
 26
-00:01:50.433 --> 00:01:57.190
-For the 300-class app, wall time fell from 431 ms to 98.
+00:01:44.364 --> 00:01:46.981
+Then tomorrow would start further along.
 
 27
-00:01:57.190 --> 00:02:05.273
-CPU time fell from 504 ms to 81, and peak memory from 64 to 42 MiB.
+00:01:47.867 --> 00:01:51.521
+A clever shopkeeper does exactly that, in three phases.
 
 28
-00:02:05.467 --> 00:02:08.864
-Code the training run never touched gets none of this.
+00:01:51.667 --> 00:01:52.209
+Training.
 
 29
-00:02:08.864 --> 00:02:10.940
-It is resolved lazily, as before.
+00:01:52.209 --> 00:01:55.821
+An ordinary day in the shop, with a notebook on the counter.
 
 30
-00:02:10.940 --> 00:02:14.212
-So train with a workload that looks like production.
+00:01:55.821 --> 00:02:00.156
+She writes down which shelves she used, and which shortcuts she learned.
+
+31
+00:02:00.267 --> 00:02:00.844
+Assembly.
+
+32
+00:02:00.844 --> 00:02:05.336
+In the evening the shop is closed, and she writes the notes up neatly.
+
+33
+00:02:05.467 --> 00:02:06.203
+Production.
+
+34
+00:02:06.203 --> 00:02:10.152
+Every morning after that, she opens with the notes in hand.
+
+35
+00:02:10.267 --> 00:02:11.150
+Let's map it.
+
+36
+00:02:11.150 --> 00:02:22.159
+The ordinary day is a training run of your program on realistic work, while the JVM writes what it loaded and linked into an AOT configuration file: the notebook.
+
+37
+00:02:22.159 --> 00:02:26.576
+Assembly turns that into the cache, without running your program.
+
+38
+00:02:26.576 --> 00:02:28.683
+Production is every real start.
+
+39
+00:02:29.600 --> 00:02:37.172
+On JDK 25, one command does training and assembly together, and every production start names the cache.
+
+40
+00:02:37.172 --> 00:02:43.715
+The two step form from JDK 24 still works, for when the phases happen at different times.
+
+41
+00:02:44.600 --> 00:02:49.598
+AOT stands for ahead of time, which is a grand name for something very ordinary.
+
+42
+00:02:49.598 --> 00:02:51.909
+The shop did its homework last night.
+
+43
+00:02:52.067 --> 00:02:53.363
+So the point is this.
+
+44
+00:02:53.363 --> 00:02:56.389
+The work moves from every morning to one evening.
+
+45
+00:02:57.267 --> 00:02:58.883
+So what's in the cache?
+
+46
+00:02:58.883 --> 00:03:01.271
+Classes already loaded and linked.
+
+47
+00:03:01.271 --> 00:03:04.433
+Names and lambda call sites already resolved.
+
+48
+00:03:04.433 --> 00:03:10.474
+Java objects the JVM would otherwise build at every start, such as its map of modules.
+
+49
+00:03:10.474 --> 00:03:16.095
+And on JDK 25, the method profiles from training, which tell the JIT what's hot.
+
+50
+00:03:17.000 --> 00:03:18.355
+Now a prediction.
+
+51
+00:03:18.355 --> 00:03:20.268
+Here's the ladder again.
+
+52
+00:03:20.268 --> 00:03:23.775
+With AppCDS, the program loaded 826 classes.
+
+53
+00:03:23.775 --> 00:03:28.238
+With the AOT cache, will it load more classes, or fewer?
+
+54
+00:03:28.238 --> 00:03:29.513
+Pause and guess.
+
+55
+00:03:32.733 --> 00:03:33.246
+More.
+
+56
+00:03:33.246 --> 00:03:36.216
+959, more than any other row.
+
+57
+00:03:36.216 --> 00:03:39.495
+And all 959 came from the cache.
+
+58
+00:03:39.667 --> 00:03:42.061
+Well, that's not what fewer looks like.
+
+59
+00:03:42.061 --> 00:03:49.243
+But it's the good kind of more: the JVM loads and links every cached class before main runs, straight from the cache.
+
+60
+00:03:49.243 --> 00:03:53.724
+She wheels out every shelf she used yesterday, before unlocking the door.
+
+61
+00:03:53.867 --> 00:04:07.734
+On that one run, on a busy machine, the wall clock went from 388 milliseconds with no sharing, to 187 with the default archive, 153 with AppCDS, and 86 with the cache.
+
+62
+00:04:07.734 --> 00:04:11.139
+It's one run, so treat it as a direction.
+
+63
+00:04:12.067 --> 00:04:18.135
+The research behind this course measured more carefully, on JDK 25.
+
+64
+00:04:18.135 --> 00:04:30.180
+For a 300 class app, start-up CPU time fell from 504 milliseconds to 81, wall time from 431 to 98, and peak memory from 64 MiB to 42.
+
+65
+00:04:30.180 --> 00:04:33.079
+None of it needed a code change.
+
+66
+00:04:34.000 --> 00:04:41.370
+This is Project Leyden, the OpenJDK project that moves start-up work out of production runs.
+
+67
+00:04:41.370 --> 00:04:50.342
+The AOT cache is its first result: it arrived in JDK 24, and JDK 25 added the one step command and the profiles.
+
+68
+00:04:50.342 --> 00:04:52.985
+They're final, standard features.
+
+69
+00:04:53.867 --> 00:04:55.017
+Now the guardrail.
+
+70
+00:04:55.017 --> 00:04:57.956
+Suppose she takes her notes on a quiet Sunday.
+
+71
+00:04:57.956 --> 00:05:00.000
+The notes say nobody buys bread.
+
+72
+00:05:00.000 --> 00:05:03.451
+So on Monday morning, the bread is still in its boxes.
+
+73
+00:05:03.600 --> 00:05:04.615
+That's the rule.
+
+74
+00:05:04.615 --> 00:05:08.167
+Code the training never ran gets nothing from the cache.
+
+75
+00:05:08.167 --> 00:05:09.625
+It loads the usual way.
+
+76
+00:05:09.625 --> 00:05:12.416
+So train on work that looks like production.
+
+77
+00:05:13.333 --> 00:05:15.258
+And the notes fit one shop.
+
+78
+00:05:15.258 --> 00:05:21.317
+A cache belongs to one class path, one JDK release, and one operating system and CPU.
+
+79
+00:05:21.317 --> 00:05:24.809
+Change any of them, and you make the cache again.
+
+80
+00:05:25.733 --> 00:05:29.252
+So, what's left to save once the classes are on the shelves?
+
+81
+00:05:29.252 --> 00:05:33.767
+The linking, the lambdas, the start-up objects, and a head start for the JIT.
+
+82
+00:05:33.767 --> 00:05:38.809
+Train on a real day, assemble in the evening, and every morning starts from the notes.
+
+83
+00:05:39.000 --> 00:05:39.739
+Quick check.
+
+84
+00:05:39.739 --> 00:05:44.847
+Your training run only started the service and stopped it, with no requests at all.
+
+85
+00:05:44.847 --> 00:05:47.617
+Which code gets the full help from the cache?
+
+86
+00:05:50.867 --> 00:05:52.379
+Only the start-up code.
+
+87
+00:05:52.379 --> 00:05:58.496
+The request code never ran in training, so it isn't in the notes, and it loads the usual way.

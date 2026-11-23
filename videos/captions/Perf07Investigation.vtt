@@ -1,19 +1,19 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.361
+00:00:02.700 --> 00:00:05.327
 Picture the restaurant on a busy Saturday.
 
 2
-00:00:05.361 --> 00:00:07.926
+00:00:05.327 --> 00:00:07.892
 Most dishes leave the kitchen in minutes.
 
 3
-00:00:07.926 --> 00:00:12.242
+00:00:07.892 --> 00:00:12.209
 But now and then, a table waits half an hour, and nobody can say why.
 
 4
-00:00:12.242 --> 00:00:13.619
+00:00:12.209 --> 00:00:13.585
 The cooks aren't slow.
 
 5
@@ -57,115 +57,115 @@ If the average is fine, isn't the program fine?
 Why would anyone complain?
 
 15
-00:00:46.533 --> 00:00:50.432
+00:00:46.433 --> 00:00:50.332
 Here's the code under suspicion, the report step from lesson 6.
 
 16
-00:00:50.432 --> 00:00:58.601
+00:00:50.332 --> 00:00:58.501
 It checks the two-letter language with a regex, counts the words with split, and formats a line for a debug log that's switched off.
 
 17
-00:00:58.601 --> 00:01:03.428
+00:00:58.501 --> 00:01:03.328
 The lesson's demo runs it on four threads for 3 seconds, and times every call.
 
 18
-00:01:04.333 --> 00:01:09.600
+00:01:04.233 --> 00:01:09.500
 Now picture every call standing in one line, from fastest to slowest.
 
 19
-00:01:09.600 --> 00:01:11.890
+00:01:09.500 --> 00:01:11.790
 p50 is the call in the middle.
 
 20
-00:01:11.890 --> 00:01:15.401
+00:01:11.790 --> 00:01:15.301
 p99 is the call that 99 percent of calls beat.
 
 21
-00:01:15.401 --> 00:01:19.600
+00:01:15.301 --> 00:01:19.500
 And at p99.99, only one call in ten thousand is slower.
 
 22
-00:01:19.600 --> 00:01:23.951
+00:01:19.500 --> 00:01:23.851
 Those rare slow calls at the far end are called the tail.
 
 23
-00:01:24.133 --> 00:01:27.535
+00:01:24.067 --> 00:01:27.468
 Half the calls take under 1.5 microseconds.
 
 24
-00:01:27.535 --> 00:01:30.937
+00:01:27.468 --> 00:01:30.870
 How much slower is the one in ten thousand?
 
 25
-00:01:30.937 --> 00:01:31.412
+00:01:30.870 --> 00:01:31.345
 Twice?
 
 26
-00:01:31.412 --> 00:01:32.203
+00:01:31.345 --> 00:01:32.136
 Ten times?
 
 27
-00:01:35.467 --> 00:01:36.753
+00:01:35.333 --> 00:01:36.619
 Over 36 milliseconds.
 
 28
-00:01:36.753 --> 00:01:38.590
+00:01:36.619 --> 00:01:38.457
 More than 20,000 times longer.
 
 29
-00:01:38.590 --> 00:01:43.244
+00:01:38.457 --> 00:01:43.111
 If the middle call took one minute, that one would take more than two weeks.
 
 30
-00:01:43.244 --> 00:01:47.470
+00:01:43.111 --> 00:01:47.336
 So the average, and even the middle call, say nothing about the tail.
 
 31
-00:01:47.470 --> 00:01:50.348
+00:01:47.336 --> 00:01:50.215
 And the tail is where the complaints come from.
 
 32
-00:01:50.533 --> 00:01:53.500
+00:01:50.433 --> 00:01:53.400
 Now look at the end of the line.
 
 33
-00:01:53.500 --> 00:01:57.950
+00:01:53.400 --> 00:01:57.850
 The JVM collected garbage 14 times in 3 seconds.
 
 34
-00:01:57.950 --> 00:02:07.961
+00:01:57.850 --> 00:02:07.861
 JFR's gc-pauses view, on the same recording, agrees: 14 pauses, 236 milliseconds in total, the longest 53.2.
 
 35
-00:02:08.867 --> 00:02:12.159
+00:02:08.767 --> 00:02:12.059
 That's our first suspect, and the kitchen explains it.
 
 36
-00:02:12.159 --> 00:02:16.183
+00:02:12.059 --> 00:02:16.083
 Every object a call creates is a clean plate taken from the shelf.
 
 37
-00:02:16.183 --> 00:02:20.390
+00:02:16.083 --> 00:02:20.290
 The shelf is the young part of the heap, where new objects start out.
 
 38
-00:02:20.390 --> 00:02:26.243
+00:02:20.290 --> 00:02:26.143
 When it's empty, the garbage collector stops every thread while it clears the dead objects away.
 
 39
-00:02:26.243 --> 00:02:27.951
+00:02:26.143 --> 00:02:27.851
 The whole kitchen washes up.
 
 40
-00:02:28.133 --> 00:02:32.297
+00:02:28.067 --> 00:02:32.230
 A call that's running when the pause starts has to wait for it to end.
 
 41
-00:02:32.297 --> 00:02:34.735
+00:02:32.230 --> 00:02:34.668
 That's the table that waits half an hour.
 
 42
-00:02:34.735 --> 00:02:42.169
+00:02:34.668 --> 00:02:42.103
 So the slowest calls are probably the ones that met a pause, and the pauses come often because the code takes so many plates.
 
 43
@@ -197,165 +197,165 @@ Don't blame the longest call of a run on anything.
 The percentiles and the GC count are the evidence.
 
 50
-00:03:11.867 --> 00:03:12.757
+00:03:11.933 --> 00:03:12.824
 So, rule one.
 
 51
-00:03:12.757 --> 00:03:17.208
+00:03:12.824 --> 00:03:17.275
 A good median can hide calls that wait for the garbage collector.
 
 52
-00:03:17.208 --> 00:03:19.673
+00:03:17.275 --> 00:03:19.740
 Measure the tail, and count the GCs.
 
 53
-00:03:20.600 --> 00:03:23.590
+00:03:20.667 --> 00:03:23.657
 Next: which lines take the plates?
 
 54
-00:03:23.590 --> 00:03:33.440
+00:03:23.657 --> 00:03:33.507
 JFR samples allocations with a stack trace, and the lesson groups the samples by the first line in our own code.
 
 55
-00:03:33.440 --> 00:03:37.925
+00:03:33.507 --> 00:03:37.992
 Line 21, the debug line nobody reads: 49.1 percent.
 
 56
-00:03:37.925 --> 00:03:42.146
+00:03:37.992 --> 00:03:42.213
 Line 17, the regex compiled on every call: 32.3.
 
 57
-00:03:42.146 --> 00:03:43.993
+00:03:42.213 --> 00:03:44.060
 Line 19, split: 18.5.
 
 58
-00:03:44.133 --> 00:03:46.779
+00:03:44.267 --> 00:03:46.912
 It's tempting to fix all three at once.
 
 59
-00:03:46.779 --> 00:03:47.185
+00:03:46.912 --> 00:03:47.319
 Don't.
 
 60
-00:03:47.185 --> 00:03:49.763
+00:03:47.319 --> 00:03:49.896
 Then you never learn which one helped.
 
 61
-00:03:49.763 --> 00:03:57.088
+00:03:49.896 --> 00:03:57.221
 Round 1 removes the pure waste: the regex is compiled once, and the log line is built only when debug is on.
 
 62
-00:03:58.000 --> 00:04:01.117
+00:03:58.133 --> 00:04:01.250
 Same harness, same busy machine.
 
 63
-00:04:01.117 --> 00:04:09.200
+00:04:01.250 --> 00:04:09.334
 3.5 times the calls per second, and the p99.99 down from 36.7 milliseconds to 12.4.
 
 64
-00:04:09.200 --> 00:04:13.096
+00:04:09.334 --> 00:04:13.230
 But the GC count went up, from 14 to 15.
 
 65
-00:04:13.096 --> 00:04:14.752
+00:04:13.230 --> 00:04:14.885
 Did the fix fail?
 
 66
-00:04:17.800 --> 00:04:18.039
+00:04:17.867 --> 00:04:18.105
 No.
 
 67
-00:04:18.039 --> 00:04:23.365
+00:04:18.105 --> 00:04:23.432
 The faster code made 3.5 times as many calls in the same 3 seconds.
 
 68
-00:04:23.365 --> 00:04:29.487
+00:04:23.432 --> 00:04:29.554
 Count per call: about 21 collections per million calls before, about 6.5 now.
 
 69
-00:04:29.487 --> 00:04:33.144
+00:04:29.554 --> 00:04:33.211
 A busier kitchen, and fewer wash-ups per dish.
 
 70
-00:04:33.333 --> 00:04:37.559
+00:04:33.433 --> 00:04:37.659
 Then profile again, because the picture has changed.
 
 71
-00:04:37.559 --> 00:04:41.459
+00:04:37.659 --> 00:04:41.559
 split was about a quarter of the problem before.
 
 72
-00:04:41.459 --> 00:04:43.247
+00:04:41.559 --> 00:04:43.347
 Now it's 91.5 percent.
 
 73
-00:04:43.247 --> 00:04:48.203
+00:04:43.347 --> 00:04:48.303
 Round 2 counts where words start, without building any words.
 
 74
-00:04:48.203 --> 00:04:54.785
+00:04:48.303 --> 00:04:54.885
 The p99.99 falls to 51 microseconds, and the GCs to about 0.65 per million calls.
 
 75
-00:04:55.667 --> 00:04:58.185
+00:04:55.800 --> 00:04:58.318
 Last, prove it to the byte.
 
 76
-00:04:58.185 --> 00:05:07.046
+00:04:58.318 --> 00:05:07.179
 JMH, the benchmark tool from lesson 3, reports bytes per call: 2,464 before, then 832, then 56.
 
 77
-00:05:07.046 --> 00:05:10.684
+00:05:07.179 --> 00:05:10.817
 On this busy machine the times wobbled.
 
 78
-00:05:10.684 --> 00:05:12.269
+00:05:10.817 --> 00:05:12.403
 The bytes didn't.
 
 79
-00:05:12.467 --> 00:05:14.644
+00:05:12.633 --> 00:05:14.811
 What's left is a 56 byte matcher.
 
 80
-00:05:14.644 --> 00:05:17.878
+00:05:14.811 --> 00:05:18.045
 The step's budget is 300 bytes, so we stop there.
 
 81
-00:05:17.878 --> 00:05:23.025
+00:05:18.045 --> 00:05:23.192
 And a test checks that budget on every build, so the plates stay on the shelf.
 
 82
-00:05:23.933 --> 00:05:27.065
+00:05:24.100 --> 00:05:27.231
 So, if the average is fine, is the program fine?
 
 83
-00:05:27.065 --> 00:05:29.609
+00:05:27.231 --> 00:05:29.775
 Not when the tail meets the washing up.
 
 84
-00:05:29.609 --> 00:05:32.609
+00:05:29.775 --> 00:05:32.776
 Start from the slowest calls and the GC count.
 
 85
-00:05:32.609 --> 00:05:34.958
+00:05:32.776 --> 00:05:35.124
 Find the line that takes the plates.
 
 86
-00:05:34.958 --> 00:05:36.980
+00:05:35.124 --> 00:05:37.147
 Fix one thing, then look again.
 
 87
-00:05:37.133 --> 00:05:37.929
+00:05:37.367 --> 00:05:38.162
 Quick check.
 
 88
-00:05:37.929 --> 00:05:42.238
+00:05:38.162 --> 00:05:42.471
 In round 1, you hoist the regex but forget to guard the log line.
 
 89
-00:05:42.238 --> 00:05:44.492
+00:05:42.471 --> 00:05:44.725
 Which line leads the next profile?
 
 90
-00:05:47.733 --> 00:05:54.588
+00:05:47.900 --> 00:05:54.755
 Line 21, the String.format: about 810 bytes per call, now the biggest cost left.

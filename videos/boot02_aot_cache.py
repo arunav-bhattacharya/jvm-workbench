@@ -216,7 +216,7 @@ N = {
                "cache, will it load more classes, or fewer? Pause and guess.",
     "reveal": "More. 959, more than any other row. And all 959 came from the cache.",
     "reveal2": "Well, that's not what fewer looks like. But it's the good kind of more: the JVM loads and links every cached class before main runs, straight from the cache. She wheels out every shelf she used yesterday, before unlocking the door.",
-    "times": "On that one run, on a busy machine, the wall clock went from 388 milliseconds with no sharing, to 187 with the default archive, 153 with AppCDS, and 86 with the cache. It's one run, so treat it as a direction.",
+    "times": "On that one run, on a busy machine, the wall clock went from 388 milliseconds with no sharing to 86 with the AOT cache. It's one run, so treat it as a direction.",
     "research": "The research behind this course measured more carefully, on JDK 25. For a 300 class app, start-up CPU "
                 "time fell from 504 milliseconds to 81, wall time from 431 to 98, and peak memory from 64 MiB to 42. "
                 "None of it needed a code change.",
@@ -225,8 +225,7 @@ N = {
                   "So on Monday morning, the bread is still in its boxes.",
     "guard": "That's the rule. Code the training never ran gets nothing from the cache. It loads the usual way. So train "
              "on work that looks like production.",
-    "guard2": "And the notes fit one shop. A cache belongs to one class path, one JDK release, and one operating system "
-              "and CPU. Change any of them, and you make the cache again.",
+    "guard2": "And the notes fit one shop: one class path, one JDK release, one operating system and CPU. Change any of them, and you make the cache again.",
     "moral": "So, what's left to save once the classes are on the shelves? The linking, the lambdas, the start-up objects, and a head start for the JIT. Train on a real day, assemble in the evening, and every morning starts from the notes.",
     "check": "Quick check. Your training run only started the service and stopped it, with no requests at all. Which "
              "code gets the full help from the cache?",
@@ -324,10 +323,11 @@ class Boot02AotCache(Narrated):
         nm[1].move_to(nm[0])
         nm_l = T("a name, written as text", 22, GREY_B).next_to(nm, DOWN, buff=0.15)
         ptr = box("the real method", TEAL_M, w=3.4, h=0.7, size=26)
-        row = VGroup(VGroup(nm, nm_l), ptr).arrange(RIGHT, buff=2.2).move_to([0, -1.3, 0])
+        row = VGroup(VGroup(nm, nm_l), ptr).arrange(RIGHT, buff=3.2).move_to([0, -1.3, 0])
+        ptr.match_y(nm)
         ar = Arrow(nm.get_right(), ptr.get_left(), buff=0.2, color=TEAL_M, stroke_width=3)
-        ar_l = T("first run: look it up, swap in a pointer", 22, TEAL_M).next_to(ar, UP, buff=0.12)
-        fit(ar_l, 4.2)
+        ar_l = VGroup(T("first run: look it up,", 22, TEAL_M), T("swap in a pointer", 22, TEAL_M)).arrange(DOWN, buff=0.08)
+        fit(ar_l, 3.0).next_to(ar, DOWN, buff=0.15)
         self.say("link")
         self.play(left.animate.set_opacity(0.35), run_time=0.4)
         self.play(left[0].animate.set_opacity(1), run_time=0.3)
@@ -434,13 +434,15 @@ class Boot02AotCache(Narrated):
         self.wipe()
 
         # ================= the commands =================
-        c25 = term(["java -XX:AOTCacheOutput=app.aot -cp tracker.jar tracker.Main   # train + assemble",
-                    "java -XX:AOTCache=app.aot -cp tracker.jar tracker.Main         # production"], 22, "JDK 25 and later")
-        c24 = term(["java -XX:AOTMode=record -XX:AOTConfiguration=app.aotconf -cp tracker.jar tracker.Main",
-                    "java -XX:AOTMode=create -XX:AOTConfiguration=app.aotconf -XX:AOTCache=app.aot -cp tracker.jar"], 22,
+        c25 = term(["java -XX:AOTCacheOutput=app.aot -cp tracker.jar tracker.Main",
+                    "java -XX:AOTCache=app.aot -cp tracker.jar tracker.Main"], 24, "JDK 25 and later: training + assembly, then production")
+        c24 = term(["java -XX:AOTMode=record -XX:AOTConfiguration=app.aotconf \\",
+                    "     -cp tracker.jar tracker.Main",
+                    "java -XX:AOTMode=create -XX:AOTConfiguration=app.aotconf \\",
+                    "     -XX:AOTCache=app.aot -cp tracker.jar"], 22,
                    "the two-step form, JDK 24 and later")
-        fit(c25, 12.6).move_to([0, 1.6, 0])
-        fit(c24, 12.6).move_to([0, -1.4, 0])
+        fit(c25, 12.6).move_to([0, 1.9, 0])
+        fit(c24, 12.6).move_to([0, -1.3, 0])
         self.say("cmd")
         self.play(FadeIn(c25[0]), FadeIn(c25[2]), FadeIn(c25[1][0], shift=RIGHT * 0.1), run_time=0.7)
         self.play(part(c25[1][0], "AOTCacheOutput=app.aot").animate.set_color(GREEN_M), run_time=0.4)
@@ -450,7 +452,7 @@ class Boot02AotCache(Narrated):
         self.at(1)
         self.play(FadeIn(c24, shift=UP * 0.1), run_time=0.7)
         self.play(part(c24[1][0], "AOTMode=record").animate.set_color(GREEN_M),
-                  part(c24[1][1], "AOTMode=create").animate.set_color(GOLD_M), run_time=0.5)
+                  part(c24[1][2], "AOTMode=create").animate.set_color(GOLD_M), run_time=0.5)
         self.hold()
         self.wipe()
 
@@ -503,7 +505,7 @@ class Boot02AotCache(Narrated):
         self.at(3)
         self.play(FadeIn(hidden), run_time=0.4)
         self.hold(after=0)
-        self.predict(2.6)
+        self.predict(2.0)
 
         self.say("reveal")
         self.play(FadeOut(hidden), FadeIn(r4[:len("AOTcache959")]), run_time=0.5)
@@ -616,9 +618,9 @@ class Boot02AotCache(Narrated):
                       T("change any of them: make the cache again", 28, BAD)).arrange(DOWN, buff=0.5).move_to([0, 0.3, 0])
         self.say("guard2")
         self.play(FadeIn(fits[0]), run_time=0.5)
-        self.at(1)
+        self.at_text("one class path", lead=0.2)
         self.play(LaggedStart(*[FadeIn(c, shift=UP * 0.1) for c in fits[1]], lag_ratio=0.3), run_time=1.2)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(fits[2], shift=UP * 0.1), run_time=0.5)
         self.hold()
         self.wipe()
@@ -647,7 +649,7 @@ class Boot02AotCache(Narrated):
         self.say("check")
         self.play(FadeIn(qg2, shift=UP * 0.1), run_time=0.7)
         self.hold(after=0)
-        self.predict(2.6)
+        self.predict(2.0)
         ans = T("only the start-up code: the request code never ran in training", 26, OK)
         fit(ans, 12.4).move_to([0, -2.4, 0])
         self.say("check_a")

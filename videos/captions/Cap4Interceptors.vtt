@@ -1,165 +1,401 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:03.980
-Here is authorize.
+00:00:02.700 --> 00:00:04.692
+Back to the theatre's box office.
 
 2
-00:00:03.980 --> 00:00:05.544
-Two lines do the work.
+00:00:04.692 --> 00:00:10.727
+The city's booking service runs in another building, and the box office reaches it over the network.
 
 3
-00:00:05.544 --> 00:00:08.245
-The other twelve time it and retry it.
+00:00:10.727 --> 00:00:13.323
+Most calls come back in a few milliseconds.
 
 4
-00:00:08.467 --> 00:00:12.271
-The same plumbing is copied into capture, refund and void.
+00:00:13.567 --> 00:00:15.563
+Now and then, one gets no answer.
 
 5
-00:00:12.500 --> 00:00:16.197
-An interceptor is that plumbing, written once, for any method.
+00:00:15.563 --> 00:00:19.798
+The call times out, and the customer at the counter waits for nothing.
 
 6
-00:00:17.400 --> 00:00:22.693
-It gets the call as one object: the method's name, its arguments, and proceed().
+00:00:19.798 --> 00:00:25.000
+So the theatre wants every booking call timed, and a call that timed out, tried again.
 
 7
-00:00:22.693 --> 00:00:24.347
-proceed() means carry on.
+00:00:25.933 --> 00:00:28.920
+Here's a question that's easy to be shy about.
 
 8
-00:00:25.867 --> 00:00:28.287
-Line up several and you have a chain.
+00:00:28.920 --> 00:00:33.660
+In many frameworks, you write @Retry above a method, and it just retries.
 
 9
-00:00:28.287 --> 00:00:30.118
-proceed() runs the next one.
+00:00:33.660 --> 00:00:34.959
+Nobody wrote a loop.
 
 10
-00:00:30.118 --> 00:00:32.735
-After the last, it runs the real method.
+00:00:34.959 --> 00:00:38.205
+So where does the code that retries actually live?
 
 11
-00:00:33.267 --> 00:00:35.375
-Now the issuer is unavailable.
+00:00:39.300 --> 00:00:42.844
+Let's first write it the honest way, inside the method.
 
 12
-00:00:35.375 --> 00:00:36.851
-The real call throws.
+00:00:42.844 --> 00:00:43.746
+Note the time.
 
 13
-00:00:36.851 --> 00:00:39.943
-Retry catches it, and calls proceed() again.
+00:00:43.746 --> 00:00:46.517
+Try the booking service, up to three times.
 
 14
-00:00:40.567 --> 00:00:41.145
-Predict.
+00:00:46.517 --> 00:00:49.481
+And whatever happens, record how long it took.
 
 15
-00:00:41.145 --> 00:00:43.673
-What does the timer outside record?
+00:00:49.717 --> 00:00:51.289
+Now find the real work.
 
 16
-00:00:45.400 --> 00:00:47.697
-One call, as long as both attempts.
+00:00:51.289 --> 00:00:53.682
+It's one line: the call to reserve.
 
 17
-00:00:47.697 --> 00:00:51.963
-That's what the caller waited for, so @Timed goes outside @Retry.
+00:00:53.682 --> 00:00:55.597
+Everything else is plumbing.
 
 18
-00:00:52.767 --> 00:00:55.365
-Who puts the chain in front of a component?
+00:00:55.597 --> 00:00:58.469
+Kotlin says the same thing, line for line.
 
 19
-00:00:55.365 --> 00:00:57.239
-The container, through a proxy.
+00:00:59.417 --> 00:01:05.691
+And this plumbing gets copied into confirm, into cancel, and into every method it will ever grow.
 
 20
-00:00:57.467 --> 00:01:01.927
-With an interface, the JDK makes a proxy class that implements it.
+00:01:05.691 --> 00:01:08.537
+One line of work, a dozen lines guarding it.
 
 21
-00:01:01.927 --> 00:01:06.589
-One handler runs the chain, then calls the target, a separate object.
+00:01:08.537 --> 00:01:13.453
+And the timer and the retry are tangled, so changing one means reading both.
 
 22
-00:01:06.800 --> 00:01:12.394
-With no interface, Byte Buddy writes a subclass that runs the chain, then calls super.
+00:01:14.400 --> 00:01:20.103
+Wouldn't it be nice to write the plumbing once, for any method, and keep reserve down to its one line?
 
 23
-00:01:12.394 --> 00:01:18.184
-So a final class can't be intercepted, and Kotlin classes are final unless you open them.
+00:01:21.200 --> 00:01:25.334
+Remember the stand-in at the stage door, from the Class loading track?
 
 24
-00:01:18.400 --> 00:01:20.924
-The container refuses them at start-up.
+00:01:25.334 --> 00:01:28.936
+Every request meant for the actor reaches the stand-in first.
 
 25
-00:01:21.733 --> 00:01:23.638
-Last: which call to retry.
+00:01:29.183 --> 00:01:31.456
+Now give the door a row of helpers.
 
 26
-00:01:23.638 --> 00:01:26.568
-authorizeAndCapture is a default method.
+00:01:31.456 --> 00:01:33.144
+The first is a timekeeper.
 
 27
-00:01:26.568 --> 00:01:28.985
-It calls authorize, then capture.
+00:01:33.144 --> 00:01:38.858
+It notes the time, says pass it on, and notes the time again when the answer comes back.
 
 28
-00:01:29.200 --> 00:01:30.712
-The capture times out.
+00:01:38.858 --> 00:01:40.481
+The next one tries again.
 
 29
-00:01:30.712 --> 00:01:35.933
-Retry the whole method, and authorize runs again: a second hold on the card.
+00:01:40.481 --> 00:01:44.961
+It says pass it on, and if the answer is a timeout, it says it again.
 
 30
-00:01:36.167 --> 00:01:41.848
-With invokeDefault, each inner call has its own chain, so only the capture is retried.
+00:01:44.961 --> 00:01:48.402
+After the last helper, the request reaches the actor.
 
 31
-00:01:42.067 --> 00:01:48.111
-And only with an idempotency key, the same on every attempt, so the issuer can drop the repeat.
+00:01:49.450 --> 00:01:50.434
+Let's map that.
 
 32
-00:01:48.933 --> 00:01:52.012
-Here is the lab's timer, in Java and Kotlin.
+00:01:50.434 --> 00:01:54.961
+Each helper is an interceptor: plumbing written once, for any method.
 
 33
-00:01:54.833 --> 00:01:55.430
-The rule.
+00:01:54.961 --> 00:01:57.454
+Pass it on is a method called proceed.
 
 34
-00:01:55.430 --> 00:01:59.472
-An interceptor runs around a call, and proceed() hands it on.
+00:01:57.454 --> 00:01:59.422
+The row of helpers is a chain.
 
 35
-00:01:59.472 --> 00:02:02.917
-Retry only the smallest call that is safe to repeat.
+00:01:59.422 --> 00:02:03.030
+And the actor is the real method, the one line of work.
 
 36
-00:02:03.133 --> 00:02:04.160
-Check yourself.
+00:02:03.967 --> 00:02:07.203
+Each helper is handed a small note, an Invocation.
 
 37
-00:02:04.160 --> 00:02:08.748
-@Timed sits inside @Retry, and the call works on the third attempt.
+00:02:07.203 --> 00:02:10.892
+It carries the method's name, its arguments, and proceed.
 
 38
-00:02:08.748 --> 00:02:11.281
-How many times does the timer record?
+00:02:11.833 --> 00:02:13.385
+Here is the lab's timer.
 
 39
-00:02:14.000 --> 00:02:14.465
-Three.
+00:02:13.385 --> 00:02:16.424
+It notes the start time, and assumes the worst.
 
 40
-00:02:14.465 --> 00:02:17.723
-Inside the retry, it records each attempt.
+00:02:16.424 --> 00:02:17.524
+It calls proceed.
 
 41
-00:02:17.723 --> 00:02:19.972
-Outside, it would record one.
+00:02:17.524 --> 00:02:20.240
+If nothing was thrown, it marks a success.
+
+42
+00:02:20.240 --> 00:02:25.477
+And in finally, whatever happened, it records the name, the time and the outcome.
+
+43
+00:02:25.717 --> 00:02:27.853
+That finally is the tricky line.
+
+44
+00:02:27.853 --> 00:02:32.193
+It runs on success and on failure, so a failed call is timed too.
+
+45
+00:02:32.193 --> 00:02:33.929
+Kotlin has the same shape.
+
+46
+00:02:34.867 --> 00:02:38.758
+And the helper that tries again is just a loop around proceed.
+
+47
+00:02:38.758 --> 00:02:42.837
+After a failure it was told to retry, it calls proceed once more.
+
+48
+00:02:43.933 --> 00:02:46.635
+Now, does the order of the helpers matter?
+
+49
+00:02:46.635 --> 00:02:50.688
+The demo sends one booking call that fails twice, then answers.
+
+50
+00:02:50.688 --> 00:02:54.547
+Once with the timekeeper outside the retry, and once inside.
+
+51
+00:02:54.547 --> 00:02:57.892
+How many entries does the timekeeper write each way?
+
+52
+00:02:57.892 --> 00:02:58.921
+Pause and guess.
+
+53
+00:03:02.917 --> 00:03:05.688
+Timekeeper outside: one entry, a success.
+
+54
+00:03:05.688 --> 00:03:09.339
+It saw one call, as long as all the attempts together.
+
+55
+00:03:09.339 --> 00:03:11.569
+Timekeeper inside: three entries.
+
+56
+00:03:11.569 --> 00:03:13.665
+Failed, failed, then a success.
+
+57
+00:03:13.665 --> 00:03:15.963
+It timed every attempt on its own.
+
+58
+00:03:16.200 --> 00:03:19.039
+Neither is wrong; they measure different things.
+
+59
+00:03:19.039 --> 00:03:20.873
+The lab puts the timer outside.
+
+60
+00:03:20.873 --> 00:03:25.014
+The customer at the counter doesn't care that attempt three was quick.
+
+61
+00:03:25.014 --> 00:03:26.552
+They waited for all three.
+
+62
+00:03:27.500 --> 00:03:31.150
+How does the container put the chain in front of a real part?
+
+63
+00:03:31.150 --> 00:03:32.527
+It depends on the part.
+
+64
+00:03:32.767 --> 00:03:38.966
+If the part has an interface, the JDK writes a stand-in that implements it, a JDK proxy.
+
+65
+00:03:38.966 --> 00:03:44.108
+Every call goes through the chain, and then to the real object behind it.
+
+66
+00:03:44.350 --> 00:03:55.258
+If the part has no interface, Byte Buddy, a library that writes classes while the program runs, sews a costume copy: a subclass whose overrides run the chain.
+
+67
+00:03:56.200 --> 00:03:57.883
+That's where Kotlin bites.
+
+68
+00:03:57.883 --> 00:04:02.674
+A Kotlin class is final unless you write open, so no subclass may copy it.
+
+69
+00:04:02.674 --> 00:04:05.912
+Think of a costume with a do not copy tag sewn in.
+
+70
+00:04:05.912 --> 00:04:10.055
+So the container checks at start-up, and refuses with a message.
+
+71
+00:04:10.055 --> 00:04:13.940
+An annotation only works if a stand-in can reach the method.
+
+72
+00:04:14.883 --> 00:04:17.980
+Now the guardrail, and it's about what you retry.
+
+73
+00:04:17.980 --> 00:04:20.065
+Selling a ticket takes two calls.
+
+74
+00:04:20.065 --> 00:04:24.172
+Reserve holds the seat, and confirm turns the hold into a ticket.
+
+75
+00:04:24.172 --> 00:04:26.195
+Say the first confirm times out.
+
+76
+00:04:26.195 --> 00:04:30.744
+If the retry wraps both calls as one, what does the booking service see?
+
+77
+00:04:30.744 --> 00:04:31.755
+Pause and guess.
+
+78
+00:04:35.250 --> 00:04:39.653
+Reserve, the confirm that timed out, then reserve again, and confirm.
+
+79
+00:04:39.653 --> 00:04:45.077
+One customer, two seats held, and an empty one on the night that nobody else can buy.
+
+80
+00:04:45.317 --> 00:04:49.481
+Through the container's proxy, each inner call keeps its own retry.
+
+81
+00:04:49.481 --> 00:04:54.639
+So the booking service sees reserve, the confirm that timed out, and confirm again.
+
+82
+00:04:54.639 --> 00:04:56.814
+Only the confirmation was repeated.
+
+83
+00:04:57.050 --> 00:05:00.453
+Even then, a timeout doesn't say the confirm failed.
+
+84
+00:05:00.453 --> 00:05:01.958
+It says you don't know.
+
+85
+00:05:01.958 --> 00:05:09.614
+So retry confirm only if it carries a booking reference, the same on every attempt, so the service can spot a repeat.
+
+86
+00:05:12.350 --> 00:05:14.733
+And here the stand-in picture breaks.
+
+87
+00:05:14.733 --> 00:05:20.080
+A real stand-in would notice the same customer coming back twice for the same seat.
+
+88
+00:05:20.080 --> 00:05:22.077
+An interceptor notices nothing.
+
+89
+00:05:22.077 --> 00:05:26.393
+It does exactly what the annotation says, as many times as it says.
+
+90
+00:05:27.333 --> 00:05:29.188
+So, where does the retry live?
+
+91
+00:05:29.188 --> 00:05:30.671
+In a helper at the door.
+
+92
+00:05:30.671 --> 00:05:34.071
+It runs around the call, and proceed hands the call on.
+
+93
+00:05:34.071 --> 00:05:41.675
+Write the plumbing once, line the helpers up in the order you mean, and retry only the smallest call that's safe to repeat.
+
+94
+00:05:41.917 --> 00:05:42.729
+Quick check.
+
+95
+00:05:42.729 --> 00:05:48.551
+A third helper writes down every request it passes on, and it stands inside the retry.
+
+96
+00:05:48.551 --> 00:05:51.394
+A cancellation times out once, then works.
+
+97
+00:05:51.394 --> 00:05:53.357
+How many lines does it write?
+
+98
+00:05:56.550 --> 00:05:56.851
+Two.
+
+99
+00:05:56.851 --> 00:05:59.862
+Inside the retry, it sees every attempt.
+
+100
+00:05:59.862 --> 00:06:03.098
+Outside the retry, it would write just one.

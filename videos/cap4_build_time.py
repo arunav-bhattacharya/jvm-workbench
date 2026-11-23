@@ -414,7 +414,8 @@ class Cap4BuildTime(Narrated):
         self.wipe(0.5)
 
         # ================= the count, and where it comes from =================
-        num = Integer(0, font_size=96, color=BAD).move_to([0, 2.4, 0])
+        vt = ValueTracker(0)
+        num = always_redraw(lambda: T(f"{int(round(vt.get_value())):,}", 96, BAD).move_to([0, 2.4, 0]))
         cls_l = T("classes loaded, reflective container", 24, BAD).next_to(num, DOWN, buff=0.1)
         b1 = hbar(2207, 2207, 9.0, BAD, 0.45).move_to([-4.5, 0.6, 0], aligned_edge=LEFT)
         b2 = hbar(991, 2207, 9.0, GEN, 0.45).move_to([-4.5, -0.1, 0], aligned_edge=LEFT)
@@ -423,7 +424,9 @@ class Cap4BuildTime(Narrated):
         extra = Brace(Line(b2.get_right(), [b1.get_right()[0], b2.get_y(), 0]), DOWN, buff=0.12, color=GREY_B)
         extra_l = T("1,216: machinery", 24, GREY_A).next_to(extra, DOWN, buff=0.08)
         self.say("show")
-        self.play(ChangeDecimalToValue(num, 2207), FadeIn(cls_l), run_time=1.4)
+        self.add(num)
+        self.play(vt.animate.set_value(2207), FadeIn(cls_l), run_time=1.4)
+        num.clear_updaters()
         self.play(GrowFromEdge(b1, LEFT), FadeIn(b1l), run_time=0.6)
         self.at_text("The same box", lead=0.3)
         self.play(GrowFromEdge(b2, LEFT), FadeIn(b2l), run_time=0.6)

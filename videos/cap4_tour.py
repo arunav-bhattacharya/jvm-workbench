@@ -417,23 +417,23 @@ class Cap4Tour(Narrated):
         self.play(FadeIn(VGroup(c_bo, c_pr, c_sb), shift=DOWN * 0.1, lag_ratio=0.2), run_time=0.9)
         self.hold()
 
-        shelf = Line([-0.6, 0, 0], [0.6, 0, 0], stroke_width=5, color=GREY_B).move_to([-0.55, 1.85, 0])
+        shelf = Line([-0.6, 0, 0], [0.6, 0, 0], stroke_width=5, color=GREY_B).move_to([-0.4, 2.55, 0])
         sp = plan_icon(0.8).next_to(shelf, UP, buff=0.04)
-        shelf_l = T("one plan, on a shelf", 20, PLAN).next_to(shelf, DOWN, buff=0.12)
+        shelf_l = T("one plan, on a shelf", 22, PLAN).next_to(shelf, RIGHT, buff=0.3)
         self.say("analogy2")
-        self.play(Indicate(c_bo, color=OFFICE, scale_factor=1.05), run_time=0.8)
+        self.play(Circumscribe(c_bo, color=OFFICE, buff=0.05), run_time=0.8)
         self.at_text("The price list's card", lead=0.3)
-        self.play(Indicate(c_pr, color=PRICE, scale_factor=1.05), run_time=0.8)
+        self.play(Circumscribe(c_pr, color=PRICE, buff=0.05), run_time=0.8)
         self.at_text("The manager reads", lead=0.3)
         self.play(mg.animate.shift(RIGHT * 0.5), run_time=0.6)
         for c in (c_bo, c_pr, c_sb):
             self.play(Circumscribe(c, color=MANAGER, buff=0.05), run_time=0.55)
         self.at_text("and puts one", lead=0.3)
-        self.play(Create(shelf), FadeIn(sp, shift=DOWN * 0.2), FadeIn(shelf_l), run_time=0.8)
+        self.play(FadeOut(clock), Create(shelf), FadeIn(sp, shift=DOWN * 0.2), FadeIn(shelf_l), run_time=0.8)
         self.play(*[ShowPassingFlash(Line(sp.get_center(), t, stroke_width=4, color=PLAN), time_width=0.6)
                     for t in (d_bo[2].get_top(), d_pr[2].get_top())], run_time=0.9)
         self.hold()
-        self.play(FadeOut(clock), Group(*self.mobjects).animate.scale(0.62).move_to([0, 1.55, 0]), run_time=0.8)
+        self.play(Group(*self.mobjects).animate.scale(0.62).move_to([0, 1.55, 0]), run_time=0.8)
 
         m1 = maprow("the manager", "a container, the program we'll build", MANAGER)
         m2 = maprow("each desk", "a part: a component", GREY_A)
@@ -488,8 +488,8 @@ class Cap4Tour(Narrated):
         jg, kg = titled(jv, "Java"), titled(kt, "Kotlin")
         both = VGroup(jg, kg).arrange(DOWN, aligned_edge=LEFT, buff=0.45)
         fit(both, 12.4).move_to([0, 0.35, 0])
-        refl = T("reflection: asking a class about itself while the program runs", 24, GREY_B).move_to([0, 3.4, 0])
-        fit(refl, 12.4)
+        refl = T("reflection: asking a class about itself while the program runs", 24, GREY_B)
+        refl.next_to(jg[0], RIGHT, buff=0.6)
         self.say("reflect")
         self.play(FadeIn(jg, shift=UP * 0.1), run_time=0.8)
         self.at_text("It uses reflection", lead=0.3)
@@ -605,11 +605,10 @@ class Cap4Tour(Narrated):
         mg = person(MANAGER, 1.3).move_to([-4.8, 0.6, 0])
         bub = T("\"I'll just guess.\"", 26, GREY_A).next_to(mg, UP, buff=0.3)
         cc = [card([t], 22) for t in ("Rota", "CastList", "RehearsalPlan")]
-        pos = [[1.7, 2.0, 0], [4.3, -0.2, 0], [-0.3, -0.2, 0]]
+        pos = [[1.9, 1.9, 0], [4.7, -0.5, 0], [-0.7, -0.5, 0]]
         for c, p in zip(cc, pos):
             c.move_to(p)
-        circ = VGroup(*[Arrow(cc[i].get_center(), cc[(i + 1) % 3].get_center(), buff=0.55, stroke_width=3, color=BAD,
-                              max_tip_length_to_length_ratio=0.12) for i in range(3)])
+        circ = VGroup(*[edge_arrow(cc[i], cc[(i + 1) % 3], BAD) for i in range(3)])
         rota_l = T("who works which night", 20, GREY_B).next_to(cc[0], UP, buff=0.12)
         msg = M("Dependency cycle: Rota -> CastList -> RehearsalPlan -> Rota", 22, BAD).move_to([0, -2.4, 0])
         fit(msg, 12.4)

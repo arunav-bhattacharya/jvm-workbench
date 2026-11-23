@@ -1,109 +1,373 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:09.448
-A payment service builds its objects by hand in main, each one after the objects its constructor needs.
+00:00:02.733 --> 00:00:07.490
+Picture a theatre's box office, the little window where you buy a ticket.
 
 2
-00:00:09.667 --> 00:00:12.871
-A dependency injection container does that for you.
+00:00:07.490 --> 00:00:09.509
+Behind it runs a small program.
 
 3
-00:00:12.871 --> 00:00:14.693
-Here is the one you'll build.
+00:00:09.667 --> 00:00:12.581
+Before the doors open, it sets up its parts.
 
 4
-00:00:15.300 --> 00:00:20.621
-At start-up it finds the components, orders them, and builds each singleton once.
+00:00:12.581 --> 00:00:14.369
+A seating plan of the hall.
 
 5
-00:00:20.621 --> 00:00:22.985
-Timed and Retry methods get a proxy.
+00:00:14.369 --> 00:00:15.230
+A price list.
 
 6
-00:00:22.985 --> 00:00:27.715
-A generator can write the same wiring at build time, for a faster start.
+00:00:15.230 --> 00:00:16.091
+A sales book.
 
 7
-00:00:27.967 --> 00:00:31.792
-Lesson 1, in Java, wires classes by reflection.
+00:00:16.091 --> 00:00:22.052
+And a link to the city's booking service, which holds the seats for every theatre in town.
 
 8
-00:00:32.000 --> 00:00:37.447
-The scanner loads each class without initializing it, so no static initializer runs.
+00:00:22.200 --> 00:00:24.056
+The box office needs all four.
 
 9
-00:00:37.667 --> 00:00:42.281
-It never guesses a constructor, and it skips the synthetic ones Kotlin adds.
+00:00:24.056 --> 00:00:28.571
+And the parts need each other too: the price list needs the seating plan.
 
 10
-00:00:42.500 --> 00:00:46.901
-A depth-first walk orders the graph, and names any cycle at start-up.
+00:00:29.467 --> 00:00:32.393
+Here's a question that's easy to be shy about.
 
 11
-00:00:47.133 --> 00:00:53.732
-Each singleton gets a cell with double-checked locking: one instance, even when eight threads ask at once.
+00:00:32.393 --> 00:00:35.893
+Why not let each class build its own helpers, with new?
 
 12
-00:00:53.967 --> 00:00:57.323
-Lesson 2, in Kotlin, adds Timed and Retry.
+00:00:35.893 --> 00:00:40.601
+Why would anyone write a program whose only job is to build other objects?
 
 13
-00:00:57.533 --> 00:01:01.679
-Interceptors run around each call, with Timed outside Retry.
+00:00:41.733 --> 00:00:43.358
+Let's try it the easy way.
 
 14
-00:01:01.900 --> 00:01:06.771
-A component with an interface gets a JDK proxy around its target.
+00:00:43.358 --> 00:00:47.171
+The price list calls new, and gets a seating plan of its own.
 
 15
-00:01:07.000 --> 00:01:10.119
-A class without one gets a Byte Buddy subclass.
+00:00:47.171 --> 00:00:50.671
+So does the seat finder, the part that picks free seats.
 
 16
-00:01:10.119 --> 00:01:16.357
-A subclass can't override what Kotlin leaves final, so the container refuses that at start-up.
+00:00:50.867 --> 00:00:52.572
+On the first night, it works.
 
 17
-00:01:16.567 --> 00:01:20.328
-Lesson 3, in Java, measures it and makes it start fast.
+00:00:52.572 --> 00:00:57.805
+But now there are two seating plans for one hall, and each one is sure it's the real one.
 
 18
-00:01:20.533 --> 00:01:28.113
-Per call, JMH counts 208 bytes for a JDK proxy, and 160 for a subclass.
+00:00:57.805 --> 00:00:59.569
+Nobody knows which to believe.
 
 19
-00:01:28.333 --> 00:01:32.372
-At start-up, the app loads 2,207 classes.
+00:01:00.467 --> 00:01:08.204
+The usual cure is to build everything in one place, near main, and hand each part what it needs, through its constructor.
 
 20
-00:01:32.600 --> 00:01:37.065
-A class histogram and a heap dump show what the container keeps alive.
+00:01:08.204 --> 00:01:10.443
+Java and Kotlin say the same thing.
 
 21
-00:01:37.267 --> 00:01:43.994
-Then a generator runs the same graph at build time, and writes a holder class per singleton.
+00:01:10.600 --> 00:01:12.087
+That block has two jobs.
 
 22
-00:01:43.994 --> 00:01:46.261
-The start drops to 991 classes.
+00:01:12.087 --> 00:01:17.104
+Build in the right order: the settings before the booking client that reads them.
 
 23
-00:01:46.500 --> 00:01:47.610
-It writes Java.
+00:01:17.104 --> 00:01:20.263
+And share the right objects: one plan for everyone.
 
 24
-00:01:47.610 --> 00:01:51.164
-In Kotlin, an object is the same kind of holder.
+00:01:20.400 --> 00:01:22.328
+With six classes, that's easy.
 
 25
-00:01:51.367 --> 00:01:55.512
-AppCDS and the AOT cache then archive what is left.
+00:01:22.328 --> 00:01:28.691
+With eighty, someone adds one constructor parameter, and the block stops compiling in three places.
 
 26
-00:01:55.733 --> 00:01:59.643
-One rule holds throughout: never guess, never skip in silence.
+00:01:29.600 --> 00:01:34.428
+Wouldn't it be nice if something read what each part needs, and did the wiring for us?
 
 27
-00:01:59.643 --> 00:02:06.328
-What the classes alone can tell, the container checks before the first call, at start-up, or in the build.
+00:01:35.533 --> 00:01:40.267
+Picture the theatre's front-of-house manager, an hour before the doors open.
+
+28
+00:01:40.267 --> 00:01:45.125
+Every desk in the foyer has a card that says what it needs before it can open.
+
+29
+00:01:45.267 --> 00:01:49.935
+The box office card says: the booking link, the price list, the sales book.
+
+30
+00:01:49.935 --> 00:01:52.735
+The price list's card says: the seating plan.
+
+31
+00:01:52.735 --> 00:02:01.137
+The manager reads every card, sets things out so nothing opens before what it needs, and puts one seating plan on a shelf for everyone.
+
+32
+00:02:02.133 --> 00:02:03.116
+Let's map that.
+
+33
+00:02:03.116 --> 00:02:06.522
+The manager is a container, the program we'll build.
+
+34
+00:02:06.522 --> 00:02:08.683
+Each desk is a part, a component.
+
+35
+00:02:08.683 --> 00:02:12.155
+Each card is that class's constructor: what it needs.
+
+36
+00:02:12.155 --> 00:02:15.692
+And the plan on the shelf is a shared part, made once.
+
+37
+00:02:16.600 --> 00:02:20.241
+So for every desk, a container makes three decisions.
+
+38
+00:02:20.241 --> 00:02:21.890
+Which classes take part?
+
+39
+00:02:21.890 --> 00:02:23.333
+How do you build one?
+
+40
+00:02:23.333 --> 00:02:24.776
+And how many of each?
+
+41
+00:02:25.667 --> 00:02:28.492
+The smallest container fits in a few lines.
+
+42
+00:02:28.492 --> 00:02:34.273
+It uses reflection, the JDK's way of asking a class about itself while the program runs.
+
+43
+00:02:34.273 --> 00:02:36.966
+getConstructors returns the constructors.
+
+44
+00:02:36.966 --> 00:02:39.529
+getParameterTypes lists what one needs.
+
+45
+00:02:39.529 --> 00:02:41.828
+And newInstance calls it, like new.
+
+46
+00:02:42.000 --> 00:02:49.217
+Read it as one sentence: to build a part, build everything its constructor asks for, then call the constructor.
+
+47
+00:02:50.533 --> 00:02:51.316
+Now a test.
+
+48
+00:02:51.316 --> 00:02:57.724
+The box office needs a price list and a seat finder, and both of them need a seating plan.
+
+49
+00:02:57.724 --> 00:03:03.633
+You might hope the JVM notices the same class asked for twice, and reuses the plan.
+
+50
+00:03:03.633 --> 00:03:06.196
+So, how many seating plans get made?
+
+51
+00:03:06.196 --> 00:03:07.335
+Pause and guess.
+
+52
+00:03:11.333 --> 00:03:13.266
+Here's what the demo printed.
+
+53
+00:03:13.266 --> 00:03:17.864
+By hand, where we passed one plan twice, new SeatingPlan prints once.
+
+54
+00:03:17.864 --> 00:03:19.929
+By reflection, it prints twice.
+
+55
+00:03:20.067 --> 00:03:22.556
+Well, the JVM is not that thoughtful.
+
+56
+00:03:22.556 --> 00:03:25.853
+Every newInstance makes a fresh object, like new.
+
+57
+00:03:25.853 --> 00:03:30.967
+And our few lines have no memory, so every card that asks gets its own plan.
+
+58
+00:03:31.867 --> 00:03:37.057
+So give the manager a shelf: a map from each class to the one object already made.
+
+59
+00:03:37.057 --> 00:03:40.602
+Look on the shelf first, and build only when it's empty.
+
+60
+00:03:40.602 --> 00:03:43.513
+Run it again, and new SeatingPlan prints once.
+
+61
+00:03:44.400 --> 00:03:45.338
+Now the names.
+
+62
+00:03:45.338 --> 00:03:49.427
+A dependency is an object another object needs to do its job.
+
+63
+00:03:49.427 --> 00:03:54.186
+Injecting it means handing it in from outside, through the constructor.
+
+64
+00:03:54.186 --> 00:03:57.604
+So our manager is a dependency injection container.
+
+65
+00:03:57.604 --> 00:04:02.631
+And keeping one object per class, the shelf, is called the singleton scope.
+
+66
+00:04:03.533 --> 00:04:06.110
+Here's where the manager picture breaks.
+
+67
+00:04:06.110 --> 00:04:12.489
+A real manager can improvise when a card is unclear, or when cards point at each other in a circle.
+
+68
+00:04:12.489 --> 00:04:16.033
+A container that guesses builds a program nobody wrote.
+
+69
+00:04:16.033 --> 00:04:20.349
+So ours reads every card before the doors open, and refuses a loop.
+
+70
+00:04:21.267 --> 00:04:25.277
+Our few lines still have four flaws, and the lesson fixes each one.
+
+71
+00:04:25.277 --> 00:04:27.193
+They take the first constructor.
+
+72
+00:04:27.193 --> 00:04:29.048
+They have no list of the parts.
+
+73
+00:04:29.048 --> 00:04:31.742
+They would loop forever on cards in a circle.
+
+74
+00:04:31.742 --> 00:04:35.154
+And the plain shelf breaks when many threads ask at once.
+
+75
+00:04:35.154 --> 00:04:38.267
+A thread is one path of work, running beside others.
+
+76
+00:04:39.200 --> 00:04:44.035
+When the doors open, eight customers can reach the box office in the same second.
+
+77
+00:04:44.035 --> 00:04:49.407
+In the lesson's run, eight threads asked a plain map, and the constructor ran eight times.
+
+78
+00:04:49.407 --> 00:04:51.616
+Eight customers, eight seating plans.
+
+79
+00:04:51.616 --> 00:04:55.078
+That's not a theatre any more, that's a chain of theatres.
+
+80
+00:04:55.078 --> 00:04:58.540
+So the shelf must stay safe when everyone reaches at once.
+
+81
+00:04:59.467 --> 00:05:02.116
+Over three sittings, the container grows.
+
+82
+00:05:02.116 --> 00:05:04.636
+This one wires the parts by reflection.
+
+83
+00:05:04.636 --> 00:05:08.060
+The next one adds stand-ins, to time and retry calls.
+
+84
+00:05:08.060 --> 00:05:13.552
+The last one measures the cost, then writes the wiring out before the program starts.
+
+85
+00:05:14.467 --> 00:05:17.833
+So, why a program whose only job is to build objects?
+
+86
+00:05:17.833 --> 00:05:21.516
+Because the constructors already say what each part needs.
+
+87
+00:05:21.516 --> 00:05:23.231
+Let one reader follow them.
+
+88
+00:05:23.231 --> 00:05:30.280
+Build what a card asks for first, keep one of each shared part on the shelf, and refuse any card it can't read.
+
+89
+00:05:30.467 --> 00:05:31.204
+Quick check.
+
+90
+00:05:31.204 --> 00:05:35.936
+A ticket printer joins the foyer, and its card asks for the seating plan too.
+
+91
+00:05:35.936 --> 00:05:39.745
+With the shelf in place, how many seating plans are there now?
+
+92
+00:05:43.000 --> 00:05:43.656
+Still one.
+
+93
+00:05:43.656 --> 00:05:47.984
+The printer gets the same plan from the shelf, like everyone else.
