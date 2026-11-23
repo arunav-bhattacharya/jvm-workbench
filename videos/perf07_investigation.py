@@ -287,6 +287,8 @@ class Perf07Investigation(Narrated):
 
         half = T("half the calls: under 1,500 ns (1.5 microseconds)", 24, GREEN_M).move_to([-6.0, 1.0, 0], aligned_edge=LEFT)
         hq = T("the one in ten thousand: how much slower?", 24, TAIL).move_to([-6.0, 0.3, 0], aligned_edge=LEFT)
+        half = VGroup(BackgroundRectangle(half, color=BLACK, fill_opacity=1, buff=0.08), half).set_z_index(4)
+        hq = VGroup(BackgroundRectangle(hq, color=BLACK, fill_opacity=1, buff=0.08), hq).set_z_index(4)
         self.say("predict")
         self.play(FadeIn(half), run_time=0.5)
         self.at(1)
