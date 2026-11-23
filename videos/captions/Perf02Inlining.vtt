@@ -1,157 +1,365 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.396
-C2 is compiling a hot method, settle.
+00:00:02.733 --> 00:00:06.319
+Back in the kitchen, our new cook has picked up a habit.
 
 2
-00:00:05.396 --> 00:00:08.239
-It calls a small helper, requireAmount.
+00:00:06.319 --> 00:00:12.145
+When a recipe says, make the sauce on page 12, the cook doesn't flip to page 12 every time.
 
 3
-00:00:08.433 --> 00:00:12.600
-To C2, a call is a wall: it can't see what happens inside.
+00:00:12.145 --> 00:00:15.154
+The cook copies the sauce into the main recipe.
 
 4
-00:00:12.833 --> 00:00:18.598
-Say settle always passes 1200, and the helper checks that the amount is in range.
+00:00:15.154 --> 00:00:17.971
+Now the onions for both get chopped at once.
 
 5
-00:00:18.598 --> 00:00:20.164
-Can C2 skip the check?
+00:00:18.133 --> 00:00:22.739
+Keep that cook in mind, because here's a question that sounds almost silly.
 
 6
-00:00:21.600 --> 00:00:23.012
-Not through the wall.
+00:00:22.739 --> 00:00:25.072
+Every call to a method costs a little.
 
 7
-00:00:23.012 --> 00:00:24.963
-The check runs on every call.
+00:00:25.072 --> 00:00:28.634
+So how can splitting one method into two make code faster?
 
 8
-00:00:25.167 --> 00:00:26.998
-Inlining removes the wall.
+00:00:28.634 --> 00:00:29.616
+Hold on to that.
 
 9
-00:00:26.998 --> 00:00:32.071
-C2 pastes the helper's body into settle, and compiles them as one piece.
+00:00:31.333 --> 00:00:34.091
+Let's start with something we've all written.
 
 10
-00:00:32.267 --> 00:00:37.739
-Now C2 sees 1200 meet the range check, and drops the check at compile time.
+00:00:34.091 --> 00:00:37.094
+The report service checks every document it gets.
 
 11
-00:00:37.739 --> 00:00:39.491
-That's constant folding.
+00:00:37.094 --> 00:00:42.610
+If the word count is zero or less, or over ten million, it throws, with a helpful message.
 
 12
-00:00:39.700 --> 00:00:41.988
-Saving the call is the small win.
+00:00:42.610 --> 00:00:44.693
+Otherwise it hands the count back.
 
 13
-00:00:41.988 --> 00:00:46.632
-The big one: escape analysis and loop unrolling now see both sides.
+00:00:44.867 --> 00:00:45.934
+It looks tiny.
 
 14
-00:00:46.632 --> 00:00:48.851
-That's why inlining comes first.
+00:00:45.934 --> 00:00:50.430
+But C2, the JVM's optimizing compiler, doesn't count lines.
 
 15
-00:00:49.633 --> 00:00:53.777
-But each call site gets a budget, in bytes of bytecode.
+00:00:50.430 --> 00:00:55.764
+It counts bytecode, the instructions javac writes into the class file.
 
 16
-00:00:53.777 --> 00:00:59.654
-A site that runs on a quarter or more of the caller's calls is hot: 325 bytes.
+00:00:55.764 --> 00:00:58.355
+And this little check is 49 bytes.
 
 17
-00:00:59.654 --> 00:01:01.387
-Any other site gets 35.
+00:00:59.267 --> 00:01:00.336
+Now the kitchen.
 
 18
-00:01:02.567 --> 00:01:08.614
-This guard checks a refund amount, and builds its error message inline: 49 bytes.
+00:01:00.336 --> 00:01:04.279
+Copying a called method into its caller is called inlining.
 
 19
-00:01:08.614 --> 00:01:10.779
-Its site runs on 1 call in 8.
+00:01:04.279 --> 00:01:07.086
+The sauce on page 12 is the called method.
 
 20
-00:01:10.779 --> 00:01:12.123
-Will C2 inline it?
+00:01:07.086 --> 00:01:09.091
+The main recipe is the caller.
 
 21
-00:01:13.600 --> 00:01:13.840
-No.
+00:01:09.091 --> 00:01:11.831
+And chopping the onions for both at once?
 
 22
-00:01:13.840 --> 00:01:20.632
-49 is over 35, and the budget counts the message bytes, though they almost never run.
+00:01:11.831 --> 00:01:13.301
+That's the real prize.
 
 23
-00:01:20.833 --> 00:01:23.429
-Move the message into its own method.
+00:01:13.467 --> 00:01:15.559
+Skipping the call is a small win.
 
 24
-00:01:23.429 --> 00:01:26.095
-The guard drops to 21 bytes, and fits.
+00:01:15.559 --> 00:01:19.426
+The big win is that C2's other tricks can now see both sides.
 
 25
-00:01:26.267 --> 00:01:27.910
-Here is C2's real log.
+00:01:19.426 --> 00:01:22.723
+It can work out values that are known ahead of time.
 
 26
-00:01:27.910 --> 00:01:30.675
-inline (hot) is just how it says yes.
+00:01:22.723 --> 00:01:28.428
+It can prove that an object never leaves the method, so it never has to be created at all.
 
 27
-00:01:31.467 --> 00:01:34.471
-Some JDK methods skip the budget.
+00:01:28.428 --> 00:01:30.204
+It can reshape a whole loop.
 
 28
-00:01:34.471 --> 00:01:42.573
-Long.bitCount is 61 bytes of shifts and masks, but on x86 C2 uses one POPCNT instruction.
+00:01:30.204 --> 00:01:33.944
+A method C2 doesn't copy in is a wall it can't see through.
 
 29
-00:01:42.800 --> 00:01:50.380
-These are intrinsics: JDK methods the JIT swaps for hand-written code, so their bytecode size doesn't matter.
+00:01:34.867 --> 00:01:38.205
+But a sensible cook only copies short sub-recipes.
 
 30
-00:01:51.200 --> 00:01:54.354
-In code, the guard calls out for its message.
+00:01:38.205 --> 00:01:42.412
+Nobody pastes a forty page wedding cake into the sandwich card.
 
 31
-00:01:54.354 --> 00:01:58.979
-And Kotlin's countOneBits calls Long.bitCount, the same intrinsic.
+00:01:42.412 --> 00:01:48.689
+C2 keeps a budget too, and it decides at each call site, one call instruction in the bytecode.
 
 32
-00:01:59.767 --> 00:02:00.580
-The rule.
+00:01:49.400 --> 00:01:59.647
+If the call runs on at least a quarter of the caller's runs, the site counts as hot, and C2 copies methods of up to 325 bytes.
 
 33
-00:02:00.580 --> 00:02:07.263
-Inlining lets C2 see through calls, within 35 bytes, or 325 at a hot site.
+00:01:59.647 --> 00:02:02.331
+Otherwise, the limit is 35 bytes.
 
 34
-00:02:07.263 --> 00:02:11.328
-Keep cold paths out, and call the JDK method.
+00:02:02.331 --> 00:02:06.316
+These numbers are the same from JDK 21 to JDK 27.
 
 35
-00:02:11.500 --> 00:02:12.318
-Quick check.
+00:02:06.467 --> 00:02:07.577
+Now our check.
 
 36
-00:02:12.318 --> 00:02:17.839
-A 40-byte method: is it inlined from a site that runs on half the caller's calls?
+00:02:07.577 --> 00:02:08.291
+49 bytes.
 
 37
-00:02:17.839 --> 00:02:20.224
-From one that runs on 1 call in 10?
+00:02:08.291 --> 00:02:13.762
+A demo calls it from a method called summarize, on one call in eight.
 
 38
-00:02:22.400 --> 00:02:26.226
-Yes at the hot site: 40 is under 325.
+00:02:13.762 --> 00:02:15.507
+So the site isn't hot.
 
 39
-00:02:26.226 --> 00:02:29.432
-No at the other: 40 is over 35.
+00:02:15.507 --> 00:02:17.014
+Will C2 copy it in?
+
+40
+00:02:17.014 --> 00:02:18.283
+Pause and guess.
+
+41
+00:02:21.333 --> 00:02:21.605
+No.
+
+42
+00:02:21.605 --> 00:02:23.964
+failed to inline: too big.
+
+43
+00:02:23.964 --> 00:02:28.137
+49 is more than 35, so the check stays a wall.
+
+44
+00:02:29.067 --> 00:02:32.519
+But where do 49 bytes come from, in a check this small?
+
+45
+00:02:32.519 --> 00:02:34.088
+The test itself is short.
+
+46
+00:02:34.088 --> 00:02:42.248
+Most of the bytes build the error message: two longs wrapped in Long objects, an array to carry them, and a call to String.format.
+
+47
+00:02:42.248 --> 00:02:47.269
+Most of this check is a complaint letter, and the letter almost never gets sent.
+
+48
+00:02:48.200 --> 00:02:50.735
+Here's where the kitchen picture breaks.
+
+49
+00:02:50.735 --> 00:02:55.741
+A real cook would skip the page called, what to do if the kitchen catches fire.
+
+50
+00:02:55.741 --> 00:02:56.818
+C2 skips nothing.
+
+51
+00:02:56.818 --> 00:03:00.493
+It counts every byte, even the ones that almost never run.
+
+52
+00:03:01.400 --> 00:03:04.376
+So let's give the cold path its own method.
+
+53
+00:03:04.376 --> 00:03:07.074
+The check keeps the test and the throw.
+
+54
+00:03:07.074 --> 00:03:10.465
+A new method, badWordCount, builds the exception.
+
+55
+00:03:10.465 --> 00:03:12.264
+Now the check is 21 bytes.
+
+56
+00:03:12.264 --> 00:03:15.032
+Same demo, same site, one call in eight.
+
+57
+00:03:15.032 --> 00:03:16.416
+Will C2 copy it now?
+
+58
+00:03:19.067 --> 00:03:19.359
+Yes.
+
+59
+00:03:19.359 --> 00:03:20.236
+inline, hot.
+
+60
+00:03:20.236 --> 00:03:23.013
+And don't read much into the word hot.
+
+61
+00:03:23.013 --> 00:03:28.055
+It's just what C2 prints when it inlines and has nothing more to say.
+
+62
+00:03:28.055 --> 00:03:29.809
+C2 is not a chatty cook.
+
+63
+00:03:30.733 --> 00:03:33.776
+So that's how adding a method makes code faster.
+
+64
+00:03:33.776 --> 00:03:36.249
+The new method is cold and rarely runs.
+
+65
+00:03:36.249 --> 00:03:42.017
+The hot method got small enough to copy, and once it's copied, C2 can see right through it.
+
+66
+00:03:42.933 --> 00:03:44.961
+Here it is in Java and in Kotlin.
+
+67
+00:03:44.961 --> 00:03:46.805
+The hot path tests and throws.
+
+68
+00:03:46.805 --> 00:03:48.833
+The cold path builds the message.
+
+69
+00:03:48.833 --> 00:03:56.699
+We return the exception from it, so the throw stays in the hot method, where the next reader can see that the method ends there.
+
+70
+00:03:56.867 --> 00:03:58.206
+One Kotlin twist.
+
+71
+00:03:58.206 --> 00:04:03.010
+The Kotlin check with the message inside is 66 bytes, not 49.
+
+72
+00:04:03.010 --> 00:04:10.650
+Kotlin's format is an inline function, so kotlinc pastes its body in before the JVM ever sees it.
+
+73
+00:04:10.650 --> 00:04:14.195
+After the split, both languages are 21 bytes.
+
+74
+00:04:15.067 --> 00:04:16.140
+A few guardrails.
+
+75
+00:04:16.140 --> 00:04:19.865
+This matters in hot code, code that runs millions of times.
+
+76
+00:04:19.865 --> 00:04:22.644
+Elsewhere, write the clearest check you can.
+
+77
+00:04:22.644 --> 00:04:27.316
+Keep the message text the same, because someone's alert may search for it.
+
+78
+00:04:27.316 --> 00:04:31.420
+And don't guess: the PrintInlining log tells you what C2 decided.
+
+79
+00:04:31.600 --> 00:04:34.413
+C2 counts the bytes of the error path too.
+
+80
+00:04:34.413 --> 00:04:36.691
+Give the cold path its own method.
+
+81
+00:04:37.600 --> 00:04:44.108
+The moral of the story: C2 copies short sub-recipes into the main one, so it can chop for both at once.
+
+82
+00:04:44.108 --> 00:04:48.594
+Short means bytes, not lines, and the bytes you rarely run still count.
+
+83
+00:04:48.594 --> 00:04:52.575
+Keep the hot path short, and send the complaints down the hall.
+
+84
+00:04:52.733 --> 00:04:53.592
+Quick check.
+
+85
+00:04:53.592 --> 00:04:56.741
+A 30 byte method, called on one call in ten.
+
+86
+00:04:56.741 --> 00:05:00.748
+And a 60 byte method, called on every run of its caller.
+
+87
+00:05:00.748 --> 00:05:02.680
+Which ones does C2 copy in?
+
+88
+00:05:05.933 --> 00:05:06.339
+Both.
+
+89
+00:05:06.339 --> 00:05:07.556
+30 is under 35.
+
+90
+00:05:07.556 --> 00:05:12.668
+And a call on every run is a hot site, where the budget is 325.
+
+91
+00:05:12.668 --> 00:05:20.296
+Next: when the method behind a call depends on the object, how does C2 know which one to copy?

@@ -261,18 +261,18 @@ WHEN_C, ROUND_C, KIND_C, FULL_C, WAIT_C = GREY_A, PURPLE_M, CREW, GREEN_M, RED_M
 LINE0 = [("[0.440s]", WHEN_C), ("[info]", GREY_B), ("[gc]", GREY_B), ("GC(0)", ROUND_C), ("Pause Young", KIND_C),
          ("(Normal)", KIND_C), ("(G1 Evacuation Pause)", YELLOW_M), ("28M->2M(214M)", FULL_C), ("8.692ms", WAIT_C)]
 
-STRETCH = [("GC(16) Pause Young (Concurrent Start) (G1 Humongous Allocation)", "       205M->158M(256M) 8.143ms"),
+STRETCH = [("GC(16) Pause Young (Concurrent Start) (G1 Humongous Allocation)", "205M->158M(256M) 8.143ms"),
            ("GC(17) Concurrent Mark Cycle", None),
            ("GC(17) Pause Remark 185M->185M(256M) 0.447ms", None),
            ("GC(17) Pause Cleanup 185M->185M(256M) 0.085ms", None),
            ("GC(17) Concurrent Mark Cycle 25.055ms", None),
-           ("GC(18) Pause Young (Prepare Mixed) (G1 Evacuation Pause)", "       (Evacuation Failure: Allocation) 248M->142M(256M) 3.544ms"),
-           ("GC(19) Pause Young (Mixed) (G1 Evacuation Pause)", "       (Evacuation Failure: Allocation) 248M->211M(256M) 14.287ms")]
+           ("GC(18) Pause Young (Prepare Mixed) (G1 Evacuation Pause)", "(Evacuation Failure: Allocation) 248M->142M(256M) 3.544ms"),
+           ("GC(19) Pause Young (Mixed) (G1 Evacuation Pause)", "(Evacuation Failure: Allocation) 248M->211M(256M) 14.287ms")]
 
 
-def logbook(w=10.6, rows=3):
+def logbook(w=11.4, rows=3):
     heads = ["when", "which round", "kind, and why", "before -> after", "workers waited"]
-    cols = [1.6, 2.0, 2.6, 2.4, 2.0]
+    cols = [1.7, 2.1, 2.7, 2.5, 2.4]
     r = Rectangle(width=w, height=0.6 + rows * 0.55).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
     g = VGroup(r)
     x = r.get_left()[0]
@@ -285,6 +285,18 @@ def logbook(w=10.6, rows=3):
         y = r.get_top()[1] - 0.6 - j * 0.55
         g.add(Line([r.get_left()[0], y, 0], [r.get_right()[0], y, 0], stroke_width=1.0, color=GREY_B))
     return g
+
+
+def stretch_term(disp):
+    out = term(disp, 22, "the same JDK 25 run, decorations cut off")
+    cw = M("0123456789", 22).width / 10
+    conts = {a for a, b in STRETCH if b} and {b for a, b in STRETCH if b}
+    for k, line in enumerate(disp):
+        if line in conts:
+            out[1][k].shift(RIGHT * 4 * cw)
+    out[0].stretch_to_fit_width(out[1].width + 0.5).move_to(out[1])
+    out[2].next_to(out[0], UP, buff=0.1).align_to(out[0], LEFT)
+    return out
 
 
 def field_chip(txt, color, size=26):
@@ -305,10 +317,9 @@ class Mem06Gclog(Narrated):
         self.title_card("The crew's logbook", "reading one GC log line, field by field")
 
         # ================= the logbook =================
-        crew = VGroup(*[person(CREW, 1.1) for _ in range(2)]).arrange(RIGHT, buff=0.3).move_to([-5.2, 1.9, 0])
+        crew = VGroup(*[person(CREW, 1.1) for _ in range(2)]).arrange(RIGHT, buff=0.3).move_to([-5.2, -2.6, 0])
         crew_t = T("the cleaning crew", 22, CREW).next_to(crew, DOWN, buff=0.12)
-        lb = logbook().move_to([0.6, 1.6, 0])
-        fit(lb, 11.0).move_to([0.9, 1.6, 0])
+        lb = logbook().move_to([0, 1.6, 0])
         heads = [x for x in lb if isinstance(x, Text)]
         self.say("open")
         self.play(FadeIn(crew), FadeIn(crew_t), run_time=0.5)
@@ -361,20 +372,19 @@ class Mem06Gclog(Narrated):
         self.hold()
 
         chips = VGroup(*[field_chip(t, c) for t, c in LINE0])
-        row1 = VGroup(*chips[:6]).arrange(RIGHT, buff=0.22)
-        row2 = VGroup(*chips[6:]).arrange(RIGHT, buff=0.22)
-        VGroup(row1, row2).arrange(DOWN, buff=1.25, aligned_edge=LEFT)
-        fit(VGroup(row1, row2), 12.4).move_to([0, 0.2, 0])
-        labs = ["when", "level", "tag", "which round", "the event", "young only", "why", "before -> after (committed)",
-                "threads stopped"]
-        labt = VGroup(*[T(l, 22, LINE0[k][1]).next_to(chips[k], DOWN, buff=0.15)
-                        for k, l in enumerate(labs)])
+        for k, c in enumerate(chips):
+            c.move_to([-0.5, 1.95 - k * 0.6, 0], aligned_edge=RIGHT)
+        labs = ["when: time since the JVM started", "log level", "tag: the topic", "which round", "the event", "young only",
+                "why", "before -> after (committed)", "how long every thread stood still"]
+        labt = VGroup(*[T(l, 26, LINE0[k][1]).next_to(chips[k], RIGHT, buff=0.35) for k, l in enumerate(labs)])
+        for l in labt:
+            l.move_to([0.0, l.get_center()[1], 0], aligned_edge=LEFT)
 
         def show(ks):
             return [FadeIn(chips[k], shift=DOWN * 0.1) for k in ks] + [FadeIn(labt[k]) for k in ks]
 
         self.say("when")
-        self.play(FadeOut(src), *show([0]), run_time=0.6)
+        self.play(FadeOut(src), raw.animate.move_to([0, 2.95, 0]), *show([0]), run_time=0.6)
         self.at(1)
         self.play(*show([1, 2]), run_time=0.6)
         self.hold()
@@ -384,13 +394,13 @@ class Mem06Gclog(Narrated):
         self.say("what")
         self.play(*show([4]), run_time=0.5)
         self.at(1)
-        pz = T("every application thread stopped", 22, KIND_C).next_to(labt[4], DOWN, buff=0.1)
+        pz = T(": every application thread stopped", 26, KIND_C).next_to(labt[4], RIGHT, buff=0.05)
         self.play(FadeIn(pz), run_time=0.4)
         self.at(2)
         self.play(*show([5]), run_time=0.5)
         self.at(3)
         self.play(*show([6]), run_time=0.5)
-        ed = T("eden was full", 22, YELLOW_M).next_to(labt[6], DOWN, buff=0.1)
+        ed = T(": eden was full", 26, YELLOW_M).next_to(labt[6], RIGHT, buff=0.05)
         self.play(FadeIn(ed), run_time=0.4)
         self.hold()
         self.say("full")
@@ -401,7 +411,7 @@ class Mem06Gclog(Narrated):
         self.say("wait")
         self.play(*show([8]), run_time=0.6)
         self.at(1)
-        feel = T("what a person waiting on a request feels", 22, WAIT_C).next_to(labt[8], DOWN, buff=0.1)
+        feel = T("what a person waiting on a request feels", 26, WAIT_C).move_to([0, -3.45, 0])
         self.play(FadeIn(feel), Indicate(chips[8], color=WAIT_C, scale_factor=1.1), run_time=0.8)
         self.hold(after=0.6)
         self.wipe()
@@ -412,7 +422,7 @@ class Mem06Gclog(Narrated):
             disp.append(a)
             if b:
                 disp.append(b)
-        out = term(disp, 22, "the same JDK 25 run, decorations cut off")
+        out = stretch_term(disp)
         fit(out, 12.6).move_to([0, 0.6, 0])
         L = out[1]
         logical = []                    # display-line indices for each of the seven log lines
@@ -466,7 +476,7 @@ class Mem06Gclog(Narrated):
         self.wipe()
 
         # ================= evacuation failure, two spellings =================
-        out = term(disp, 22, "the same JDK 25 run, decorations cut off")
+        out = stretch_term(disp)
         fit(out, 12.6).move_to([0, 1.2, 0])
         L = out[1]
         self.add(out)

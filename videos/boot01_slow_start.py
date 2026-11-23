@@ -1,282 +1,712 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form).
-fg.SAY += [(r"-Xlog:class\+load", "X log class load"), (r"\blibjvm\.so\b", "lib J V M"), (r"1,537", "fifteen thirty-seven"),
-           (r"1,300", "thirteen hundred"), (r"\b200\b", "two hundred"), (r"\bHTTP\b", "H T T P")]
 
-VM_C, CLS_C, JIT_C, FW_C = GREY_B, TEAL_M, GOLD_M, PURPLE_M
-JDK_C, HID_C, APP_C = BLUE_M, YELLOW_M, GREEN_M
+# ---- spoken forms only (captions keep the written words); fg.py is shared, so these live here ----
+def _words(n):
+    ones = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
+    tens = "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()
 
-N = {
-    "o1": "A new pod joins under load. Its main is a few lines, yet it takes a while to answer, then answers slowly for a while. "
-          "Where does the time go?",
-    "o2": "First the launcher loads the JVM library, which creates a VM: it reserves the heap, generates its interpreter, "
-          "and starts its threads.",
-    "o3": "Then the classes. A 300-class test app loads 1,537 of them on JDK 21, with class sharing off. "
-          "911 come from the JDK, and 325 are hidden classes made for lambdas. Yours are a fifth.",
-    "o4": "For each one, the JVM finds the class file, parses it into metaspace, and verifies the bytecode. "
-          "It runs the static initializer later, on first use.",
-    "o5": "Your code starts in the interpreter, one bytecode at a time. The JIT turns hot methods into machine code, "
-          "but only once it has profiles: counts of what the code really does.",
-    "o6": "A framework adds its own work: scanning for annotations, wiring beans, generating proxies, parsing config.",
-    "q": "Now restart the JVM. How much of this work does it skip?",
-    "o7": "Almost none. Nothing survives the process, except a default archive of about 1,300 JDK classes, already parsed. "
-          "Those are mapped from disk. Everything else is done again.",
-    "o8": "A tiny HTTP server on JDK 21: the VM is ready at 30 milliseconds, the app logs started at 103, "
-          "and the first 200 arrives at 179. With the archive off, about 235 to 320.",
-    "o9": "Even then it isn't at full speed. The fastest code comes only after a method has run often.",
-    "k1": "You can watch it with -Xlog:class+load. Each line says where a class came from: "
-          "the archive, the JDK, your jar, or the class that made it.",
-    "r": "The rule: start-up is work the JVM repeats on every launch. Every class, a cold JIT, and the framework's own work.",
-    "c": "Quick check. A hidden class has no class file. Why can its source never start with file?",
-    "a": "Because file names the jar a class was read from, and a hidden class never had one.",
-}
-PAUSE = {"o1": 1.2, "q": 1.7, "c": 2.1}
+    def u100(k):
+        return ones[k] if k < 20 else tens[k // 10] + ("" if k % 10 == 0 else "-" + ones[k % 10])
 
-COLS, ROWS, PITCH = 53, 29, 0.14
+    def u1000(k):
+        h, r = divmod(k, 100)
+        return (ones[h] + " hundred" + (" " + u100(r) if r else "")) if h else u100(r)
+    th, r = divmod(n, 1000)
+    return (u1000(th) + " thousand" + (" " + u1000(r) if r else "")) if th else u1000(r)
 
 
-def waffle():
-    """1,537 squares, one per loaded class, column by column: JDK, hidden, app."""
-    sq = VGroup()
-    counts = [(911, JDK_C), (325, HID_C), (301, APP_C)]
-    i = 0
-    groups = []
-    for n, c in counts:
-        g = VGroup()
-        for _ in range(n):
-            col, row = divmod(i, ROWS)
-            s = Square(side_length=0.11, stroke_width=0).set_fill(c, 1).move_to([col * PITCH, -row * PITCH, 0])
-            g.add(s)
-            i += 1
-        groups.append(g)
-        sq.add(g)
-    return sq, groups
+fg.SAY[:0] = [
+    (r"\b(\d{1,3}),(\d{3})\b", lambda m: _words(int(m.group(1) + m.group(2)))),
+    (r"-Xlog:class\+load", "X log class load"), (r"\bPX-1042\b", "P X ten forty-two"), (r"\bjrt\b", "J R T"),
+    (r"\b0\.151\b", "zero point one five one"), (r"\bVM\b", "V M"), (r"\bJAR\b", "jar"),
+    (r"\bkotlinc\b", "kotlin C"),
+]
 
 
-class Boot01SlowStart(VoiceScene):
-    """boot-01 s0: start-up is work the JVM repeats every launch: create the VM, load/parse/verify ~1,500 classes, interpret, JIT, framework."""
+# ---- local helpers ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-    def say(self, key, plan=(), after=0.25):
-        """Speak N[key]; plan is a list of (sentence index, [animations] or a function returning them, run_time)."""
+    def say(self, key):
         text = N[key]
         path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
         sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
-        total = sum(len(x) for x in sents)
-        starts, t = [], 0.0
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
         for x in sents:
-            starts.append(t)
-            t += dur * len(x) / total
-        now = 0.0
-        assert all(i < len(starts) for i, _, _ in plan), f"{key}: plan index past the last sentence"
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now)
-                now = starts[idx]
-            self.play(*(anims() if callable(anims) else anims), run_time=rt)
-            now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
-        self.wait(PAUSE.get(key, after))
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+        if after:
+            self.wait(after)
+
+    def predict(self, secs=2.4, pos=(6.4, -3.3), edge=RIGHT):
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def wipe(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
+
+
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
+
+
+# one colour per thing, for the whole start-up track (the corner shop)
+KEEP, BOX, ARCH, MODS, APP, HID, BAD, OK, CUST = PURPLE_M, GOLD_M, BLUE_M, TEAL_M, GREEN_M, YELLOW_M, RED_M, GREEN_M, GREY_A
+PAPER, INK = "#EDE6D6", "#161616"
+
+
+def person(color, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
+
+
+def who(color, name, s=1.1, size=22):
+    p = person(color, s)
+    return VGroup(p, T(name, size, color).next_to(p, DOWN, buff=0.12))
+
+
+def paper(lines, size=20, pad=0.16, color=INK):
+    t = M("\n".join(lines), size, color)
+    r = Rectangle(width=t.width + 2 * pad, height=t.height + 2 * pad).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    t.move_to(r)
+    return VGroup(r, t)
+
+
+def crate(w=1.0, h=0.75, color=BOX):
+    """A cardboard box: body [0], lid [1], tape [2]."""
+    body = Rectangle(width=w, height=h).set_stroke(color, 3).set_fill(dim(color, 0.26), 1)
+    lid = Rectangle(width=w, height=0.14).set_stroke(color, 3).set_fill(dim(color, 0.42), 1).move_to(body.get_top() + DOWN * 0.07)
+    tape = Rectangle(width=0.2, height=0.24).set_stroke(width=0).set_fill(dim(color, 0.7), 1).move_to(body.get_top() + DOWN * 0.12)
+    return VGroup(body, lid, tape)
+
+
+def goods(n=3, color=BOX, s=0.22):
+    """A few small items on a shelf: tins and jars."""
+    g = VGroup()
+    for i in range(n):
+        if i % 2 == 0:
+            g.add(RoundedRectangle(corner_radius=0.04, width=s, height=s * 1.4).set_stroke(color, 2).set_fill(dim(color, 0.5), 1))
+        else:
+            g.add(Circle(radius=s * 0.55).set_stroke(color, 2).set_fill(dim(color, 0.5), 1))
+    return g.arrange(RIGHT, buff=0.08, aligned_edge=DOWN)
+
+
+def bulb(on=False):
+    glass = Circle(radius=0.22).set_stroke(GREY_B, 2.5).set_fill(YELLOW_M if on else "#1a1a1a", 1 if on else 1)
+    base = Rectangle(width=0.18, height=0.14).set_stroke(GREY_B, 2).set_fill(GREY_D, 1).next_to(glass, UP, buff=0)
+    cord = Line(base.get_top(), base.get_top() + UP * 0.4, stroke_width=2, color=GREY_B)
+    return VGroup(glass, base, cord)
+
+
+def term(lines, size=20, title="output", color=GREY_A):
+    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.5, height=t.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
+    t.move_to(r)
+    h = T(title, 20, GREY_B).next_to(r, UP, buff=0.1).align_to(r, LEFT)
+    return VGroup(r, t, h)
+
+
+def part(t, s, nth=0):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    flat = re.sub(r"\s", "", t.text)
+    i = -1
+    for _ in range(nth + 1):
+        i = flat.index(k, i + 1)
+    return t[i:i + len(k)]
+
+
+def rule_row(text, size=28, color=WHITE):
+    return VGroup(tick(True, 0.15), T(text, size, color)).arrange(RIGHT, buff=0.2)
+
+
+def stage(title, shop, color, w=2.38):
+    b = box(title, color, w=w, h=0.95, size=24)
+    s = T(shop, 20, GREY_A, slant=ITALIC).next_to(b, DOWN, buff=0.18)
+    return VGroup(b, s)
+
+
+# every spoken line, in order
+N = {
+    "open": "Picture a corner shop with an odd habit. Every evening, the shopkeeper packs the whole shop into boxes. "
+            "Every morning, she unlocks the door, switches on the lights, unpacks each box, checks every item against its "
+            "delivery note, and fills the shelves.",
+    "open2": "Only then can she serve the first customer. And even then she's slow, because she still looks up where the tea is.",
+    "shyq": "Here's a question that's easy to be shy about. My main method is three lines long. So why does the JVM, the "
+            "program that runs my compiled Java and Kotlin, take so long to start? And doesn't it remember anything from "
+            "the last time it ran?",
+    "service": "Our running example is a small parcel tracking service. Ask it where parcel PX-1042 is, and it tells you. "
+               "One run on JDK 25 printed: started in 0.151 seconds. Yet the first answer reached the outside 429 "
+               "milliseconds after launch.",
+    "service2": "Both numbers are true. They time different things. Let's find out what fills that wait, and we'll start "
+                "by counting boxes.",
+    "count_q": "Here's a tiny demo. It has exactly one class of its own. It reads three lines of settings, formats a date, "
+               "and joins a few strings. How many classes does the JVM load to run it? Ten? A hundred? Eight hundred? "
+               "Pause and guess.",
+    "count_a": "On JDK 25, it loaded 818 classes. Here they are, one square each. Exactly one came from the demo. It's the "
+               "green one.",
+    "count_b": "793 came ready made, from an archive the JDK ships. 19 were read from the JDK's own modules file and "
+               "unpacked on the spot. And 5 were made in memory, for things like lambdas.",
+    "joke1": "So we asked the shop for one box, and it unpacked 818. Ours is in there somewhere. Bring a magnifying glass.",
+    "joke1b": "Jokes aside, that's the point. Most of the work is the JDK, not your code. A generated app with 300 classes "
+              "of its own loaded 1,537 classes on JDK 21, with the archive turned off. Its own classes were only a fifth.",
+    "r0": "So what does the JVM do with all those boxes? Let's walk through the morning, one step at a time, and match each "
+          "step to the shop.",
+    "r1": "When you type java, a small native program called the launcher starts first. Native means compiled for your "
+          "machine, the way C programs are. The launcher loads the JVM and asks it to create a VM, a virtual machine. "
+          "That's unlocking the door and switching on the lights.",
+    "r2": "Creating the VM is real work. The JVM reserves memory for the heap, the area where your objects will live. It "
+          "builds its interpreter, starts its own helper threads, and sets up the core classes and the module system. "
+          "Only then does it look for your main class.",
+    "r3": "Then the boxes. The first time something needs a class, the JVM finds its class file and parses it into its own "
+          "form, in metaspace, memory it keeps for class data. That's unpacking a box.",
+    "r4": "Next it verifies the bytecode, the instructions javac and kotlinc write into class files. It checks that every "
+          "instruction is type safe before any of them runs. That's the delivery note, checked item by item.",
+    "r5": "Then your code runs in the interpreter, one instruction at a time, like a shopkeeper looking up every price in "
+          "the catalogue. The JIT compilers turn hot methods, the ones that run often, into machine code. But first they "
+          "wait for profiles: counts of what the code really does. That's learning the popular items by heart, and it "
+          "takes a while.",
+    "r6": "And a framework, a library that starts and wires your program for you, adds chores of its own. It scans classes "
+          "for annotations, creates objects by name, and reads its configuration.",
+    "restart_q": "Now the second shy question. Stop the JVM and start it again. How much of this morning does it skip? "
+                 "Pause and guess.",
+    "restart_a": "Almost none. Nothing of this survives the process. The next launch unpacks, checks and learns it all "
+                 "again, with exactly the same care.",
+    "joke2": "You have to admire the dedication. The same tins of tea, checked against the same delivery note, every single "
+             "morning. Thorough, yes. Quick, no.",
+    "joke2b": "So the point really is this. Start-up is work the JVM repeats on every launch.",
+    "archive": "There is one exception, and we already saw it. A JDK build ships an archive of about 1,300 of its own "
+               "classes, already parsed. The JVM maps them from disk instead of unpacking them. Those were the 793 blue "
+               "squares. The next lesson is about that archive, and the bigger ones you can build.",
+    "log": "You can watch the unpacking yourself. Run java with -Xlog:class+load, and it prints one line per class. The end "
+           "of each line says where the class came from.",
+    "log2": "shared objects file means ready made, from the archive. jrt means the JDK's modules file, parsed on the spot. "
+            "file is your own class path, the folders and JAR files where the JVM looks for your code. And a class name "
+            "as the source marks a hidden class, made in memory while the program runs. Each lambda gets one.",
+    "breaks": "Here the shop picture breaks, and the break matters. Our shopkeeper unpacks everything before she opens. "
+              "The JVM doesn't. It opens first, and unpacks a box only when someone asks for something inside it.",
+    "breaks2": "That's called lazy loading. It's why a one class demo loads 818 classes, and not every class the JDK has.",
+    "guard": "Three things to keep in mind. One: the line your program prints isn't the whole story. The wait starts at "
+             "launch. Two: count before you cut. The class load log shows whose classes they are, and most will be the "
+             "JDK's. Three: the archive covers only the JDK's own classes. Your classes, the interpreter and the JIT "
+             "start cold every time.",
+    "moral": "So, why does a three line main start slowly? Because every launch runs the whole morning routine. Open the "
+             "shop. Unpack and check each box the first time it's needed. Look up prices until the JIT learns them. "
+             "Let the framework do its chores. And no, the JVM remembers almost nothing, apart from the JDK's ready made "
+             "shelves.",
+    "check": "Quick check. A hidden class has no class file. Why can its source never start with file?",
+    "check_a": "Because file names the place a class's bytes were read from. A hidden class's bytes were made in memory. "
+               "There was never a file to name.",
+}
+
+
+class Boot01SlowStart(Narrated):
+    """boot-01, section 0: the corner shop that packs itself into boxes every evening; the shy question; 0.151 s printed
+    against 429 ms outside; 818 classes for a one-class demo (1 + 793 + 19 + 5); 1,537 for a 300-class app; the morning
+    routine mapped stage by stage; a restart skips almost nothing; the JDK's archive is the one exception; the four
+    sources in -Xlog:class+load; the picture breaks: the JVM unpacks lazily; rules; moral; a check."""
 
     def construct(self):
-        self.title_card("Why the JVM starts slowly", "the work every launch repeats")
+        self.title_card("Why the JVM starts slowly", "the same morning routine, on every launch")
 
-        # --- the problem: launch to first answer, and slow at first
-        launch = M("java -jar app.jar", 30).move_to([-3.2, 0.9, 0])
-        pod = T("a new pod, under load", 28, GREY_B).next_to(launch, UP, buff=0.35)
-        gap = Arrow([-0.4, 0.9, 0], [3.0, 0.9, 0], buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.08)
-        first = T("first answer", 28).next_to(gap, RIGHT, buff=0.25)
-        what = T("?", 60, WHITE).next_to(gap, UP, buff=0.15)
-        slow = T("then slow for a while", 26, JIT_C).next_to(first, DOWN, buff=0.3)
-        self.say("o1", [(0, [FadeIn(pod), FadeIn(launch, shift=UP * 0.1)], 0.8), (1, [GrowArrow(gap), FadeIn(first)], 1.0),
-                        (1, [FadeIn(slow)], 0.6), (2, [FadeIn(what, scale=1.4)], 0.6)])
-        self.play(FadeOut(VGroup(pod, gap, first, what, slow)), launch.animate.move_to([-4.4, 1.5, 0]).scale(26 / 30), run_time=0.7)
+        # ================= the corner shop =================
+        FL = -2.2
+        floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
+        wall = Rectangle(width=8.6, height=4.6).set_stroke(GREY_B, 2.5).move_to([0.2, FL + 2.3, 0])
+        dr = Rectangle(width=1.2, height=2.2).set_stroke(GREY_B, 3).set_fill("#0c0c0c", 1).move_to([-3.2, FL + 1.1, 0])
+        knob = Dot(dr.get_right() + LEFT * 0.18, radius=0.05, color=GREY_B)
+        sign = T("CLOSED", 20, BAD).move_to(dr.get_center() + UP * 0.55)
+        lamp_off = bulb(False).move_to([0.8, FL + 3.9, 0])
+        lamp_on = bulb(True).move_to(lamp_off)
+        shelves = VGroup(*[Line([0.0, FL + y, 0], [4.2, FL + y, 0], stroke_width=4, color=GREY_B) for y in (1.0, 2.2)])
+        boxes = VGroup(*[crate(0.9, 0.62) for _ in range(6)])
+        boxes.arrange_in_grid(2, 3, buff=0.06).move_to([-5.2, FL + 0.66, 0])
+        keeper = who(KEEP, "shopkeeper", 1.0, 20).move_to([-1.4, FL + 0.62, 0])
+        self.say("open")
+        self.play(Create(floor), Create(wall), FadeIn(dr), FadeIn(knob), FadeIn(sign), FadeIn(lamp_off), Create(shelves), run_time=0.9)
+        self.play(FadeIn(keeper), run_time=0.4)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(b, shift=DOWN * 0.3) for b in boxes], lag_ratio=0.15), run_time=1.2)
+        self.at(2)
+        opened = T("OPEN", 20, OK).move_to(sign)
+        self.play(Transform(sign, opened), run_time=0.5)
+        self.play(FadeTransform(lamp_off, lamp_on), run_time=0.5)
+        slots = [[0.75 + 1.35 * (i % 3), FL + 1.0 + 1.2 * (i // 3), 0] for i in range(6)]
+        stock = VGroup()
+        for i, b in enumerate(boxes):
+            g = goods(3).move_to(slots[i], aligned_edge=DOWN)
+            stock.add(g)
+        self.at_text("unpacks each box", lead=0.2)
+        self.play(LaggedStart(*[AnimationGroup(FadeOut(b, scale=0.6), FadeIn(stock[i], shift=UP * 0.15)) for i, b in enumerate(boxes)],
+                              lag_ratio=0.25), run_time=2.2)
+        self.at_text("checks every item", lead=0.2)
+        note = paper(["delivery note", " tea      ok", " jam      ok", " biscuits ok"], 16).move_to([-5.0, FL + 2.6, 0])
+        self.play(FadeIn(note, shift=UP * 0.1), run_time=0.5)
+        self.play(LaggedStart(*[Indicate(s, color=WHITE, scale_factor=1.15) for s in stock], lag_ratio=0.15), run_time=1.4)
+        self.hold()
 
-        # --- progress strip: the order of the work
-        names = [("create VM", VM_C), ("load classes", CLS_C), ("interpret, then JIT", JIT_C), ("framework work", FW_C)]
-        strip = VGroup(*[chip(n, c, 24) for n, c in names]).arrange(RIGHT, buff=0.55).move_to([0, 3.0, 0])
-        fit(strip, 12.6)
-        sarr = VGroup(*[Arrow(strip[i].get_right(), strip[i + 1].get_left(), buff=0.06, stroke_width=2.5, color=GREY_D,
-                              max_tip_length_to_length_ratio=0.3) for i in range(3)])
-        dim = 0.3
+        cust = who(CUST, "first customer", 1.0, 20).move_to([-5.0, FL + 0.62, 0])
+        bub = paper(["tea, please"], 18).next_to(cust[0], UP, buff=0.2)
+        cat = paper(["catalogue:", " tea ... shelf ?"], 16).next_to(keeper[0], UP, buff=0.3)
+        self.say("open2")
+        self.play(FadeOut(note), FadeIn(cust, shift=RIGHT * 0.3), run_time=0.6)
+        self.play(FadeIn(bub), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(cat, shift=UP * 0.1), run_time=0.5)
+        self.play(Indicate(cat, color=KEEP, scale_factor=1.08), run_time=0.8)
+        self.hold()
+        self.wipe()
 
-        def alpha(c, a):
-            c[0].set_stroke(opacity=a).set_fill(opacity=0.18 * a)
-            c[1].set_opacity(a)
-            return c
+        # ================= the shy question =================
+        shy = T("a question that's easy to be shy about", 26, GREY_B).move_to([0, 2.4, 0])
+        q1 = T("My main method is three lines long.", 36)
+        q2 = T("Why does the JVM take so long to start?", 36, KEEP)
+        q3 = T("And doesn't it remember anything from last time?", 32, GREY_A)
+        qg = VGroup(q1, q2, q3).arrange(DOWN, buff=0.4).move_to([0, 0.0, 0])
+        self.say("shyq")
+        self.play(FadeIn(shy), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(q1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(q3, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0.4)
+        self.wipe()
 
-        def alpha_anim(c, a):
-            return [c[0].animate.set_stroke(opacity=a).set_fill(opacity=0.18 * a), c[1].animate.set_opacity(a)]
-        for s in strip:
-            alpha(s, dim)
+        # ================= the tracking service: two numbers =================
+        parcel = VGroup(crate(1.4, 1.0), paper(["PX-1042"], 20)).move_to([-4.6, 1.6, 0])
+        parcel[1].move_to(parcel[0][0].get_center() + DOWN * 0.08)
+        ask = T("where is parcel PX-1042?", 26, GREY_A).next_to(parcel, RIGHT, buff=0.5)
+        inside = term(["started in 0.151s"], 26, "what the program printed")
+        inside.move_to([-3.2, -0.9, 0])
+        outside = VGroup(T("first answer, seen from outside:", 26, GREY_A), T("429 ms after launch", 34, BAD)).arrange(DOWN, buff=0.2)
+        outside.move_to([3.2, -0.9, 0])
+        self.say("service")
+        self.play(FadeIn(parcel, shift=DOWN * 0.2), run_time=0.6)
+        self.play(FadeIn(ask), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(inside, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(outside, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        both = T("both true: they time different things", 28, WHITE).move_to([0, -2.9, 0])
+        self.say("service2")
+        self.play(FadeIn(both, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        def light(i):
-            return [a for j in range(4) for a in alpha_anim(strip[j], 1 if j == i else dim)]
+        # ================= count the boxes: 818 squares =================
+        dq = VGroup(T("a demo with one class of its own", 30), T("3 lines of settings, a date, a few strings", 24, GREY_A)).arrange(DOWN, buff=0.2)
+        dq.move_to([0, 2.6, 0])
+        opts = VGroup(*[T(s, 34, GREY_B) for s in ("10?", "100?", "800?")]).arrange(RIGHT, buff=1.2).move_to([0, 0.4, 0])
+        self.say("count_q")
+        self.play(FadeIn(dq[0], shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(dq[1]), run_time=0.5)
+        self.at(3)
+        self.at_text("Ten?", lead=0.1)
+        self.play(FadeIn(opts[0]), run_time=0.3)
+        self.at_text("A hundred?", lead=0.1)
+        self.play(FadeIn(opts[1]), run_time=0.3)
+        self.at_text("Eight hundred?", lead=0.1)
+        self.play(FadeIn(opts[2]), run_time=0.3)
+        self.hold(after=0)
+        self.predict(2.6)
+        self.play(FadeOut(opts), FadeOut(dq), run_time=0.5)
 
-        # --- create VM
-        lib = box("libjvm.so", VM_C, w=2.4, h=0.8, size=26).move_to([-0.4, 1.5, 0])
-        cvm = box("create VM", WHITE, w=2.4, h=0.8, size=26).move_to([3.4, 1.5, 0])
-        a1, a2 = arrow(launch.get_right(), lib.get_left(), GREY_B, buff=0.15), arrow(lib.get_right(), cvm.get_left(), GREY_B, buff=0.15)
-        items = VGroup(*[box(t, VM_C, w=5.0, h=0.75, size=26) for t in
-                         ["reserve the heap", "generate the interpreter", "start its own threads", "core classes, module system"]])
-        items.arrange_in_grid(2, 2, buff=(0.6, 0.35)).move_to([0, -0.55, 0])
-        self.say("o2", [(0, [FadeIn(strip), FadeIn(sarr)], 0.6), (0, [*light(0)], 0.4),
-                        (0, [GrowArrow(a1), FadeIn(lib)], 0.7), (0, [GrowArrow(a2), FadeIn(cvm)], 0.7),
-                        (0, [LaggedStart(*[FadeIn(it, shift=UP * 0.1) for it in items], lag_ratio=0.5)], 3.0)])
-        self.play(FadeOut(VGroup(launch, lib, cvm, a1, a2, items)), run_time=0.6)
+        COLS, ROWS, P = 41, 20, 0.19
+        order = [APP] + [MODS] * 19 + [HID] * 5 + [ARCH] * 793
+        sq = VGroup()
+        for i, c in enumerate(order):
+            col, row = divmod(i, ROWS)
+            sq.add(Square(side_length=0.15, stroke_width=0).set_fill(GREY_D, 1).move_to([col * P, -row * P, 0]))
+        sq.move_to([-2.3, -0.1, 0])
+        total = VGroup(T("818", 64, WHITE), T("classes loaded", 26, GREY_A)).arrange(DOWN, buff=0.12).move_to([4.6, 2.3, 0])
+        self.say("count_a")
+        self.play(LaggedStart(*[FadeIn(s) for s in sq], lag_ratio=0.004), run_time=1.6)
+        self.play(FadeIn(total, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(sq[0].animate.set_fill(APP, 1), run_time=0.5)
+        ring = Circle(radius=0.26, color=APP, stroke_width=4).move_to(sq[0])
+        self.play(Create(ring), run_time=0.5)
+        self.hold()
 
-        # --- the classes: 1,537 squares
-        wf, (jdk, hid, app) = waffle()
-        wf.move_to([-2.55, 0.3, 0])
-        tot = T("1,537 classes loaded", 30).move_to([3.9, 1.9, 0]).align_to(np.array([1.65, 0, 0]), LEFT)
-        leg = VGroup(T("911  from the JDK's modules", 26, JDK_C),
-                     T("325  hidden: lambdas, method handles", 26, HID_C),
-                     T("301  from your app.jar", 26, APP_C)).arrange(DOWN, buff=0.35, aligned_edge=LEFT)
-        fit(leg, 4.75).next_to(tot, DOWN, buff=0.5).align_to(tot, LEFT)
-        fifth = T("yours: a fifth", 28, APP_C).next_to(leg, DOWN, buff=0.5).align_to(leg, LEFT)
-        self.say("o3", [(0, [*light(1)], 0.4), (1, [FadeIn(tot)], 0.5),
-                        (1, [FadeIn(jdk, lag_ratio=0.002), FadeIn(hid, lag_ratio=0.004), FadeIn(app, lag_ratio=0.004)], 2.2),
-                        (2, [FadeIn(leg[0]), Indicate(jdk, color=WHITE, scale_factor=1.02)], 0.8), (2, [FadeIn(leg[1])], 0.6),
-                        (3, [FadeIn(leg[2]), FadeIn(fifth), Indicate(app, color=WHITE, scale_factor=1.04)], 0.9)])
-        st_names = ["find the class file", "parse into metaspace", "verify the bytecode", "static init, later"]
-        stations = VGroup(*[box(t, CLS_C if i < 3 else GREY_B, w=2.95, h=0.7, size=22) for i, t in enumerate(st_names)])
-        stations.arrange(RIGHT, buff=0.28).move_to([0, -2.6, 0])
-        fit(stations, 12.6)
-        tok = Square(side_length=0.3, stroke_width=0).set_fill(APP_C, 1).move_to(app[-1])
-        self.say("o4", [(0, [LaggedStart(*[FadeIn(s, shift=UP * 0.1) for s in stations[:3]], lag_ratio=0.4)], 1.4),
-                        (0, [tok.animate.move_to(stations[0].get_top() + UP * 0.25)], 0.6),
-                        (0, [tok.animate.move_to(stations[1].get_top() + UP * 0.25)], 0.5),
-                        (0, [tok.animate.move_to(stations[2].get_top() + UP * 0.25)], 0.5),
-                        (1, [FadeIn(stations[3])], 0.6)])
-        self.play(FadeOut(VGroup(wf, tot, leg, fifth, stations, tok)), run_time=0.6)
+        def leg(n, label, color):
+            return VGroup(Square(side_length=0.26, stroke_width=0).set_fill(color, 1), T(n, 28, color),
+                          T(label, 22, GREY_A)).arrange(RIGHT, buff=0.2)
+        legs = VGroup(leg("1", "from the demo (file:)", APP), leg("793", "ready made, from the archive", ARCH),
+                      leg("19", "parsed now, JDK modules file", MODS), leg("5", "made in memory (hidden)", HID))
+        legs.arrange(DOWN, aligned_edge=LEFT, buff=0.28)
+        fit(legs, 4.2).move_to([4.3, -0.6, 0])
+        self.say("count_b")
+        self.play(FadeIn(legs[0]), run_time=0.4)
+        self.play(*[s.animate.set_fill(ARCH, 1) for s in sq[25:]], FadeIn(legs[1]), run_time=1.0)
+        self.at(1)
+        self.play(*[s.animate.set_fill(MODS, 1) for s in sq[1:20]], FadeIn(legs[2]), run_time=0.7)
+        self.at(2)
+        self.play(*[s.animate.set_fill(HID, 1) for s in sq[20:25]], FadeIn(legs[3]), run_time=0.7)
+        self.hold()
 
-        # --- interpreter, then JIT
-        code = VGroup(M("int add(int a, int b)", 24, WHITE), M("iload_1", 26, JIT_C), M("iload_2", 26, JIT_C),
-                      M("iadd", 26, JIT_C), M("ireturn", 26, JIT_C)).arrange(DOWN, buff=0.22, aligned_edge=LEFT)
-        code.move_to([-3.7, 0.5, 0])
-        code[0].shift(UP * 0.2)
-        cframe = SurroundingRectangle(code[1:], buff=0.25, corner_radius=0.1, stroke_color=GREY_B, stroke_width=2)
-        ptr = Triangle(fill_opacity=1, stroke_width=0, color=WHITE).rotate(-PI / 2).scale(0.12).next_to(code[1], LEFT, buff=0.35)
-        interp = VGroup(T("interpreter:", 24, GREY_B), T("one instruction at a time", 24, GREY_B)).arrange(DOWN, buff=0.08, aligned_edge=LEFT)
-        interp.next_to(cframe, DOWN, buff=0.3).align_to(cframe, LEFT)
-        ax = Axes(x_range=[0, 10, 1], y_range=[0, 10, 1], x_length=5.6, y_length=3.4, tips=False,
-                  axis_config={"stroke_color": GREY_B, "stroke_width": 2, "include_ticks": False}).move_to([3.2, 0.3, 0])
-        xl = T("time", 22, GREY_B).next_to(ax.x_axis, DOWN, buff=0.15)
-        yl = T("speed", 22, GREY_B).next_to(ax.y_axis, UP, buff=0.12)
-        steps = [(0, 3.2, 1.3, "interpreter", GREY_B), (3.2, 6.4, 4.2, "C1", JIT_C), (6.4, 10, 8.6, "C2", JIT_C)]
-        curve = VGroup()
-        slabels = VGroup()
-        for x0, x1, y, lab, c in steps:
-            curve.add(Line(ax.c2p(x0, y), ax.c2p(x1, y), stroke_width=5, color=c))
-            slabels.add(T(lab, 22, c).next_to(ax.c2p((x0 + x1) / 2, y), UP, buff=0.12))
-        risers = VGroup(DashedLine(ax.c2p(3.2, 1.3), ax.c2p(3.2, 4.2), stroke_width=2, color=GREY_D),
-                        DashedLine(ax.c2p(6.4, 4.2), ax.c2p(6.4, 8.6), stroke_width=2, color=GREY_D))
-        prof = T("needs profiles first", 24, JIT_C).move_to(ax.c2p(3.75, 6.6))
+        lens = VGroup(Circle(radius=0.42, stroke_width=5, color=GREY_A),
+                      Line(ORIGIN, [0.5, -0.5, 0], stroke_width=8, color=GREY_A))
+        lens[1].shift(lens[0].get_center() + np.array([0.3, -0.3, 0]))
+        lens.move_to(sq[0].get_center() + np.array([0.15, -0.15, 0]))
+        self.say("joke1")
+        self.play(Indicate(total[0], color=WHITE, scale_factor=1.15), run_time=0.8)
+        self.at(1)
+        self.play(FadeOut(ring), run_time=0.3)
+        self.at(2)
+        self.play(FadeIn(lens, scale=1.4), run_time=0.6)
+        self.hold()
 
-        def step_ptr():
-            return Succession(*[ptr.animate(run_time=0.35).next_to(code[i], LEFT, buff=0.35) for i in (2, 3, 4)],
-                              ptr.animate(run_time=0.35).next_to(code[1], LEFT, buff=0.35))
-        self.say("o5", [(0, [*light(2)], 0.4), (0, [FadeIn(code), Create(cframe), FadeIn(ptr)], 0.7),
-                        (0, [step_ptr(), FadeIn(interp)], 1.4),
-                        (0, [Create(ax), FadeIn(xl), FadeIn(yl), Create(curve[0]), FadeIn(slabels[0])], 1.0),
-                        (1, [Create(risers[0]), Create(curve[1]), FadeIn(slabels[1])], 0.8),
-                        (1, [Create(risers[1]), Create(curve[2]), FadeIn(slabels[2])], 0.8),
-                        (1, [FadeIn(prof)], 0.6)])
-        self.play(FadeOut(VGroup(code, cframe, ptr, interp, ax, xl, yl, curve, slabels, risers, prof)), run_time=0.6)
+        bar_w = 7.6
+        big = VGroup(Rectangle(width=bar_w * 1236 / 1537, height=0.5).set_stroke(width=0).set_fill(GREY_C, 1),
+                     Rectangle(width=bar_w * 301 / 1537, height=0.5).set_stroke(width=0).set_fill(APP, 1)).arrange(RIGHT, buff=0)
+        bar = VGroup(T("a 300-class app, JDK 21, archive off:", 22, GREY_A), big,
+                     VGroup(T("1,537 loaded", 24, WHITE), T("its own: about a fifth", 24, APP)).arrange(RIGHT, buff=1.2)).arrange(DOWN, buff=0.2)
+        self.say("joke1b")
+        self.at(1)
+        self.play(FadeOut(lens), FadeOut(sq), FadeOut(legs), FadeOut(total), run_time=0.6)
+        jdk = T("most of the work is the JDK, not your code", 32, WHITE).move_to([0, 1.6, 0])
+        self.play(FadeIn(jdk, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        bar.move_to([0, -0.8, 0])
+        self.play(FadeIn(bar[0]), GrowFromEdge(big, LEFT), run_time=0.9)
+        self.play(FadeIn(bar[2]), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        # --- framework work on top
-        fw = VGroup(*[box(t, FW_C, w=5.2, h=0.85, size=26) for t in
-                      ["scan for annotations", "wire beans by reflection", "generate proxies", "parse config"]])
-        fw.arrange_in_grid(2, 2, buff=(0.6, 0.45)).move_to([0, 0.3, 0])
-        self.say("o6", [(0, [*light(3)], 0.4), (0, [LaggedStart(*[FadeIn(f, shift=UP * 0.1) for f in fw], lag_ratio=0.45)], 2.6)])
-        self.play(FadeOut(fw), run_time=0.5)
+        # ================= the morning routine, mapped =================
+        st = VGroup(stage("create the VM", "door and lights", KEEP), stage("load and parse", "unpack a box", BOX),
+                    stage("verify", "the delivery note", BOX), stage("interpret, then JIT", "prices, then by heart", TEAL_M),
+                    stage("framework", "its own chores", GREY_B))
+        st.arrange(RIGHT, buff=0.22).move_to([0, 2.35, 0])
+        fit(st, 12.8)
+        arrows = VGroup(*[Arrow(st[i][0].get_right(), st[i + 1][0].get_left(), buff=0.03, stroke_width=3, color=GREY_B,
+                                max_tip_length_to_length_ratio=0.5) for i in range(4)])
+        AREA = [0, -1.0, 0]
+        self.say("r0")
+        self.play(LaggedStart(*[FadeIn(s[0], shift=DOWN * 0.1) for s in st], lag_ratio=0.15), run_time=1.3)
+        self.play(Create(arrows), run_time=0.5)
+        self.hold()
 
-        # --- restart: nothing survives, except the archive
-        wf2, (jdk2, hid2, app2) = waffle()
-        wf2.move_to([-2.55, 0.0, 0])
-        stop = T("process ends", 28, RED_M).move_to([3.9, 1.6, 0])
-        q = T("restart: what is saved?", 30).move_to([3.9, 0.6, 0])
-        self.say("q", [(0, [*[a for s in strip for a in alpha_anim(s, 1)], FadeIn(wf2), FadeIn(stop)], 0.9),
-                       (1, [FadeIn(q)], 0.6)])
-        arch = VGroup(RoundedRectangle(corner_radius=0.1, width=4.1, height=1.25, stroke_color=JDK_C, stroke_width=3).set_fill("#0B1820", 1),
-                      VGroup(T("default CDS archive", 24, JDK_C), T("~1,300 JDK classes, parsed", 22, JDK_C)).arrange(DOWN, buff=0.08))
-        arch[1].move_to(arch[0])
-        arch.move_to([3.9, -1.0, 0])
-        mapped = VGroup(*jdk2[:875])
-        rest = VGroup(*jdk2[875:], hid2, app2)
-        again = T("everything else: done again", 26).move_to([3.9, -2.5, 0])
-        self.say("o7", [(0, [FadeOut(q), wf2.animate.set_fill(opacity=0.12), *[a for s in strip for a in alpha_anim(s, dim)]], 0.9),
-                        (1, [FadeIn(arch, shift=LEFT * 0.2)], 0.7), (2, [mapped.animate.set_fill(opacity=1)], 0.6),
-                        (3, [FadeIn(again), rest.animate(lag_ratio=0.002).set_fill(opacity=1), *light(1)], 2.4)])
-        self.play(FadeOut(VGroup(wf2, stop, arch, again, strip, sarr)), run_time=0.6)
+        chain = VGroup(M("java", 26, WHITE), T("launcher (native)", 24, KEEP), T("the JVM", 24, KEEP),
+                       T("create a VM", 24, KEEP)).arrange(RIGHT, buff=0.9)
+        ch_ar = VGroup(*[Arrow(chain[i].get_right(), chain[i + 1].get_left(), buff=0.12, stroke_width=3, color=GREY_B,
+                               max_tip_length_to_length_ratio=0.25) for i in range(3)])
+        cg = VGroup(chain, ch_ar).move_to(AREA + np.array([0, 0.6, 0]))
+        nat = T("native: compiled for your machine, like a C program", 22, GREY_B).move_to(AREA + np.array([0, -0.4, 0]))
+        self.say("r1")
+        self.play(Indicate(st[0][0][0], color=KEEP, scale_factor=1.06), run_time=0.6)
+        self.play(FadeIn(chain[0]), run_time=0.3)
+        self.play(GrowArrow(ch_ar[0]), FadeIn(chain[1]), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(nat), run_time=0.5)
+        self.at(2)
+        self.play(GrowArrow(ch_ar[1]), FadeIn(chain[2]), run_time=0.5)
+        self.play(GrowArrow(ch_ar[2]), FadeIn(chain[3]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(st[0][1], shift=UP * 0.1), run_time=0.5)
+        self.hold()
 
-        # --- measured: one tiny server
-        X0, X1, TMAX = -5.0, 6.0, 330.0
+        jobs = VGroup(*[rule_row(s, 26) for s in ("reserve the heap, where objects live", "build the interpreter",
+                                                  "start helper threads", "set up core classes and modules")])
+        jobs.arrange(DOWN, aligned_edge=LEFT, buff=0.22).move_to(AREA)
+        then = T("only then: find your main class", 24, KEEP).next_to(jobs, DOWN, buff=0.35)
+        self.say("r2")
+        self.play(FadeOut(cg), FadeOut(nat), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(jobs[0], shift=RIGHT * 0.1), run_time=0.4)
+        self.at(2)
+        self.play(FadeIn(jobs[1], shift=RIGHT * 0.1), run_time=0.4)
+        self.at_text("starts its own", lead=0.1)
+        self.play(FadeIn(jobs[2], shift=RIGHT * 0.1), run_time=0.4)
+        self.at_text("sets up the core", lead=0.1)
+        self.play(FadeIn(jobs[3], shift=RIGHT * 0.1), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(then), run_time=0.4)
+        self.hold()
 
-        def tx(ms):
-            return X0 + (X1 - X0) * ms / TMAX
-        R1, R2, AX = 1.0, -1.1, -2.65
-        axis = VGroup(Line([X0, AX, 0], [X1, AX, 0], stroke_width=2, color=GREY_B),
-                      *[VGroup(Line([tx(v), AX - 0.08, 0], [tx(v), AX + 0.08, 0], stroke_width=2, color=GREY_B),
-                               T(f"{v} ms", 22, GREY_B).move_to([tx(v), AX - 0.35, 0])) for v in (0, 100, 200, 300)])
-        hdr = T("a tiny HTTP server, JDK 21, one run", 26, GREY_B).move_to([0.5, 2.85, 0])
+        cf = paper(["Depots.class", " cafe babe", " 0041 ..."], 18).move_to(AREA + np.array([-4.2, 0, 0]))
+        cbx = crate(1.4, 1.0).move_to(cf)
+        meta = RoundedRectangle(corner_radius=0.12, width=3.4, height=1.8).set_stroke(BOX, 2.5).set_fill(dim(BOX, 0.1), 1)
+        meta.move_to(AREA + np.array([3.3, 0, 0]))
+        meta_l = T("metaspace", 24, BOX).next_to(meta, UP, buff=0.1)
+        meta_s = T("memory for class data", 20, GREY_B).next_to(meta, DOWN, buff=0.1)
+        shaped = VGroup(*[RoundedRectangle(corner_radius=0.05, width=0.8, height=0.32).set_stroke(BOX, 2).set_fill(dim(BOX, 0.4), 1)
+                          for _ in range(4)]).arrange_in_grid(2, 2, buff=0.12).move_to(meta)
+        mv = Arrow(cbx.get_right(), meta.get_left(), buff=0.25, stroke_width=3, color=GREY_B)
+        mv_l = T("find, then parse", 22, GREY_A).next_to(mv, UP, buff=0.1)
+        self.say("r3")
+        self.play(FadeOut(jobs), FadeOut(then), Indicate(st[1][0][0], color=BOX, scale_factor=1.06), run_time=0.6)
+        self.play(FadeIn(cbx, shift=DOWN * 0.2), run_time=0.5)
+        self.at(1)
+        self.play(FadeOut(cbx), FadeIn(cf), run_time=0.5)
+        self.play(GrowArrow(mv), FadeIn(mv_l), FadeIn(meta), FadeIn(meta_l), run_time=0.7)
+        self.play(TransformFromCopy(cf, shaped[0]), run_time=0.7)
+        self.play(FadeIn(meta_s), run_time=0.4)
+        self.at(2)
+        self.play(FadeIn(st[1][1], shift=UP * 0.1), run_time=0.5)
+        self.hold()
 
-        def mark(x, y, top, bot, c):
-            return VGroup(Line([x, y - 0.18, 0], [x, y + 0.18, 0], stroke_width=4, color=c),
-                          VGroup(T(top, 22, c), T(bot, 22, c)).arrange(DOWN, buff=0.05).move_to([x, y + 0.65, 0]))
-        row1 = Line([tx(0), R1, 0], [tx(179), R1, 0], stroke_width=6, color=WHITE)
-        lab1 = T("default archive", 24, JDK_C).move_to([X0, R1 - 0.45, 0], aligned_edge=LEFT)
-        m1 = [mark(tx(30), R1, "Create VM", "30 ms", VM_C), mark(tx(103), R1, "started in", "103 ms", FW_C),
-              mark(tx(179), R1, "first 200, outside", "179 ms", WHITE)]
-        self.say("o8", [(0, [FadeIn(hdr), Create(axis)], 0.8), (0, [Create(row1), FadeIn(lab1)], 0.8),
-                        (0, [FadeIn(m1[0])], 0.5), (0, [FadeIn(m1[1])], 0.5), (0, [FadeIn(m1[2])], 0.5),
-                        (1, lambda: [*self._row2(tx, R2, mark)], 1.5)])
-        tail = DashedLine([tx(179) + 0.2, R1, 0], [X1, R1, 0], stroke_width=4, color=JIT_C)
-        full = T("full speed: later, once C2 compiles the hot methods", 22, JIT_C).next_to(tail, DOWN, buff=0.28).align_to(tail, RIGHT)
-        self.say("o9", [(0, [Create(tail)], 0.8), (1, [FadeIn(full)], 0.6)])
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+        chk = VGroup(*[VGroup(M(s, 22, GREY_A), tick(True, 0.13)).arrange(RIGHT, buff=0.25)
+                       for s in ("aload_0       types ok", "invokevirtual types ok", "areturn       types ok")])
+        chk.arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to(AREA + np.array([-0.4, -0.05, 0]))
+        self.say("r4")
+        self.play(FadeOut(mv), FadeOut(mv_l), Indicate(st[2][0][0], color=BOX, scale_factor=1.06), run_time=0.6)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(c, shift=RIGHT * 0.1) for c in chk], lag_ratio=0.4), run_time=1.4)
+        self.at(2)
+        self.play(FadeIn(st[2][1], shift=UP * 0.1), run_time=0.5)
+        self.play(*[FadeIn(s) for s in shaped[1:]], run_time=0.5)
+        self.hold()
 
-        # --- watch it: -Xlog:class+load
-        cmd = M("java -Xlog:class+load -jar app.jar", 26).move_to([0, 2.4, 0])
-        lines = VGroup(
-            VGroup(M("java.lang.Object", 22), M("source: shared objects file", 22, JDK_C)),
-            VGroup(M("java.util.regex.Pattern$Node", 22), M("source: jrt:/java.base", 22, JDK_C)),
-            VGroup(M("com.acme.pay.Main", 22), M("source: file:/srv/app.jar", 22, APP_C)),
-            VGroup(M("com.acme.pay.Main$$Lambda/0x...", 22), M("source: com.acme.pay.Main", 22, HID_C)))
-        for ln in lines:
-            ln.arrange(RIGHT, buff=0.4)
-        lines.arrange(DOWN, buff=0.3, aligned_edge=LEFT)
-        for ln in lines:
-            ln[1].align_to(lines[3][1], LEFT)
-        fit(lines, 12.4).move_to([0, 0.1, 0])
-        both = T("the same for Java and Kotlin: it's the JVM's work", 24, GREY_B).move_to([0, -2.6, 0])
-        self.say("k1", [(0, [FadeIn(cmd, shift=UP * 0.1)], 0.7), (1, [LaggedStart(*[FadeIn(ln, shift=UP * 0.1) for ln in lines], lag_ratio=0.5)], 2.4),
-                        (1, [FadeIn(both)], 0.6)])
-        self.play(FadeOut(VGroup(cmd, lines, both)), run_time=0.5)
+        steps = VGroup(*[Square(side_length=0.34).set_stroke(GREY_B, 2).set_fill(dim(GREY_B, 0.3), 1) for _ in range(12)])
+        steps.arrange(RIGHT, buff=0.1).move_to(AREA + np.array([-2.4, 0.5, 0]))
+        steps_l = T("interpreter: one instruction at a time", 22, GREY_A).next_to(steps, UP, buff=0.18)
+        hotm = RoundedRectangle(corner_radius=0.1, width=2.6, height=0.8).set_stroke(TEAL_M, 3).set_fill(dim(TEAL_M, 0.3), 1)
+        hotm.move_to(AREA + np.array([3.9, 0.5, 0]))
+        hotm_t = T("machine code", 24, TEAL_M).move_to(hotm)
+        prof = VGroup(T("profiles first:", 22, GREY_A), M("check()  x 20,000", 22, WHITE)).arrange(RIGHT, buff=0.2)
+        prof.move_to(AREA + np.array([0, -0.9, 0]))
+        self.say("r5")
+        self.play(FadeOut(chk), FadeOut(cf), FadeOut(meta), FadeOut(meta_l), FadeOut(meta_s), FadeOut(shaped),
+                  Indicate(st[3][0][0], color=TEAL_M, scale_factor=1.06), run_time=0.6)
+        self.play(FadeIn(steps_l), LaggedStart(*[FadeIn(s) for s in steps], lag_ratio=0.15), run_time=1.4)
+        self.at(1)
+        self.play(GrowArrow(jit_ar := Arrow(steps.get_right(), hotm.get_left(), buff=0.2, stroke_width=3, color=TEAL_M)),
+                  FadeIn(hotm), FadeIn(hotm_t), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(prof, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(st[3][1], shift=UP * 0.1), run_time=0.5)
+        self.hold()
 
-        # --- rule and check
-        rule = VGroup(T("Start-up is work the JVM repeats on every launch:", 32),
-                      T("every class, a cold JIT,", 32, CLS_C),
-                      T("and the framework's own work.", 32, CLS_C)).arrange(DOWN, buff=0.2).move_to([0, 1.6, 0])
-        fit(rule, 12.4)
-        self.say("r", [(0, [FadeIn(rule[0], shift=UP * 0.1)], 0.7), (1, [FadeIn(rule[1:], shift=UP * 0.1)], 0.8)])
-        chk = T("Check: a hidden class has no class file. Why can its source never start with file:?", 28).move_to([0, -0.9, 0])
-        fit(chk, 12.4)
-        self.say("c", [(0, [FadeIn(chk, shift=UP * 0.1)], 0.8)])
-        ans = T("file: names the jar a class was read from; a hidden class never had one.", 28, APP_C).move_to([0, -2.2, 0])
-        fit(ans, 12.4)
-        self.say("a", [(0, [FadeIn(ans, shift=UP * 0.1)], 0.7)])
-        self.wait(0.8)
+        fw = VGroup(*[rule_row(s, 26) for s in ("scan classes for annotations", "create objects by name",
+                                                "read its configuration")]).arrange(DOWN, aligned_edge=LEFT, buff=0.22)
+        fw.move_to(AREA)
+        self.say("r6")
+        self.play(FadeOut(steps), FadeOut(steps_l), FadeOut(jit_ar), FadeOut(hotm), FadeOut(hotm_t), FadeOut(prof),
+                  Indicate(st[4][0][0], color=GREY_B, scale_factor=1.06), run_time=0.6)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(f, shift=RIGHT * 0.1) for f in fw], lag_ratio=0.5), run_time=1.6)
+        self.play(FadeIn(st[4][1], shift=UP * 0.1), run_time=0.5)
+        self.hold()
 
-    def _row2(self, tx, R2, mark):
-        row2 = Line([tx(0), R2, 0], [tx(320), R2, 0], stroke_width=6, color=GREY_B)
-        band_s = Rectangle(width=tx(200) - tx(150), height=0.36, stroke_width=0).set_fill(FW_C, 0.45).move_to([(tx(150) + tx(200)) / 2, R2, 0])
-        band_f = Rectangle(width=tx(320) - tx(235), height=0.36, stroke_width=0).set_fill(WHITE, 0.45).move_to([(tx(235) + tx(320)) / 2, R2, 0])
-        lab2 = T("archive off", 24, GREY_B).move_to([tx(0), R2 - 0.45, 0], aligned_edge=LEFT)
-        m2 = [mark(tx(60), R2, "Create VM", "about 60 ms", VM_C), mark((tx(150) + tx(200)) / 2, R2, "started in", "150 to 200 ms", FW_C),
-              mark((tx(235) + tx(320)) / 2, R2, "first 200", "235 to 320 ms", WHITE)]
-        return [Create(row2), FadeIn(lab2), FadeIn(band_s), FadeIn(band_f), *[FadeIn(m) for m in m2]]
+        # ================= restart: what survives? =================
+        stop = VGroup(T("stop the JVM", 28, BAD), M("then: java ... again", 26, GREY_A)).arrange(DOWN, buff=0.18).move_to(AREA)
+        self.say("restart_q")
+        self.play(FadeOut(fw), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(stop, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.predict(2.6)
+
+        again = VGroup(*[T("again", 22, BAD).next_to(s[0], DOWN, buff=0.18) for s in st])
+        loop = CurvedArrow(st[4][0].get_bottom() + DOWN * 0.95, st[0][0].get_bottom() + DOWN * 0.95, angle=-PI / 5,
+                           color=BAD, stroke_width=3)
+        self.say("restart_a")
+        self.play(FadeOut(stop), run_time=0.3)
+        none = T("almost none", 40, BAD).move_to(AREA + np.array([0, 0.3, 0]))
+        self.play(FadeIn(none, scale=1.2), run_time=0.5)
+        self.at(1)
+        self.play(*[FadeOut(s[1]) for s in st], run_time=0.4)
+        self.play(LaggedStart(*[FadeIn(a, shift=UP * 0.1) for a in again], lag_ratio=0.2), run_time=1.0)
+        self.at(2)
+        self.play(FadeOut(none), Create(loop), run_time=0.8)
+        self.hold()
+
+        days = VGroup()
+        for d in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat"):
+            tin = RoundedRectangle(corner_radius=0.05, width=0.5, height=0.7).set_stroke(BOX, 2.5).set_fill(dim(BOX, 0.5), 1)
+            tea = T("tea", 16, WHITE).move_to(tin)
+            days.add(VGroup(T(d, 22, GREY_A), VGroup(tin, tea), tick(True, 0.14)).arrange(DOWN, buff=0.15))
+        days.arrange(RIGHT, buff=0.75).move_to(AREA + np.array([0, -0.1, 0]))
+        self.say("joke2")
+        self.play(FadeOut(loop), FadeOut(again), run_time=0.4)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(d, shift=UP * 0.1) for d in days], lag_ratio=0.25), run_time=2.0)
+        self.at(2)
+        verdict = VGroup(T("thorough, yes.", 28, OK), T("quick, no.", 28, BAD)).arrange(RIGHT, buff=0.6).next_to(days, DOWN, buff=0.4)
+        self.play(FadeIn(verdict[0]), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(verdict[1]), run_time=0.4)
+        self.hold()
+        rule1 = T("Start-up is work the JVM repeats on every launch.", 32, WHITE).move_to(AREA)
+        self.say("joke2b")
+        self.play(FadeOut(days), FadeOut(verdict), run_time=0.4)
+        self.play(FadeIn(rule1, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        shelf_b = RoundedRectangle(corner_radius=0.12, width=5.4, height=1.0).set_stroke(ARCH, 3).set_fill(dim(ARCH, 0.25), 1)
+        shelf_t = T("the JDK's archive: about 1,300 classes, ready made", 22, ARCH)
+        fit(shelf_t, 5.1)
+        shelf = VGroup(shelf_b, shelf_t.move_to(shelf_b)).move_to(AREA + np.array([0, -0.15, 0]))
+        sq2 = VGroup(*[Square(side_length=0.13, stroke_width=0).set_fill(ARCH, 1) for _ in range(40)]).arrange(RIGHT, buff=0.04)
+        sq2.next_to(shelf, DOWN, buff=0.35)
+        sq_l = T("the 793 blue squares", 22, ARCH).next_to(sq2, DOWN, buff=0.15)
+        brace = Arrow(shelf.get_top(), VGroup(st[1][0], st[2][0]).get_bottom() + DOWN * 0.05, buff=0.1, color=ARCH, stroke_width=3)
+        self.say("archive")
+        self.play(FadeOut(rule1), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(shelf, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(GrowArrow(brace), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(sq2), FadeIn(sq_l), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= see it: -Xlog:class+load =================
+        lines = ["[0.063s] java.lang.Object source: shared objects file",
+                 "[0.078s] sun.util.PreHashedMap source: jrt:/java.base",
+                 "[0.124s] ...ClassSourcesDemo source: file:.../classes/java/demo/",
+                 "[0.171s] ...ClassSourcesDemo$$Lambda/0x000000006f040210",
+                 "            source: ...l01.demo.ClassSourcesDemo"]
+        lg = term(lines, 22, "java -Xlog:class+load ... (four real lines, trimmed)")
+        fit(lg, 12.6).move_to([0, 1.7, 0])
+        tl = lg[1]
+        self.say("log")
+        self.play(FadeIn(lg[0]), FadeIn(lg[2]), run_time=0.5)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(l, shift=RIGHT * 0.1) for l in tl], lag_ratio=0.3), run_time=1.5)
+        self.at(2)
+        self.play(part(tl[0], "shared objects file").animate.set_color(ARCH), part(tl[1], "jrt:/java.base").animate.set_color(MODS),
+                  part(tl[2], "file:.../classes/java/demo/").animate.set_color(APP),
+                  part(tl[4], "...l01.demo.ClassSourcesDemo").animate.set_color(HID), run_time=0.8)
+        self.hold()
+
+        def src(chipt, meaning, color):
+            c = VGroup(RoundedRectangle(corner_radius=0.08, width=3.9, height=0.56).set_stroke(color, 2.5).set_fill(dim(color, 0.25), 1),
+                       M(chipt, 22, WHITE))
+            c[1].move_to(c[0])
+            return VGroup(c, T(meaning, 24, GREY_A)).arrange(RIGHT, buff=0.35)
+        srcs = VGroup(src("shared objects file", "ready made, from the archive", ARCH),
+                      src("jrt:/", "the JDK's modules file, parsed now", MODS),
+                      src("file:", "your class path: folders and JAR files", APP),
+                      src("a class name", "a hidden class, made in memory (lambdas)", HID))
+        srcs.arrange(DOWN, aligned_edge=LEFT, buff=0.2)
+        fit(srcs, 12.4).move_to([0, -1.75, 0])
+        self.say("log2")
+        self.play(FadeIn(srcs[0], shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(srcs[1], shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(srcs[2], shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(srcs[3], shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= the picture breaks: lazy =================
+        def lane(y, title, color):
+            t = T(title, 26, color).move_to([-6.3, y + 0.95, 0], aligned_edge=LEFT)
+            bs = VGroup(*[crate(0.8, 0.55) for _ in range(5)]).arrange(RIGHT, buff=0.22).move_to([-1.6, y, 0])
+            d = Rectangle(width=0.7, height=1.2).set_stroke(GREY_B, 3).set_fill("#0c0c0c", 1).move_to([3.6, y + 0.05, 0])
+            return t, bs, d
+        t1, b1, d1 = lane(1.3, "the shopkeeper: unpack everything, then open", KEEP)
+        t2, b2, d2 = lane(-1.7, "the JVM: open, then unpack a box when someone asks", BOX)
+        st1 = VGroup(*[goods(2).move_to(b) for b in b1])
+        st2 = goods(2).move_to(b2[1])
+        cust = person(CUST, 0.9).move_to([5.3, -1.75, 0])
+        ask = paper(["tea?"], 18).next_to(cust, UP, buff=0.15)
+        self.say("breaks")
+        self.play(FadeIn(t1), FadeIn(b1), FadeIn(d1), run_time=0.6)
+        self.at(1)
+        self.play(LaggedStart(*[AnimationGroup(FadeOut(b, scale=0.6), FadeIn(st1[i])) for i, b in enumerate(b1)], lag_ratio=0.2), run_time=1.4)
+        self.play(d1.animate.set_stroke(OK), run_time=0.4)
+        self.at(2)
+        self.play(FadeIn(t2), FadeIn(b2), FadeIn(d2), run_time=0.6)
+        self.at(3)
+        self.play(d2.animate.set_stroke(OK), FadeIn(cust, shift=LEFT * 0.2), FadeIn(ask), run_time=0.6)
+        self.play(FadeOut(b2[1], scale=0.6), FadeIn(st2), run_time=0.6)
+        self.hold()
+        lazy = VGroup(T("lazy loading", 36, BOX), T("818 classes, not every class the JDK has", 24, GREY_A)).arrange(DOWN, buff=0.15)
+        lazy.move_to([0, -3.2, 0])
+        self.say("breaks2")
+        self.play(FadeIn(lazy[0], shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(lazy[1]), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= guardrails =================
+        g = VGroup(rule_row("The printed line isn't the whole story: the wait starts at launch.", 28),
+                   rule_row("Count before you cut: most loaded classes are the JDK's.", 28),
+                   rule_row("The archive covers only the JDK's classes; the rest start cold.", 28))
+        g.arrange(DOWN, aligned_edge=LEFT, buff=0.45)
+        fit(g, 12.4).move_to([0, 0.2, 0])
+        self.say("guard")
+        self.at(1)
+        self.play(FadeIn(g[0], shift=RIGHT * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(g[1], shift=RIGHT * 0.1), run_time=0.5)
+        self.at(5)
+        self.play(FadeIn(g[2], shift=RIGHT * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= moral =================
+        st = VGroup(stage("create the VM", "door and lights", KEEP), stage("load and parse", "unpack a box", BOX),
+                    stage("verify", "the delivery note", BOX), stage("interpret, then JIT", "prices, then by heart", TEAL_M),
+                    stage("framework", "its own chores", GREY_B))
+        st.arrange(RIGHT, buff=0.22).move_to([0, 1.6, 0])
+        fit(st, 12.8)
+        mq = T("every launch: the whole morning routine", 32, WHITE).move_to([0, 3.0, 0])
+        keep = VGroup(T("remembered:", 26, GREY_A), T("only the JDK's ready-made shelves", 26, ARCH)).arrange(RIGHT, buff=0.25)
+        keep.move_to([0, -0.3, 0])
+        self.say("moral")
+        self.play(FadeIn(mq), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(st[0]), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(st[1]), FadeIn(st[2]), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(st[3]), run_time=0.4)
+        self.at(5)
+        self.play(FadeIn(st[4]), run_time=0.4)
+        self.at(6)
+        self.play(FadeIn(keep, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+
+        qc = VGroup(T("Check:", 28, YELLOW_M), T("a hidden class has no class file.", 28)).arrange(RIGHT, buff=0.25)
+        qc2 = VGroup(T("Why can its source never start with", 28), M("file:", 28, APP), T("?", 28)).arrange(RIGHT, buff=0.15)
+        qg2 = VGroup(qc, qc2).arrange(DOWN, buff=0.2).move_to([0, -1.6, 0])
+        self.say("check")
+        self.play(FadeOut(keep), FadeIn(qg2, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
+        self.predict(2.6)
+        ans = T("file: names where the bytes were read from; a hidden class's bytes were made in memory", 24, OK)
+        fit(ans, 12.4).move_to([0, -2.9, 0])
+        self.say("check_a")
+        self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.wait(2.0)

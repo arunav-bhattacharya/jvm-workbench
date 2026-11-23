@@ -8,79 +8,69 @@ fg.SAY[:0] = [(r"\bJFR\.dump\b", "J F R dot dump"), (r"\bJFR\.start\b", "J F R d
 
 # every spoken line, in order
 N = {
-    "open": "Back in the restaurant, a long night is over. A customer says the soup took forty minutes. "
-            "The cook remembers making it in six.",
-    "both": "And here's the awkward part: both of them are telling the truth. Maybe the bowl sat on the counter, "
-            "waiting for the only waiter. Maybe the whole kitchen stopped to wash up. Two honest people and one "
-            "bowl of soup. That's the hardest argument to settle, because nobody wrote anything down.",
-    "shy": "Our program has the same argument. The report service from the earlier lessons fetches each document "
-           "from a document store: another program that keeps the documents and answers over the network. "
-           "Some fetches are slow. So we do what we all do. We wrap a timer around the call, and log: "
-           "fetch took 46 milliseconds.",
-    "shyq": "So here's the question that's easy to be shy about. The log line already has the duration. "
-            "What more could any tool possibly tell us?",
-    "pain": "Look at what that line can't say. Was every thread paused right then, for a garbage collection? "
-            "The garbage collector, or GC, is the part of the JVM that frees memory nobody uses. "
-            "Did our thread wait for a lock, a guard that lets one thread at a time into a piece of code? "
-            "Did something grab a pile of memory that second?",
-    "witness": "The log line is one number, for one call, on a clock of its own. It's a witness who watched one "
-               "table all night. Honest, and blind to the rest of the room.",
-    "wish": "What we'd love is one log of everything the kitchen did: every order, every wait, every wash-up, on one "
-            "clock. And cheap enough to keep every night, because nobody knows which night will go wrong.",
-    "name": "The JVM, the program that runs your Java and Kotlin, keeps a log like that. It's already in your JDK, "
-            "and it's called JDK Flight Recorder, or JFR.",
-    "map1": "Let's map the kitchen onto it. Each cook is a thread, a line of work that runs side by side with the "
-            "others. Each line in the log book is an event: a small record with a start time, often a duration, "
-            "the thread, and usually a stack trace, the chain of method calls that led there.",
+    "open": "Back in the restaurant, a long night is over. A customer says the soup took forty minutes. The cook "
+            "remembers making it in six.",
+    "both": "And here's the awkward part: both of them are telling the truth. The bowl may have waited for the "
+            "only waiter, or for the kitchen to finish washing up. Two honest people, one bowl of soup, and "
+            "nobody wrote anything down.",
+    "shy": "Our program has the same argument. The report service fetches each document from a document store: "
+           "another program that answers over the network. Some are slow, so we wrap a timer around the call, "
+           "and log: fetch took 46 milliseconds.",
+    "shyq": "So here's the question that's easy to be shy about. The log line already has the duration. What more "
+            "could any tool possibly tell us?",
+    "pain": "Look at what that line can't say. Was every thread paused right then, for a garbage collection? The "
+            "garbage collector, or GC, frees memory nobody uses. Did our thread wait for a lock, a guard that "
+            "lets one thread at a time into some code? Did something grab a pile of memory?",
+    "witness": "It's a witness who watched one table all night, on a clock of its own. Honest, and blind to the rest "
+               "of the room.",
+    "wish": "What we'd love is one log of everything the kitchen did, on one clock. And cheap enough to keep "
+            "every night, because nobody knows which night will go wrong.",
+    "name": "The JVM, the program that runs your Java and Kotlin, keeps a log like that. It's already in your "
+            "JDK: JDK Flight Recorder, or JFR.",
+    "map1": "Let's map the kitchen onto it. Each cook is a thread, a line of work in the program. Each line in "
+            "the log book is an event: a small record with a start time, often a duration, the thread, and "
+            "usually a stack trace, the chain of method calls that led there.",
     "map2": "The whole kitchen washing up is a GC pause, and it hits every thread at once. Waiting for the only "
-            "waiter is a wait for a lock. And the JVM writes plenty more on its own, such as samples of what the "
-            "running threads are doing.",
-    "map3": "Our own code can add lines too, like the cook's own notes: one for every call to the store. "
-            "And all of them sit on one timeline, on one clock. That's the whole point.",
-    "farm": "Here the kitchen picture has a limit. The log covers our kitchen only. The document store is another "
-            "program, like the farm that grows the vegetables. If the farm is slow, our log shows us waiting, "
-            "but not why. The farm would need a book of its own.",
+            "waiter is a wait for a lock. And the JVM writes plenty more on its own, like samples of what running "
+            "threads are doing.",
+    "map3": "Our own code can add lines too, like the cook's own notes: one for every call to the store. And all "
+            "of them sit on one clock. That's the whole point.",
+    "farm": "Here the kitchen picture has a limit. The log covers our kitchen only. The document store is like "
+            "the farm that grows the vegetables. If the farm is slow, our log shows us waiting, but not why: the "
+            "farm keeps its own book.",
     "ring": "One session of this log is called a recording. It keeps events in memory, and moves them to disk in "
             "chunks. Picture a log book that tears out its oldest pages when it's full. maxage says how far back "
             "to keep. maxsize says how many bytes. Set neither, and the JVM keeps 250 megabytes.",
-    "start": "You can start a recording when the JVM starts, with one option on the java command. Or on a JVM that's "
-             "already running, with jcmd, a JDK tool that sends commands to a running JVM. Here's what the report "
-             "service answered.",
-    "dump": "And when something goes wrong, JFR.dump copies the pages written so far into a file. It stops nothing. "
-            "You don't have to close the restaurant to read the log book.",
-    "dump2": "That's why a recording that's always on pays off. When the bad night comes, the last hour is already "
-             "in the book.",
-    "cheap": "But always on only works if it's cheap. JFR comes with two settings files. default calls itself safe for "
-             "continuous use in production, typically less than 1 percent overhead. profile says around 2 percent, "
-             "and records more.",
-    "cheap2": "default samples running threads every 20 milliseconds, and keeps lock waits of 20 milliseconds or "
-              "more. profile samples every 10, and keeps lock waits from 10. So: default to leave on, and profile "
-              "for a short hunt.",
-    "summ_q": "Now let's ask a real recording what's in it. The lesson's demo runs four threads for 4 seconds, under "
-              "profile. Each one counts words, asks a fake document store for a document, and now and then holds "
-              "a shared lock for 15 milliseconds. Which kind of event will have the highest count? And how many "
-              "samples of running code will 4 seconds give us?",
-    "summ_a": "jfr summary lists every event type, with a count. Here's part of one run. At the top, the garbage "
-              "collector's paperwork: 1,951 events. Then ours: 1,361 store calls. Then 1,207 allocation samples, "
-              "and 560 sleeps.",
-    "summ_joke": "Only the garbage collector writes more than we do. Every kitchen has one colleague like that. "
-                 "And it's good news, because its lines sit right next to ours, on the same clock.",
-    "forty": "Now look near the bottom. Execution samples, the snapshots of running code: 40. "
-             "Just 40, in 4 seconds, on four threads.",
+    "start": "You can start a recording with one option on the java command. Or on a JVM that's already running, "
+             "with jcmd, a JDK tool that sends commands to a running JVM. Here's what the report service answered.",
+    "dump": "When something goes wrong, JFR.dump copies the pages so far into a file, and stops nothing. You "
+            "don't have to close the restaurant to read the log book. When the bad night comes, the last hour is "
+            "already in the book.",
+    "cheap": "But always on only works if it's cheap. JFR comes with two settings files. default calls itself safe "
+             "for continuous use in production, typically under 1 percent overhead, and samples running threads "
+             "every 20 milliseconds. profile says around 2 percent, and samples every 10. So: default to leave on, "
+             "profile for a short hunt.",
+    "summ_q": "Now let's ask a real recording what's in it. The lesson's demo runs four threads for 4 seconds, "
+              "under profile. Each counts words, asks a fake store for a document, and sometimes holds a shared "
+              "lock. Which event will have the highest count? And how many samples of running code will we get?",
+    "summ_a": "jfr summary lists every event type, with a count. At the top, the garbage collector's paperwork: "
+              "1,951 events. Then ours: 1,361 store calls. Then 1,207 allocation samples, and 560 sleeps.",
+    "summ_joke": "Only the garbage collector writes more than we do. Every kitchen has one colleague like that. And "
+                 "its lines sit right next to ours, on the same clock.",
+    "forty": "Now look near the bottom. Execution samples, the snapshots of running code: just 40, in 4 seconds, "
+             "on four threads.",
     "forty2": "Why so few? The threads spent most of their time asleep, waiting for the store, and the sampler only "
-              "counts threads that are running Java code. A cook waiting for the delivery isn't cooking. "
-              "Keep that 40 in mind.",
-    "guard": "So, a few rules. Set maxage or maxsize, or the book grows to 250 megabytes. Use default to leave it "
-             "on, and profile for short investigations. Don't expect it to see inside another program. And 40 "
-             "samples are enough to spot a method that takes most of the time, but far too few to see what "
-             "happens inside it. That takes a profiler with thousands, and that's the next lesson.",
-    "moral": "So, what can a recording tell you that the log line can't? What else happened at the same moment: a GC "
-             "pause, a lock wait, a burst of allocation, all on one clock. A cheap recording that's always on is "
-             "evidence you already have. Dump it, instead of restarting.",
+              "counts threads running Java code. A cook waiting for a delivery isn't cooking. Keep that 40 in mind.",
+    "guard": "So, a few rules. Set maxage or maxsize. Leave default on, and use profile for short hunts. Don't "
+             "expect it to see inside another program. And 40 samples can spot a method that takes most of the "
+             "time, but can't show what happens inside it. That takes thousands of samples: the next lesson.",
+    "moral": "So, what can a recording tell you that the log line can't? What else happened at the same moment, on "
+             "one clock. A cheap recording that's always on is evidence you already have. Dump it, instead of "
+             "restarting.",
     "check": "Quick check. A request was slow at 9:14 last night. The program has run a recording all week, with "
              "maxage set to one hour. It's now 10:30. Is 9:14 still in the book?",
-    "check_a": "No. The book only keeps the last hour, so 9:14 was torn out at 10:14. Keep enough of the book to "
-               "cover the time it takes you to notice.",
+    "check_a": "No. The book keeps only the last hour, so 9:14 was torn out at 10:14. Keep enough book to cover the "
+               "time it takes you to notice.",
 }
 
 
@@ -250,9 +240,9 @@ class Perf05Jfr(Narrated):
         self.play(Create(tr1), Create(tr2), run_time=0.7)
         self.at(1)
         self.play(FadeIn(waiter), FadeIn(waiter_t), run_time=0.6)
-        self.at(2)
+        self.at_text("or for the kitchen", lead=0.3)
         self.play(FadeIn(sink), run_time=0.6)
-        self.at(4)
+        self.at(2)
         self.play(FadeIn(none), run_time=0.6)
         self.hold()
         self.clear_all()
@@ -269,7 +259,7 @@ class Perf05Jfr(Narrated):
         self.at_text("from a document store", lead=0.3)
         self.play(GrowArrow(arr), FadeIn(store), run_time=0.7)
         self.play(FadeIn(net), run_time=0.4)
-        self.at_text("We wrap a timer", lead=0.3)
+        self.at_text("we wrap a timer", lead=0.3)
         self.play(FadeIn(logp, shift=UP * 0.1), run_time=0.7)
         self.hold()
 
@@ -343,11 +333,11 @@ class Perf05Jfr(Narrated):
         ev = bar(0, 0.6, 2.2, OURS)
         card_l = VGroup(T("event:", 26, OURS), T("start time, duration, thread, stack trace", 26)).arrange(RIGHT, buff=0.2)
         card_l.move_to([0, -2.6, 0])
-        thr = T("thread: a line of work that runs side by side with others", 22, COOK).move_to([0, 3.2, 0])
+        thr = T("thread: a line of work in the program", 22, COOK).move_to([0, 3.2, 0])
         self.say("map1")
         self.play(FadeIn(cooks), FadeIn(lane_t), Create(guides), run_time=0.9)
         self.play(FadeIn(thr), run_time=0.4)
-        self.at(1)
+        self.at(2)
         self.play(GrowArrow(axis), FadeIn(ax_t), run_time=0.7)
         self.play(FadeIn(ev, scale=0.8), run_time=0.5)
         self.play(FadeIn(card_l, shift=UP * 0.1), Circumscribe(ev, color=OURS, buff=0.06), run_time=0.8)
@@ -409,7 +399,7 @@ class Perf05Jfr(Narrated):
         self.play(FadeIn(farm), GrowArrow(wt), run_time=0.7)
         self.at(3)
         self.play(Circumscribe(bk, color=WHITE, buff=0.08), run_time=0.8)
-        self.at(4)
+        self.at_text("the farm keeps", lead=0.3)
         self.play(FadeIn(farm_b), FadeIn(farm_t), run_time=0.6)
         self.hold()
         self.clear_all()
@@ -451,6 +441,7 @@ class Perf05Jfr(Narrated):
         o2 = M("Use jcmd 30725 JFR.dump name=reports filename=FILEPATH to copy recording data to file.", 22, SAMP)
         c3 = M("jcmd <pid> JFR.dump name=reports filename=reports.jfr", 22, WHITE)
         cmds = VGroup(c1, c2, o1, o2, c3).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
+        c2.shift(DOWN * 0.35); o1.shift(DOWN * 0.35); o2.shift(DOWN * 0.35); c3.shift(DOWN * 0.55)
         fit(cmds, 12.4)
         cmds.move_to([0, 0.6, 0])
         l1 = T("when the JVM starts", 22, GREY_B).next_to(c1, UP, buff=0.12).align_to(c1, LEFT)
@@ -465,14 +456,13 @@ class Perf05Jfr(Narrated):
         self.hold()
         stops = VGroup(T("copies the pages so far", 26, OURS), T("stops nothing", 26, SAMP)).arrange(RIGHT, buff=0.6)
         stops.move_to([0, -2.6, 0])
-        self.say("dump")
-        self.play(FadeIn(c3, shift=UP * 0.1), Indicate(c3, color=OURS, scale_factor=1.03), run_time=0.9)
-        self.play(FadeIn(stops[0]), run_time=0.4)
-        self.at(1)
-        self.play(FadeIn(stops[1]), run_time=0.4)
-        self.hold()
         hour = T("when the bad night comes, the last hour is already in the book", 26, YELLOW_M).move_to([0, -3.3, 0])
-        self.say("dump2")
+        self.say("dump")
+        self.play(FadeIn(c3, shift=UP * 0.1), run_time=0.6)
+        self.play(FadeIn(stops[0]), run_time=0.4)
+        self.at_text("and stops nothing", lead=0.2)
+        self.play(FadeIn(stops[1]), run_time=0.4)
+        self.at(2)
         self.play(FadeIn(hour, shift=UP * 0.1), run_time=0.7)
         self.hold()
         self.clear_all()
@@ -490,20 +480,16 @@ class Perf05Jfr(Narrated):
         cols = VGroup(dcol, pcol).arrange(RIGHT, buff=1.2, aligned_edge=UP)
         fit(cols, 12.4)
         cols.move_to([0, 0.6, 0])
-        self.say("cheap")
-        self.play(FadeIn(dcol[0]), FadeIn(pcol[0]), run_time=0.6)
-        self.at(2)
-        self.play(FadeIn(dcol[1][0]), run_time=0.5)
-        self.at(3)
-        self.play(FadeIn(pcol[1][0]), run_time=0.5)
-        self.hold()
         use = VGroup(T("leave it on", 28, SAMP).next_to(dcol, DOWN, buff=0.45).align_to(dcol, LEFT),
                      T("a short hunt", 28, OURS).next_to(pcol, DOWN, buff=0.45).align_to(pcol, LEFT))
-        self.say("cheap2")
-        self.play(FadeIn(dcol[1][1]), FadeIn(dcol[1][2]), FadeIn(dcol[1][3]), run_time=0.7)
+        self.say("cheap")
         self.at(1)
-        self.play(FadeIn(pcol[1][1]), FadeIn(pcol[1][2]), FadeIn(pcol[1][3]), run_time=0.7)
+        self.play(FadeIn(dcol[0]), FadeIn(pcol[0]), run_time=0.6)
         self.at(2)
+        self.play(FadeIn(dcol[1]), run_time=0.8)
+        self.at(3)
+        self.play(FadeIn(pcol[1]), run_time=0.8)
+        self.at(4)
         self.play(FadeIn(use[0]), FadeIn(use[1]), run_time=0.6)
         self.hold()
         self.clear_all()
@@ -542,11 +528,11 @@ class Perf05Jfr(Narrated):
         dots3 = M("...", 22, GREY_B).move_to([-6.3, y0 - 4 * 0.62 + 0.3, 0], aligned_edge=LEFT)
         self.say("summ_a")
         self.play(FadeIn(head), run_time=0.4)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(names[0]), FadeIn(counts[0]), GrowFromEdge(bars[0], LEFT), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(names[1]), FadeIn(counts[1]), GrowFromEdge(bars[1], LEFT), run_time=0.7)
-        self.at(4)
+        self.at(3)
         self.play(*[a for i in (2, 3) for a in (FadeIn(names[i]), FadeIn(counts[i]), GrowFromEdge(bars[i], LEFT))], run_time=0.8)
         self.hold()
         self.say("summ_joke")
@@ -584,6 +570,7 @@ class Perf05Jfr(Narrated):
         rules.move_to([0, 0.4, 0])
         nxt = T("next lesson: a profiler with thousands of samples", 24, GREY_B).move_to([0, -2.8, 0])
         self.say("guard")
+        self.at(1)
         self.play(FadeIn(rules[0], shift=UP * 0.1), run_time=0.5)
         self.at(2)
         self.play(FadeIn(rules[1], shift=UP * 0.1), run_time=0.5)
