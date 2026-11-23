@@ -166,7 +166,7 @@ N = {
             "down, and then passes it on. The actor's work doesn't change at all. The extra jobs happen at the door.",
     "shyq": "Here's a question that's easy to be shy about. Frameworks put a stand-in object in front of my objects, "
             "and every call goes through it. How? Does the JVM have a secret hook that catches calls?",
-    "map": "Let's map the picture first. The real object, the actor, is called the target. The stand-in is the proxy. "
+    "map": "The real object, the actor, is called the target. The stand-in is the proxy. "
            "And the rule the stand-in follows for every request is an InvocationHandler: an object with one method, "
            "invoke, that receives every call. Each request arrives as one note: which method was called, as a Method "
            "object, and its arguments, in an Object array.",
@@ -184,11 +184,10 @@ N = {
             "So the JDK writes it for you.",
     "npi": "You call Proxy.newProxyInstance, with a class loader, the list of interfaces, and your handler. At that "
            "moment, the JDK generates a class like our HandProxy, while your program runs.",
-    "predict": "So what is that class? The lesson's ProxyAnatomy asks it. Before we look: is it some special JVM object, "
+    "predict": "So what is that class? Before we look: is it some special JVM object, "
                "or an ordinary class? Pause and guess.",
     "show": "An ordinary class: public final, named jdk.proxy1.$Proxy0. It extends java.lang.reflect.Proxy, and "
-            "implements exactly our Wardrobe. Fields m0 to m4: Method objects, looked up once. And the methods: "
-            "costumes, dressed, equals, hashCode, toString, and one helper.",
+            "implements exactly our Wardrobe. Fields m0 to m4: Method objects, looked up once.",
     "badge": "The name isn't promised, but names that start with $Proxy are kept for proxy classes. Like a stand-in's "
              "badge: no name, just a number.",
     "bytes": "Here's costumes as JDK 25 wrote it, read with the stagehand's cue cards from two lessons ago. Load the "
@@ -208,7 +207,7 @@ N = {
               "in both languages. The Kotlin twin prints the same shape.",
     "name": "Now the name. What we built is a dynamic proxy: an object of a class generated while the program runs. "
             "It implements the interfaces you list, and sends every call to one handler.",
-    "guard": "A few rules before you reach for one. One: only interfaces can be proxied. Pass a class, and you get "
+    "guard": "A few rules. One: only interfaces can be proxied. Pass a class, and you get "
              "IllegalArgumentException: not an interface. Two: your handler gets equals, hashCode and toString too, "
              "so answer them on purpose.",
     "guard2": "Three: every call makes an array and boxes its arguments. That's a few nanoseconds. Nothing next to a "
@@ -290,14 +289,13 @@ class Cls04Proxy(Narrated):
         ln.next_to(nt, UP, buff=0.25)
         self.say("map")
         self.play(Create(floor), FadeIn(stand), Create(dr), FadeIn(actor), run_time=0.8)
-        self.at(1)
         self.play(FadeIn(lt, shift=DOWN * 0.1), Indicate(actor[0], color=ACTC, scale_factor=1.15), run_time=0.7)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(rule), run_time=0.3)
         self.play(FadeIn(lp, shift=DOWN * 0.1), Indicate(stand[0], color=STANDC, scale_factor=1.15), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(lh, shift=LEFT * 0.1), Indicate(rule[1], color=HANDLC, scale_factor=1.05), run_time=0.8)
-        self.at(4)
+        self.at(3)
         self.play(FadeIn(nt, shift=RIGHT * 0.2), run_time=0.5)
         self.play(FadeIn(ln), run_time=0.6)
         self.play(nt.animate.scale(0.8).next_to(stand[0], LEFT, buff=0.15), ln.animate.shift(RIGHT * 2.2), run_time=0.8)
@@ -383,7 +381,7 @@ class Cls04Proxy(Narrated):
                           "        loader, new Class<?>[]{Wardrobe.class}, h);"], 24)
         npjg = titled(npj, "Java")
         fit(npjg, 12.4).move_to([0, 1.8, 0])
-        gen = VGroup(RoundedRectangle(corner_radius=0.12, width=4.4, height=1.0).set_stroke(GENC, 3).set_fill(dim(GENC), 1))
+        gen = VGroup(RoundedRectangle(corner_radius=0.12, width=5.6, height=1.0).set_stroke(GENC, 3).set_fill(dim(GENC), 1))
         gen.add(T("a new class, like HandProxy", 26, GENC).move_to(gen[0]))
         gen.move_to([0, -0.6, 0])
         self.say("npi")
@@ -397,7 +395,7 @@ class Cls04Proxy(Narrated):
         opts = VGroup(T("a special JVM object?", 28, GREY_A), T("or an ordinary class?", 28, WHITE)).arrange(RIGHT, buff=0.8)
         opts.move_to([0, -2.2, 0])
         self.say("predict")
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(opts), run_time=0.6)
         self.hold(after=0)
         self.predict(2.4)
@@ -419,7 +417,6 @@ class Cls04Proxy(Narrated):
         self.play(FadeIn(L[1], shift=RIGHT * 0.1), FadeIn(L[2], shift=RIGHT * 0.1), run_time=0.6)
         self.at(2)
         self.play(FadeIn(L[3], shift=RIGHT * 0.1), part(L[3], "[m0,m1,m2,m3,m4]").animate.set_color(NOTEC), run_time=0.6)
-        self.at(3)
         self.play(FadeIn(L[4], shift=RIGHT * 0.1), run_time=0.6)
         self.hold()
 

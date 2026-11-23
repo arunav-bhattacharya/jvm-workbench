@@ -1,121 +1,345 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.615
-Say you want to log every call your service makes to its FX quotes client.
+00:00:02.700 --> 00:00:06.560
+Picture a busy lead actor, with a stand-in at the stage door.
 
 2
-00:00:07.615 --> 00:00:12.928
-A wrapper written by hand repeats the same log-and-forward code in every method.
+00:00:06.560 --> 00:00:13.836
+Every request meant for the actor goes to the stand-in first: a costume fitting, a photo, a note from the director.
 
 3
-00:00:12.928 --> 00:00:17.312
-Forty methods on six interfaces is tedious, and easy to get wrong.
+00:00:13.836 --> 00:00:17.442
+The stand-in writes each one down, and then passes it on.
 
 4
-00:00:17.500 --> 00:00:21.700
-The JDK can write that wrapper for you, while the program runs.
+00:00:17.442 --> 00:00:19.910
+The actor's work doesn't change at all.
 
 5
-00:00:21.700 --> 00:00:23.167
-You write one handler.
+00:00:19.910 --> 00:00:22.061
+The extra jobs happen at the door.
 
 6
-00:00:24.200 --> 00:00:25.473
-Here is one call.
+00:00:22.967 --> 00:00:26.037
+Here's a question that's easy to be shy about.
 
 7
-00:00:25.473 --> 00:00:30.040
-Your code calls quoteMicros on what it thinks is an FxQuotes.
+00:00:26.037 --> 00:00:31.909
+Frameworks put a stand-in object in front of my objects, and every call goes through it.
 
 8
-00:00:30.040 --> 00:00:35.356
-The object is really a proxy, an instance of a class the JDK generated.
+00:00:31.909 --> 00:00:32.176
+How?
 
 9
-00:00:35.567 --> 00:00:40.957
-The generated method takes the Method object for quoteMicros, which it looked up once.
+00:00:32.176 --> 00:00:35.580
+Does the JVM have a secret hook that catches calls?
 
 10
-00:00:40.957 --> 00:00:45.406
-It copies the arguments into a new Object array, boxing any primitives.
+00:00:36.667 --> 00:00:39.892
+The real object, the actor, is called the target.
 
 11
-00:00:45.406 --> 00:00:47.725
-Then it calls invoke on your handler.
+00:00:39.892 --> 00:00:41.604
+The stand-in is the proxy.
 
 12
-00:00:47.900 --> 00:00:50.820
-An InvocationHandler has one method, invoke.
+00:00:41.604 --> 00:00:50.623
+And the rule the stand-in follows for every request is an InvocationHandler: an object with one method, invoke, that receives every call.
 
 13
-00:00:50.820 --> 00:00:57.257
-It gets the proxy, the Method and the arguments, for every call on every method of the interface.
+00:00:50.623 --> 00:00:58.325
+Each request arrives as one note: which method was called, as a Method object, and its arguments, in an Object array.
 
 14
-00:00:57.867 --> 00:01:00.075
-Your handler decides what happens.
+00:00:59.233 --> 00:01:00.030
+Our example.
 
 15
-00:01:00.075 --> 00:01:04.621
-This one logs the call, then calls the same method on the real target.
+00:01:00.030 --> 00:01:05.610
+The show program asks the theatre's wardrobe system how many costumes each role has.
 
 16
-00:01:04.833 --> 00:01:07.104
-The answer comes back as an Object.
+00:01:05.610 --> 00:01:14.378
+It uses a small interface, Wardrobe, with one method, costumes, and a default method, dressed, which checks the count is above zero.
 
 17
-00:01:07.104 --> 00:01:12.164
-The proxy casts it to Long and unboxes it, and the caller gets its plain long.
+00:01:14.378 --> 00:01:18.097
+A default method is an interface method that has a body.
 
 18
-00:01:12.367 --> 00:01:16.252
-A handler doesn't have to call a target at all.
+00:01:19.000 --> 00:01:22.622
+Let's write a stand-in by hand, for this one interface.
 
 19
-00:01:16.252 --> 00:01:19.725
-In this section's demo there is no target.
+00:01:22.622 --> 00:01:23.873
+It holds a handler.
 
 20
-00:01:19.725 --> 00:01:23.032
-The handler returns 1,084,250 by itself.
+00:01:23.873 --> 00:01:29.009
+Its costumes method looks up the Method object once, when the class starts up.
 
 21
-00:01:24.033 --> 00:01:27.773
-The proxy class is real, and you can ask it about itself.
+00:01:29.009 --> 00:01:35.725
+Then, on every call, it boxes the role into an Object array, asks the handler, and unboxes the answer.
 
 22
-00:01:27.773 --> 00:01:34.201
-It is final, it extends Proxy, and it implements exactly the interfaces you passed, in that order.
+00:01:35.725 --> 00:01:40.729
+Boxing turns a plain int into an Integer object, and unboxing turns it back.
 
 23
-00:01:34.400 --> 00:01:38.224
-It keeps one static Method field per method, looked up once.
+00:01:40.933 --> 00:01:45.269
+If the handler throws, unchecked exceptions pass through as they are.
 
 24
-00:01:38.224 --> 00:01:41.539
-The name and the module are details that may change.
+00:01:45.269 --> 00:01:51.113
+A checked exception the method doesn't declare gets wrapped, in UndeclaredThrowableException.
 
 25
-00:01:42.433 --> 00:01:49.676
-To get one, call Proxy.newProxyInstance with a class loader, the list of interfaces, and the handler.
+00:01:51.113 --> 00:01:56.015
+It compiles, and it works: with a handler that always answers 3, it printed 3.
 
 26
-00:01:49.676 --> 00:01:56.057
-From Kotlin it is the same call, because a Kotlin interface is an ordinary JVM interface.
+00:01:56.933 --> 00:02:00.479
+Now write that for forty methods on six interfaces.
 
 27
-00:01:56.267 --> 00:01:57.356
-Here is a check.
+00:02:00.479 --> 00:02:04.025
+That's the kind of job nobody volunteers for twice.
 
 28
-00:01:57.356 --> 00:02:00.216
-Your handler returns null for quoteMicros.
+00:02:04.025 --> 00:02:06.041
+So the JDK writes it for you.
 
 29
-00:02:00.216 --> 00:02:01.919
-What does the caller get?
+00:02:06.967 --> 00:02:13.412
+You call Proxy.newProxyInstance, with a class loader, the list of interfaces, and your handler.
 
 30
-00:02:02.700 --> 00:02:08.403
-A NullPointerException, thrown at the step where the proxy unboxes the answer to a long.
+00:02:13.412 --> 00:02:19.247
+At that moment, the JDK generates a class like our HandProxy, while your program runs.
+
+31
+00:02:19.467 --> 00:02:21.140
+So what is that class?
+
+32
+00:02:21.140 --> 00:02:26.312
+Before we look: is it some special JVM object, or an ordinary class?
+
+33
+00:02:26.312 --> 00:02:27.529
+Pause and guess.
+
+34
+00:02:31.200 --> 00:02:36.712
+An ordinary class: public final, named jdk.proxy1.$Proxy0.
+
+35
+00:02:36.712 --> 00:02:43.554
+It extends java.lang.reflect.Proxy, and implements exactly our Wardrobe.
+
+36
+00:02:43.554 --> 00:02:48.116
+Fields m0 to m4: Method objects, looked up once.
+
+37
+00:02:48.333 --> 00:02:54.055
+The name isn't promised, but names that start with $Proxy are kept for proxy classes.
+
+38
+00:02:54.055 --> 00:02:57.285
+Like a stand-in's badge: no name, just a number.
+
+39
+00:02:58.200 --> 00:03:05.175
+Here's costumes as JDK 25 wrote it, read with the stagehand's cue cards from two lessons ago.
+
+40
+00:03:05.175 --> 00:03:06.449
+Load the handler.
+
+41
+00:03:06.449 --> 00:03:08.099
+Load the proxy itself.
+
+42
+00:03:08.099 --> 00:03:09.524
+Get the Method, m3.
+
+43
+00:03:09.524 --> 00:03:13.499
+Make a one-slot Object array, and put the role in it.
+
+44
+00:03:13.499 --> 00:03:14.399
+Call invoke.
+
+45
+00:03:14.399 --> 00:03:18.599
+Then cast the answer to Integer, and unbox it to an int.
+
+46
+00:03:18.800 --> 00:03:22.705
+Those are our four jobs, written straight in bytecode.
+
+47
+00:03:22.705 --> 00:03:23.789
+No secret hook.
+
+48
+00:03:23.789 --> 00:03:24.729
+Just a class.
+
+49
+00:03:25.633 --> 00:03:29.943
+The exception table at the bottom is the whole exception contract.
+
+50
+00:03:29.943 --> 00:03:33.338
+Error and RuntimeException are rethrown as they are.
+
+51
+00:03:33.338 --> 00:03:35.101
+Anything else gets wrapped.
+
+52
+00:03:35.101 --> 00:03:40.977
+And if a handler returns null for an int, the unboxing step throws a NullPointerException.
+
+53
+00:03:41.900 --> 00:03:44.297
+Now, which calls reach the handler?
+
+54
+00:03:44.297 --> 00:03:49.229
+The demo makes five: costumes, toString, hashCode, equals, and getClass.
+
+55
+00:03:49.229 --> 00:03:51.284
+How many does the handler see?
+
+56
+00:03:51.284 --> 00:03:52.380
+Pause and guess.
+
+57
+00:03:55.367 --> 00:03:55.753
+Four.
+
+58
+00:03:55.753 --> 00:04:01.540
+Wardrobe.costumes, then Object.toString, Object.hashCode and Object.equals.
+
+59
+00:04:01.540 --> 00:04:05.398
+getClass is final, so the proxy can't override it.
+
+60
+00:04:05.398 --> 00:04:09.025
+The stand-in can't lie about which class it is.
+
+61
+00:04:09.933 --> 00:04:12.785
+And that's where our picture starts to break.
+
+62
+00:04:12.785 --> 00:04:16.335
+Ask a human stand-in: are you the one I gave my note to?
+
+63
+00:04:16.335 --> 00:04:18.046
+They answer for themselves.
+
+64
+00:04:18.046 --> 00:04:22.483
+A careless handler passes even that question, equals, on to the actor.
+
+65
+00:04:23.400 --> 00:04:28.210
+Kotlin interfaces work the same way, because proxies are a JVM feature.
+
+66
+00:04:28.210 --> 00:04:31.598
+Here's the handler and the call in both languages.
+
+67
+00:04:31.598 --> 00:04:34.172
+The Kotlin twin prints the same shape.
+
+68
+00:04:35.100 --> 00:04:35.987
+Now the name.
+
+69
+00:04:35.987 --> 00:04:41.992
+What we built is a dynamic proxy: an object of a class generated while the program runs.
+
+70
+00:04:41.992 --> 00:04:47.109
+It implements the interfaces you list, and sends every call to one handler.
+
+71
+00:04:48.033 --> 00:04:48.877
+A few rules.
+
+72
+00:04:48.877 --> 00:04:51.407
+One: only interfaces can be proxied.
+
+73
+00:04:51.407 --> 00:04:56.257
+Pass a class, and you get IllegalArgumentException: not an interface.
+
+74
+00:04:56.257 --> 00:05:02.161
+Two: your handler gets equals, hashCode and toString too, so answer them on purpose.
+
+75
+00:05:02.367 --> 00:05:06.303
+Three: every call makes an array and boxes its arguments.
+
+76
+00:05:06.303 --> 00:05:08.029
+That's a few nanoseconds.
+
+77
+00:05:08.029 --> 00:05:16.040
+Nothing next to a 120 millisecond call to another computer, but you'll see it in a loop that runs millions of times.
+
+78
+00:05:16.967 --> 00:05:18.814
+So, is there a secret hook?
+
+79
+00:05:18.814 --> 00:05:19.019
+No.
+
+80
+00:05:19.019 --> 00:05:24.425
+A JDK proxy is an ordinary final class, written for you while the program runs.
+
+81
+00:05:24.425 --> 00:05:28.872
+Every call becomes one invoke, with a Method and an Object array.
+
+82
+00:05:28.872 --> 00:05:33.320
+The stand-in at the door is code you could have written yourself.
+
+83
+00:05:33.533 --> 00:05:34.359
+Quick check.
+
+84
+00:05:34.359 --> 00:05:38.554
+Your handler returns null for costumes, which returns an int.
+
+85
+00:05:38.554 --> 00:05:40.273
+What does the caller get?
+
+86
+00:05:43.267 --> 00:05:48.543
+A NullPointerException, at the unboxing step, right after invoke comes back.

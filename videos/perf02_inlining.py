@@ -1,300 +1,596 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form).
-fg.SAY += [(r"\brequireAmount\b", "require amount"), (r"Long\.bitCount", "Long dot bit count"), (r"\bcountOneBits\b", "count one bits"),
-           (r"\bPOPCNT\b", "pop count"), (r"inline \(hot\)", "inline hot"), (r"\bx86\b", "x 86"), (r"\b1200\b", "twelve hundred"),
-           (r"\bbytecode\b", "byte code")]
+# Spoken forms only (captions keep the written words). fg.py is shared, so these live here.
+fg.SAY[:0] = [
+    (r"\bkotlinc\b", "kotlin C"), (r"\bbadWordCount\b", "bad word count"), (r"\bPrintInlining\b", "print inlining"),
+    (r"\bString\.format\b", "string dot format"), (r"\bsummarize\b", "summarize"),
+]
 
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
-
-CALLER, CALLEE, C2_C = BLUE_M, PURPLE_M, GOLD_M     # settle, the helper it calls, what C2 sees
-HOT_C, COLD_C, BAD_C, OK_C, INTR_C = GOLD_M, TEAL_M, RED_M, GREEN_M, YELLOW_M
-
+# every spoken line, in order
 N = {
-    "s1": "C2 is compiling a hot method, settle. It calls a small helper, requireAmount.",
-    "s2": "To C2, a call is a wall: it can't see what happens inside.",
-    "q1": "Say settle always passes 1200, and the helper checks that the amount is in range. Can C2 skip the check?",
-    "s3": "Not through the wall. The check runs on every call.",
-    "s4": "Inlining removes the wall. C2 pastes the helper's body into settle, and compiles them as one piece.",
-    "s5": "Now C2 sees 1200 meet the range check, and drops the check at compile time. That's constant folding.",
-    "s6": "Saving the call is the small win. The big one: escape analysis and loop unrolling now see both sides. "
-          "That's why inlining comes first.",
-    "s8": "But each call site gets a budget, in bytes of bytecode. A site that runs on a quarter or more of the caller's calls "
-          "is hot: 325 bytes. Any other site gets 35.",
-    "q2": "This guard checks a refund amount, and builds its error message inline: 49 bytes. Its site runs on 1 call in 8. "
-          "Will C2 inline it?",
-    "s9": "No. 49 is over 35, and the budget counts the message bytes, though they almost never run.",
-    "s10": "Move the message into its own method. The guard drops to 21 bytes, and fits.",
-    "s11": "Here is C2's real log. inline (hot) is just how it says yes.",
-    "s12": "Some JDK methods skip the budget. Long.bitCount is 61 bytes of shifts and masks, but on x86 C2 uses one POPCNT instruction.",
-    "s13": "These are intrinsics: JDK methods the JIT swaps for hand-written code, so their bytecode size doesn't matter.",
-    "s14": "In code, the guard calls out for its message. And Kotlin's countOneBits calls Long.bitCount, the same intrinsic.",
-    "r": "The rule. Inlining lets C2 see through calls, within 35 bytes, or 325 at a hot site. Keep cold paths out, and call the JDK method.",
-    "c": "Quick check. A 40-byte method: is it inlined from a site that runs on half the caller's calls? From one that runs on 1 call in 10?",
-    "a": "Yes at the hot site: 40 is under 325. No at the other: 40 is over 35.",
+    "open": "Back in the kitchen, our new cook has picked up a habit. When a recipe says, make the sauce on page "
+            "12, the cook doesn't flip to page 12 every time. The cook copies the sauce into the main recipe. Now "
+            "the onions for both get chopped at once.",
+    "shyq": "Keep that cook in mind, because here's a question that sounds almost silly. Every call to a method "
+            "costs a little. So how can splitting one method into two make code faster? Hold on to that.",
+    "check": "Let's start with something we've all written. The report service checks every document it gets. "
+             "If the word count is zero or less, or over ten million, it throws, with a helpful message. "
+             "Otherwise it hands the count back.",
+    "bytes": "It looks tiny. But C2, the JVM's optimizing compiler, doesn't count lines. It counts bytecode, the "
+             "instructions javac writes into the class file. And this little check is 49 bytes.",
+    "map1": "Now the kitchen. Copying a called method into its caller is called inlining. The sauce on page 12 is "
+            "the called method. The main recipe is the caller. And chopping the onions for both at once? That's "
+            "the real prize.",
+    "map2": "Skipping the call is a small win. The big win is that C2's other tricks can now see both sides. It "
+            "can work out values that are known ahead of time. It can prove that an object never leaves the "
+            "method, so it never has to be created at all. It can reshape a whole loop. A method C2 doesn't copy "
+            "in is a wall it can't see through.",
+    "budget1": "But a sensible cook only copies short sub-recipes. Nobody pastes a forty page wedding cake into the "
+               "sandwich card. C2 keeps a budget too, and it decides at each call site, one call instruction in "
+               "the bytecode.",
+    "budget2": "If the call runs on at least a quarter of the caller's runs, the site counts as hot, and C2 copies "
+               "methods of up to 325 bytes. Otherwise, the limit is 35 bytes. These numbers are the same from JDK "
+               "21 to JDK 27.",
+    "pq": "Now our check. 49 bytes. A demo calls it from a method called summarize, on one call in eight. So the "
+          "site isn't hot. Will C2 copy it in? Pause and guess.",
+    "pa": "No. failed to inline: too big. 49 is more than 35, so the check stays a wall.",
+    "why": "But where do 49 bytes come from, in a check this small? The test itself is short. Most of the bytes "
+           "build the error message: two longs wrapped in Long objects, an array to carry them, and a call to "
+           "String.format. Most of this check is a complaint letter, and the letter almost never gets sent.",
+    "breaks": "Here's where the kitchen picture breaks. A real cook would skip the page called, what to do if the "
+              "kitchen catches fire. C2 skips nothing. It counts every byte, even the ones that almost never run.",
+    "fix": "So let's give the cold path its own method. The check keeps the test and the throw. A new method, "
+           "badWordCount, builds the exception. Now the check is 21 bytes. Same demo, same site, one call in "
+           "eight. Will C2 copy it now?",
+    "fixa": "Yes. inline, hot. And don't read much into the word hot. It's just what C2 prints when it inlines and "
+            "has nothing more to say. C2 is not a chatty cook.",
+    "payoff": "So that's how adding a method makes code faster. The new method is cold and rarely runs. The hot "
+              "method got small enough to copy, and once it's copied, C2 can see right through it.",
+    "code": "Here it is in Java and in Kotlin. The hot path tests and throws. The cold path builds the message. We "
+            "return the exception from it, so the throw stays in the hot method, where the next reader can see "
+            "that the method ends there.",
+    "kotlin": "One Kotlin twist. The Kotlin check with the message inside is 66 bytes, not 49. Kotlin's format is "
+              "an inline function, so kotlinc pastes its body in before the JVM ever sees it. After the split, "
+              "both languages are 21 bytes.",
+    "guard": "A few guardrails. This matters in hot code, code that runs millions of times. Elsewhere, write the "
+             "clearest check you can. Keep the message text the same, because someone's alert may search for it. "
+             "And don't guess: the PrintInlining log tells you what C2 decided.",
+    "rule": "C2 counts the bytes of the error path too. Give the cold path its own method.",
+    "moral": "The moral of the story: C2 copies short sub-recipes into the main one, so it can chop for both at "
+             "once. Short means bytes, not lines, and the bytes you rarely run still count. Keep the hot path "
+             "short, and send the complaints down the hall.",
+    "chk": "Quick check. A 30 byte method, called on one call in ten. And a 60 byte method, called on every run of "
+           "its caller. Which ones does C2 copy in?",
+    "chka": "Both. 30 is under 35. And a call on every run is a hot site, where the budget is 325. Next: when the "
+            "method behind a call depends on the object, how does C2 know which one to copy?",
 }
-PAUSE = {"q1": 1.5, "q2": 1.5, "c": 2.2}
 
 
-def cline(text, size=24, color=WHITE):
-    t = Text("|" + text, font=MONO, font_size=size, color=color, disable_ligatures=True)
-    t.src = text
-    return t
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-
-def one(text, size=24, color=WHITE):
-    t = cline(text, size, color)
-    t.remove(t[0])
-    return t
-
-
-def code(lines, size=24, color=WHITE):
-    pitch = M("|", size).height * 1.65
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        t = cline(ln, size, color)
-        t.shift(np.array([0, -i * pitch, 0]) - t[0].get_center())
-        g.add(t)
-    for t in g:
-        t.remove(t[0])
-    return g
-
-
-def part(t, sub, nth=0):
-    i = -1
-    for _ in range(nth + 1):
-        i = t.src.index(sub, i + 1)
-    return VGroup(*t[i:i + len(sub)])
-
-
-def mark(m, color=WHITE, hold=0.6):
-    u = Line(m.get_corner(DL) + DOWN * 0.09, m.get_corner(DR) + DOWN * 0.09, color=color, stroke_width=4)
-    return Succession(Create(u, run_time=0.45), Wait(hold), FadeOut(u, run_time=0.35))
-
-
-def shade(c, k=0.14):
-    return interpolate_color(ManimColor("#000000"), ManimColor(c), k)
-
-
-def frame_box(w, h, color, k=0.1):
-    return RoundedRectangle(corner_radius=0.16, width=w, height=h, stroke_color=color, stroke_width=3).set_fill(shade(color, k), 1)
-
-
-def bar(x0, x1, y, h, color, k=0.45):
-    return Rectangle(width=max(0.02, x1 - x0), height=h, stroke_color=color, stroke_width=2).set_fill(shade(color, k), 1).move_to([(x0 + x1) / 2, y, 0])
-
-
-class Perf02Inlining(VoiceScene):
-    """perf-02 section 0 (with section 3): a call is a wall to C2; inlining removes it so the other optimizations see both
-    sides; a bytecode budget (35 / 325 bytes) decides which calls get inlined; intrinsics replace JDK methods outright."""
-
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
-
-    def say(self, key, plan=(), after=0.25):
+    def say(self, key):
         text = N[key]
         path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents)
-        starts, t = [], 0.0
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
         for x in sents:
-            starts.append(t)
-            t += dur * len(x) / total
-        assert all(i < len(starts) for i, _, _ in plan), f"{key}: plan index past the last sentence"
-        now = 0.0
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now)
-                now = starts[idx]
-            self.play(*(anims() if callable(anims) else anims), run_time=rt)
-            now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
-        self.wait(PAUSE.get(key, after))
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+        if after:
+            self.wait(after)
+
+    def predict(self, secs=2.4, pos=(6.4, 3.3), edge=RIGHT):
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def wipe(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
+
+
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
+
+
+# one colour per thing, for the whole performance track's kitchen
+CARD, C1C, C2C, NOTE, COOK, BAD = BLUE_M, TEAL_M, GOLD_M, PURPLE_M, GREY_A, RED_M
+PAPER = "#EDE6D6"
+
+
+def cook(s=1.0, color=COOK):
+    body = RoundedRectangle(corner_radius=0.16, width=0.5, height=0.46).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.15).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    band = Rectangle(width=0.3, height=0.08).set_stroke(WHITE, 2).set_fill(WHITE, 1).next_to(head, UP, buff=0.01)
+    puff = VGroup(*[Circle(radius=0.1).set_stroke(WHITE, 2).set_fill(WHITE, 1) for _ in range(3)]).arrange(RIGHT, buff=-0.08)
+    puff.next_to(band, UP, buff=-0.05)
+    return VGroup(body, head, band, puff).scale(s)
+
+
+def recipe_card(lines=4, w=1.5, h=1.1, title="recipe"):
+    r = RoundedRectangle(corner_radius=0.06, width=w, height=h).set_stroke(CARD, 2.5).set_fill(dim(CARD, 0.18), 1)
+    t = T(title, 18, CARD).move_to(r.get_top() + DOWN * 0.18)
+    ls = VGroup(*[Line(LEFT * w * 0.36, RIGHT * w * 0.36, stroke_width=2, color=GREY_B) for _ in range(lines)])
+    ls.arrange(DOWN, buff=(h - 0.45) / max(lines, 1) * 0.6).next_to(t, DOWN, buff=0.12)
+    return VGroup(r, t, ls)
+
+
+def cheat(w=1.1, h=0.8):
+    r = Rectangle(width=w, height=h).set_stroke(C1C, 2.5).set_fill(dim(C1C, 0.3), 1).rotate(-6 * DEGREES)
+    ls = VGroup(*[Line(LEFT * w * 0.32, RIGHT * w * 0.32, stroke_width=2.5, color=C1C) for _ in range(2)]).arrange(DOWN, buff=0.2)
+    ls.move_to(r).rotate(-6 * DEGREES)
+    return VGroup(r, ls)
+
+
+def notepad(w=0.8, h=0.95):
+    r = Rectangle(width=w, height=h).set_stroke(NOTE, 2.5).set_fill(dim(NOTE, 0.3), 1)
+    rings = VGroup(*[Circle(radius=0.04).set_stroke(NOTE, 2) for _ in range(3)]).arrange(RIGHT, buff=0.12).move_to(r.get_top() + DOWN * 0.08)
+    ls = VGroup(*[Line(LEFT * w * 0.3, RIGHT * w * 0.3, stroke_width=1.8, color=NOTE) for _ in range(3)]).arrange(DOWN, buff=0.16)
+    ls.move_to(r.get_center() + DOWN * 0.06)
+    return VGroup(r, rings, ls)
+
+
+def star(r=0.45):
+    return Star(5, outer_radius=r, inner_radius=r * 0.45).set_stroke(C2C, 3).set_fill(dim(C2C, 0.5), 1)
+
+
+def tally(n=7, color=GREY_A, h=0.42):
+    g = VGroup()
+    x = 0
+    for i in range(n):
+        if i % 5 == 4:
+            g.add(Line([x - 0.55, -h / 2 + 0.05, 0], [x - 0.05, h / 2 - 0.05, 0], stroke_width=3, color=color))
+            x += 0.18
+        else:
+            g.add(Line([x, -h / 2, 0], [x, h / 2, 0], stroke_width=3, color=color))
+            x += 0.13
+    return g.center()
+
+
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def panel(m, color=GREY_D, buff=0.3):
+    return SurroundingRectangle(m, buff=buff, corner_radius=0.12).set_stroke(color, 2).set_fill("#0b0b0b", 1)
+
+
+def cross(m, s=0.22, buff=0.25):
+    return tick(False, s).next_to(m, RIGHT, buff=buff)
+
+
+def maprow(left, right, lc=WHITE, rc=WHITE, size=26):
+    a = T(left, size, lc)
+    ar = Arrow(LEFT * 0.4, RIGHT * 0.4, buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.25)
+    b = T(right, size, rc)
+    return VGroup(a, ar, b)
+
+
+def maptable(rows, x_arrow=0.0, y0=2.0, dy=0.72):
+    for i, r in enumerate(rows):
+        y = y0 - i * dy
+        r[1].move_to([x_arrow, y, 0])
+        r[0].next_to(r[1], LEFT, buff=0.3)
+        r[2].next_to(r[1], RIGHT, buff=0.3)
+    return VGroup(*rows)
+
+
+def onion(r=0.22):
+    o = Circle(radius=r).set_stroke(PURPLE_M, 2.5).set_fill(dim(PURPLE_M, 0.45), 1)
+    tip = Triangle().scale(r * 0.4).set_stroke(PURPLE_M, 2).set_fill(dim(PURPLE_M, 0.45), 1).next_to(o, UP, buff=-0.04)
+    return VGroup(o, tip)
+
+
+def wcard(title, rows, color=CARD, w=4.2, size=22, hl=None):
+    t = T(title, 22, color)
+    ls = VGroup(*[T(r, size, hl.get(i, GREY_A) if hl else GREY_A) for i, r in enumerate(rows)]).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
+    body = VGroup(t, ls).arrange(DOWN, aligned_edge=LEFT, buff=0.22)
+    r = RoundedRectangle(corner_radius=0.1, width=max(w, body.width + 0.6), height=body.height + 0.55).set_stroke(color, 3)
+    r.set_fill(dim(color, 0.16), 1)
+    body.move_to(r)
+    return VGroup(r, t, ls)
+
+
+CHECK_J = ["static long requireWordCountInline(long words) {",
+           "    if (words <= 0 || words > MAX_WORDS) {",
+           "        throw new IllegalArgumentException(String.format(",
+           "            \"word count must be between 1 and %d, got %d\",",
+           "            MAX_WORDS, words));",
+           "    }",
+           "    return words;",
+           "}"]
+
+
+class Perf02Inlining(Narrated):
+    """perf-02, section 0: the cook copies the sauce from page 12 into the main recipe; the shy question (how can
+    splitting a method make code faster?); the word-count check is 49 bytes; the map (callee, caller, inlining,
+    a wall); the budget at a call site (35, or 325 when hot); predict: failed to inline: too big; the complaint
+    letter; the fire page (where the picture breaks); the split: 21 bytes, inline (hot); Java and Kotlin (66 bytes);
+    guardrails, the rule, the moral and a check."""
 
     def construct(self):
-        self.title_card("Why inlining comes first", "the JIT's size budget, and intrinsics")
+        self.title_card("Copying a method into its caller", "inlining, and C2's budget")
 
-        # ---------- a call is a wall
-        cb = frame_box(5.3, 3.2, CALLER).move_to([-3.45, -0.1, 0])
-        ct = M("settle", 30, CALLER).move_to(cb.get_top() + DOWN * 0.42)
-        RY = [0.4, -0.35, -1.1]
-        r1 = T("load a payment", 28, GREY_A).move_to([-3.45, RY[0], 0])
-        r2 = one("requireAmount(1200)", 26, CALLEE).move_to([-3.45, RY[1], 0])
-        r3 = T("add it to net", 28, GREY_A).move_to([-3.45, RY[2], 0])
-        hb = frame_box(5.0, 3.2, CALLEE).move_to([3.6, -0.1, 0])
-        ht = M("requireAmount", 30, CALLEE).move_to(hb.get_top() + DOWN * 0.42)
-        c1 = T("is cents in range?", 28).move_to([3.6, RY[0], 0])
-        c2 = T("no: throw", 28, GREY_A).move_to([3.6, RY[1], 0])
-        c3 = T("yes: return cents", 28, GREY_A).move_to([3.6, RY[2], 0])
-        self.say("s1", [(0, [FadeIn(cb), FadeIn(ct), FadeIn(r1), FadeIn(r3)], 0.8),
-                        (1, [FadeIn(r2)], 0.5), (1, [FadeIn(hb), FadeIn(ht), FadeIn(VGroup(c1, c2, c3))], 0.8)])
+        # ================= the cook's habit =================
+        main = wcard("main recipe", ["slice the bread", "make the sauce, page 12", "add the cheese"], CARD,
+                     hl={1: YELLOW_M}).move_to([-3.2, 0.6, 0])
+        sauce = wcard("page 12: sauce", ["chop an onion", "simmer with tomato"], NOTE).move_to([3.4, 0.6, 0])
+        ck = cook(1.4).move_to([0.1, -2.1, 0])
+        self.say("open")
+        self.play(FadeIn(main), FadeIn(ck), run_time=0.7)
+        self.at(1)
+        self.play(Indicate(main[2][1], color=YELLOW_M), FadeIn(sauce), run_time=1.0)
+        trip = CurvedArrow(main.get_right() + DOWN * 0.3, sauce.get_left() + DOWN * 0.3, angle=0.6, color=GREY_B, stroke_width=3)
+        self.play(Create(trip), run_time=0.6)
+        self.play(FadeOut(trip), run_time=0.3)
+        self.at(2)
+        merged = wcard("main recipe", ["slice the bread", "chop an onion", "simmer with tomato", "add the cheese"], CARD,
+                       hl={1: NOTE, 2: NOTE}).move_to([-3.2, 0.6, 0])
+        self.play(TransformFromCopy(sauce[2], merged[2][1:3]), FadeOut(main), FadeIn(merged[0]), FadeIn(merged[1]),
+                  FadeIn(merged[2][0]), FadeIn(merged[2][3]), sauce.animate.set_opacity(0.3), run_time=1.3)
+        self.at(3)
+        ons = VGroup(onion(), onion()).arrange(RIGHT, buff=0.15).next_to(merged, RIGHT, buff=0.6).shift(DOWN * 0.1)
+        once = T("chopped at once", 24, NOTE).next_to(ons, DOWN, buff=0.15)
+        self.play(FadeIn(ons, scale=0.6), FadeIn(once), run_time=0.7)
+        self.hold()
 
-        wall = Rectangle(width=0.28, height=3.9, stroke_width=0).set_fill(GREY_D, 1).move_to([0.2, -0.1, 0]).set_z_index(2)
-        wall_l = T("a call: C2 can't see inside", 28, GREY_B).move_to([0.2, 2.45, 0])
-        call = DashedLine(r2.get_right() + RIGHT * 0.12, [hb.get_left()[0] - 0.05, RY[1], 0], dash_length=0.12, stroke_width=3,
-                          color=CALLEE).add_tip(tip_length=0.18, tip_width=0.18)
-        self.say("s2", [(0, [Create(call)], 0.6), (0, [GrowFromEdge(wall, DOWN), FadeIn(wall_l)], 0.8),
-                        (0, [Indicate(c1, color=CALLEE, scale_factor=1.06)], 0.8)])
+        q1 = T("Every call to a method costs a little.", 30)
+        q2 = T("So how can splitting one method into two make code faster?", 30, YELLOW_M)
+        qg = VGroup(q1, q2).arrange(DOWN, buff=0.2).move_to([0, 3.05, 0])
+        fit(qg, 12.4)
+        self.say("shyq")
+        self.play(FadeIn(q1, shift=DOWN * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(q2, shift=DOWN * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.wait(1.0)
+        self.wipe()
 
-        amt = chip("1200", CALLEE, 26, mono=True).move_to(part(r2, "1200"))
-        self.say("q1", [(0, [FadeIn(amt, scale=0.7)], 0.5), (0, [Indicate(c1, color=WHITE, scale_factor=1.08)], 0.8),
-                        (1, [amt.animate.move_to([-0.45, RY[1], 0])], 0.9)])
-        self.say("s3", [(0, [amt.animate.shift(LEFT * 0.35), Flash([0.0, RY[1], 0], color=BAD_C, flash_radius=0.45)], 0.5),
-                        (1, [c1.animate.set_color(BAD_C)], 0.4), (1, [Circumscribe(c1, color=BAD_C, buff=0.12)], 1.0)])
+        # ================= the check we all write =================
+        code = code_block(CHECK_J, 24, hl={"MAX_WORDS": GREY_A})
+        fit(code, 12.0).move_to([0, 0.9, 0])
+        pnl = panel(code)
+        jl = T("Java", 22, GREY_B).next_to(pnl, UP, buff=0.12).align_to(pnl, LEFT)
+        rule_t = VGroup(T("1 to 10,000,000 words, or throw", 24, GREY_A)).next_to(pnl, DOWN, buff=0.3)
+        self.say("check")
+        self.play(FadeIn(pnl), FadeIn(jl), FadeIn(code[0]), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(code[1:]), run_time=0.8)
+        self.at(2)
+        self.play(Indicate(code[1], color=YELLOW_M), FadeIn(rule_t), run_time=0.9)
+        self.at(3)
+        self.play(Indicate(code[6], color=YELLOW_M), run_time=0.8)
+        self.hold()
+        badge = VGroup(T("bytecode:", 30, GREY_A), T("49 bytes", 40, YELLOW_M)).arrange(RIGHT, buff=0.25)
+        badge.next_to(pnl, DOWN, buff=0.35)
+        lines_t = T("8 lines of source", 24, GREY_B).next_to(badge, DOWN, buff=0.15)
+        self.say("bytes")
+        self.at(1)
+        self.play(FadeOut(rule_t), FadeIn(lines_t), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(badge, scale=0.8), run_time=0.7)
+        self.hold()
+        self.wipe()
 
-        # ---------- inlining: the wall goes, the body moves in
-        big = frame_box(6.6, 4.3, C2_C, 0.08).move_to([0, -0.35, 0])
-        big_t = M("settle", 30, CALLER).move_to(big.get_top() + DOWN * 0.42)
-        NY = [0.75, 0.1, -0.55, -1.2, -1.85]
-        one_l = T("one piece for C2", 26, C2_C).next_to(big, UP, buff=0.15).align_to(big, RIGHT)
-        self.say("s4", [(0, [FadeOut(wall), FadeOut(wall_l), FadeOut(call), FadeOut(amt), c1.animate.set_color(WHITE)], 0.6),
-                        (1, [ReplacementTransform(cb, big), ReplacementTransform(ct, big_t), FadeOut(hb), FadeOut(ht), FadeOut(r2),
-                             r1.animate.move_to([0, NY[0], 0]), c1.animate.move_to([0, NY[1], 0]).set_color(CALLEE),
-                             c2.animate.move_to([0, NY[2], 0]).set_color(CALLEE), c3.animate.move_to([0, NY[3], 0]).set_color(CALLEE),
-                             r3.animate.move_to([0, NY[4], 0])], 1.6),
-                        (1, [FadeIn(one_l)], 0.5)])
+        # ================= the map: inlining, and the wall =================
+        rows = [maprow("the sauce on page 12", "the called method (callee)", NOTE),
+                maprow("the main recipe", "the caller", CARD),
+                maprow("copying it in", "inlining", GREY_A, YELLOW_M),
+                maprow("chopping for both at once", "C2 optimizes both together", NOTE, C2C)]
+        tbl = maptable(rows, x_arrow=-0.4, y0=2.7, dy=0.8)
+        fit(tbl, 12.6)
+        self.say("map1")
+        self.at(1)
+        self.play(FadeIn(rows[2]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(rows[0]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(rows[1]), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(rows[3]), run_time=0.6)
+        self.hold()
 
-        c1b = T("is 1200 in range? always yes", 28, OK_C).move_to([0, NY[1], 0])
-        c3b = M("1200", 30, CALLEE).move_to([0, NY[3], 0])
-        fold = T("constant folding", 34, INTR_C).move_to([0, 2.75, 0])
-        self.say("s5", [(0, [Transform(c1, c1b)], 0.8),
-                        (0, [c2.animate.set_opacity(0.25), Transform(c3, c3b)], 0.7),
-                        (0, lambda: [FadeOut(c1), FadeOut(c2), r1.animate.move_to([0, 0.35, 0]), c3.animate.move_to([0, -0.5, 0]),
-                                     r3.animate.move_to([0, -1.35, 0])], 0.9),
-                        (1, [Write(fold)], 0.9)])
+        caller = RoundedRectangle(corner_radius=0.12, width=3.0, height=1.4).set_stroke(CARD, 3).set_fill(dim(CARD, 0.16), 1)
+        callee = RoundedRectangle(corner_radius=0.12, width=3.0, height=1.4).set_stroke(NOTE, 3).set_fill(dim(NOTE, 0.16), 1)
+        cg = VGroup(caller, callee).arrange(RIGHT, buff=0.4).move_to([-3.0, -0.3, 0])
+        cl_t = T("caller", 26, CARD).move_to(caller)
+        ce_t = T("callee", 26, NOTE).move_to(callee)
+        wall = Rectangle(width=0.3, height=1.9).set_stroke(GREY_B, 2).set_fill("#3a3a3a", 1).move_to(cg.get_center())
+        wall_t = T("a wall", 22, GREY_B).next_to(wall, DOWN, buff=0.12)
+        one = RoundedRectangle(corner_radius=0.12, width=6.4, height=1.4).set_stroke(C2C, 3).set_fill(dim(C2C, 0.14), 1).move_to(cg)
+        one_t = T("caller + callee, compiled as one piece", 26, C2C).move_to(one)
+        wins = VGroup(T("values known ahead of time", 24), T("objects that never leave: never created", 24),
+                      T("the whole loop, reshaped", 24)).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
+        wins.next_to(one, RIGHT, buff=0.4)
+        dots = VGroup(*[Dot(radius=0.05, color=C2C).next_to(w, LEFT, buff=0.15) for w in wins])
+        wg = VGroup(wins, dots)
+        self.say("map2")
+        self.play(FadeOut(tbl), run_time=0.4)
+        self.play(FadeIn(caller), FadeIn(cl_t), FadeIn(callee), FadeIn(ce_t), FadeIn(wall), FadeIn(wall_t), run_time=0.8)
+        self.at(1)
+        self.play(FadeOut(wall), FadeOut(wall_t), FadeOut(caller), FadeOut(callee), FadeOut(cl_t), FadeOut(ce_t),
+                  FadeIn(one), FadeIn(one_t), run_time=0.9)
+        self.at(2)
+        self.play(FadeIn(wins[0]), FadeIn(dots[0]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(wins[1]), FadeIn(dots[1]), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(wins[2]), FadeIn(dots[2]), run_time=0.5)
+        self.at(5)
+        wall2 = VGroup(Rectangle(width=0.3, height=1.9).set_stroke(GREY_B, 2).set_fill("#3a3a3a", 1),
+                       T("not copied: a wall", 24, GREY_B)).arrange(DOWN, buff=0.12).move_to([0, -2.7, 0])
+        self.play(FadeIn(wall2), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        opts = VGroup(chip("constant folding", INTR_C, 26), chip("escape analysis", INTR_C, 26), chip("loop unrolling", INTR_C, 26)
-                      ).arrange(RIGHT, buff=0.35).move_to([0, 2.75, 0])
-        first = T("inlining comes first", 36, C2_C).move_to([0, -3.0, 0])
-        self.say("s6", [(1, [ReplacementTransform(fold, opts[0]), FadeIn(opts[1:], shift=DOWN * 0.1)], 0.9),
-                        (1, [Indicate(big, color=C2_C, scale_factor=1.02)], 0.8),
-                        (2, [FadeIn(first, shift=UP * 0.1)], 0.7)])
-        self.play(FadeOut(VGroup(big, big_t, r1, c3, r3, one_l, opts, first)), run_time=0.6)
+        # ================= the budget =================
+        cake = VGroup(recipe_card(6, 1.2, 1.5, "cake, p. 1 to 40"), T("not pasted into", 22, GREY_B),
+                      recipe_card(3, 1.2, 0.9, "sandwich")).arrange(RIGHT, buff=0.3).move_to([0, 2.6, 0])
+        site = VGroup(T("decided at each", 24, GREY_A), T("call site", 26, YELLOW_M),
+                      T(": one call instruction in the bytecode", 24, GREY_A)).arrange(RIGHT, buff=0.15).move_to([0, 1.3, 0])
+        fit(site, 12.4)
+        self.say("budget1")
+        self.at(1)
+        self.play(FadeIn(cake), run_time=0.8)
+        self.at(2)
+        self.play(FadeIn(site), run_time=0.6)
+        self.hold()
 
-        # ---------- the budget, on one scale: 0 .. 350 bytes
-        X0 = -5.6
-        k1 = 11.2 / 350
-        head = T("budget per call site, in bytes of bytecode", 32).move_to([0, 2.8, 0])
-        base = Line([X0, 2.1, 0], [X0, -2.4, 0], stroke_width=2, color=GREY_D)
-        HY, CY = 0.9, -0.75
-        hot_b = bar(X0, X0 + 325 * k1, HY, 0.55, HOT_C)
-        hot_v = M("325", 30, HOT_C).next_to(hot_b, RIGHT, buff=0.15)
-        hot_l = T("hot site: runs on 25% or more of the caller's calls", 26, HOT_C).next_to(hot_b, UP, buff=0.18).align_to(hot_b, LEFT)
-        cold_b = bar(X0, X0 + 35 * k1, CY, 0.55, COLD_C)
-        cold_v = M("35", 30, COLD_C).next_to(cold_b, RIGHT, buff=0.15)
-        cold_l = T("any other call site", 26, COLD_C).next_to(cold_b, UP, buff=0.18).align_to(cold_b, LEFT)
-        self.say("s8", [(0, [FadeIn(head, shift=DOWN * 0.1), Create(base)], 0.8),
-                        (1, [FadeIn(hot_l), GrowFromEdge(hot_b, LEFT)], 1.2), (1, [FadeIn(hot_v)], 0.4),
-                        (2, [FadeIn(cold_l), GrowFromEdge(cold_b, LEFT)], 0.7), (2, [FadeIn(cold_v)], 0.4)])
+        X0, KB = -4.4, 10.0 / 325
+        sc_hot = Rectangle(width=325 * KB, height=0.5).set_stroke(C2C, 2).set_fill(dim(C2C, 0.35), 1).move_to([X0, -0.6, 0], aligned_edge=LEFT)
+        sc_cold = Rectangle(width=35 * KB, height=0.5).set_stroke(CARD, 2).set_fill(dim(CARD, 0.45), 1).move_to([X0, -1.9, 0], aligned_edge=LEFT)
+        hot_l = VGroup(T("hot site", 24, C2C), T("25% or more of the caller's runs", 18, GREY_B)).arrange(DOWN, aligned_edge=RIGHT, buff=0.05)
+        hot_l.next_to(sc_hot, LEFT, buff=0.25)
+        cold_l = VGroup(T("any other site", 24, CARD)).next_to(sc_cold, LEFT, buff=0.25).align_to(hot_l, RIGHT)
+        hot_n = T("up to 325 bytes", 24, C2C).next_to(sc_hot, UP, buff=0.12).align_to(sc_hot, RIGHT)
+        cold_n = T("up to 35 bytes", 24, CARD).next_to(sc_cold, RIGHT, buff=0.25)
+        same = T("the same from JDK 21 to JDK 27", 22, GREY_B).move_to([0, -3.2, 0])
+        self.play(FadeOut(cake), site.animate.move_to([0, 2.9, 0]), run_time=0.5)
+        self.say("budget2")
+        self.play(FadeIn(hot_l), GrowFromEdge(sc_hot, LEFT), run_time=0.9)
+        self.play(FadeIn(hot_n), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(cold_l), GrowFromEdge(sc_cold, LEFT), FadeIn(cold_n), run_time=0.8)
+        self.at(2)
+        self.play(FadeIn(same), run_time=0.5)
+        self.hold()
 
-        # zoom in: 0 .. 70 bytes
-        k2 = 11.2 / 70
-        LIM = X0 + 35 * k2
-        CY2, GY = 1.25, -0.35
-        cold2 = bar(X0, LIM, CY2, 0.55, COLD_C)
-        cold_l2 = T("this call site: 1 call in 8, limit 35", 26, COLD_C).next_to(cold2, UP, buff=0.18).align_to(cold2, LEFT)
-        lim = DashedLine([LIM, 1.55, 0], [LIM, -1.3, 0], dash_length=0.12, stroke_width=3, color=COLD_C)
-        lim_v = M("35", 28, COLD_C).next_to(cold2, RIGHT, buff=0.15)
-        g49 = bar(X0, X0 + 49 * k2, GY, 0.7, CALLEE)
-        g49_l = T("the guard, with its message inline: 49 bytes", 26, CALLEE).next_to(g49, UP, buff=0.18).align_to(g49, LEFT)
-        g49_l.add_background_rectangle(color=BLACK, opacity=1, buff=0.06).set_z_index(2)
-        self.play(FadeOut(VGroup(hot_b, hot_v, hot_l, head)), ReplacementTransform(cold_b, cold2), ReplacementTransform(cold_l, cold_l2),
-                  ReplacementTransform(cold_v, lim_v), run_time=1.0)
-        self.say("q2", [(0, [Create(lim)], 0.5), (0, [FadeIn(g49_l), GrowFromEdge(g49, LEFT)], 1.0),
-                        (1, [Indicate(cold_l2, color=COLD_C, scale_factor=1.04)], 0.8)])
+        # ================= predict: the 49-byte check at a cold site =================
+        c49 = chip("49", RED_M, 24, mono=True)
+        mark49 = Line([X0 + 49 * KB, -2.25, 0], [X0 + 49 * KB, -1.55, 0], stroke_width=4, color=RED_M)
+        summ = VGroup(M("summarize()", 24, GREY_A), T("calls the check on 1 call in 8: not hot", 24, GREY_A)).arrange(RIGHT, buff=0.25)
+        summ.move_to([0, 1.9, 0])
+        fit(summ, 12.4)
+        self.say("pq")
+        self.play(FadeOut(same), FadeIn(summ), run_time=0.6)
+        c49.next_to(mark49, DOWN, buff=0.12)
+        self.at(1)
+        self.play(FadeIn(c49), run_time=0.4)
+        self.at(3)
+        self.play(Indicate(cold_l, color=CARD), run_time=0.8)
+        self.hold(after=0)
+        self.predict()
+        log1 = M("@ 15  InliningDemo::requireWordCountInline (49 bytes)  failed to inline: too big", 22)
+        fit(log1, 12.4).move_to([0, 0.75, 0])
+        lp = panel(log1, buff=0.2)
+        self.say("pa")
+        self.play(FadeIn(lp), FadeIn(log1), Create(mark49), run_time=0.7)
+        self.play(Circumscribe(log1[-21:], color=RED_M), run_time=0.9)
+        self.hold()
+        self.wipe()
 
-        over = bar(LIM, X0 + 49 * k2, GY, 0.7, BAD_C, 0.5).set_z_index(1)
-        big_l = T("too big", 30, BAD_C).next_to(g49, RIGHT, buff=0.3)
-        self.say("s9", [(0, [FadeIn(over), FadeIn(big_l)], 0.6)])
+        # ================= where the 49 bytes go =================
+        code = code_block(CHECK_J, 24)
+        fit(code, 12.0).move_to([0, 1.2, 0])
+        pnl = panel(code)
+        test_box = SurroundingRectangle(VGroup(code[1], code[6]), buff=0.06).set_stroke(C1C, 2.5)
+        msg_box = SurroundingRectangle(code[2:5], buff=0.06).set_stroke(RED_M, 2.5)
+        test_t = T("the test: short", 24, C1C)
+        msg_t = VGroup(T("most of the bytes:", 24, RED_M),
+                       T("two longs wrapped in Long objects, an array, String.format", 24)).arrange(RIGHT, buff=0.2)
+        lbls = VGroup(test_t, msg_t).arrange(DOWN, aligned_edge=LEFT, buff=0.2).next_to(pnl, DOWN, buff=0.3)
+        fit(lbls, 12.4)
+        letter = VGroup(T("a complaint letter", 30, RED_M), T("that almost never gets sent", 26, GREY_A)).arrange(DOWN, buff=0.1)
+        letter.move_to([0, -2.9, 0])
+        self.say("why")
+        self.play(FadeIn(pnl), FadeIn(code), run_time=0.7)
+        self.at(1)
+        self.play(Create(test_box), FadeIn(test_t), run_time=0.6)
+        self.at(2)
+        self.play(Create(msg_box), FadeIn(msg_t), run_time=0.7)
+        self.at(3)
+        self.play(FadeIn(letter, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        g21 = bar(X0, X0 + 21 * k2, GY, 0.7, CALLEE)
-        g21_l = T("the guard, message moved out: 21 bytes", 26, CALLEE).next_to(g21, UP, buff=0.18).align_to(g21, LEFT)
-        g21_l.add_background_rectangle(color=BLACK, opacity=1, buff=0.06).set_z_index(2)
-        fits = VGroup(tick(True, 0.22), T("inlined", 28, OK_C)).arrange(RIGHT, buff=0.15).next_to(g21, RIGHT, buff=0.2)
-        cold_m = VGroup(frame_box(4.6, 1.1, GREY_M), M("badAmount(cents)", 26, GREY_A))
-        cold_m[1].move_to(cold_m[0])
-        cold_m.move_to([3.6, -1.75, 0])
-        cold_n = T("its own method, rarely runs", 24, GREY_B).next_to(cold_m, UP, buff=0.12)
-        self.say("s10", [(0, [FadeOut(over), FadeOut(big_l), ReplacementTransform(g49, g21), ReplacementTransform(g49_l, g21_l),
-                              FadeIn(cold_m, shift=DOWN * 0.2), FadeIn(cold_n)], 1.2),
-                         (1, [FadeIn(fits, shift=LEFT * 0.1)], 0.6)])
+        fire = wcard("page 99", ["what to do if the", "kitchen catches fire"], RED_M, w=3.4).move_to([-3.2, 0.6, 0])
+        ck2 = cook(1.3).next_to(fire, DOWN, buff=0.5)
+        skip = T("a cook skips it", 26, GREY_A).next_to(ck2, DOWN, buff=0.2)
+        div = DashedLine([0.2, 2.6, 0], [0.2, -2.8, 0], dash_length=0.1).set_stroke(GREY_D, 2)
+        c2b = VGroup(T("C2", 40, C2C), T("counts every byte,", 28), T("even the ones that almost never run", 26, GREY_A)).arrange(DOWN, buff=0.2)
+        c2b.move_to([3.4, 0.2, 0])
+        self.say("breaks")
+        self.play(FadeIn(fire), FadeIn(ck2), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(skip), run_time=0.5)
+        self.at(2)
+        self.play(Create(div), FadeIn(c2b), run_time=0.8)
+        self.hold()
+        self.wipe()
 
-        log = VGroup(one("@ 15   ...InliningDemo::requireAmountInline (49 bytes)   too big", 22, GREY_A),
-                     one("@ 30   ...InliningDemo::requireAmountSplit (21 bytes)   inline (hot)", 22, GREY_A)
-                     ).arrange(DOWN, aligned_edge=LEFT, buff=0.16)
-        part(log[0], "too big").set_color(BAD_C)
-        part(log[1], "inline (hot)").set_color(OK_C)
-        fit(log, 12.4).move_to([0, -3.0, 0])
-        self.say("s11", [(0, [cold_m.animate.shift(UP * 0.15), cold_n.animate.shift(UP * 0.15), FadeIn(log, shift=UP * 0.1)], 0.8),
-                         (1, [mark(part(log[1], "inline (hot)"), OK_C, 0.6)], 1.3)])
-        self.play(FadeOut(VGroup(base, cold2, cold_l2, lim, lim_v, g21, g21_l, fits, cold_m, cold_n, log)), run_time=0.6)
+        # ================= the split =================
+        hot = code_block(["static long requireWordCount(long words) {",
+                          "    if (words <= 0 || words > MAX_WORDS) throw badWordCount(words);",
+                          "    return words;",
+                          "}"], 22)
+        cold = code_block(["static IllegalArgumentException badWordCount(long words) {",
+                           "    return new IllegalArgumentException(String.format(",
+                           "        \"word count must be between 1 and %d, got %d\", MAX_WORDS, words));",
+                           "}"], 22)
+        hot_g = VGroup(T("hot path: 21 bytes", 24, C1C), hot).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        cold_g = VGroup(T("cold path: its own method", 24, RED_M), cold).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        both = VGroup(hot_g, cold_g).arrange(DOWN, aligned_edge=LEFT, buff=0.45)
+        fit(both, 12.4).move_to([0, 1.3, 0])
+        self.say("fix")
+        self.play(FadeIn(cold_g), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(hot_g), run_time=0.7)
+        self.at(2)
+        self.play(Indicate(cold_g[0], color=RED_M), run_time=0.8)
+        self.at(3)
+        self.play(Indicate(hot_g[0], color=C1C), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.0)
+        log2 = M("@ 30  InliningDemo::requireWordCountSplit (21 bytes)  inline (hot)", 22)
+        fit(log2, 12.4).move_to([0, -1.75, 0])
+        lp2 = panel(log2, buff=0.2)
+        note = T("JDK 25, the same demo, one call in 8", 20, GREY_B).next_to(lp2, DOWN, buff=0.12).align_to(lp2, RIGHT)
+        chatty = T("C2 is not a chatty cook", 24, GREY_A).move_to([0, -3.3, 0])
+        self.say("fixa")
+        self.play(FadeIn(lp2), FadeIn(log2), FadeIn(note), run_time=0.7)
+        self.play(Circumscribe(log2[-11:], color=C1C), run_time=0.8)
+        self.at(4)
+        self.play(FadeIn(chatty), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        # ---------- intrinsics: the Java code is not what runs
-        jb = frame_box(5.0, 3.3, GREY_B, 0.06).move_to([-3.4, 0.3, 0])
-        jt = M("Long.bitCount", 30).move_to(jb.get_top() + DOWN * 0.42)
-        widths = [3.6, 4.1, 3.3, 2.6, 2.6, 2.6, 2.0]
-        lines = VGroup(*[Rectangle(width=w, height=0.16, stroke_width=0).set_fill(GREY_M, 0.8) for w in widths]
-                       ).arrange(DOWN, buff=0.17, aligned_edge=LEFT).move_to(jb.get_center() + DOWN * 0.3).align_to(jb, LEFT).shift(RIGHT * 0.45)
-        jn = T("Java: 61 bytes of shifts and masks", 26, GREY_B).next_to(jb, DOWN, buff=0.25)
-        pop = chip("POPCNT", INTR_C, 40, mono=True).move_to([3.4, 0.3, 0])
-        pn = T("one x86 instruction", 26, INTR_C).next_to(pop, DOWN, buff=0.3)
-        sw = Arrow(jb.get_right() + RIGHT * 0.15, pop.get_left() + LEFT * 0.15, buff=0, stroke_width=4, color=INTR_C,
-                   max_tip_length_to_length_ratio=0.12)
-        sw_l = T("C2 swaps it", 26, INTR_C).next_to(sw, UP, buff=0.15)
-        self.say("s12", [(0, [FadeIn(jb), FadeIn(jt)], 0.6),
-                         (1, [LaggedStart(*[GrowFromEdge(l, LEFT) for l in lines], lag_ratio=0.15), FadeIn(jn)], 1.2),
-                         (1, [GrowArrow(sw), FadeIn(sw_l)], 0.6),
-                         (1, [ReplacementTransform(lines.copy(), pop), FadeIn(pn)], 1.0)])
+        # ================= the payoff of the shy question =================
+        pq = T("How can splitting a method make code faster?", 30, GREY_A).move_to([0, 2.8, 0])
+        hotbox = RoundedRectangle(corner_radius=0.12, width=3.4, height=1.1).set_stroke(C1C, 3).set_fill(dim(C1C, 0.16), 1)
+        hb_t = VGroup(T("hot method", 24, C1C), T("21 bytes: copied in", 22)).arrange(DOWN, buff=0.08).move_to(hotbox)
+        coldbox = RoundedRectangle(corner_radius=0.12, width=3.4, height=1.1).set_stroke(RED_M, 3).set_fill(dim(RED_M, 0.12), 1)
+        cb_t = VGroup(T("cold method", 24, RED_M), T("rarely runs", 22)).arrange(DOWN, buff=0.08).move_to(coldbox)
+        pair = VGroup(VGroup(hotbox, hb_t), VGroup(coldbox, cb_t)).arrange(RIGHT, buff=1.6).move_to([0, 0.6, 0])
+        see = T("C2 sees right through the hot one", 28, YELLOW_M).move_to([0, -1.1, 0])
+        self.say("payoff")
+        self.play(FadeIn(pq), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(pair[1]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(pair[0]), run_time=0.6)
+        self.play(FadeIn(see), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        name = T("intrinsic: a JDK method the JIT swaps for hand-written code", 30, INTR_C).move_to([0, 2.75, 0])
-        fit(name, 12.4)
-        ilog = VGroup(one("java.lang.Long::bitCount (61 bytes)   (intrinsic)", 24, GREY_A),
-                      one("java.lang.Math::addExact (32 bytes)   (intrinsic)", 24, GREY_A),
-                      one("java.util.Arrays::equals (43 bytes)   (intrinsic)", 24, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
-        for l in ilog:
-            part(l, "(intrinsic)").set_color(INTR_C)
-        ilog.move_to([0, -2.55, 0])
-        self.say("s13", [(0, [FadeIn(name, shift=DOWN * 0.1)], 0.8),
-                         (0, [FadeIn(ilog, shift=UP * 0.1)], 0.8), (0, [lines.animate.set_opacity(0.25)], 0.6)])
-        self.play(FadeOut(VGroup(jb, jt, lines, jn, pop, pn, sw, sw_l, name, ilog)), run_time=0.6)
+        # ================= Java and Kotlin =================
+        jv = code_block(["static long requireWordCount(long words) {",
+                         "    if (words <= 0 || words > MAX_WORDS) throw badWordCount(words);",
+                         "    return words;",
+                         "}"], 22, hl={"throw": YELLOW_M})
+        kt = code_block(["fun requireWordCount(words: Long): Long {",
+                         "    if (words <= 0 || words > MAX_WORDS) throw badWordCount(words)",
+                         "    return words",
+                         "}",
+                         "fun badWordCount(words: Long) =",
+                         "    IllegalArgumentException(\"...\".format(MAX_WORDS, words))"], 22, hl={"throw": YELLOW_M})
+        jc = VGroup(T("Java", 22, GREY_B), jv).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        kc = VGroup(T("Kotlin", 22, GREY_B), kt).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        cols = VGroup(jc, kc).arrange(DOWN, aligned_edge=LEFT, buff=0.45)
+        fit(cols, 12.4).move_to([0, 0.75, 0])
+        self.say("code")
+        self.play(FadeIn(jc, shift=UP * 0.1), run_time=0.6)
+        self.play(FadeIn(kc, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(Circumscribe(VGroup(jv[1], kt[1]), color=YELLOW_M, buff=0.05), run_time=1.0)
+        self.hold()
+        kn = VGroup(T("Kotlin, message inside:", 24, GREY_A), T("66 bytes", 28, RED_M),
+                    T("after the split:", 24, GREY_A), T("21 bytes", 28, C1C)).arrange(RIGHT, buff=0.25)
+        kn.move_to([0, -2.6, 0])
+        fit(kn, 12.4)
+        inl = T("format is an inline function: kotlinc pastes its body in", 22, GREY_B).next_to(kn, DOWN, buff=0.15)
+        self.say("kotlin")
+        self.at(1)
+        self.play(FadeIn(kn[:2]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(inl), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(kn[2:]), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------- the code, as a check of the picture
-        jl = code(["if (cents <= 0 || cents > MAX_CENTS) throw badAmount(cents);",
-                   "int flags = Long.bitCount(riskMask);"], 24)
-        kl = code(["if (cents <= 0 || cents > MAX_CENTS) throw badAmount(cents)",
-                   "val flags = riskMask.countOneBits()"], 24)
-        for l in (jl, kl):
-            part(l[0], "badAmount(cents)").set_color(GREY_B)
-        part(jl[1], "Long.bitCount").set_color(INTR_C)
-        part(kl[1], "countOneBits()").set_color(INTR_C)
-        jg = VGroup(T("Java", 26, GREY_B), jl).arrange(DOWN, buff=0.25, aligned_edge=LEFT)
-        kg = VGroup(T("Kotlin", 26, GREY_B), kl).arrange(DOWN, buff=0.25, aligned_edge=LEFT)
-        both = VGroup(jg, kg).arrange(DOWN, buff=0.7, aligned_edge=LEFT).move_to([0, 0.1, 0])
-        fit(both, 12.4)
-        self.say("s14", [(0, [FadeIn(jg, shift=UP * 0.15), FadeIn(kg, shift=UP * 0.15)], 0.8),
-                         (0, [mark(part(jl[0], "throw badAmount(cents)"), GREY_B, 0.4), mark(part(kl[0], "throw badAmount(cents)"), GREY_B, 0.4)], 1.2),
-                         (1, [mark(part(kl[1], "countOneBits()"), INTR_C, 0.4), mark(part(jl[1], "Long.bitCount"), INTR_C, 0.4)], 1.2)])
-        self.play(FadeOut(both), run_time=0.6)
+        # ================= guardrails and the rule =================
+        gs = VGroup(T("1.  It matters in hot code. Elsewhere, write the clearest check.", 28),
+                    T("2.  Keep the message text the same: alerts may search for it.", 28),
+                    T("3.  Don't guess: the PrintInlining log says what C2 decided.", 28)).arrange(DOWN, aligned_edge=LEFT, buff=0.32)
+        fit(gs, 12.2).move_to([0, 1.4, 0])
+        self.say("guard")
+        self.at(1)
+        self.play(FadeIn(gs[0], shift=RIGHT * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(gs[1], shift=RIGHT * 0.1), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(gs[2], shift=RIGHT * 0.1), run_time=0.5)
+        self.hold()
+        r1 = T("C2 counts the bytes of the error path too.", 34)
+        r2 = T("Give the cold path its own method.", 36, YELLOW_M)
+        rg = VGroup(r1, r2).arrange(DOWN, buff=0.3).move_to([0, -1.7, 0])
+        fit(rg, 12.4)
+        self.say("rule")
+        self.play(FadeIn(r1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(r2, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------- the rule and a check
-        rule = VGroup(T("Inlining lets C2 see through a call.", 32),
-                      T("Budget: 35 bytes, or 325 at a hot call site.", 32, HOT_C),
-                      T("Keep cold paths out. Call the JDK method.", 32, INTR_C)).arrange(DOWN, buff=0.3).move_to([0, 1.7, 0])
-        self.say("r", [(1, [FadeIn(rule[0], shift=UP * 0.1)], 0.7), (1, [FadeIn(rule[1], shift=UP * 0.1)], 0.7),
-                       (2, [FadeIn(rule[2], shift=UP * 0.1)], 0.7)])
-        chk = VGroup(T("Check: a 40-byte method. Inlined from a site that runs on half", 28),
-                     T("the caller's calls? From one that runs on 1 call in 10?", 28)).arrange(DOWN, buff=0.2).move_to([0, -0.85, 0])
-        fit(chk, 12.4)
-        self.say("c", [(0, [FadeIn(chk, shift=UP * 0.1)], 0.8)])
-        ans = VGroup(T("hot site: yes, 40 < 325", 30, OK_C), T("other site: no, 40 > 35", 30, BAD_C)).arrange(RIGHT, buff=1.2).move_to([0, -2.6, 0])
-        self.say("a", [(0, [FadeIn(ans[0], shift=UP * 0.1)], 0.6), (1, [FadeIn(ans[1], shift=UP * 0.1)], 0.6)])
-        self.wait(0.8)
+        # ================= the moral and a check =================
+        m1 = merged.copy().scale(0.8).move_to([-4.3, 1.6, 0]).set_opacity(1)
+        mo = VGroup(onion(0.18), onion(0.18)).arrange(RIGHT, buff=0.1).next_to(m1, DOWN, buff=0.2)
+        mt = VGroup(T("Short means bytes, not lines.", 30), T("The bytes you rarely run still count.", 30),
+                    T("Keep the hot path short,", 30, C1C), T("and send the complaints down the hall.", 30, RED_M)).arrange(DOWN, aligned_edge=LEFT, buff=0.22)
+        mt.move_to([1.6, 1.6, 0])
+        self.say("moral")
+        self.play(FadeIn(m1), FadeIn(mo), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(mt[0]), run_time=0.5)
+        self.at_text("and the bytes", lead=0.2)
+        self.play(FadeIn(mt[1]), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(mt[2]), run_time=0.5)
+        self.at_text("and send", lead=0.2)
+        self.play(FadeIn(mt[3]), run_time=0.5)
+        self.hold()
+
+        qa = VGroup(T("Check:", 28, YELLOW_M), T("30 bytes, called on 1 call in 10?", 28)).arrange(RIGHT, buff=0.25)
+        qb = T("60 bytes, called on every run of its caller?", 28)
+        qg2 = VGroup(qa, qb).arrange(DOWN, buff=0.18).move_to([0, -1.5, 0])
+        self.say("chk")
+        self.play(FadeIn(qg2, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
+        self.predict(2.6, pos=(6.4, -3.5))
+        ans = T("Both: 30 is under 35, and every run is a hot site, budget 325.", 28, C1C).move_to([0, -3.0, 0])
+        fit(ans, 12.4)
+        self.say("chka")
+        self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.wait(2.0)
