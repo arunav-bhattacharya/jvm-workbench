@@ -1,137 +1,365 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.100
-Two threads each add one to their own counter, 25 million times.
+00:00:02.700 --> 00:00:06.742
+Picture two cooks at one counter, sharing a single cutting board.
 
 2
-00:00:07.100 --> 00:00:09.369
-The card thread only writes card.
+00:00:06.742 --> 00:00:07.799
+One chops onions.
 
 3
-00:00:09.369 --> 00:00:11.637
-The SEPA thread only writes sepa.
+00:00:07.799 --> 00:00:09.291
+The other chops peppers.
 
 4
-00:00:11.833 --> 00:00:15.595
-They share no data, so there is nothing to lock, and no race.
+00:00:09.291 --> 00:00:11.840
+They never touch each other's vegetables.
 
 5
-00:00:15.800 --> 00:00:19.165
-Yet in one run, this took 1,220 ms.
+00:00:11.840 --> 00:00:18.307
+But only one knife fits on the board at a time, so each cook keeps stepping back, to wait for the other.
 
 6
-00:00:19.165 --> 00:00:24.645
-With the two fields padded apart, the same work took 247.
+00:00:18.533 --> 00:00:21.410
+Now, a question that feels too silly to ask.
 
 7
-00:00:25.433 --> 00:00:27.856
-The reason is in the hardware.
+00:00:21.410 --> 00:00:24.156
+My two threads never touch the same field.
 
 8
-00:00:27.856 --> 00:00:31.248
-Your CPU never reads one long from memory.
+00:00:24.156 --> 00:00:25.790
+No shared data, no locks.
 
 9
-00:00:31.248 --> 00:00:34.883
-It moves a whole cache line, 64 bytes on x86.
+00:00:25.790 --> 00:00:28.928
+So how could they possibly slow each other down?
 
 10
-00:00:35.067 --> 00:00:36.972
-This object is 32 bytes.
+00:00:30.600 --> 00:00:34.494
+To answer that, we go one level down, into the processor.
 
 11
-00:00:36.972 --> 00:00:43.322
-After a 12-byte header and a 4-byte gap, card sits at offset 16, and sepa at 24.
+00:00:34.494 --> 00:00:38.524
+Main memory is far away, as distances inside a computer go.
 
 12
-00:00:43.322 --> 00:00:46.180
-Both counters live on the same line.
+00:00:38.524 --> 00:00:44.057
+So each core, the part that runs one thread, keeps small, fast memories close by.
 
 13
-00:00:47.667 --> 00:00:53.135
-Each core has its own L1 and L2 caches, small fast memories right next to it.
+00:00:44.057 --> 00:00:45.560
+They're called caches.
 
 14
-00:00:53.135 --> 00:00:57.468
-Core 1 runs the card thread, and core 2 runs the SEPA thread.
+00:00:45.767 --> 00:00:48.437
+And caches don't hold single variables.
 
 15
-00:00:57.468 --> 00:00:59.953
-Both cores keep a copy of the line.
+00:00:48.437 --> 00:00:51.313
+They hold cache lines: blocks of 64 bytes.
 
 16
-00:01:00.633 --> 00:01:04.433
-To write to a line, a core needs the only valid copy.
+00:00:51.313 --> 00:00:54.806
+The hardware moves the whole line, never one field.
 
 17
-00:01:04.433 --> 00:01:08.519
-So when core 1 writes card, core 2's copy is invalidated.
+00:00:54.806 --> 00:00:56.518
+That's our cutting board.
 
 18
-00:01:08.700 --> 00:01:12.273
-Core 2's next write has to take the line back first.
+00:00:56.518 --> 00:00:59.325
+It moves as a unit, never a single onion.
 
 19
-00:01:12.273 --> 00:01:14.815
-Now core 1's copy is the invalid one.
+00:00:59.533 --> 00:01:05.367
+Each core keeps its own copy of the lines it uses, and the hardware keeps the copies in step.
 
 20
-00:01:15.033 --> 00:01:20.309
-The line bounces between the cores on almost every write, and both threads slow down.
+00:01:05.367 --> 00:01:09.382
+But a core that wants to write a line needs the only valid copy.
 
 21
-00:01:20.533 --> 00:01:21.997
-This is false sharing.
+00:01:09.382 --> 00:01:14.337
+Every other copy is marked invalid, and must be fetched again before it's used.
 
 22
-00:01:21.997 --> 00:01:23.794
-The program shares nothing.
+00:01:15.267 --> 00:01:17.181
+Now the report service.
 
 23
-00:01:23.794 --> 00:01:25.524
-The hardware shares a lot.
+00:01:17.181 --> 00:01:20.510
+A parser thread counts documents parsed.
 
 24
-00:01:26.333 --> 00:01:31.665
-The fix is to keep at least 64 bytes between fields that different threads write.
+00:01:20.510 --> 00:01:23.755
+A writer thread counts reports written.
 
 25
-00:01:31.665 --> 00:01:34.496
-Padding pushes sepa onto a line of its own.
+00:01:23.755 --> 00:01:27.084
+Two volatile longs, in one small object.
 
 26
-00:01:34.667 --> 00:01:36.839
-Now each core keeps its own line.
+00:01:27.084 --> 00:01:37.903
+JOL, a small OpenJDK library, reads the real layout from the running JVM: parsed at offset 16, written at 24, in a 32 byte object.
 
 27
-00:01:36.839 --> 00:01:39.736
-Both threads write, and no line has to move.
+00:01:37.903 --> 00:01:39.401
+Eight bytes apart.
 
 28
-00:01:40.533 --> 00:01:46.855
-On the course's shared 4-vCPU VM, one run showed a clear gap in all three rounds.
+00:01:39.401 --> 00:01:40.316
+Same board.
 
 29
-00:01:47.067 --> 00:01:53.039
-But an earlier, more careful JMH experiment on the same VM could not show any effect.
+00:01:41.233 --> 00:01:42.225
+So let's map it.
 
 30
-00:01:53.039 --> 00:02:01.331
-If the two threads land on hyperthreads of one physical core, they share its L1 and L2, so there is no line to bounce.
+00:01:42.225 --> 00:01:44.085
+The cooks are the two threads.
 
 31
-00:02:01.533 --> 00:02:03.114
-The mechanism is certain.
+00:01:44.085 --> 00:01:46.316
+Their vegetables are the two fields.
 
 32
-00:02:03.114 --> 00:02:07.477
-The size of the effect is not, so measure on the hardware you run on.
+00:01:46.316 --> 00:01:48.052
+The board is the cache line.
 
 33
-00:02:08.200 --> 00:02:11.669
-And every count still ends at exactly 25 million.
+00:01:48.052 --> 00:01:52.019
+And stepping back for the knife is a core, waiting for the line.
 
 34
-00:02:11.669 --> 00:02:14.784
+00:01:52.933 --> 00:01:54.424
+Let's trace two writes.
+
+35
+00:01:54.424 --> 00:01:57.407
+Core 1 holds the line, and adds one to parsed.
+
+36
+00:01:57.407 --> 00:01:59.676
+Core 2 wants to add one to written.
+
+37
+00:01:59.676 --> 00:02:03.631
+Its copy is invalid, so it waits while the line travels over.
+
+38
+00:02:03.631 --> 00:02:08.817
+Now core 1's copy is invalid, so its next write waits for the line to come back.
+
+39
+00:02:09.033 --> 00:02:12.993
+Each increment is a few nanoseconds of work, wrapped in a wait.
+
+40
+00:02:12.993 --> 00:02:14.691
+The program shares nothing.
+
+41
+00:02:14.691 --> 00:02:16.325
+The hardware shares a lot.
+
+42
+00:02:16.325 --> 00:02:18.148
+This is called false sharing.
+
+43
+00:02:19.067 --> 00:02:21.564
+FalseSharingDemo runs exactly this.
+
+44
+00:02:21.564 --> 00:02:24.418
+Two threads, 25 million increments each.
+
+45
+00:02:24.418 --> 00:02:30.055
+First with the fields side by side, then padded apart, onto lines of their own.
+
+46
+00:02:30.055 --> 00:02:31.910
+How much faster is padded?
+
+47
+00:02:31.910 --> 00:02:33.052
+Pause and guess.
+
+48
+00:02:36.033 --> 00:02:43.662
+On a quiet day, on the course machine, adjacent took 957 to 1,387 milliseconds.
+
+49
+00:02:43.662 --> 00:02:45.882
+Padded took 206 to 247.
+
+50
+00:02:45.882 --> 00:02:52.352
+About five times faster, from nothing but space between two fields.
+
+51
+00:02:52.567 --> 00:02:59.834
+But here's the same demo, same machine, on a busy day: 994 against 785.
+
+52
+00:02:59.834 --> 00:03:01.471
+977 against 784.
+
+53
+00:03:01.471 --> 00:03:02.699
+A small gap.
+
+54
+00:03:02.699 --> 00:03:08.124
+And across nine runs, padded lost one round in three.
+
+55
+00:03:09.033 --> 00:03:10.514
+So was the story wrong?
+
+56
+00:03:10.514 --> 00:03:10.707
+No.
+
+57
+00:03:10.707 --> 00:03:18.047
+More than twenty busy programs shared those four cores, so our two threads were rarely running at the same moment.
+
+58
+00:03:18.047 --> 00:03:22.297
+A line only bounces between two cores that both want it right now.
+
+59
+00:03:22.297 --> 00:03:25.323
+Our cooks were mostly working different shifts.
+
+60
+00:03:26.233 --> 00:03:28.406
+And notice what never changed.
+
+61
+00:03:28.406 --> 00:03:31.302
+Every count ended at exactly 25 million.
+
+62
+00:03:31.302 --> 00:03:34.488
 False sharing costs time, never correctness.
+
+63
+00:03:35.400 --> 00:03:38.178
+Here's where the cutting board picture breaks.
+
+64
+00:03:38.178 --> 00:03:41.861
+A cook who waits for the board notices, and it costs seconds.
+
+65
+00:03:41.861 --> 00:03:48.020
+A core waits nanoseconds for a line, and nobody notices, until it happens a few hundred million times.
+
+66
+00:03:48.020 --> 00:03:50.616
+That's why you measure instead of guessing.
+
+67
+00:03:51.533 --> 00:03:52.753
+The cure is space.
+
+68
+00:03:52.753 --> 00:03:59.803
+Keep at least 64 bytes between fields that different threads write: give each cook a board of their own.
+
+69
+00:03:59.803 --> 00:04:06.785
+The dependable way in Java is a chain of classes, because superclass fields are usually laid out first.
+
+70
+00:04:06.785 --> 00:04:13.021
+With eight padding longs between them, JOL puts written at offset 88, 72 bytes after parsed.
+
+71
+00:04:13.933 --> 00:04:16.603
+Here's the chain in Java and in Kotlin.
+
+72
+00:04:16.603 --> 00:04:21.189
+Each hot field, and each block of padding, gets a class of its own.
+
+73
+00:04:21.189 --> 00:04:27.692
+In Kotlin the classes must be abstract or open, and JvmField makes each property a plain field.
+
+74
+00:04:28.600 --> 00:04:29.934
+Now the guardrails.
+
+75
+00:04:29.934 --> 00:04:34.359
+Padding costs memory: 160 bytes instead of 32, on every object.
+
+76
+00:04:34.359 --> 00:04:37.309
+Fine for one counter, a lot for a million.
+
+77
+00:04:37.309 --> 00:04:41.663
+So pad only fields that different threads write in a hot loop.
+
+78
+00:04:41.663 --> 00:04:43.700
+And don't promise a speed-up.
+
+79
+00:04:43.700 --> 00:04:45.456
+The mechanism is certain.
+
+80
+00:04:45.456 --> 00:04:46.509
+The size isn't.
+
+81
+00:04:46.509 --> 00:04:51.075
+Measure on the hardware, and under the load, you really run with.
+
+82
+00:04:51.300 --> 00:04:53.565
+Separate fields aren't separate memory.
+
+83
+00:04:53.565 --> 00:04:57.863
+Fields that different threads write in a hot loop need lines of their own.
+
+84
+00:04:58.767 --> 00:05:03.288
+The moral of the story: memory moves in 64 byte boards, not in fields.
+
+85
+00:05:03.288 --> 00:05:09.489
+Two cooks who never touch each other's vegetables can still spend the day waiting for the board.
+
+86
+00:05:09.700 --> 00:05:10.490
+Quick check.
+
+87
+00:05:10.490 --> 00:05:17.004
+An array of longs, one slot per worker thread, and each thread adds to its own slot in a busy loop.
+
+88
+00:05:17.004 --> 00:05:18.979
+Can they slow each other down?
+
+89
+00:05:22.167 --> 00:05:22.456
+Yes.
+
+90
+00:05:22.456 --> 00:05:24.843
+Slots 8 bytes apart share a line.
+
+91
+00:05:24.843 --> 00:05:33.088
+And for a counter that many threads bump, the JDK has already done the padding for you: LongAdder, coming up next.

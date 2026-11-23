@@ -1,141 +1,357 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.175
-Here is the benchmark almost everyone writes first.
+00:00:02.700 --> 00:00:07.891
+Picture a restaurant that wants to know which of two cooks makes the house soup faster.
 
 2
-00:00:06.175 --> 00:00:11.695
-Read the clock, call Math.sqrt a hundred million times, and read the clock again.
+00:00:07.891 --> 00:00:14.215
+The manager hands each cook an order, starts a stopwatch, and stops it when the bowl lands on the counter.
 
 3
-00:00:11.900 --> 00:00:13.784
-Each result is thrown away.
+00:00:14.215 --> 00:00:15.051
+Simple enough.
 
 4
-00:00:14.000 --> 00:00:15.990
-It runs five rounds.
+00:00:15.267 --> 00:00:17.401
+But one cook notices something.
 
 5
-00:00:15.990 --> 00:00:20.566
-Round one printed 0.0301 nanoseconds per call.
+00:00:17.401 --> 00:00:19.604
+Nobody ever eats the test bowls.
 
 6
-00:00:20.566 --> 00:00:22.356
-Round two, 0.1299.
+00:00:19.604 --> 00:00:21.669
+So the cook stops making them.
 
 7
-00:00:22.356 --> 00:00:25.440
-Every later round printed zero.
+00:00:21.669 --> 00:00:23.390
+The stopwatch reads zero.
 
 8
-00:00:25.600 --> 00:00:28.495
-No CPU takes a square root in zero time.
+00:00:23.390 --> 00:00:24.836
+Fastest soup in town.
 
 9
-00:00:28.495 --> 00:00:32.838
-A second loop adds each result to a sum, and prints the sum.
+00:00:25.067 --> 00:00:27.553
+Here's a question we rarely ask out loud.
 
 10
-00:00:32.838 --> 00:00:36.095
-It settles at about 1.9 nanoseconds per call.
+00:00:27.553 --> 00:00:32.525
+If I time my code with the clock, isn't the number on the clock simply the answer?
 
 11
-00:00:37.667 --> 00:00:40.905
-While the program runs, C2 compiles the hot loop.
+00:00:34.200 --> 00:00:35.133
+Let's try it.
 
 12
-00:00:40.905 --> 00:00:44.869
-It looks at the call to sqrt, and asks who reads the result.
+00:00:35.133 --> 00:00:38.721
+Here's the benchmark almost everyone writes first.
 
 13
-00:00:45.067 --> 00:00:45.995
-Nobody does.
+00:00:38.721 --> 00:00:43.744
+A benchmark is a small program that measures how long some code takes.
 
 14
-00:00:45.995 --> 00:00:48.859
-Work whose result nobody uses can go.
+00:00:43.744 --> 00:00:44.821
+Read the clock.
 
 15
-00:00:48.859 --> 00:00:51.103
-That's dead-code elimination.
+00:00:44.821 --> 00:00:50.347
+Call Math.sqrt, a square root, 100 million times, and throw each result away.
 
 16
-00:00:51.267 --> 00:00:54.758
-Now the loop has an empty body, so the loop can go too.
+00:00:50.347 --> 00:00:52.715
+Read the clock again, and divide.
 
 17
-00:00:54.758 --> 00:00:57.424
-Between the two clock reads, nothing runs.
+00:00:53.633 --> 00:00:56.676
+The lesson's NanoLoop runs that loop five times.
 
 18
-00:00:57.600 --> 00:01:00.636
-So the loop measured the optimizer, not your code.
+00:00:56.676 --> 00:01:02.825
+Next to it, a second loop does the same work, but adds every result to a sum, and prints the sum.
 
 19
-00:01:01.467 --> 00:01:03.947
-Constant inputs are the second trap.
+00:01:02.825 --> 00:01:05.424
+So, how long should one square root take?
 
 20
-00:01:03.947 --> 00:01:08.563
-Say the input is a static final constant, or a const val in Kotlin.
+00:01:05.424 --> 00:01:06.439
+Pause and guess.
 
 21
-00:01:08.767 --> 00:01:11.516
-The compiler copies the 2.0 into the call.
+00:01:09.433 --> 00:01:16.625
+Round one: the loop that throws the result away says 0.07 nanoseconds a call.
 
 22
-00:01:11.516 --> 00:01:17.079
-Then C2 computes the square root while it compiles, and puts the answer in its place.
+00:01:16.625 --> 00:01:19.521
+The loop that uses it says 3.4.
 
 23
-00:01:17.267 --> 00:01:20.333
-Your benchmark now times the load of one number.
+00:01:19.521 --> 00:01:21.763
+Round two: 0.2, and 3.0.
 
 24
-00:01:20.333 --> 00:01:21.867
-That's constant folding.
+00:01:21.967 --> 00:01:24.442
+And from round three on: 0.0000.
 
 25
-00:01:22.700 --> 00:01:26.935
-A broken loop can also print a number that looks fine.
+00:01:24.442 --> 00:01:26.995
+Zero nanoseconds per square root.
 
 26
-00:01:26.935 --> 00:01:34.777
-With Math.log instead of sqrt, C2 on JDK 21 kept the call, and the loop reported 7 to 9 nanoseconds.
+00:01:26.995 --> 00:01:28.232
+That's not fast.
 
 27
-00:01:34.777 --> 00:01:38.933
-It still measures an accident of how C2 compiles log.
+00:01:28.232 --> 00:01:29.857
+That's a magic trick.
 
 28
-00:01:39.733 --> 00:01:44.884
-JMH, the OpenJDK benchmark harness, builds the measuring loop for you.
+00:01:29.857 --> 00:01:38.597
+The used loop stays near 3 nanoseconds, which is believable for a square root and an addition, on a busy machine.
 
 29
-00:01:44.884 --> 00:01:48.195
-You write one method, and mark it @Benchmark.
+00:01:39.500 --> 00:01:41.270
+So where did the work go?
 
 30
-00:01:48.400 --> 00:01:54.922
-At compile time, JMH generates the loop around your method, written to defeat these tricks.
+00:01:41.270 --> 00:01:49.342
+Once C2, the JIT's optimizing compiler, had compiled the loop, it proved that nobody used the result of Math.sqrt.
 
 31
-00:01:54.922 --> 00:01:59.293
-It runs it in fresh JVMs, and throws away the warm-up rounds.
+00:01:49.342 --> 00:01:50.970
+So it deleted the call.
 
 32
-00:01:59.500 --> 00:02:02.203
-Return the result, and JMH consumes it.
+00:01:50.970 --> 00:01:54.369
+Then the loop was empty, so it deleted the loop.
 
 33
-00:02:02.203 --> 00:02:07.193
-The JIT has to treat a consumed value as used, so the square root stays.
+00:01:54.369 --> 00:01:59.608
+That's called dead-code elimination: work whose result nobody uses can go.
 
 34
-00:02:07.400 --> 00:02:10.564
-With more than one result, pass each one to a Blackhole.
+00:02:00.533 --> 00:02:01.434
+Let's map it.
 
 35
-00:02:11.367 --> 00:02:16.771
-And read the input from a field that isn't final, so C2 can't fold it into a constant.
+00:02:01.434 --> 00:02:03.235
+The stopwatch is nanoTime.
+
+36
+00:02:03.235 --> 00:02:05.175
+The test bowl is the result.
+
+37
+00:02:05.175 --> 00:02:08.431
+Nobody eating it is our loop, throwing it away.
+
+38
+00:02:08.431 --> 00:02:11.340
+And the cook who stops making bowls is C2.
+
+39
+00:02:11.567 --> 00:02:14.420
+But here the picture breaks, in a useful way.
+
+40
+00:02:14.420 --> 00:02:18.035
+A cook who skips the bowl knows they're cutting a corner.
+
+41
+00:02:18.035 --> 00:02:19.938
+The JIT isn't cheating at all.
+
+42
+00:02:19.938 --> 00:02:24.884
+Removing unused work is exactly its job, and our benchmark gave it permission.
+
+43
+00:02:25.800 --> 00:02:29.124
+And dead code is only one way a hand-made loop lies.
+
+44
+00:02:29.124 --> 00:02:36.858
+If the input is a constant, C2 can work out the answer before the loop even runs, and you time the loading of one number.
+
+45
+00:02:36.858 --> 00:02:43.505
+That's constant folding: the cook who gets the same order every day, and makes it before the doors open.
+
+46
+00:02:43.733 --> 00:02:49.867
+The first rounds run in the interpreter, and in loop code compiled mid-run, as lesson 1 showed.
+
+47
+00:02:49.867 --> 00:02:52.643
+So round one measures the cook's first day.
+
+48
+00:02:52.867 --> 00:02:54.837
+And the JIT reshapes loops.
+
+49
+00:02:54.837 --> 00:03:04.251
+JMH's own sample on loops reports an addition that seems to take one twentieth of a nanosecond, well beyond what hardware can do.
+
+50
+00:03:05.167 --> 00:03:10.947
+Now the worse case: a broken benchmark that prints a believable number.
+
+51
+00:03:10.947 --> 00:03:13.715
+Swap the square root for Math.log.
+
+52
+00:03:13.715 --> 00:03:17.704
+On JDK 21, the throw-away loop was never removed.
+
+53
+00:03:17.704 --> 00:03:21.611
+It said 10 to 13 nanoseconds, round after round.
+
+54
+00:03:21.611 --> 00:03:22.670
+Looks honest.
+
+55
+00:03:22.670 --> 00:03:23.809
+And on JDK 25?
+
+56
+00:03:24.800 --> 00:03:27.889
+0.0000 by round three, like the square root.
+
+57
+00:03:27.889 --> 00:03:30.346
+Same source, two JDKs, two stories.
+
+58
+00:03:30.346 --> 00:03:34.489
+The magician got better, and nothing in your code told you.
+
+59
+00:03:34.489 --> 00:03:41.509
+Whether the JIT can remove a call depends on what it can prove, and you can't see that from outside.
+
+60
+00:03:42.433 --> 00:03:43.671
+So here's the rule.
+
+61
+00:03:43.671 --> 00:03:48.230
+A timing loop you wrote by hand measures whatever the JIT left behind.
+
+62
+00:03:48.230 --> 00:03:49.728
+Don't trust its number.
+
+63
+00:03:50.633 --> 00:03:53.239
+What we really want is a fair taste test.
+
+64
+00:03:53.239 --> 00:03:57.178
+Warm the kitchen up first, and throw away the practice dishes.
+
+65
+00:03:57.178 --> 00:03:59.657
+Use ingredients the cook can't predict.
+
+66
+00:03:59.657 --> 00:04:01.436
+Have a judge eat every dish.
+
+67
+00:04:01.436 --> 00:04:03.851
+And start each day in a fresh kitchen.
+
+68
+00:04:04.067 --> 00:04:09.753
+That's what JMH does: the Java Microbenchmark Harness, from the OpenJDK team.
+
+69
+00:04:09.753 --> 00:04:13.151
+You write a method and mark it as a benchmark.
+
+70
+00:04:13.151 --> 00:04:18.099
+JMH writes the measuring loop around it, and runs it in fresh JVMs.
+
+71
+00:04:18.099 --> 00:04:21.349
+Inputs live in fields the JIT can't predict.
+
+72
+00:04:21.349 --> 00:04:24.303
+And whatever you return, the judge eats.
+
+73
+00:04:25.233 --> 00:04:31.545
+Here's an honest benchmark for the report service's reading time, in Java and in Kotlin.
+
+74
+00:04:31.545 --> 00:04:34.343
+words is a plain field, not a constant.
+
+75
+00:04:34.343 --> 00:04:39.579
+And the result is returned, so JMH consumes it, and C2 has to compute it.
+
+76
+00:04:39.579 --> 00:04:44.887
+In Kotlin the class must be open, because JMH's generated code extends it.
+
+77
+00:04:45.800 --> 00:04:48.866
+One warning about every number in this video.
+
+78
+00:04:48.866 --> 00:04:50.909
+They came from a busy machine.
+
+79
+00:04:50.909 --> 00:04:54.384
+Read the shape, zero against three, not the digits.
+
+80
+00:04:54.384 --> 00:04:59.629
+And keep JMH's short demo runs for spotting traps, not for deciding anything.
+
+81
+00:05:00.533 --> 00:05:06.279
+The moral of the story: the JIT deletes work nobody uses, and folds work it can predict.
+
+82
+00:05:06.279 --> 00:05:10.393
+A stopwatch around your loop can't tell you which one happened.
+
+83
+00:05:10.393 --> 00:05:14.441
+So use the result, hide the input, and let JMH build the loop.
+
+84
+00:05:14.667 --> 00:05:15.491
+Quick check.
+
+85
+00:05:15.491 --> 00:05:22.081
+A loop takes the square root of 2.0, a constant, adds every result to a sum, and prints the sum.
+
+86
+00:05:22.081 --> 00:05:25.033
+Is that an honest measure of a square root?
+
+87
+00:05:28.200 --> 00:05:28.416
+No.
+
+88
+00:05:28.416 --> 00:05:36.064
+The result is used, but the input is a constant, so C2 can work out the square root once, before the loop.
+
+89
+00:05:36.064 --> 00:05:39.527
+Next: two rules that fix most broken benchmarks.
