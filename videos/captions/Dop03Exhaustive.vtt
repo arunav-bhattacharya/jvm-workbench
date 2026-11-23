@@ -1,23 +1,23 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:09.772
+00:00:02.700 --> 00:00:09.739
 At the lending desk, a clerk picks up each item a member wants to borrow, looks at it once, and stamps a due date.
 
 2
-00:00:09.772 --> 00:00:11.871
+00:00:09.739 --> 00:00:11.838
 A large-print book gets six weeks.
 
 3
-00:00:11.871 --> 00:00:16.131
+00:00:11.838 --> 00:00:16.098
 A new release gets one week, because other people are waiting for it.
 
 4
-00:00:16.131 --> 00:00:17.799
+00:00:16.098 --> 00:00:17.765
 A box set of DVDs gets two.
 
 5
-00:00:17.799 --> 00:00:22.244
+00:00:17.765 --> 00:00:22.211
 The clerk works down a printed sheet, and the first line that fits wins.
 
 6
@@ -33,31 +33,31 @@ An instanceof chain and a switch do the same job.
 Why should I care which one I write?
 
 9
-00:00:32.467 --> 00:00:33.891
+00:00:32.433 --> 00:00:33.857
 Here's the old way.
 
 10
-00:00:33.891 --> 00:00:34.865
+00:00:33.857 --> 00:00:34.832
 Is it a Book?
 
 11
-00:00:34.865 --> 00:00:36.589
+00:00:34.832 --> 00:00:36.556
 Then describe the book.
 
 12
-00:00:36.589 --> 00:00:38.013
+00:00:36.556 --> 00:00:37.980
 Else, is it a Disc?
 
 13
-00:00:38.013 --> 00:00:39.288
+00:00:37.980 --> 00:00:39.254
 Else, a Magazine?
 
 14
-00:00:39.288 --> 00:00:40.187
+00:00:39.254 --> 00:00:40.154
 Else, throw.
 
 15
-00:00:40.187 --> 00:00:44.609
+00:00:40.154 --> 00:00:44.576
 And here's the same sorting as a switch, one case per kind.
 
 16
@@ -77,55 +77,55 @@ If it is, you get b, already a Book, with no cast.
 And both versions print the same three lines.
 
 20
-00:00:57.800 --> 00:00:59.553
+00:00:57.767 --> 00:00:59.519
 So they look like twins.
 
 21
-00:00:59.553 --> 00:01:00.794
+00:00:59.519 --> 00:01:00.761
 Let's break them.
 
 22
-00:01:00.794 --> 00:01:03.350
+00:01:00.761 --> 00:01:03.317
 Delete the Magazine line from both.
 
 23
-00:01:03.350 --> 00:01:04.665
+00:01:03.317 --> 00:01:04.632
 Which one notices?
 
 24
-00:01:04.665 --> 00:01:05.833
+00:01:04.632 --> 00:01:05.800
 Pause and guess.
 
 25
-00:01:08.867 --> 00:01:10.576
+00:01:08.800 --> 00:01:10.510
 The chain still compiles.
 
 26
-00:01:10.576 --> 00:01:17.074
+00:01:10.510 --> 00:01:17.007
 The run reaches the magazine, falls into the last else, and dies with an IllegalStateException.
 
 27
-00:01:17.074 --> 00:01:19.399
+00:01:17.007 --> 00:01:19.332
 The switch doesn't compile at all.
 
 28
-00:01:19.399 --> 00:01:25.896
+00:01:19.332 --> 00:01:25.829
 javac, the Java compiler, says: the switch expression does not cover all possible input values.
 
 29
-00:01:26.067 --> 00:01:27.925
+00:01:26.033 --> 00:01:27.892
 Look at the chain's last line.
 
 30
-00:01:27.925 --> 00:01:30.526
+00:01:27.892 --> 00:01:30.493
 It says unreachable, with a question mark.
 
 31
-00:01:30.526 --> 00:01:34.119
+00:01:30.493 --> 00:01:34.086
 Code that asks itself questions is usually right to worry.
 
 32
-00:01:34.119 --> 00:01:39.384
+00:01:34.086 --> 00:01:39.351
 So the switch is checked against the sealed list, and the chain is checked by nobody.
 
 33
@@ -161,181 +161,181 @@ Book, then in brackets, var format and var isNew.
 If it's a Book, the case takes out its format and whether it's a new release, right there in the case line.
 
 41
-00:02:11.600 --> 00:02:14.740
+00:02:11.633 --> 00:02:14.774
 Now the clerk's rules, from the GuardsDemo.
 
 42
-00:02:14.740 --> 00:02:17.515
+00:02:14.774 --> 00:02:17.549
 Line one: a large-print book, 42 days.
 
 43
-00:02:17.515 --> 00:02:19.852
+00:02:17.549 --> 00:02:19.886
 Line two: a new release, 7 days.
 
 44
-00:02:19.852 --> 00:02:22.116
+00:02:19.886 --> 00:02:22.149
 Line three: any other book, 21.
 
 45
-00:02:22.116 --> 00:02:27.228
+00:02:22.149 --> 00:02:27.261
 The part after when is a guard, an extra condition the case must pass.
 
 46
-00:02:27.400 --> 00:02:30.122
+00:02:27.467 --> 00:02:30.188
 Here comes a new book, in large print.
 
 47
-00:02:30.122 --> 00:02:32.915
+00:02:30.188 --> 00:02:32.982
 It fits line one, and it fits line two.
 
 48
-00:02:32.915 --> 00:02:33.918
+00:02:32.982 --> 00:02:33.985
 How many days?
 
 49
-00:02:33.918 --> 00:02:35.064
+00:02:33.985 --> 00:02:35.131
 Pause and guess.
 
 50
-00:02:38.067 --> 00:02:38.676
+00:02:38.100 --> 00:02:38.710
 42 days.
 
 51
-00:02:38.676 --> 00:02:42.868
+00:02:38.710 --> 00:02:42.901
 Cases are tried from the top, and the first match wins.
 
 52
-00:02:42.868 --> 00:02:46.907
+00:02:42.901 --> 00:02:46.940
 Now swap lines one and two, and the same book gets 7.
 
 53
-00:02:46.907 --> 00:02:48.888
+00:02:46.940 --> 00:02:48.921
 javac accepts both orders.
 
 54
-00:02:49.067 --> 00:02:52.531
+00:02:49.133 --> 00:02:52.597
 javac can't read your mind about which rule matters more.
 
 55
-00:02:52.531 --> 00:02:58.608
+00:02:52.597 --> 00:02:58.674
 Only a test that sends a new large-print book through the switch can tell you which order you meant.
 
 56
-00:02:58.608 --> 00:03:02.740
+00:02:58.674 --> 00:03:02.807
 The sheet is read from the top, so put the most specific rule first.
 
 57
-00:03:02.933 --> 00:03:10.779
+00:03:03.033 --> 00:03:10.879
 Guards don't count toward covering every case, so each family of guarded lines ends with a plain one, like line three.
 
 58
-00:03:10.779 --> 00:03:19.289
+00:03:10.879 --> 00:03:19.389
 And if you move line three to the top, javac refuses the lines below it: this case label is dominated by a preceding case label.
 
 59
-00:03:19.289 --> 00:03:21.151
+00:03:19.389 --> 00:03:21.251
 They could never be reached.
 
 60
-00:03:21.333 --> 00:03:23.395
+00:03:21.467 --> 00:03:23.529
 Kotlin writes guards with if.
 
 61
-00:03:23.395 --> 00:03:25.884
+00:03:23.529 --> 00:03:26.017
 But kotlinc has no dominance check.
 
 62
-00:03:25.884 --> 00:03:30.150
+00:03:26.017 --> 00:03:30.283
 Put the plain Book first, and it compiles without a warning.
 
 63
-00:03:30.150 --> 00:03:31.856
+00:03:30.283 --> 00:03:31.989
 Every book gets 21 days.
 
 64
-00:03:31.856 --> 00:03:34.700
+00:03:31.989 --> 00:03:34.833
 Here kotlinc shrugs where javac objects.
 
 65
-00:03:35.600 --> 00:03:37.599
+00:03:35.767 --> 00:03:37.766
 Here's where the picture breaks.
 
 66
-00:03:37.599 --> 00:03:43.285
+00:03:37.766 --> 00:03:43.451
 The lesson's experiment compiles a switch over a member's account status: active or closed.
 
 67
-00:03:43.285 --> 00:03:48.783
+00:03:43.451 --> 00:03:48.949
 Then only the list is rebuilt, with a third status, frozen, and the old switch meets it.
 
 68
-00:03:48.933 --> 00:03:51.249
+00:03:49.167 --> 00:03:51.482
 A real clerk would ask a colleague.
 
 69
-00:03:51.249 --> 00:03:53.102
+00:03:51.482 --> 00:03:53.335
 The switch can't ask anyone.
 
 70
-00:03:53.102 --> 00:03:57.204
+00:03:53.335 --> 00:03:57.437
 javac added a hidden last arm, and it throws a MatchException.
 
 71
-00:03:57.204 --> 00:03:59.520
+00:03:57.437 --> 00:03:59.753
 Loud, which beats guessing quietly.
 
 72
-00:04:00.400 --> 00:04:01.833
+00:04:00.667 --> 00:04:02.100
 So, three guardrails.
 
 73
-00:04:01.833 --> 00:04:07.771
+00:04:02.100 --> 00:04:08.038
 Exhaustive means exhaustive for the list javac saw, so recompile when the list changes.
 
 74
-00:04:07.771 --> 00:04:10.023
+00:04:08.038 --> 00:04:10.290
 Put the most specific rule first.
 
 75
-00:04:10.023 --> 00:04:13.163
+00:04:10.290 --> 00:04:13.429
 And end each guarded family with a plain case.
 
 76
-00:04:14.067 --> 00:04:16.035
+00:04:14.333 --> 00:04:16.301
 So why care which one you write?
 
 77
-00:04:16.035 --> 00:04:18.494
+00:04:16.301 --> 00:04:18.761
 The chain is a clerk with a good memory.
 
 78
-00:04:18.494 --> 00:04:26.673
+00:04:18.761 --> 00:04:26.940
 The switch is a clerk with a printed sheet, checked by the compiler: every kind covered, every line reachable, and read from the top.
 
 79
-00:04:26.867 --> 00:04:27.637
+00:04:27.167 --> 00:04:27.937
 Quick check.
 
 80
-00:04:27.637 --> 00:04:32.063
+00:04:27.937 --> 00:04:32.363
 The order is now: new release first, then large print, then any book.
 
 81
-00:04:32.063 --> 00:04:35.015
+00:04:32.363 --> 00:04:35.315
 How many days does a new large-print book get?
 
 82
-00:04:38.267 --> 00:04:38.409
+00:04:38.500 --> 00:04:38.642
 7.
 
 83
-00:04:38.409 --> 00:04:41.613
+00:04:38.642 --> 00:04:41.846
 The new-release line comes first, so it wins.
 
 84
-00:04:41.613 --> 00:04:46.811
+00:04:41.846 --> 00:04:47.044
 javac won't warn you that the large-print line is shadowed for new books.
 
 85
-00:04:46.811 --> 00:04:48.021
+00:04:47.044 --> 00:04:48.255
 Only a test will.

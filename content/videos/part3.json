@@ -28,7 +28,7 @@
       "slug": "dop03-exhaustive",
       "lesson": "dop-03",
       "section": 0,
-      "title": "Add a subtype: the pattern switch stops compiling, the instanceof chain stays silent"
+      "title": "A pattern switch is a clerk with a printed sheet: checked for every kind of item and read from the top, while an instanceof chain is checked by nobody"
     },
     {
       "slug": "pat05-decorator",
@@ -46,25 +46,25 @@
       "slug": "kt01-inline",
       "lesson": "kt-01",
       "section": 0,
-      "title": "Kotlin's inline pastes the function body and its lambda into the caller: no Function0, no interface call, no unboxing"
+      "title": "Inline as a photocopy, not a slip: the compiler pastes a small helper and its lambda into each caller"
     },
     {
       "slug": "kt03-delegated",
       "lesson": "kt-03",
       "section": 1,
-      "title": "A delegated property is a hidden delegate field plus a getter and setter that call getValue and setValue"
+      "title": "The cloakroom ticket: a delegated property is a hidden delegate field plus a getter and setter that call getValue and setValue"
     },
     {
       "slug": "cap3-tour",
       "lesson": "cap3-01",
       "section": 0,
-      "title": "A tour of the event library: a sealed model behind one parsing edge, a typed bus, and an API for Kotlin and Java"
+      "title": "Three handlers each read a scan's raw fields and fail in their own ways; a sealed model, value classes and one parse at the door check each scan once"
     },
     {
       "slug": "kt02-value-class",
       "lesson": "kt-02",
       "section": 0,
-      "title": "A value class is its own type to the compiler and a plain long at run time, boxed whenever it is used as another type"
+      "title": "Units at the parcel desk: a value class is its own type to the compiler and a plain long at run time"
     },
     {
       "slug": "gen07-star",
@@ -178,7 +178,7 @@
       "slug": "dop02-sealed",
       "lesson": "dop-02",
       "section": 0,
-      "title": "A sealed type puts its list of subtypes into the type, so javac checks every switch, and a new subtype breaks each one without a default"
+      "title": "A sealed type prints every box on the form: javac and the JVM refuse an unlisted subtype, and a switch without default finds the new one"
     },
     {
       "slug": "gen10-recursive",
@@ -226,7 +226,7 @@
       "slug": "dop01-records",
       "lesson": "dop-01",
       "section": 0,
-      "title": "A record is its components and javac writes the rest; the canonical constructor is the one door every instance passes, and immutability stops at the list a field points to"
+      "title": "A record is a form in a clear sleeve: javac writes every method from one list, the compact constructor checks every copy, and the promise stops at the attached list"
     },
     {
       "slug": "kt05-contracts",
@@ -244,13 +244,13 @@
       "slug": "dop04-parse",
       "lesson": "dop-04",
       "section": 0,
-      "title": "One optional-field class allows 48 shapes and 3 make sense; three records under a sealed interface allow only those 3, one parse at the edge lets nothing else in, and the logic lives in functions over the data"
+      "title": "One reply form allows 48 shapes and 3 make sense: three records under a sealed interface, one clerk at the door, and the rules in functions"
     },
     {
       "slug": "cap3-bus",
       "lesson": "cap3-02",
       "section": 0,
-      "title": "One publish looks up the event's class, then each event supertype, nearest first, and a Handler declared in lets one general handler fit any subscription"
+      "title": "A board keyed by exact class never rings ParcelEvent's bell; one publish walks the event's supertypes, nearest first, and caches those keys per class"
     },
     {
       "slug": "cap3-java-surface",

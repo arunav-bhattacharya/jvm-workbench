@@ -228,7 +228,7 @@ class Kt02ValueClass(Narrated):
         div, dl, bl, counter, clerk, scale, lab = self.desk()
         hl = {"sheets": UNIT, " g": UNIT}
         js = paper(["sheets: 500", "weight: 2,500 g"], 22).move_to([-2.7, 0.9, 0])
-        units = VGroup(part(js[1], "sheets"), part(js[1], "g"))
+        units = VGroup(part(js[1], "sheets"), js[1][-1])
         bad = paper(["weight: 500 sheets"], 22).move_to([-2.7, -0.55, 0])
         self.say("open")
         self.play(FadeIn(div), FadeIn(dl), FadeIn(counter), FadeIn(clerk), run_time=0.7)
@@ -374,7 +374,7 @@ class Kt02ValueClass(Narrated):
         # ================= the map =================
         div, dl, bl, counter, clerk, scale, lab = self.desk()
         js = paper(["weight: 2,500 g"], 22).move_to([-2.6, 0.4, 0])
-        gu = part(js[1], "g")
+        gu = js[1][-1]
         m1 = T("the unit = the value class", 24, UNIT).move_to([-2.9, 1.6, 0])
         m2 = T("the clerk = the compiler", 24, CLERK).next_to(counter, DOWN, buff=0.3)
         m3 = T("the machines = the JVM at run time", 24, MACH).move_to([3.6, 1.6, 0])
@@ -501,8 +501,7 @@ class Kt02ValueClass(Narrated):
         n5 = num("-5").move_to([2.6, -0.3, 0])
         jo = M("shipped -5 g", 28, BAD).move_to([4.2, 0.65, 0])
         jol = T("real output", 20, GREY_B).next_to(jo, DOWN, buff=0.1)
-        for m in (dl, bl):
-            m.shift(DOWN * 0.15).set_opacity(0)
+        div = DashedLine([0.6, 1.1, 0], [0.6, -3.2, 0], dash_length=0.12, stroke_width=2, color=GREY_D)
         self.say("java")
         self.play(FadeIn(div), FadeIn(counter), FadeIn(clerk), FadeIn(scale), FadeIn(lab), run_time=0.6)
         self.at(1)

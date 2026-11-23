@@ -1,141 +1,329 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.139
-A payment service has three commands: authorize, capture and refund.
+00:00:02.700 --> 00:00:09.350
+Back at the library desk, the request form has a line near the top: Item type, with four boxes to tick.
 
 2
-00:00:07.139 --> 00:00:09.881
-They all implement one interface, Command.
+00:00:09.350 --> 00:00:12.126
+Book, Disc, Magazine, From another library.
 
 3
-00:00:10.100 --> 00:00:16.421
-Code all over the service branches on the kind of command: the ledger, the audit log, the notifier.
+00:00:12.126 --> 00:00:17.807
+Because the form lists every answer, the clerk's instruction sheet has one line per box.
 
 4
-00:00:16.633 --> 00:00:21.746
-Command is an ordinary interface, so any class in any package can implement it.
+00:00:17.807 --> 00:00:20.519
+And the clerk knows the sheet is complete.
 
 5
-00:00:21.746 --> 00:00:24.270
-Next week, someone adds a Void command.
+00:00:20.733 --> 00:00:24.724
+Now picture the same form with a blank line instead of boxes.
 
 6
-00:00:24.270 --> 00:00:26.147
-Does anything stop the build?
+00:00:24.724 --> 00:00:26.490
+Someone writes: board game.
 
 7
-00:00:27.933 --> 00:00:28.152
-No.
+00:00:26.490 --> 00:00:32.508
+The sheet has no line for it, and nobody notices until a board game turns up at the counter.
 
 8
-00:00:28.152 --> 00:00:29.028
-It compiles.
+00:00:33.433 --> 00:00:36.294
+Here's a question that's easy to be shy about.
 
 9
-00:00:29.028 --> 00:00:37.127
-The ledger's if-else chain checks authorize, capture and refund, finds no match, and skips Void without a word.
+00:00:36.294 --> 00:00:38.283
+Interfaces are meant to be open.
 
 10
-00:00:37.300 --> 00:00:39.421
-The compiler couldn't have warned you.
+00:00:38.283 --> 00:00:41.081
+Anyone can add a class, and that's the point.
 
 11
-00:00:39.421 --> 00:00:44.780
-For an ordinary interface there is no list anywhere, so it can't know what all the commands are.
+00:00:41.081 --> 00:00:43.444
+So why would I ever want to stop them?
 
 12
-00:00:44.967 --> 00:00:46.537
-A sealed type fixes that.
+00:00:44.533 --> 00:00:50.029
+Take the requests a member makes at the desk: borrow a book, renew a loan, return it.
 
 13
-00:00:46.537 --> 00:00:52.191
-Add sealed and a permits clause, and the list of direct subtypes becomes part of the type.
+00:00:50.029 --> 00:00:54.296
+Written as an ordinary interface, Request has three classes today.
 
 14
-00:00:52.400 --> 00:00:54.414
-javac checks it from both sides.
+00:00:54.500 --> 00:00:58.451
+Next week someone adds a fourth, Donate, in another package.
 
 15
-00:00:54.414 --> 00:00:57.875
-A class that isn't on the list can't implement Command.
+00:00:58.451 --> 00:00:59.241
+It compiles.
 
 16
-00:00:58.067 --> 00:01:04.964
-javac also writes the list into the class file, and the JVM checks it again when it loads a class.
+00:00:59.241 --> 00:01:05.827
+And every if-else chain that handles requests skips it without a word, and falls into its last else.
 
 17
-00:01:05.667 --> 00:01:06.639
-Now the payoff.
+00:01:06.033 --> 00:01:09.870
+That last else is the code's way of saying: this can't happen.
 
 18
-00:01:06.639 --> 00:01:11.435
-A switch with one case per name on the list covers every possible command.
+00:01:09.870 --> 00:01:10.984
+Famous last words.
 
 19
-00:01:11.435 --> 00:01:15.777
-It needs no default, and javac checks each switch against the list.
+00:01:10.984 --> 00:01:12.965
+The trouble isn't the new class.
 
 20
-00:01:15.967 --> 00:01:17.333
-Add Void to the list.
+00:01:12.965 --> 00:01:15.873
+It's that nothing told us the list had changed.
 
 21
-00:01:17.333 --> 00:01:20.522
-Every switch without a Void case stops compiling.
+00:01:16.800 --> 00:01:19.247
+So let's print the boxes on the form.
 
 22
-00:01:20.522 --> 00:01:23.581
-The build hands you the list of code to update.
+00:01:19.247 --> 00:01:27.182
+A sealed type is a class or interface that names its permitted subtypes, the only classes allowed to extend it directly.
 
 23
-00:01:23.767 --> 00:01:26.047
-A default would throw that list away.
+00:01:27.182 --> 00:01:28.042
+Let's map it.
 
 24
-00:01:26.047 --> 00:01:30.607
-Default means anything else, so Void drops into it, and nothing complains.
+00:01:28.042 --> 00:01:30.488
+The interface is the line, Item type.
 
 25
-00:01:31.500 --> 00:01:34.837
-In Java, the permits clause names the subtypes.
+00:01:30.488 --> 00:01:33.133
+Each permitted subtype is a printed box.
 
 26
-00:01:34.837 --> 00:01:36.896
-Kotlin has no permits clause.
+00:01:33.133 --> 00:01:36.572
+The list is in ink, fixed when the form was printed.
 
 27
-00:01:36.896 --> 00:01:40.305
-Its rule is location: same package, same module.
+00:01:36.572 --> 00:01:40.804
+And the clerk's instruction sheet is a switch, one line per box.
 
 28
-00:01:40.305 --> 00:01:42.364
-Its when gets the same check.
+00:01:41.733 --> 00:01:44.497
+In Java, you add sealed and a permits list.
 
 29
-00:01:43.033 --> 00:01:50.064
-The rule: a sealed type puts its list of subtypes into the type, so the compiler can check every switch over it.
+00:01:44.497 --> 00:01:49.704
+In Kotlin, you write sealed interface, and the subtypes live in the same package.
 
 30
-00:01:50.064 --> 00:01:54.396
-Keep default out, and a new subtype becomes a list of compile errors.
+00:01:49.933 --> 00:01:53.559
+Now add Donate again, without putting it on the list.
 
 31
-00:01:54.567 --> 00:01:55.334
-Quick check.
+00:01:53.559 --> 00:01:54.448
+What happens?
 
 32
-00:01:55.334 --> 00:01:57.574
-You add a subtype to a sealed type.
+00:01:54.448 --> 00:01:55.543
+Pause and guess.
 
 33
-00:01:57.574 --> 00:01:59.941
-Which switches over it still compile?
+00:01:58.533 --> 00:02:07.884
+javac, the Java compiler, stops: class is not allowed to extend sealed class: Request, as it is not listed in its permits clause.
 
 34
-00:02:02.133 --> 00:02:03.706
-The ones with a default.
+00:02:08.800 --> 00:02:10.405
+And it's not only javac.
 
 35
-00:02:03.706 --> 00:02:06.392
-The new subtype falls into it, unchecked.
+00:02:10.405 --> 00:02:18.766
+The list is written into the class file, and the JVM, the program that runs Java code, checks it again when it loads a class.
+
+36
+00:02:18.766 --> 00:02:22.111
+Nobody gets to scribble a fifth box in the margin.
+
+37
+00:02:23.033 --> 00:02:29.153
+Each permitted subtype must also say how its own branch ends, with one of three words.
+
+38
+00:02:29.153 --> 00:02:32.355
+Final ends it, and records are final already.
+
+39
+00:02:32.355 --> 00:02:38.831
+Sealed closes it again one level down, like Disc, with exactly two kinds: DVD and audio CD.
+
+40
+00:02:38.831 --> 00:02:41.321
+And non-sealed opens it on purpose.
+
+41
+00:02:41.533 --> 00:02:46.080
+Non-sealed is the box From another library, with a blank line after it.
+
+42
+00:02:46.080 --> 00:02:53.380
+The clerk can't list every partner's items, but one line covers them all: send it back to the library named there.
+
+43
+00:02:53.380 --> 00:02:58.438
+So one case in a switch covers every partner class, even one written next year.
+
+44
+00:02:58.438 --> 00:03:00.551
+Kotlin has no non-sealed keyword.
+
+45
+00:03:00.551 --> 00:03:04.073
+A plain interface under the sealed one plays that part.
+
+46
+00:03:05.000 --> 00:03:06.014
+Now the reward.
+
+47
+00:03:06.014 --> 00:03:12.033
+Here's where one copy of a book is right now: on the shelf, on loan, on hold, or missing.
+
+48
+00:03:12.033 --> 00:03:14.130
+Three functions switch over it.
+
+49
+00:03:14.130 --> 00:03:16.632
+Two list every case, with no default.
+
+50
+00:03:16.632 --> 00:03:19.945
+The third, reminderDays, ends with default, zero.
+
+51
+00:03:20.167 --> 00:03:23.104
+Run it, and each copy gets its line.
+
+52
+00:03:23.104 --> 00:03:25.551
+On loan, a reminder in 9 days.
+
+53
+00:03:25.551 --> 00:03:26.693
+On hold, in 3.
+
+54
+00:03:26.900 --> 00:03:32.425
+Now the library starts sending damaged books away for repair, and someone adds InRepair.
+
+55
+00:03:32.425 --> 00:03:35.878
+Which of the three switches will the compiler point at?
+
+56
+00:03:35.878 --> 00:03:36.883
+Pause and guess.
+
+57
+00:03:39.867 --> 00:03:40.147
+Two.
+
+58
+00:03:40.147 --> 00:03:48.211
+The label and canLendToday switches stop compiling: the switch expression does not cover all possible input values.
+
+59
+00:03:48.211 --> 00:03:51.577
+That's a to-do list, handed to you by the build.
+
+60
+00:03:51.800 --> 00:03:52.941
+And reminderDays?
+
+61
+00:03:52.941 --> 00:03:54.819
+It compiles without a sound.
+
+62
+00:03:54.819 --> 00:04:01.932
+A copy in repair falls into the default and gets zero reminder days, though the repair has a due date too.
+
+63
+00:04:02.133 --> 00:04:08.303
+In that switch, default really means: and anything else, which I promise never to look at.
+
+64
+00:04:08.303 --> 00:04:13.581
+The OpenJDK team's own guide has a section called: By default, avoid default.
+
+65
+00:04:13.581 --> 00:04:17.077
+A default on a list that grows hides the next item.
+
+66
+00:04:17.077 --> 00:04:17.968
+Leave it out.
+
+67
+00:04:18.900 --> 00:04:20.007
+A few guardrails.
+
+68
+00:04:20.007 --> 00:04:24.760
+Seal only a list you own and compile together, so keep it in one package.
+
+69
+00:04:24.760 --> 00:04:28.536
+A plug-in point that other people extend should stay open.
+
+70
+00:04:28.536 --> 00:04:33.875
+And a program compiled against the old list can still meet a new item at run time.
+
+71
+00:04:33.875 --> 00:04:35.893
+That's the next lesson's story.
+
+72
+00:04:36.800 --> 00:04:39.025
+So, why stop people adding classes?
+
+73
+00:04:39.025 --> 00:04:42.394
+Because a printed list is one the compiler can check.
+
+74
+00:04:42.394 --> 00:04:46.525
+Seal the list, end each branch on purpose, and leave default out.
+
+75
+00:04:46.525 --> 00:04:51.611
+Then the next new box arrives as a to-do list, not as a surprise at the counter.
+
+76
+00:04:51.833 --> 00:04:52.682
+Quick check.
+
+77
+00:04:52.682 --> 00:04:59.050
+A sealed class Extension, not abstract, has two final subclasses, FixedDays and SameAgain.
+
+78
+00:04:59.050 --> 00:05:02.376
+A switch has one case for each, and no default.
+
+79
+00:05:02.376 --> 00:05:03.508
+Does it compile?
+
+80
+00:05:06.700 --> 00:05:06.917
+No.
+
+81
+00:05:06.917 --> 00:05:14.141
+Extension isn't abstract, so a plain Extension is a possible value too, and neither case matches it.
+
+82
+00:05:14.141 --> 00:05:16.597
+Make it abstract, or an interface.

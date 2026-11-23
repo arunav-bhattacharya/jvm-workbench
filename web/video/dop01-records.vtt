@@ -1,157 +1,413 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.218
-Here is a money value written by hand.
+00:00:02.700 --> 00:00:05.509
+Picture the front desk of a small town library.
 
 2
-00:00:05.218 --> 00:00:07.471
-It lists its fields in six places.
+00:00:05.509 --> 00:00:11.486
+To borrow books, you fill in a loan slip: your member number, the titles, and when they're due back.
 
 3
-00:00:08.633 --> 00:00:10.348
-Someone adds a currency.
+00:00:11.486 --> 00:00:14.834
+It sits in a clear sleeve, so anyone can read every box.
 
 4
-00:00:10.348 --> 00:00:11.777
-Three places get it.
+00:00:14.834 --> 00:00:18.241
+Two slips filled in the same way stand for the same loan.
 
 5
-00:00:11.777 --> 00:00:14.349
-equals, hashCode and toString don't.
+00:00:18.241 --> 00:00:21.229
+And the clerk checks each slip before stamping it.
 
 6
-00:00:14.533 --> 00:00:17.932
-So is this euro amount equal to this dollar amount?
+00:00:22.133 --> 00:00:25.215
+Here's a question that's easy to be shy about.
 
 7
-00:00:19.500 --> 00:00:19.851
-True.
+00:00:25.215 --> 00:00:27.293
+People say records save typing.
 
 8
-00:00:19.851 --> 00:00:25.615
-equals still compares only the amount, and the log doesn't even show the currency.
+00:00:27.293 --> 00:00:30.174
+But I can write equals and hashCode myself.
 
 9
-00:00:26.433 --> 00:00:27.826
-A record says it once.
+00:00:30.174 --> 00:00:32.251
+So is a record just a shortcut?
 
 10
-00:00:27.826 --> 00:00:33.145
-You list its components in the header, and javac writes the rest from that one list.
+00:00:33.333 --> 00:00:39.418
+Let's start small, with a shelfmark: the label on a book's spine that says where the book lives.
 
 11
-00:00:33.333 --> 00:00:40.529
-A private final field and an accessor for each, a canonical constructor, and equals, hashCode and toString.
+00:00:39.418 --> 00:00:42.904
+A three-letter section and a shelf number, like FIC 12.
 
 12
-00:00:40.733 --> 00:00:44.146
-Those last three aren't even written out.
+00:00:43.133 --> 00:00:46.122
+Here's the class written the old way, by hand.
 
 13
-00:00:44.146 --> 00:00:52.053
-javac hands the JDK the names, minor;currency, and the JDK builds each method on its first run.
+00:00:46.122 --> 00:00:52.163
+It lists its data in five places: the fields, the constructor, equals, hashCode and toString.
 
 14
-00:00:52.967 --> 00:00:55.690
-Where do you check that an amount isn't negative?
+00:00:52.163 --> 00:00:55.996
+At first there was only a section, so all five say section.
 
 15
-00:00:55.690 --> 00:00:59.359
-Put the check in a static factory, and new walks straight past it.
+00:00:56.200 --> 00:00:58.417
+Then the shelf number was added.
 
 16
-00:00:59.567 --> 00:01:02.906
-A record has one door: the canonical constructor.
+00:00:58.417 --> 00:01:01.465
+Someone added the field and the constructor.
 
 17
-00:01:02.906 --> 00:01:09.244
-Other constructors must call it first, and so do factories, withers and Java deserialization.
+00:01:01.465 --> 00:01:03.820
+And equals, hashCode and toString?
 
 18
-00:01:09.467 --> 00:01:16.085
-Put the check there, in the compact constructor, and it holds for every instance.
+00:01:03.820 --> 00:01:05.205
+Nobody updated them.
 
 19
-00:01:16.085 --> 00:01:19.272
-It can fix values too: eur becomes EUR.
+00:01:05.205 --> 00:01:06.452
+It still compiles.
 
 20
-00:01:20.167 --> 00:01:22.421
-A record is only shallowly immutable.
+00:01:06.667 --> 00:01:10.972
+So take two books, one on FIC 12 and one on FIC 40.
 
 21
-00:01:22.421 --> 00:01:25.833
-Its fields are final, but what they point to can change.
+00:01:10.972 --> 00:01:13.251
+Are they in the same place?
 
 22
-00:01:26.033 --> 00:01:28.981
-A Batch holds the caller's list of payment ids.
+00:01:13.251 --> 00:01:14.601
+Pause and guess.
 
 23
-00:01:28.981 --> 00:01:31.679
-A HashSet files the batch by its hash code.
+00:01:17.600 --> 00:01:18.867
+The class says true.
 
 24
-00:01:31.867 --> 00:01:34.317
-Now the caller adds pay_3 to its list.
+00:01:18.867 --> 00:01:20.324
+Two shelves, one place.
 
 25
-00:01:34.317 --> 00:01:36.509
-Does the set still find the batch?
+00:01:20.324 --> 00:01:23.999
+And the log line can't even tell you which shelf it meant.
 
 26
-00:01:38.300 --> 00:01:38.502
-No.
+00:01:24.200 --> 00:01:28.613
+So the clerk sends you to shelf 12 for a book that lives on shelf 40.
 
 27
-00:01:38.502 --> 00:01:41.468
-The hash code reads the list, so it changed.
+00:01:28.613 --> 00:01:30.020
+The class isn't lying.
 
 28
-00:01:41.468 --> 00:01:45.445
-The set looks in the wrong bucket, and contains says false.
+00:01:30.020 --> 00:01:32.195
+It just never heard about shelves.
 
 29
-00:01:45.633 --> 00:01:50.175
-The fix is one line in the compact constructor: List.copyOf.
+00:01:32.195 --> 00:01:34.306
+So the real problem isn't typing.
 
 30
-00:01:50.175 --> 00:01:53.732
-Now the record holds its own unmodifiable copy.
+00:01:34.306 --> 00:01:39.423
+Five copies of one list drift apart, the way paperwork does when nobody owns it.
 
 31
-00:01:54.633 --> 00:02:01.808
-In Kotlin, a data class gets the same methods, but its init block can only reject a value, not rewrite it.
+00:01:40.333 --> 00:01:41.870
+Back to the front desk.
 
 32
-00:02:02.633 --> 00:02:07.072
-The rule: a record is its components, and javac writes the rest.
+00:01:41.870 --> 00:01:45.009
+A record is a filled-in form in a clear sleeve.
 
 33
-00:02:07.072 --> 00:02:10.194
-The canonical constructor is the only way in.
+00:01:45.009 --> 00:01:45.878
+Let's map it.
 
 34
-00:02:10.194 --> 00:02:12.829
-And immutability stops one level down.
+00:01:45.878 --> 00:01:50.553
+Each box on the form is a component: one value that makes up the data.
 
 35
-00:02:13.033 --> 00:02:13.815
-Quick check.
+00:01:50.553 --> 00:01:53.826
+The clear sleeve means anyone can read every box.
 
 36
-00:02:13.815 --> 00:02:18.177
-Someone edits a serialized Money and sets the amount to minus five.
+00:01:53.826 --> 00:01:56.699
+Nothing on the back means no hidden fields.
 
 37
-00:02:18.177 --> 00:02:20.456
-What happens when you read it back?
+00:01:56.699 --> 00:01:59.571
+Two forms are equal when every box matches.
 
 38
-00:02:22.433 --> 00:02:23.396
-It's rejected.
+00:01:59.571 --> 00:02:03.512
+And reading a form aloud means reading every box, in order.
 
 39
-00:02:23.396 --> 00:02:28.484
-Deserialization calls the canonical constructor too, so your check throws.
+00:02:03.733 --> 00:02:06.779
+So, wouldn't it be nice to write the list once?
+
+40
+00:02:06.779 --> 00:02:08.399
+In code, that's one line.
+
+41
+00:02:08.399 --> 00:02:15.915
+A record is a class whose header lists its components, and javac, the Java compiler, writes the rest from that list.
+
+42
+00:02:15.915 --> 00:02:18.053
+Kotlin's version is a data class.
+
+43
+00:02:18.267 --> 00:02:26.224
+From that one line, javac writes a private final field for each box, and an accessor that reads it, with no get in front.
+
+44
+00:02:26.224 --> 00:02:31.484
+One constructor that takes every box in order, called the canonical constructor.
+
+45
+00:02:31.484 --> 00:02:35.561
+And equals, hashCode and toString, each using every component.
+
+46
+00:02:35.561 --> 00:02:37.600
+One list, so nothing can drift.
+
+47
+00:02:37.833 --> 00:02:39.062
+The demo agrees.
+
+48
+00:02:39.062 --> 00:02:42.747
+toString reads every box: section FIC, shelf 12.
+
+49
+00:02:42.747 --> 00:02:45.127
+Two equal shelfmarks are equal.
+
+50
+00:02:45.127 --> 00:02:47.353
+But double equals says false.
+
+51
+00:02:47.567 --> 00:02:48.839
+That's on purpose.
+
+52
+00:02:48.839 --> 00:02:53.080
+Two forms with the same boxes are still two sheets of paper.
+
+53
+00:02:53.080 --> 00:02:54.635
+And the form is fixed.
+
+54
+00:02:54.635 --> 00:03:00.430
+Add a private field in the body, and javac says: field declaration must be static.
+
+55
+00:03:00.430 --> 00:03:01.915
+No notes on the back.
+
+56
+00:03:02.833 --> 00:03:06.070
+A form is only as good as the counter that checks it.
+
+57
+00:03:06.070 --> 00:03:09.368
+Say the checks live in a factory method, Shelfmark.of.
+
+58
+00:03:09.368 --> 00:03:14.864
+Then new Shelfmark, with shelf minus three, walks straight past it, through the side door.
+
+59
+00:03:15.067 --> 00:03:17.736
+A record has a counter with no side door.
+
+60
+00:03:17.736 --> 00:03:23.206
+Other constructors, factories, copies: every path ends in the canonical constructor.
+
+61
+00:03:23.206 --> 00:03:25.355
+So that's where the clerk stands.
+
+62
+00:03:25.355 --> 00:03:29.067
+You write it in the compact form, with no parameter list.
+
+63
+00:03:30.000 --> 00:03:32.515
+First it rejects a missing section.
+
+64
+00:03:32.515 --> 00:03:34.311
+Then it checks the shelf.
+
+65
+00:03:34.311 --> 00:03:38.981
+Last, it tidies the writing, so fic in small letters becomes FIC.
+
+66
+00:03:38.981 --> 00:03:42.357
+Then javac copies those values into the fields.
+
+67
+00:03:42.567 --> 00:03:44.547
+Kotlin's twin is an init block.
+
+68
+00:03:44.547 --> 00:03:47.359
+It can check, but it can't tidy a parameter.
+
+69
+00:03:47.567 --> 00:03:51.154
+The demo sends in fic 12 and gets FIC 12 back.
+
+70
+00:03:51.154 --> 00:03:55.053
+Shelf zero is refused: shelf must be 1 or more: 0.
+
+71
+00:03:55.053 --> 00:03:58.951
+A check that some paths skip is only a suggestion.
+
+72
+00:03:58.951 --> 00:04:01.759
+Put it in the canonical constructor.
+
+73
+00:04:02.667 --> 00:04:04.248
+So every form is checked.
+
+74
+00:04:04.248 --> 00:04:05.196
+Is it safe now?
+
+75
+00:04:05.196 --> 00:04:07.220
+Here's where the picture breaks.
+
+76
+00:04:07.220 --> 00:04:11.900
+A crate record holds a branch, North, and a list of titles, Dune and Emma.
+
+77
+00:04:11.900 --> 00:04:17.655
+The program keeps the crates it sent in a HashSet, which files each one under its hashCode.
+
+78
+00:04:17.867 --> 00:04:21.171
+Then someone reuses their list and adds Ulysses.
+
+79
+00:04:21.171 --> 00:04:23.718
+Does the set still contain the crate?
+
+80
+00:04:23.718 --> 00:04:24.820
+Pause and guess.
+
+81
+00:04:27.800 --> 00:04:28.207
+False.
+
+82
+00:04:28.207 --> 00:04:30.108
+The crate is still in there.
+
+83
+00:04:30.108 --> 00:04:34.386
+But its hashCode changed, so the set looks in the wrong drawer.
+
+84
+00:04:34.386 --> 00:04:35.336
+Nothing threw.
+
+85
+00:04:35.567 --> 00:04:38.039
+The sleeve covers the form's own boxes.
+
+86
+00:04:38.039 --> 00:04:43.934
+But the list is a sheet stapled behind it, and whoever kept that sheet can still write on it.
+
+87
+00:04:43.934 --> 00:04:46.153
+The fix is one line at the counter.
+
+88
+00:04:46.153 --> 00:04:50.527
+List.copyOf gives the record its own copy, one that can't be changed.
+
+89
+00:04:51.433 --> 00:04:56.302
+So a record is only as frozen as its parts: copy collections on the way in.
+
+90
+00:04:56.302 --> 00:05:00.002
+And if a class needs a hidden cache, a record can't help.
+
+91
+00:05:00.002 --> 00:05:03.507
+That one goes back to writing the five places by hand.
+
+92
+00:05:04.433 --> 00:05:06.565
+So, is a record just a shortcut?
+
+93
+00:05:06.565 --> 00:05:06.765
+No.
+
+94
+00:05:06.765 --> 00:05:10.497
+It writes the list once, so the five places can't drift.
+
+95
+00:05:10.497 --> 00:05:13.695
+It gives you one counter that every form passes.
+
+96
+00:05:13.695 --> 00:05:16.093
+And its promise stops at the staple.
+
+97
+00:05:16.300 --> 00:05:17.110
+Quick check.
+
+98
+00:05:17.110 --> 00:05:19.608
+A record Masked holds a phone number.
+
+99
+00:05:19.608 --> 00:05:23.727
+Its accessor is overridden to show only the last four digits.
+
+100
+00:05:23.727 --> 00:05:25.415
+What does toString print?
+
+101
+00:05:28.600 --> 00:05:29.681
+The full number.
+
+102
+00:05:29.681 --> 00:05:33.598
+The generated toString reads the field, not your accessor.
+
+103
+00:05:33.598 --> 00:05:36.300
+To hide a box, override toString itself.

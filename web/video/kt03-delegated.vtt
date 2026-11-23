@@ -1,133 +1,329 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.647
-Every change to an order's status must be logged.
+00:00:02.700 --> 00:00:05.785
+Next to the print shop's front counter is a cloakroom.
 
 2
-00:00:05.647 --> 00:00:09.255
-You want that logging written once, in a small helper class.
+00:00:05.785 --> 00:00:08.298
+You hand in your coat, and you get a ticket.
 
 3
-00:00:09.255 --> 00:00:13.344
-By hand, the property forwards its getter and setter to that helper.
+00:00:08.298 --> 00:00:12.183
+Later you hand back the ticket, and the attendant fetches your coat.
 
 4
-00:00:13.533 --> 00:00:17.789
-::status is a reference to the property itself, a KProperty.
+00:00:12.183 --> 00:00:14.353
+You never walk into the back yourself.
 
 5
-00:00:17.789 --> 00:00:22.400
-It knows its name, so the helper can log status without a string.
+00:00:15.267 --> 00:00:18.226
+Here's a question that's easy to be shy about.
 
 6
-00:00:22.633 --> 00:00:24.481
-That forwarding is all by does.
+00:00:18.226 --> 00:00:21.893
+In Kotlin you can write: var status: String by something.
 
 7
-00:00:24.481 --> 00:00:28.535
-Write by, and the compiler writes the getter and the setter for you.
+00:00:21.893 --> 00:00:23.887
+What does by actually do there?
 
 8
-00:00:28.733 --> 00:00:30.907
-The helper is called the delegate.
+00:00:23.887 --> 00:00:28.776
+Is there some magic, some reflection at run time, looking things up by name?
 
 9
-00:00:30.907 --> 00:00:34.933
-It needs two functions with fixed names: getValue and setValue.
+00:00:29.767 --> 00:00:31.198
+Let's start without by.
 
 10
-00:00:35.133 --> 00:00:39.961
-Each gets the owning object, and the KProperty, which carries the property's name.
+00:00:31.198 --> 00:00:34.497
+Say every change to an order's status must be logged.
 
 11
-00:00:40.967 --> 00:00:45.325
-Here is what the compiler writes for that one line, read back as Java.
+00:00:34.497 --> 00:00:40.347
+And you want the logging written once, in a small helper class you can reuse for any property.
 
 12
-00:00:45.533 --> 00:00:48.523
-First, a hidden field, status$delegate.
+00:00:40.567 --> 00:00:45.022
+By hand, the property forwards its getter and setter to the helper.
 
 13
-00:00:48.523 --> 00:00:51.819
-It holds the delegate, the object after by.
+00:00:45.022 --> 00:00:50.542
+In Java, the helper is an ordinary Box object, and getStatus and setStatus call it.
 
 14
-00:00:52.000 --> 00:00:54.119
-The getter calls getValue on it.
+00:00:50.542 --> 00:00:56.395
+Kotlin by hand looks the same: a private helper field, and a get and a set that call it.
 
 15
-00:00:54.119 --> 00:00:56.237
-The setter calls setValue on it.
+00:00:56.600 --> 00:01:03.028
+::status is a reference to the property itself, a KProperty object that knows the property's name.
 
 16
-00:00:56.433 --> 00:01:00.631
-Both calls pass this, the order, and a KProperty for status.
+00:01:03.028 --> 00:01:08.603
+So the helper can log the word status, without a string that could drift out of date.
 
 17
-00:01:00.631 --> 00:01:08.116
-The compiler builds those KProperty objects once per class, in a static array called $$delegatedProperties.
+00:01:08.833 --> 00:01:09.372
+It works.
 
 18
-00:01:08.900 --> 00:01:10.069
-Now watch it run.
+00:01:09.372 --> 00:01:14.517
+But that's three lines of plumbing for every property, and the plumbing never changes.
 
 19
-00:01:10.069 --> 00:01:14.332
-Each Order holds its own Audited object, in that hidden field.
+00:01:14.517 --> 00:01:17.928
+Ten logged properties, thirty lines that say nothing new.
 
 20
-00:01:14.533 --> 00:01:15.545
-Set the status.
+00:01:17.928 --> 00:01:22.236
+Wouldn't it be nice to just say: this property goes through that helper?
 
 21
-00:01:15.545 --> 00:01:18.512
-In the bytecode that is a call to setStatus.
+00:01:22.467 --> 00:01:23.769
+That's all by does.
 
 22
-00:01:18.512 --> 00:01:24.580
-setStatus calls setValue on the delegate, with the order, the KProperty and the new value.
+00:01:23.769 --> 00:01:30.350
+Write var status: String by Audited("NEW"), and the compiler writes the same forwarding for you.
 
 23
-00:01:24.800 --> 00:01:30.204
-The delegate takes the name from the KProperty, prints the change, and keeps the new value.
+00:01:30.350 --> 00:01:31.447
+Same for copies.
 
 24
-00:01:30.433 --> 00:01:33.182
-Read it back, and getStatus calls getValue.
+00:01:32.367 --> 00:01:37.390
+The helper needs only two functions with fixed names, getValue and setValue.
 
 25
-00:01:33.182 --> 00:01:37.017
-The value comes back as T, so the getter casts it to String.
+00:01:37.390 --> 00:01:41.818
+getValue gets the object that owns the property, and the KProperty.
 
 26
-00:01:37.933 --> 00:01:40.019
-That hidden field is the price.
+00:01:41.818 --> 00:01:44.000
+setValue also gets the new value.
 
 27
-00:01:40.019 --> 00:01:45.132
-A delegate like Audited is one extra object per property, in every instance.
+00:01:44.000 --> 00:01:46.842
+Audited prints each change, then stores it.
 
 28
-00:01:45.132 --> 00:01:47.554
-Three orders, three Audited objects.
+00:01:46.842 --> 00:01:48.891
+A val would need only getValue.
 
 29
-00:01:47.554 --> 00:01:51.187
-The KProperty array is made once, for the whole class.
+00:01:49.100 --> 00:01:50.466
+Back to the cloakroom.
 
 30
-00:01:51.933 --> 00:01:52.892
-Java has no by.
+00:01:50.466 --> 00:01:52.204
+The property is your ticket.
 
 31
-00:01:52.892 --> 00:01:57.749
-There you write the same forwarding yourself, and pass the name as a string.
+00:01:52.204 --> 00:01:56.426
+Reading the property is handing in the ticket to get your coat back.
 
 32
-00:01:57.967 --> 00:02:01.243
-From the outside, both are a plain getter and setter.
+00:01:56.426 --> 00:01:58.723
+Assigning to it is handing in a coat.
 
 33
-00:02:01.243 --> 00:02:05.447
-A setter that logs or validates looks exactly like one that doesn't.
+00:01:58.723 --> 00:02:04.870
+And the attendant is the helper object: it holds the coat, and it may write each swap in a logbook.
+
+34
+00:02:04.870 --> 00:02:07.167
+That helper has a name: the delegate.
+
+35
+00:02:08.100 --> 00:02:13.377
+So what does the compiler build inside Order, with its two delegated properties?
+
+36
+00:02:13.377 --> 00:02:14.894
+How many hidden fields?
+
+37
+00:02:14.894 --> 00:02:15.949
+Pause and guess.
+
+38
+00:02:19.133 --> 00:02:23.894
+The demo sets the status and the copies, then lists the fields by reflection.
+
+39
+00:02:23.894 --> 00:02:25.315
+Here's the real output.
+
+40
+00:02:25.315 --> 00:02:27.603
+Each change went through the logbook.
+
+41
+00:02:27.603 --> 00:02:29.272
+And there are three fields.
+
+42
+00:02:29.500 --> 00:02:34.027
+One hidden field per property: status$delegate and copies$delegate.
+
+43
+00:02:34.027 --> 00:02:36.324
+Each holds its own Audited helper.
+
+44
+00:02:36.324 --> 00:02:44.836
+And one static array per class, $$delegatedProperties, with a KProperty for each property, made once when the class is loaded.
+
+45
+00:02:44.836 --> 00:02:50.647
+That's the only change from our hand-written version: no fresh ::status on every call.
+
+46
+00:02:51.567 --> 00:02:53.511
+Now the getter, in bytecode.
+
+47
+00:02:53.511 --> 00:02:56.428
+getStatus loads the status$delegate field.
+
+48
+00:02:56.428 --> 00:02:59.276
+It loads the array, and takes entry zero.
+
+49
+00:02:59.276 --> 00:03:01.637
+It calls getValue on the delegate.
+
+50
+00:03:01.637 --> 00:03:03.998
+And it casts the result to String.
+
+51
+00:03:03.998 --> 00:03:05.873
+A hidden field, and a call.
+
+52
+00:03:05.873 --> 00:03:06.568
+That's it.
+
+53
+00:03:07.500 --> 00:03:08.546
+So, is it magic?
+
+54
+00:03:08.546 --> 00:03:08.742
+No.
+
+55
+00:03:08.742 --> 00:03:11.422
+Nothing is looked up by name at run time.
+
+56
+00:03:11.422 --> 00:03:15.082
+If by had a longer name, it would be: please forward to.
+
+57
+00:03:15.082 --> 00:03:20.376
+The compiler writes the plumbing you wrote by hand, and then gets out of the way.
+
+58
+00:03:21.300 --> 00:03:22.864
+Java sees none of this.
+
+59
+00:03:22.864 --> 00:03:26.266
+It sees getStatus and setStatus, ordinary methods.
+
+60
+00:03:26.266 --> 00:03:31.979
+The demo's Java twin calls setStatus, and the change still goes through the logbook.
+
+61
+00:03:31.979 --> 00:03:34.020
+The delegate field is private.
+
+62
+00:03:34.233 --> 00:03:38.291
+That's handy for libraries that work through getters and setters.
+
+63
+00:03:38.291 --> 00:03:44.721
+It's also a warning: a setter that logs, or checks, looks exactly like a plain setter from the outside.
+
+64
+00:03:45.633 --> 00:03:48.528
+And here's where the cloakroom picture breaks.
+
+65
+00:03:48.528 --> 00:03:51.611
+A real cloakroom has one attendant for everybody.
+
+66
+00:03:51.611 --> 00:04:00.483
+Here, every ticket usually comes with an attendant of its own: a hidden field in every Order, and usually a new delegate object to put in it.
+
+67
+00:04:00.483 --> 00:04:04.007
+Make many orders, and each one hires its own attendants.
+
+68
+00:04:04.933 --> 00:04:09.215
+So use by when the same get and set logic repeats across properties.
+
+69
+00:04:09.215 --> 00:04:12.489
+Remember the hidden field it adds to every instance.
+
+70
+00:04:12.489 --> 00:04:16.708
+And remember that from the outside, it looks like a plain property.
+
+71
+00:04:16.933 --> 00:04:20.841
+The delegate you'll use most often isn't one you write yourself.
+
+72
+00:04:20.841 --> 00:04:23.040
+It's lazy, and it comes with a bill.
+
+73
+00:04:23.040 --> 00:04:24.505
+That's the next section.
+
+74
+00:04:25.433 --> 00:04:26.792
+So, what does by do?
+
+75
+00:04:26.792 --> 00:04:28.219
+It hands in a ticket.
+
+76
+00:04:28.219 --> 00:04:34.605
+A hidden field holds the attendant, and the getter and setter just call getValue and setValue.
+
+77
+00:04:34.833 --> 00:04:35.742
+Quick check.
+
+78
+00:04:35.742 --> 00:04:37.635
+You add var note: String?
+
+79
+00:04:37.635 --> 00:04:39.604
+by Audited(null) to Order.
+
+80
+00:04:39.604 --> 00:04:41.345
+What new fields appear?
+
+81
+00:04:44.533 --> 00:04:46.452
+One new field, note$delegate.
+
+82
+00:04:46.452 --> 00:04:50.157
+And a third entry in the same array, not a second array.

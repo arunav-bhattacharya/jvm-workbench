@@ -1,15 +1,15 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:14.089
+00:00:02.700 --> 00:00:14.056
 When a member reserves a book this library doesn't own, the request goes to the regional catalogue: a program, run by someone else, that knows what every library nearby holds.
 
 2
-00:00:14.089 --> 00:00:16.490
+00:00:14.056 --> 00:00:16.457
 Its answer comes back as text fields.
 
 3
-00:00:16.490 --> 00:00:21.292
+00:00:16.457 --> 00:00:21.259
 A status, and a few boxes that should be filled in only for some statuses.
 
 4
@@ -25,15 +25,15 @@ An unavailable one has a reason.
 A place on the waiting list has an expected wait.
 
 7
-00:00:30.800 --> 00:00:33.586
+00:00:30.833 --> 00:00:33.619
 Here's a question that's easy to be shy about.
 
 8
-00:00:33.586 --> 00:00:38.128
+00:00:33.619 --> 00:00:38.161
 The comments say which fields go together, and everyone reads the comments.
 
 9
-00:00:38.128 --> 00:00:41.337
+00:00:38.161 --> 00:00:41.371
 So what's the harm in one class with optional fields?
 
 10
@@ -45,281 +45,281 @@ Picture the answer as one paper form with every box printed on it.
 Nothing stops someone from ticking Ready and also writing: reason, lost.
 
 12
-00:00:51.800 --> 00:00:54.563
+00:00:51.867 --> 00:00:54.630
 So how many ways can this form be filled in?
 
 13
-00:00:54.563 --> 00:00:55.568
+00:00:54.630 --> 00:00:55.635
 Pause and guess.
 
 14
-00:00:58.600 --> 00:00:59.792
+00:00:58.633 --> 00:00:59.825
 Three statuses.
 
 15
-00:00:59.792 --> 00:01:07.261
+00:00:59.825 --> 00:01:07.294
 Then four optional boxes, each filled or empty: two, times two, times two, times two, sixteen.
 
 16
-00:01:07.261 --> 00:01:09.327
+00:01:07.294 --> 00:01:09.360
 Three times sixteen is 48.
 
 17
-00:01:09.327 --> 00:01:11.234
+00:01:09.360 --> 00:01:11.267
 And how many make sense?
 
 18
-00:01:11.234 --> 00:01:11.711
+00:01:11.267 --> 00:01:11.744
 Three.
 
 19
-00:01:12.600 --> 00:01:20.078
+00:01:12.667 --> 00:01:20.145
 In code, this form is a DTO, a data transfer object: a class that only holds a message's fields as they arrived.
 
 20
-00:01:20.078 --> 00:01:25.487
+00:01:20.145 --> 00:01:25.554
 Only the comments say which ones go together, so every reader has to check again.
 
 21
-00:01:25.487 --> 00:01:26.956
+00:01:25.554 --> 00:01:27.023
 And one of them won't.
 
 22
-00:01:27.133 --> 00:01:33.658
+00:01:27.233 --> 00:01:33.758
 The lesson's demo hands a ready reply with no pickup code to the code that prints pickup slips.
 
 23
-00:01:33.658 --> 00:01:35.787
+00:01:33.758 --> 00:01:35.887
 It prints: shelf 12, code null.
 
 24
-00:01:36.667 --> 00:01:42.196
+00:01:36.800 --> 00:01:42.330
 So a member walks up with a slip that says: your book is on shelf 12, and your code is...
 
 25
-00:01:42.196 --> 00:01:42.693
+00:01:42.330 --> 00:01:42.827
 nothing.
 
 26
-00:01:42.693 --> 00:01:45.986
+00:01:42.827 --> 00:01:46.120
 The book is right there, and nobody can hand it over.
 
 27
-00:01:45.986 --> 00:01:48.720
+00:01:46.120 --> 00:01:48.854
 The trouble isn't that someone forgot a box.
 
 28
-00:01:48.720 --> 00:01:50.460
+00:01:48.854 --> 00:01:50.593
 It's that the form let them.
 
 29
-00:01:51.333 --> 00:01:55.726
+00:01:51.500 --> 00:01:55.893
 So let's print three forms instead, each with only its own boxes.
 
 30
-00:01:55.726 --> 00:01:57.686
+00:01:55.893 --> 00:01:57.852
 Ready has a code and a shelf.
 
 31
-00:01:57.686 --> 00:01:59.375
+00:01:57.852 --> 00:01:59.542
 Unavailable has a reason.
 
 32
-00:01:59.375 --> 00:02:01.538
+00:01:59.542 --> 00:02:01.704
 Waitlisted has an expected wait.
 
 33
-00:02:01.538 --> 00:02:06.065
+00:02:01.704 --> 00:02:06.232
 In code, that's a sealed interface, HoldResult, with three records.
 
 34
-00:02:06.200 --> 00:02:09.487
+00:02:06.433 --> 00:02:09.720
 Now, ready with a reason can't even be written down.
 
 35
-00:02:09.487 --> 00:02:10.877
+00:02:09.720 --> 00:02:11.110
 There's no box for it.
 
 36
-00:02:10.877 --> 00:02:13.342
+00:02:11.110 --> 00:02:13.575
 Three shapes, and all three make sense.
 
 37
-00:02:13.342 --> 00:02:20.989
+00:02:13.575 --> 00:02:21.223
 The checks that are left move into the constructors: a pickup code is six letters or digits, and hold shelves start at 1.
 
 38
-00:02:21.133 --> 00:02:23.993
+00:02:21.433 --> 00:02:24.293
 Run the demo with the sealed model.
 
 39
-00:02:23.993 --> 00:02:28.242
+00:02:24.293 --> 00:02:28.542
 The broken reply is refused: pickupCode is required.
 
 40
-00:02:28.242 --> 00:02:31.756
+00:02:28.542 --> 00:02:32.056
 The good one prints: shelf 12, code K7P2QX.
 
 41
-00:02:32.667 --> 00:02:36.275
+00:02:32.967 --> 00:02:36.575
 This has a name: make illegal states unrepresentable.
 
 42
-00:02:36.275 --> 00:02:42.265
+00:02:36.575 --> 00:02:42.565
 Brian Goetz, Java's language architect, calls the whole style data-oriented programming.
 
 43
-00:02:42.265 --> 00:02:45.465
+00:02:42.565 --> 00:02:45.765
 Records hold this and that: a code and a shelf.
 
 44
-00:02:45.465 --> 00:02:50.571
+00:02:45.765 --> 00:02:50.871
 A sealed interface says this or that: ready, or unavailable, or waitlisted.
 
 45
-00:02:51.467 --> 00:02:57.001
+00:02:51.800 --> 00:02:57.334
 But three clean forms only help if every answer from outside is copied onto one of them.
 
 46
-00:02:57.001 --> 00:02:59.957
+00:02:57.334 --> 00:03:00.290
 Letters from outside arrive in any handwriting.
 
 47
-00:02:59.957 --> 00:03:01.969
+00:03:00.290 --> 00:03:02.302
 So one clerk stands at the door.
 
 48
-00:03:01.969 --> 00:03:08.069
+00:03:02.302 --> 00:03:08.403
 Each letter is copied onto the right form, or sent back with a polite note saying what was wrong.
 
 49
-00:03:09.000 --> 00:03:11.780
+00:03:09.333 --> 00:03:12.113
 In code, that clerk is one function, parse.
 
 50
-00:03:11.780 --> 00:03:13.783
+00:03:12.113 --> 00:03:14.117
 It switches on the status text.
 
 51
-00:03:13.783 --> 00:03:18.631
+00:03:14.117 --> 00:03:18.965
 A ready reply needs its code and its shelf, or it's rejected with a reason.
 
 52
-00:03:18.631 --> 00:03:22.057
+00:03:18.965 --> 00:03:22.391
 Anything it doesn't know, null included, is rejected.
 
 53
-00:03:22.057 --> 00:03:27.099
+00:03:22.391 --> 00:03:27.432
 And when a constructor refuses a value, parse turns that into a rejection too.
 
 54
-00:03:27.099 --> 00:03:28.133
+00:03:27.432 --> 00:03:28.467
 It never throws.
 
 55
-00:03:28.333 --> 00:03:32.539
+00:03:28.700 --> 00:03:32.906
 Here's a sloppy reply: status READY, with a space at the end.
 
 56
-00:03:32.539 --> 00:03:34.056
+00:03:32.906 --> 00:03:34.422
 What does the door do?
 
 57
-00:03:34.056 --> 00:03:35.159
+00:03:34.422 --> 00:03:35.525
 Pause and guess.
 
 58
-00:03:38.200 --> 00:03:41.239
+00:03:38.500 --> 00:03:41.539
 Rejected: unknown status, READY and a space.
 
 59
-00:03:41.239 --> 00:03:43.310
+00:03:41.539 --> 00:03:43.610
 The pickup desk never sees it.
 
 60
-00:03:43.310 --> 00:03:49.249
+00:03:43.610 --> 00:03:49.549
 A strict door turns a sloppy reply into a visible rejection, not a slip with bad data.
 
 61
-00:03:50.133 --> 00:03:52.544
+00:03:50.467 --> 00:03:52.877
 Behind the door, nothing checks again.
 
 62
-00:03:52.544 --> 00:03:59.650
+00:03:52.877 --> 00:03:59.983
 A method that takes a Ready knows it has a real code and a real shelf, because no other kind of Ready can exist.
 
 63
-00:03:59.650 --> 00:04:01.997
+00:03:59.983 --> 00:04:02.330
 Check outside data once, at the door.
 
 64
-00:04:01.997 --> 00:04:04.091
+00:04:02.330 --> 00:04:04.424
 Behind the door, trust the types.
 
 65
-00:04:05.000 --> 00:04:11.024
+00:04:05.333 --> 00:04:11.358
 The rules that read these forms live in one binder at the desk: one function each, with one switch.
 
 66
-00:04:11.024 --> 00:04:12.911
+00:04:11.358 --> 00:04:13.244
 A new rule is one new function.
 
 67
-00:04:12.911 --> 00:04:18.205
+00:04:13.244 --> 00:04:18.538
 A new kind of form breaks every switch until it's handled, and the compiler lists them.
 
 68
-00:04:18.205 --> 00:04:22.221
+00:04:18.538 --> 00:04:22.555
 The library's kinds of form rarely change, so that's a good trade.
 
 69
-00:04:23.133 --> 00:04:25.267
+00:04:23.467 --> 00:04:25.601
 Here's where the picture breaks.
 
 70
-00:04:25.267 --> 00:04:27.601
+00:04:25.601 --> 00:04:27.935
 A real door can't be walked around.
 
 71
-00:04:27.601 --> 00:04:28.201
+00:04:27.935 --> 00:04:28.535
 Code can.
 
 72
-00:04:28.201 --> 00:04:35.737
+00:04:28.535 --> 00:04:36.070
 Data that skips parse, or a nullable status field sneaked back into the records, brings the 48 shapes right back.
 
 73
-00:04:35.737 --> 00:04:38.271
+00:04:36.070 --> 00:04:38.604
 The model is only as good as its edge.
 
 74
-00:04:39.200 --> 00:04:42.643
+00:04:39.533 --> 00:04:42.976
 So what's the harm in one class with optional fields?
 
 75
-00:04:42.643 --> 00:04:45.112
+00:04:42.976 --> 00:04:45.445
 It allows 48 shapes when 3 make sense.
 
 76
-00:04:45.112 --> 00:04:52.063
+00:04:45.445 --> 00:04:52.396
 Give each valid shape its own record, check outside data once at the door, and keep the rules in functions.
 
 77
-00:04:52.200 --> 00:04:52.988
+00:04:52.600 --> 00:04:53.388
 Quick check.
 
 78
-00:04:52.988 --> 00:04:57.848
+00:04:53.388 --> 00:04:58.248
 A class has a status with two values, and three optional fields beside it.
 
 79
-00:04:57.848 --> 00:04:59.687
+00:04:58.248 --> 00:05:00.087
 How many shapes can it take?
 
 80
-00:05:02.933 --> 00:05:05.721
+00:05:03.267 --> 00:05:06.054
 Two, times two, times two, times two: 16.
 
 81
-00:05:05.721 --> 00:05:08.984
+00:05:06.054 --> 00:05:09.317
 That's a lot of shapes for one comment to guard.
