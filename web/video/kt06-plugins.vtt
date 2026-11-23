@@ -1,129 +1,341 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:12.627
-Quarkus, Spring and Hibernate add behavior with proxies: subclasses they generate, which override your methods to run code before and after them.
+00:00:02.700 --> 00:00:05.030
+Picture the print shop's print line.
 
 2
-00:00:12.833 --> 00:00:18.730
-But Kotlin classes and methods are final unless you write open, so the subclass can't exist.
+00:00:05.030 --> 00:00:08.072
+A job goes in as a file and comes out as paper.
 
 3
-00:00:18.730 --> 00:00:21.551
-And nobody keeps writing open on every bean.
+00:00:08.072 --> 00:00:10.531
+On the way, machines change every job.
 
 4
-00:00:22.433 --> 00:00:27.517
-A compiler plugin is a jar that kotlinc loads, to change what it emits.
+00:00:10.531 --> 00:00:14.673
+One takes off the shrink-wrap, so a cover sheet can go in front.
 
 5
-00:00:27.733 --> 00:00:33.595
-all-open opens each class that carries an annotation you configure, and its members.
+00:00:14.673 --> 00:00:16.874
+One adds a blank form at the back.
 
 6
-00:00:33.595 --> 00:00:35.619
-Here, that is OpenForProxies.
+00:00:16.874 --> 00:00:19.657
+One clips on a slip that describes the job.
 
 7
-00:00:35.800 --> 00:00:39.799
-javap on the output shows public class, with no final.
+00:00:19.657 --> 00:00:22.245
+Each acts on a note on the job's ticket.
 
 8
-00:00:39.799 --> 00:00:41.872
-Now a proxy can subclass it.
+00:00:23.167 --> 00:00:26.199
+Here's a question that's easy to be shy about.
 
 9
-00:00:42.067 --> 00:00:47.215
-Private members, backing fields, and classes without the annotation stay as they were.
+00:00:26.199 --> 00:00:28.309
+I put an annotation on my class.
 
 10
-00:00:47.433 --> 00:00:52.261
-kotlin-spring is the same plugin, with Spring's annotations already listed.
+00:00:28.309 --> 00:00:30.748
+Isn't the annotation what changes it?
 
 11
-00:00:52.533 --> 00:00:54.485
-Hibernate needs something else.
+00:00:30.748 --> 00:00:32.132
+And if not, who does?
 
 12
-00:00:54.485 --> 00:01:00.717
-It builds an entity with a constructor that takes no parameters, then sets the fields from the row.
+00:00:33.200 --> 00:00:36.204
+A framework is a library that calls your code.
 
 13
-00:01:00.717 --> 00:01:04.180
-A Kotlin class with val id in its constructor has none.
+00:00:36.204 --> 00:00:43.387
+Many frameworks add behavior with a proxy: a class they generate that extends yours and overrides each method.
 
 14
-00:01:04.367 --> 00:01:07.686
-no-arg adds that constructor to the classes you mark.
+00:00:43.387 --> 00:00:50.244
+A timing proxy starts a clock, calls your original print through super, and writes down how long it took.
 
 15
-00:01:07.686 --> 00:01:11.505
-It's hidden from Kotlin, but Java and reflection can call it.
+00:00:51.167 --> 00:00:55.140
+Let's write that subclass by hand, for the shop's PrintQueue.
 
 16
-00:01:11.700 --> 00:01:14.860
-The catch: it doesn't run your property initializers.
+00:00:55.140 --> 00:00:56.182
+Does it compile?
 
 17
-00:01:14.860 --> 00:01:18.497
-So note is null, though Kotlin declared it a non-null String.
+00:00:56.182 --> 00:00:57.224
+Pause and guess.
 
 18
-00:01:18.700 --> 00:01:22.725
-For an entity, Hibernate fills the mapped columns right after.
+00:01:00.400 --> 00:01:01.155
+It doesn't.
 
 19
-00:01:22.725 --> 00:01:25.711
-For anything else, turn on invokeInitializers.
+00:01:01.155 --> 00:01:08.155
+Kotlin says this type is final, so it cannot be extended, and print is final and cannot be overridden.
 
 20
-00:01:25.967 --> 00:01:33.568
-Most JSON libraries on the JVM use reflection: at run time they look at the class and guess how to fill it.
+00:01:08.155 --> 00:01:12.409
+Java hits the same wall: cannot inherit from final PrintQueue.
 
 21
-00:01:33.800 --> 00:01:36.308
-kotlinx.serialization doesn't guess.
+00:01:13.400 --> 00:01:19.067
+To be fair, that's a good default: a Kotlin class behaves exactly as its author wrote it.
 
 22
-00:01:36.308 --> 00:01:45.227
-For each @Serializable class, the plugin writes a serializer class at compile time, with real serialize and deserialize methods.
+00:01:19.067 --> 00:01:23.524
+On the print line, a final class is a job that arrives shrink-wrapped.
 
 23
-00:01:46.400 --> 00:01:47.075
-The rule.
+00:01:23.524 --> 00:01:26.007
+Nobody can slip a cover sheet in front.
 
 24
-00:01:47.075 --> 00:01:52.322
-A compiler plugin changes what kotlinc emits for the classes you mark.
+00:01:26.733 --> 00:01:31.055
+You could write open on every class and every method a framework touches.
 
 25
-00:01:52.322 --> 00:01:59.369
-all-open removes final, no-arg adds an empty constructor, and serialization adds a serializer.
+00:01:31.055 --> 00:01:35.792
+By the third class, someone forgets one, and finds out while the program starts.
 
 26
-00:01:59.567 --> 00:02:00.643
-Quick check.
+00:01:36.567 --> 00:01:39.378
+So what if we just add a note to the ticket?
 
 27
-00:02:00.643 --> 00:02:07.457
-Kotlin 2.4.21's quarkus preset lists the javax ApplicationScoped annotation.
+00:01:39.378 --> 00:01:43.276
+An annotation, OpenForProxies, and nothing else in the build.
 
 28
-00:02:07.457 --> 00:02:11.402
-Your Quarkus 3 bean carries the jakarta one.
+00:01:43.276 --> 00:01:45.512
+What does javap show for the class?
 
 29
-00:02:11.402 --> 00:02:12.927
-Is the bean open?
+00:01:45.512 --> 00:01:46.535
+Pause and guess.
 
 30
-00:02:15.300 --> 00:02:15.517
-No.
+00:01:49.733 --> 00:01:51.426
+Still public final class.
 
 31
-00:02:15.517 --> 00:02:20.011
-The jakarta name isn't on that list, so the class stays final.
+00:01:51.426 --> 00:01:54.811
+An annotation is just a label that tools can read.
 
 32
-00:02:20.011 --> 00:02:22.765
-List the jakarta annotations yourself.
+00:01:54.811 --> 00:01:58.671
+A note on a ticket does nothing until a machine reads it.
+
+33
+00:01:59.667 --> 00:02:07.360
+That machine is a compiler plugin: a jar that the Kotlin compiler loads to change what it writes into class files.
+
+34
+00:02:07.360 --> 00:02:12.085
+all-open opens marked classes and their members, with no open keyword.
+
+35
+00:02:12.085 --> 00:02:15.324
+You name the annotation once, in the build file.
+
+36
+00:02:15.533 --> 00:02:23.268
+Now javap tells a different story: public class PrintQueue, and a public print, with no final in sight.
+
+37
+00:02:23.268 --> 00:02:31.077
+The timing subclass compiles and runs, and the demo prints: printed flyer.pdf from a tray of 500 sheets.
+
+38
+00:02:31.300 --> 00:02:34.587
+What the machine leaves alone matters just as much.
+
+39
+00:02:34.587 --> 00:02:36.714
+The private method stays private.
+
+40
+00:02:36.714 --> 00:02:39.678
+The field behind traySize stays private final.
+
+41
+00:02:39.678 --> 00:02:44.319
+And PlainHelper, with no note on its ticket, stays a public final class.
+
+42
+00:02:45.300 --> 00:02:48.590
+The second machine adds a blank form at the back.
+
+43
+00:02:48.590 --> 00:02:59.870
+A library that loads records from a database builds your object in two steps: first an empty object, from a constructor with no parameters, then it fills in each field.
+
+44
+00:02:59.870 --> 00:03:05.779
+The no-arg plugin generates that constructor for marked classes, like the shop's JobRow.
+
+45
+00:03:05.779 --> 00:03:07.189
+Kotlin can't call it.
+
+46
+00:03:07.189 --> 00:03:08.800
+Java and reflection can.
+
+47
+00:03:09.033 --> 00:03:13.120
+JobRow declares status, a String, with the value NEW.
+
+48
+00:03:13.120 --> 00:03:16.436
+Build a blank one the way the library does.
+
+49
+00:03:16.436 --> 00:03:17.746
+What's in status?
+
+50
+00:03:17.746 --> 00:03:18.980
+Pause and guess.
+
+51
+00:03:22.167 --> 00:03:22.505
+null.
+
+52
+00:03:22.505 --> 00:03:27.857
+The generated constructor is three instructions, and none of them sets a field.
+
+53
+00:03:27.857 --> 00:03:30.838
+The demo prints: blank.status is null: true.
+
+54
+00:03:30.838 --> 00:03:34.768
+A paper form would at least have status NEW printed on it.
+
+55
+00:03:34.768 --> 00:03:38.968
+So don't trust a field of an object you didn't build yourself.
+
+56
+00:03:39.967 --> 00:03:42.345
+The third machine clips on a slip.
+
+57
+00:03:42.345 --> 00:03:51.159
+Mark a class Serializable, and the serialization plugin writes a whole new class while your code compiles: Queued$$serializer.
+
+58
+00:03:51.159 --> 00:03:59.763
+It lists the fields one by one, so a job event can be written out as JSON text and read back, with no guessing at run time.
+
+59
+00:03:59.967 --> 00:04:02.554
+The demo saves two events and prints this.
+
+60
+00:04:02.554 --> 00:04:06.373
+The type field tells a reader which kind of event each one is.
+
+61
+00:04:06.373 --> 00:04:12.595
+Pin its value with SerialName, or moving a class to another package quietly changes your saved files.
+
+62
+00:04:13.567 --> 00:04:15.327
+And here the picture breaks.
+
+63
+00:04:15.327 --> 00:04:18.346
+On a real line, you can watch the machines work.
+
+64
+00:04:18.346 --> 00:04:23.377
+Your source shows none of it: the class you read is not the class the JVM loads.
+
+65
+00:04:23.377 --> 00:04:30.105
+So when something surprises you, javap shows what's really there, and the build file says who put it there.
+
+66
+00:04:31.100 --> 00:04:32.146
+So, three rules.
+
+67
+00:04:32.146 --> 00:04:37.248
+An annotation is only a note: check that a plugin named in the build reads it.
+
+68
+00:04:37.248 --> 00:04:40.125
+A blank constructor skips your initializers.
+
+69
+00:04:40.125 --> 00:04:44.311
+And after every change to the build, check one class with javap.
+
+70
+00:04:45.300 --> 00:04:47.237
+One more family, for later.
+
+71
+00:04:47.237 --> 00:04:50.466
+kapt and KSP don't change class files at all.
+
+72
+00:04:50.466 --> 00:04:56.566
+They write new source files from your notes, like a second shop printing extra pages.
+
+73
+00:04:56.566 --> 00:04:59.364
+Part 5 of this course is all about KSP.
+
+74
+00:05:00.333 --> 00:05:02.016
+So, who changes my class?
+
+75
+00:05:02.016 --> 00:05:03.295
+Not the annotation.
+
+76
+00:05:03.295 --> 00:05:05.921
+The annotation is a note on the ticket.
+
+77
+00:05:05.921 --> 00:05:10.499
+A compiler plugin, named in the build, is the machine that reads it.
+
+78
+00:05:10.499 --> 00:05:15.279
+It takes away a final, adds a constructor, or writes a whole new class.
+
+79
+00:05:15.500 --> 00:05:16.337
+Quick check.
+
+80
+00:05:16.337 --> 00:05:20.455
+A module has the serialization library, but not the plugin.
+
+81
+00:05:20.455 --> 00:05:24.503
+You mark Queued Serializable and call Queued.serializer().
+
+82
+00:05:24.503 --> 00:05:26.108
+What happens, and when?
+
+83
+00:05:29.300 --> 00:05:33.498
+It fails at compile time: unresolved reference serializer.
+
+84
+00:05:33.498 --> 00:05:34.801
+The note is there.
+
+85
+00:05:34.801 --> 00:05:36.104
+The machine isn't.

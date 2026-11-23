@@ -1,145 +1,377 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.869
-A payment request carries a currency that may be null.
+00:00:02.700 --> 00:00:06.570
+At the print shop, jobs travel between desks in envelopes.
 
 2
-00:00:05.869 --> 00:00:08.687
-You write a small function that throws if it is.
+00:00:06.570 --> 00:00:11.307
+A clerk opens one, sees a paper size inside, and knows the job has one.
 
 3
-00:00:08.900 --> 00:00:12.044
-Call it, then use the currency on the next line.
+00:00:11.307 --> 00:00:13.509
+The next clerk doesn't know that.
 
 4
-00:00:12.044 --> 00:00:13.223
-Does this compile?
+00:00:13.509 --> 00:00:15.377
+She'd have to open it again.
 
 5
-00:00:15.000 --> 00:00:15.249
-No.
+00:00:15.600 --> 00:00:20.213
+Unless the first clerk stamps the outside: checked, paper size filled in.
 
 6
-00:00:15.249 --> 00:00:19.899
-The compiler still sees a String?, and refuses the call.
+00:00:20.213 --> 00:00:24.130
+Then the next clerk trusts the stamp and gets on with the job.
 
 7
-00:00:20.100 --> 00:00:20.875
-Here's why.
+00:00:24.130 --> 00:00:25.647
+Keep that stamp in mind.
 
 8
-00:00:20.875 --> 00:00:28.135
-The compiler narrows a type, a smart cast, only from checks it can see in the function it is compiling.
+00:00:26.733 --> 00:00:28.235
+Now the shop's app.
 
 9
-00:00:28.333 --> 00:00:31.296
-It never opens the body of a function you call.
+00:00:28.235 --> 00:00:32.504
+Some printers report their paper size, and some don't.
 
 10
-00:00:31.296 --> 00:00:34.448
-That body could change, or live in another module.
+00:00:32.504 --> 00:00:41.516
+So lookupPaper of laser-1 returns a String?: a paper size, such as a4, or null, Kotlin's word for no value at all.
 
 11
-00:00:34.667 --> 00:00:37.222
-A contract puts that fact on the outside.
+00:00:41.733 --> 00:00:44.974
+Before printing, the app must be sure there is one.
 
 12
-00:00:37.222 --> 00:00:42.147
-It's the first statement of the function: returns implies currency is not null.
+00:00:44.974 --> 00:00:46.753
+Write: if paper is not null.
 
 13
-00:00:42.333 --> 00:00:45.480
-The compiler reads the contract, never the body.
+00:00:46.753 --> 00:00:50.566
+Inside that if, the compiler treats paper as a plain String.
 
 14
-00:00:45.480 --> 00:00:49.412
-After the call, currency is a String, and the line compiles.
+00:00:50.566 --> 00:00:51.710
+You wrote no cast.
 
 15
-00:00:49.412 --> 00:00:52.231
-That's how require and requireNotNull work.
+00:00:51.710 --> 00:00:55.268
+The compiler made one for you, because it saw the check.
 
 16
-00:00:53.033 --> 00:00:55.893
-But nothing checks the contract against the body.
+00:00:55.268 --> 00:00:56.984
+That's called a smart cast.
 
 17
-00:00:55.893 --> 00:00:58.636
-The compiler trusts a contract unconditionally.
+00:00:57.200 --> 00:01:01.289
+The standard library's require does the same job in one line.
 
 18
-00:00:58.867 --> 00:01:03.102
-So write one that says: if I return true, this event is Captured.
+00:01:01.289 --> 00:01:06.451
+After require, paper not null, the next line can use paper as a plain String.
 
 19
-00:01:03.102 --> 00:01:05.579
-Then make the body always return true.
+00:01:07.533 --> 00:01:10.907
+So let's write our own check, requirePaperPlain.
 
 20
-00:01:05.800 --> 00:01:07.571
-Call it on a Failed event.
+00:01:10.907 --> 00:01:12.593
+If paper is null, throw.
 
 21
-00:01:07.571 --> 00:01:09.615
-It compiles without a warning.
+00:01:12.593 --> 00:01:15.686
+Then, on the next line, paper dot uppercase.
 
 22
-00:01:09.615 --> 00:01:14.588
-Then the JVM checks the cast it was given, and throws ClassCastException.
+00:01:15.686 --> 00:01:16.810
+Does it compile?
 
 23
-00:01:15.667 --> 00:01:20.567
-One level down, javap shows no trace of the contract in the bytecode.
+00:01:16.810 --> 00:01:17.935
+Pause and guess.
 
 24
-00:01:20.567 --> 00:01:25.254
-It lives in Kotlin metadata, which only the Kotlin compiler reads.
+00:01:21.133 --> 00:01:21.936
+It doesn't.
 
 25
-00:01:25.254 --> 00:01:27.100
-Java callers never see it.
+00:01:21.936 --> 00:01:29.672
+The compiler says only safe or non-null asserted calls are allowed on a nullable receiver of type String?.
 
 26
-00:01:28.033 --> 00:01:33.403
-Contracts are Kotlin only, and still Experimental in Kotlin 2.4, so you opt in.
+00:01:29.672 --> 00:01:32.737
+In plain words: paper might still be null.
 
 27
-00:01:33.403 --> 00:01:38.500
-Java doesn't track null in its types, so the question never comes up there.
+00:01:33.667 --> 00:01:36.733
+Here's the question that's easy to be shy about.
 
 28
-00:01:39.567 --> 00:01:42.907
-The rule: the compiler learns only from what it can see.
+00:01:36.733 --> 00:01:39.800
+The check is right there, and it throws on null.
 
 29
-00:01:42.907 --> 00:01:47.978
-A contract tells it what a function guarantees, and it believes you without checking.
+00:01:39.800 --> 00:01:41.461
+require gets away with it.
 
 30
-00:01:47.978 --> 00:01:50.424
-So keep the body as small as the promise.
+00:01:41.461 --> 00:01:43.059
+So why can't my function?
 
 31
-00:01:50.633 --> 00:01:51.407
-Quick check.
+00:01:44.133 --> 00:01:47.673
+Because the compiler is a clerk who trusts her own eyes.
 
 32
-00:01:51.407 --> 00:01:57.017
-You change requireCurrency to log a warning instead of throwing, and keep the contract.
+00:01:47.673 --> 00:01:50.707
+She saw the check in the function she's reading?
 
 33
-00:01:57.017 --> 00:01:58.952
-Does the caller still compile?
+00:01:50.707 --> 00:01:51.655
+Then she knows.
 
 34
-00:02:00.933 --> 00:02:01.217
-Yes.
+00:01:51.655 --> 00:01:53.868
+A colleague did it at another desk?
 
 35
-00:02:01.217 --> 00:02:04.622
-The compiler reads the contract, never the body.
+00:01:53.868 --> 00:01:56.712
+As far as she's concerned, it never happened.
 
 36
-00:02:04.622 --> 00:02:09.657
-The promise is now a lie, and a null reaches the next line at run time.
+00:01:56.712 --> 00:01:58.988
+She never opens a function you call.
+
+37
+00:01:58.988 --> 00:02:00.884
+Its body is a sealed envelope.
+
+38
+00:02:01.800 --> 00:02:02.889
+And that's fair.
+
+39
+00:02:02.889 --> 00:02:09.763
+If smart casts followed bodies, deleting one throw could quietly change which code compiles far away.
+
+40
+00:02:09.763 --> 00:02:15.004
+And often there's no body to read: a library arrives as compiled class files.
+
+41
+00:02:16.100 --> 00:02:18.253
+So we need a stamp on the outside.
+
+42
+00:02:18.253 --> 00:02:26.865
+In Kotlin, that's a contract: a contract block, written as the first statement of a function, that states a fact for callers to rely on.
+
+43
+00:02:27.067 --> 00:02:33.599
+returns implies paper not null says: if this function returns normally, paper was not null.
+
+44
+00:02:33.599 --> 00:02:37.045
+Add it to our check, and the next line compiles.
+
+45
+00:02:37.045 --> 00:02:39.055
+The demo prints: paper = A4.
+
+46
+00:02:39.267 --> 00:02:45.216
+Contracts are still Experimental in Kotlin 2.4, which means the feature may still change.
+
+47
+00:02:45.216 --> 00:02:49.294
+So you agree in writing, with OptIn of ExperimentalContracts.
+
+48
+00:02:49.294 --> 00:02:53.239
+Leave that out, and you get: this declaration needs opt-in.
+
+49
+00:02:54.333 --> 00:02:56.379
+Java never meets this problem.
+
+50
+00:02:56.379 --> 00:03:01.152
+Its types don't track null at all, so it compiles, as everything does.
+
+51
+00:03:01.152 --> 00:03:02.379
+That's not safety.
+
+52
+00:03:02.379 --> 00:03:03.811
+It's just not asking.
+
+53
+00:03:04.900 --> 00:03:07.108
+There's a second kind of stamp.
+
+54
+00:03:07.108 --> 00:03:13.377
+callsInPlace, block, EXACTLY_ONCE says: this lambda runs exactly once, during this call.
+
+55
+00:03:13.377 --> 00:03:20.216
+So a val declared without a value can be assigned inside it, and the demo prints label = job-17.
+
+56
+00:03:21.300 --> 00:03:22.947
+Now let's be suspicious.
+
+57
+00:03:22.947 --> 00:03:24.388
+Who checks the stamp?
+
+58
+00:03:24.388 --> 00:03:28.506
+A job event is either Printed, with a page count, or Jammed.
+
+59
+00:03:28.506 --> 00:03:32.899
+isPrinted has a contract: a true answer means this is a Printed.
+
+60
+00:03:32.899 --> 00:03:35.370
+The lying version just returns true.
+
+61
+00:03:35.370 --> 00:03:38.664
+It's a clerk who stamps every envelope unopened.
+
+62
+00:03:38.664 --> 00:03:39.693
+Very fast work.
+
+63
+00:03:39.900 --> 00:03:44.738
+So what happens: a compile error, a warning, or a failure at run time?
+
+64
+00:03:44.738 --> 00:03:45.844
+Pause and guess.
+
+65
+00:03:49.033 --> 00:03:51.657
+It compiles without a single warning.
+
+66
+00:03:51.657 --> 00:03:54.351
+Then, at run time: ClassCastException.
+
+67
+00:03:54.351 --> 00:03:56.974
+A Jammed cannot be cast to a Printed.
+
+68
+00:03:56.974 --> 00:03:57.470
+Well...
+
+69
+00:03:57.470 --> 00:03:59.243
+the stamp said otherwise.
+
+70
+00:04:00.333 --> 00:04:02.234
+One level down, it's plain.
+
+71
+00:04:02.234 --> 00:04:04.980
+javap prints the bytecode the JVM runs.
+
+72
+00:04:04.980 --> 00:04:12.301
+Right after the call to isPrinted sits a checkcast to Printed that nobody wrote by hand: the smart cast.
+
+73
+00:04:12.301 --> 00:04:16.243
+The contract is only extra data for the Kotlin compiler.
+
+74
+00:04:16.243 --> 00:04:18.777
+The running program never checks it.
+
+75
+00:04:19.867 --> 00:04:26.239
+The design document for contracts says it plainly: the compiler trusts contracts unconditionally.
+
+76
+00:04:26.239 --> 00:04:28.998
+A contract can't make a wrong value right.
+
+77
+00:04:28.998 --> 00:04:33.071
+It only moves the cast into a promise inside another function.
+
+78
+00:04:34.167 --> 00:04:35.168
+So, three rules.
+
+79
+00:04:35.168 --> 00:04:41.361
+Keep the body as simple as the promise, the way require does, so a reader can check it at a glance.
+
+80
+00:04:41.361 --> 00:04:44.801
+Put the contract first: anything before it is an error.
+
+81
+00:04:44.801 --> 00:04:47.804
+And opt in knowing the feature can still change.
+
+82
+00:04:48.900 --> 00:04:52.130
+Here the shop picture is kinder than the compiler.
+
+83
+00:04:52.130 --> 00:04:56.394
+A careful clerk might peek inside a stamped envelope now and then.
+
+84
+00:04:56.394 --> 00:04:57.944
+The compiler never does.
+
+85
+00:04:59.033 --> 00:05:02.361
+So, why can't my check function do what require does?
+
+86
+00:05:02.361 --> 00:05:04.370
+It can, once it carries a stamp.
+
+87
+00:05:04.370 --> 00:05:07.698
+The compiler smart-casts only from checks it can see.
+
+88
+00:05:07.698 --> 00:05:13.097
+A contract writes the check on the outside, and the compiler believes it, true or not.
+
+89
+00:05:13.300 --> 00:05:15.270
+Quick check, for your own code.
+
+90
+00:05:15.270 --> 00:05:21.625
+A call to your own check function, and on the very next line, two exclamation marks after the value.
+
+91
+00:05:21.625 --> 00:05:22.579
+What's missing?
+
+92
+00:05:25.767 --> 00:05:26.454
+A contract.
+
+93
+00:05:26.454 --> 00:05:31.078
+Those two marks are you telling the compiler what your check already knew.
+
+94
+00:05:31.078 --> 00:05:33.765
+Or the check could simply return the value.
