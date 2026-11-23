@@ -1,161 +1,357 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:04.337
-An authorization was slow.
+00:00:02.700 --> 00:00:05.449
+Back in the restaurant, a long night is over.
 
 2
-00:00:04.337 --> 00:00:08.179
-Your log line says how long the issuer call took: one number.
+00:00:05.449 --> 00:00:08.137
+A customer says the soup took forty minutes.
 
 3
-00:00:08.179 --> 00:00:13.280
-It can't say whether a GC stopped every thread, or your thread waited for a lock.
+00:00:08.137 --> 00:00:10.336
+The cook remembers making it in six.
 
 4
-00:00:13.500 --> 00:00:15.309
-JDK Flight Recorder can.
+00:00:10.567 --> 00:00:14.368
+And here's the awkward part: both of them are telling the truth.
 
 5
-00:00:15.309 --> 00:00:21.641
-It's built into the JVM, and it writes events: small records, each with a timestamp.
+00:00:14.368 --> 00:00:19.476
+The bowl may have waited for the only waiter, or for the kitchen to finish washing up.
 
 6
-00:00:21.833 --> 00:00:27.824
-GC pauses, JIT compilations, lock waits, sampled stacks and sampled allocations.
+00:00:19.476 --> 00:00:23.515
+Two honest people, one bowl of soup, and nobody wrote anything down.
 
 7
-00:00:27.824 --> 00:00:30.295
-Your own code can add events too.
+00:00:24.433 --> 00:00:26.716
+Our program has the same argument.
 
 8
-00:00:30.500 --> 00:00:33.161
-They all land on one timeline, on one clock.
+00:00:26.716 --> 00:00:34.101
+The report service fetches each document from a document store: another program that answers over the network.
 
 9
-00:00:33.161 --> 00:00:36.487
-So you can see what else happened during the slow call.
+00:00:34.101 --> 00:00:39.941
+Some are slow, so we wrap a timer around the call, and log: fetch took 46 milliseconds.
 
 10
-00:00:38.167 --> 00:00:39.578
-Where do the events go?
+00:00:40.167 --> 00:00:43.397
+So here's the question that's easy to be shy about.
 
 11
-00:00:39.578 --> 00:00:44.303
-Into a recording, which keeps them in memory buffers and writes them to disk.
+00:00:43.397 --> 00:00:45.804
+The log line already has the duration.
 
 12
-00:00:44.500 --> 00:00:45.978
-Picture it as a ring.
+00:00:45.804 --> 00:00:48.464
+What more could any tool possibly tell us?
 
 13
-00:00:45.978 --> 00:00:48.089
-New events go in at the front.
+00:00:51.633 --> 00:00:53.762
+Look at what that line can't say.
 
 14
-00:00:48.089 --> 00:00:53.437
-Set maxage or maxsize, and once the ring is full, the oldest part falls off.
+00:00:53.762 --> 00:00:57.698
+Was every thread paused right then, for a garbage collection?
 
 15
-00:00:53.633 --> 00:00:58.824
-Set no limit, and the JVM picks one for you: 250 MB.
+00:00:57.698 --> 00:01:01.246
+The garbage collector, or GC, frees memory nobody uses.
 
 16
-00:00:59.033 --> 00:01:04.642
-When something goes wrong, JFR.dump copies what the ring holds into a file.
+00:01:01.246 --> 00:01:06.795
+Did our thread wait for a lock, a guard that lets one thread at a time into some code?
 
 17
-00:01:04.642 --> 00:01:07.857
-The JVM keeps running, and keeps recording.
+00:01:06.795 --> 00:01:09.117
+Did something grab a pile of memory?
 
 18
-00:01:08.967 --> 00:01:10.228
-You have the file.
+00:01:09.333 --> 00:01:13.488
+It's a witness who watched one table all night, on a clock of its own.
 
 19
-00:01:10.228 --> 00:01:11.839
-What do you read first?
+00:01:13.488 --> 00:01:15.981
+Honest, and blind to the rest of the room.
 
 20
-00:01:13.633 --> 00:01:14.453
-jfr summary.
+00:01:16.900 --> 00:01:20.962
+What we'd love is one log of everything the kitchen did, on one clock.
 
 21
-00:01:14.453 --> 00:01:18.758
-It lists every event type in the file, with its count and size.
+00:01:20.962 --> 00:01:25.895
+And cheap enough to keep every night, because nobody knows which night will go wrong.
 
 22
-00:01:18.758 --> 00:01:21.355
-Now you know what the recording holds.
+00:01:26.100 --> 00:01:32.123
+The JVM, the program that runs your Java and Kotlin, keeps a log like that.
 
 23
-00:01:22.233 --> 00:01:24.743
-Then ask a question with jfr view.
+00:01:32.123 --> 00:01:36.460
+It's already in your JDK: JDK Flight Recorder, or JFR.
 
 24
-00:01:24.743 --> 00:01:27.473
-Each view is a query over the events.
+00:01:37.367 --> 00:01:39.317
+Let's map the kitchen onto it.
 
 25
-00:01:27.667 --> 00:01:35.801
-allocation-by-site takes every allocation sample, groups the samples by the method at the top of the stack, and adds up their weight.
+00:01:39.317 --> 00:01:42.762
+Each cook is a thread, a line of work in the program.
 
 26
-00:01:36.033 --> 00:01:41.295
-In the demo, one fee method made almost 41% of the allocation pressure.
+00:01:42.762 --> 00:01:53.877
+Each line in the log book is an event: a small record with a start time, often a duration, the thread, and usually a stack trace, the chain of method calls that led there.
 
 27
-00:01:41.295 --> 00:01:46.927
-Other views answer other questions: hot methods, GC pauses, lock contention.
+00:01:54.100 --> 00:01:59.058
+The whole kitchen washing up is a GC pause, and it hits every thread at once.
 
 28
-00:01:47.700 --> 00:01:50.712
-You can also start a recording from code.
+00:01:59.058 --> 00:02:02.213
+Waiting for the only waiter is a wait for a lock.
 
 29
-00:01:50.712 --> 00:01:53.945
-This one keeps the last hour, within 200 MB.
+00:02:02.213 --> 00:02:08.008
+And the JVM writes plenty more on its own, like samples of what running threads are doing.
 
 30
-00:01:53.945 --> 00:01:56.957
-The API is the same from Java and Kotlin.
+00:02:08.233 --> 00:02:14.070
+Our own code can add lines too, like the cook's own notes: one for every call to the store.
 
 31
-00:01:57.767 --> 00:01:58.396
-The rule.
+00:02:14.070 --> 00:02:16.186
+And all of them sit on one clock.
 
 32
-00:01:58.396 --> 00:02:03.149
-JFR keeps a rolling window of timestamped events from the whole JVM.
+00:02:16.186 --> 00:02:17.661
+That's the whole point.
 
 33
-00:02:03.149 --> 00:02:10.139
-Keep a recording on with limits, dump it when something is slow, then read the summary, then a view.
+00:02:21.767 --> 00:02:24.114
+Here the kitchen picture has a limit.
 
 34
-00:02:10.300 --> 00:02:11.135
-Quick check.
+00:02:24.114 --> 00:02:26.144
+The log covers our kitchen only.
 
 35
-00:02:11.135 --> 00:02:13.223
-Your recording keeps one hour.
+00:02:26.144 --> 00:02:30.077
+The document store is like the farm that grows the vegetables.
 
 36
-00:02:13.223 --> 00:02:16.007
-The slow payment happened two hours ago.
+00:02:30.077 --> 00:02:35.660
+If the farm is slow, our log shows us waiting, but not why: the farm keeps its own book.
 
 37
-00:02:16.007 --> 00:02:17.260
-Is it in the dump?
+00:02:36.567 --> 00:02:39.740
+One session of this log is called a recording.
 
 38
-00:02:19.633 --> 00:02:19.840
-No.
+00:02:39.740 --> 00:02:43.878
+It keeps events in memory, and moves them to disk in chunks.
 
 39
-00:02:19.840 --> 00:02:21.289
-It fell off the ring.
+00:02:43.878 --> 00:02:48.431
+Picture a log book that tears out its oldest pages when it's full.
 
 40
-00:02:21.289 --> 00:02:24.944
-Pick limits that match how far back you need to look.
+00:02:48.431 --> 00:02:50.707
+maxage says how far back to keep.
+
+41
+00:02:50.707 --> 00:02:52.639
+maxsize says how many bytes.
+
+42
+00:02:52.639 --> 00:02:55.743
+Set neither, and the JVM keeps 250 megabytes.
+
+43
+00:02:56.667 --> 00:03:01.279
+You can start a recording with one option on the java command.
+
+44
+00:03:01.279 --> 00:03:08.346
+Or on a JVM that's already running, with jcmd, a JDK tool that sends commands to a running JVM.
+
+45
+00:03:08.346 --> 00:03:11.321
+Here's what the report service answered.
+
+46
+00:03:11.533 --> 00:03:17.275
+When something goes wrong, JFR.dump copies the pages so far into a file, and stops nothing.
+
+47
+00:03:17.275 --> 00:03:21.061
+You don't have to close the restaurant to read the log book.
+
+48
+00:03:21.061 --> 00:03:25.036
+When the bad night comes, the last hour is already in the book.
+
+49
+00:03:25.967 --> 00:03:28.604
+But always on only works if it's cheap.
+
+50
+00:03:28.604 --> 00:03:30.903
+JFR comes with two settings files.
+
+51
+00:03:30.903 --> 00:03:40.777
+default calls itself safe for continuous use in production, typically under 1 percent overhead, and samples running threads every 20 milliseconds.
+
+52
+00:03:40.777 --> 00:03:44.293
+profile says around 2 percent, and samples every 10.
+
+53
+00:03:44.293 --> 00:03:47.675
+So: default to leave on, profile for a short hunt.
+
+54
+00:03:48.600 --> 00:03:51.309
+Now let's ask a real recording what's in it.
+
+55
+00:03:51.309 --> 00:03:55.311
+The lesson's demo runs four threads for 4 seconds, under profile.
+
+56
+00:03:55.311 --> 00:04:00.668
+Each counts words, asks a fake store for a document, and sometimes holds a shared lock.
+
+57
+00:04:00.668 --> 00:04:03.131
+Which event will have the highest count?
+
+58
+00:04:03.131 --> 00:04:06.148
+And how many samples of running code will we get?
+
+59
+00:04:09.933 --> 00:04:14.866
+jfr summary lists every event type, with a count.
+
+60
+00:04:14.866 --> 00:04:20.906
+At the top, the garbage collector's paperwork: 1,951 events.
+
+61
+00:04:20.906 --> 00:04:23.825
+Then ours: 1,361 store calls.
+
+62
+00:04:23.825 --> 00:04:28.456
+Then 1,207 allocation samples, and 560 sleeps.
+
+63
+00:04:28.667 --> 00:04:31.859
+Only the garbage collector writes more than we do.
+
+64
+00:04:31.859 --> 00:04:34.541
+Every kitchen has one colleague like that.
+
+65
+00:04:34.541 --> 00:04:38.116
+And its lines sit right next to ours, on the same clock.
+
+66
+00:04:38.333 --> 00:04:40.081
+Now look near the bottom.
+
+67
+00:04:40.081 --> 00:04:46.304
+Execution samples, the snapshots of running code: just 40, in 4 seconds, on four threads.
+
+68
+00:04:46.533 --> 00:04:47.248
+Why so few?
+
+69
+00:04:47.248 --> 00:04:55.178
+The threads spent most of their time asleep, waiting for the store, and the sampler only counts threads running Java code.
+
+70
+00:04:55.178 --> 00:04:58.038
+A cook waiting for a delivery isn't cooking.
+
+71
+00:04:58.038 --> 00:04:59.403
+Keep that 40 in mind.
+
+72
+00:05:00.333 --> 00:05:01.402
+So, a few rules.
+
+73
+00:05:01.402 --> 00:05:02.871
+Set maxage or maxsize.
+
+74
+00:05:02.871 --> 00:05:06.210
+Leave default on, and use profile for short hunts.
+
+75
+00:05:06.210 --> 00:05:09.282
+Don't expect it to see inside another program.
+
+76
+00:05:09.282 --> 00:05:15.960
+And 40 samples can spot a method that takes most of the time, but can't show what happens inside it.
+
+77
+00:05:15.960 --> 00:05:19.232
+That takes thousands of samples: the next lesson.
+
+78
+00:05:20.133 --> 00:05:23.660
+So, what can a recording tell you that the log line can't?
+
+79
+00:05:23.660 --> 00:05:26.821
+What else happened at the same moment, on one clock.
+
+80
+00:05:26.821 --> 00:05:30.713
+A cheap recording that's always on is evidence you already have.
+
+81
+00:05:30.713 --> 00:05:32.597
+Dump it, instead of restarting.
+
+82
+00:05:32.800 --> 00:05:33.720
+Quick check.
+
+83
+00:05:33.720 --> 00:05:36.633
+A request was slow at 9:14 last night.
+
+84
+00:05:36.633 --> 00:05:42.000
+The program has run a recording all week, with maxage set to one hour.
+
+85
+00:05:42.000 --> 00:05:43.149
+It's now 10:30.
+
+86
+00:05:43.149 --> 00:05:45.143
+Is 9:14 still in the book?
+
+87
+00:05:48.333 --> 00:05:48.546
+No.
+
+88
+00:05:48.546 --> 00:05:53.157
+The book keeps only the last hour, so 9:14 was torn out at 10:14.
+
+89
+00:05:53.157 --> 00:05:57.271
+Keep enough book to cover the time it takes you to notice.
