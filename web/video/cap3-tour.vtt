@@ -1,113 +1,361 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.394
-A payments service reads events from Kafka as raw strings.
+00:00:02.700 --> 00:00:06.183
+Picture Pedal Post, the bike courier in a small town.
 
 2
-00:00:06.394 --> 00:00:13.145
-When each handler parses them itself, a bad amount fails in the ledger, after audit has already logged it.
+00:00:06.183 --> 00:00:12.164
+Its riders carry parcels across town on cargo bikes, and each rider has a handheld scanner.
 
 3
-00:00:13.367 --> 00:00:16.527
-This capstone builds one library that stops that.
+00:00:12.367 --> 00:00:23.445
+Scan a parcel at a door, and the scanner sends a short message to Pedal Post's program: parcel PP-7781, collected, 2,500 grams.
 
 4
-00:00:16.527 --> 00:00:17.881
-Here it is, finished.
+00:00:23.667 --> 00:00:26.318
+Three parts of the program want to hear it.
 
 5
-00:00:19.133 --> 00:00:24.192
-A raw record crosses one edge, and comes out as a typed event, or a rejection.
+00:00:26.318 --> 00:00:28.167
+The tracking page adds a line.
 
 6
-00:00:24.192 --> 00:00:27.759
-The bus runs its middleware, then the event's handlers.
+00:00:28.167 --> 00:00:30.818
+The load board adds the weight to the bike.
 
 7
-00:00:27.759 --> 00:00:30.353
-Kotlin and Java code each get a door in.
+00:00:30.818 --> 00:00:32.483
+And the sender gets a text.
 
 8
-00:00:30.567 --> 00:00:34.200
-Lesson 1, in Kotlin, builds the model and the edge.
+00:00:32.700 --> 00:00:36.552
+That message is an event: a note that something already happened.
 
 9
-00:00:34.433 --> 00:00:39.325
-A sealed interface lists every event, so a when with no else must handle them all.
+00:00:36.552 --> 00:00:40.226
+Over three sittings, we'll build a small event library for it.
 
 10
-00:00:39.533 --> 00:00:44.233
-Ids and amounts are value classes, which check themselves when they're built.
+00:00:40.226 --> 00:00:46.331
+One part announces the news once, and the others react, without the announcer knowing who is listening.
 
 11
-00:00:44.467 --> 00:00:49.102
-And parseEvent turns raw fields into an event, or into Rejected.
+00:00:46.533 --> 00:00:51.361
+And it's typed: the compiler knows exactly which kind of event each one is.
 
 12
-00:00:49.102 --> 00:00:50.261
-It never throws.
+00:00:52.267 --> 00:00:54.312
+We build it from the inside out.
 
 13
-00:00:50.500 --> 00:00:52.427
-Lesson 2 builds the bus.
+00:00:54.312 --> 00:00:57.509
+This one writes the model: a type for every event.
 
 14
-00:00:52.633 --> 00:00:58.037
-It finds handlers by the event's class, then by each event supertype, nearest first.
+00:00:57.509 --> 00:01:02.623
+The next one builds the bus, which carries each event to everyone who signed up.
 
 15
-00:00:58.267 --> 00:01:02.036
-A handler only takes events in, so Handler is declared in.
+00:01:02.623 --> 00:01:06.011
+The last one gives it an API for Kotlin and for Java.
 
 16
-00:01:02.036 --> 00:01:04.765
-One audit handler fits every subscription.
+00:01:06.933 --> 00:01:09.740
+Now, a question that's easy to be shy about.
 
 17
-00:01:04.967 --> 00:01:09.965
-Each subscription returns a handle, and one failing handler can't stop the others.
+00:01:09.740 --> 00:01:11.972
+A scan is just three little fields.
 
 18
-00:01:10.200 --> 00:01:14.260
-Logging and dropping duplicates run once per event, as a chain.
+00:01:11.972 --> 00:01:14.396
+Each handler can read them for itself.
 
 19
-00:01:14.500 --> 00:01:17.493
-Timing one handler is a decorator around it.
+00:01:14.396 --> 00:01:17.968
+So why build a whole model before anything even happens?
 
 20
-00:01:17.700 --> 00:01:19.947
-Lesson 3 adds the API.
+00:01:19.067 --> 00:01:20.726
+Let's try it without one.
 
 21
-00:01:20.167 --> 00:01:22.689
-Kotlin code gets a subscription DSL.
+00:01:20.726 --> 00:01:28.229
+The demo has three handlers, small functions that each react to a scan, and each reads the raw fields for itself.
 
 22
-00:01:22.689 --> 00:01:26.473
-It subscribes everything at once, when the block ends.
+00:01:28.229 --> 00:01:29.689
+Here's the load board.
 
 23
-00:01:26.700 --> 00:01:30.504
-Its on function is reified, so it knows each event's class.
+00:01:29.900 --> 00:01:35.736
+If the type says collected, it turns the grams text into a number, right inside the handler.
 
 24
-00:01:30.733 --> 00:01:37.545
-Java code gets Class overloads, and a facade that still builds the value classes, so every check runs.
+00:01:35.736 --> 00:01:37.956
+Java and Kotlin say the same thing.
 
 25
-00:01:37.767 --> 00:01:43.981
-The lab is Kotlin, plus one Java class that uses the library the way a Java team would.
+00:01:39.633 --> 00:01:41.315
+Three scans go in.
 
 26
-00:01:44.200 --> 00:01:46.830
-One rule holds through all three lessons.
+00:01:41.315 --> 00:01:46.174
+PP-7781 collected, then delivered, both 2,500 grams.
 
 27
-00:01:46.830 --> 00:01:49.395
-Raw fields are parsed once, at the edge.
+00:01:46.174 --> 00:01:55.611
+Then PP-7782, collected, and the rider typed the weight as 2.5, because they weighed it in kilograms.
 
 28
-00:01:49.395 --> 00:01:53.756
-Past that line, no handler reads a string, and every event is valid.
+00:01:55.833 --> 00:01:57.598
+Test scans are always tidy.
+
+29
+00:01:57.598 --> 00:02:02.238
+Real scans are typed with gloves on, in the rain, at a stranger's door.
+
+30
+00:02:02.238 --> 00:02:05.178
+And the scanner sends exactly what was typed.
+
+31
+00:02:05.178 --> 00:02:06.420
+It has no opinions.
+
+32
+00:02:07.033 --> 00:02:08.471
+So, before we run it.
+
+33
+00:02:08.471 --> 00:02:11.140
+Which scan fails, and in which handler?
+
+34
+00:02:11.140 --> 00:02:12.920
+And how many texts go out?
+
+35
+00:02:17.000 --> 00:02:22.297
+The first two scans go fine: 2,500 grams onto the bike, then off again.
+
+36
+00:02:22.500 --> 00:02:23.483
+Then PP-7782.
+
+37
+00:02:23.483 --> 00:02:25.979
+The tracking page lists it first.
+
+38
+00:02:25.979 --> 00:02:34.829
+Then the load board tries to read 2.5 as a whole number, and throws a NumberFormatException, halfway through its job.
+
+39
+00:02:35.033 --> 00:02:43.083
+So the tracking page has already told the world that PP-7782 is on a bike, and the load board never added it.
+
+40
+00:02:43.300 --> 00:02:44.800
+And texts sent: zero.
+
+41
+00:02:44.800 --> 00:02:45.372
+Not one.
+
+42
+00:02:45.372 --> 00:02:52.088
+The text handler compares the type with deliver, one letter short, and nothing ever complains.
+
+43
+00:02:52.300 --> 00:02:53.966
+Two bugs from three scans.
+
+44
+00:02:53.966 --> 00:03:01.273
+Each handler parses and checks for itself, so each one fails in its own way, and the compiler can't see any of it.
+
+45
+00:03:02.200 --> 00:03:07.229
+You might be thinking: easy, fix the typo and put a try around the number.
+
+46
+00:03:07.229 --> 00:03:09.540
+Fair enough, that fixes these two.
+
+47
+00:03:09.540 --> 00:03:15.724
+But where would a check have to go, so that PP-7782 never reaches the tracking page at all?
+
+48
+00:03:17.900 --> 00:03:19.605
+Not inside any one handler.
+
+49
+00:03:19.605 --> 00:03:21.373
+The tracking page ran first.
+
+50
+00:03:21.373 --> 00:03:24.341
+The check has to stand in front of all of them.
+
+51
+00:03:25.267 --> 00:03:27.458
+Picture the depot without a clerk.
+
+52
+00:03:27.458 --> 00:03:31.904
+A rider's note arrives in handwriting, and it goes from desk to desk.
+
+53
+00:03:31.904 --> 00:03:35.900
+Each desk squints at the handwriting and reads it its own way.
+
+54
+00:03:35.900 --> 00:03:38.284
+One desk can't read 2.5 and gives up.
+
+55
+00:03:38.284 --> 00:03:39.831
+Another misreads a word.
+
+56
+00:03:39.831 --> 00:03:43.504
+And the desk that opens next month brings its own squint.
+
+57
+00:03:44.433 --> 00:03:46.281
+Now put one clerk at the door.
+
+58
+00:03:46.281 --> 00:03:53.303
+The clerk copies each note onto a printed form, with a fixed set of boxes, and the units printed next to each box.
+
+59
+00:03:53.303 --> 00:03:59.216
+If the note doesn't fit the form, the clerk sends it back, with a slip that says what was wrong.
+
+60
+00:04:00.233 --> 00:04:01.202
+Let's map that.
+
+61
+00:04:01.202 --> 00:04:04.883
+The handwritten note is the raw fields, a map of strings.
+
+62
+00:04:04.883 --> 00:04:06.368
+Each desk is a handler.
+
+63
+00:04:06.368 --> 00:04:11.017
+The printed form, with its fixed boxes, is a closed list of event types.
+
+64
+00:04:11.017 --> 00:04:13.988
+The units are small types for ids and weights.
+
+65
+00:04:13.988 --> 00:04:16.700
+And the clerk is one function at the door.
+
+66
+00:04:17.633 --> 00:04:19.725
+Our picture breaks in one place.
+
+67
+00:04:19.725 --> 00:04:24.299
+A real clerk could phone the rider: did you mean two and a half kilos?
+
+68
+00:04:24.299 --> 00:04:25.541
+Ours never guesses.
+
+69
+00:04:25.541 --> 00:04:27.175
+It refuses, and says why.
+
+70
+00:04:28.100 --> 00:04:31.268
+Each of those three pieces gets its own section.
+
+71
+00:04:31.268 --> 00:04:35.889
+A sealed interface: the closed list, so the compiler knows every case.
+
+72
+00:04:35.889 --> 00:04:40.509
+Value classes: a ParcelId and a Weight that can't even be built wrong.
+
+73
+00:04:40.509 --> 00:04:46.516
+And parseEvent at the door, which hands back Ok with an event, or Rejected with the reason.
+
+74
+00:04:47.433 --> 00:04:50.655
+Behind that door, no handler reads a raw field again.
+
+75
+00:04:50.655 --> 00:04:53.025
+Nobody squints at handwriting any more.
+
+76
+00:04:53.025 --> 00:04:56.733
+The load board gets a Weight in whole grams, already checked.
+
+77
+00:04:57.633 --> 00:05:03.249
+So look in your own code for a map of raw string fields handed to more than one function.
+
+78
+00:05:03.249 --> 00:05:06.971
+Each of those functions is a desk squinting at handwriting.
+
+79
+00:05:06.971 --> 00:05:09.621
+Keep the checks in one place: at the door.
+
+80
+00:05:10.533 --> 00:05:13.394
+So, why build a model before anything happens?
+
+81
+00:05:13.394 --> 00:05:19.178
+Because a raw scan gets read once per handler, and every reading is a new chance to be wrong.
+
+82
+00:05:19.178 --> 00:05:22.225
+Parse once, at the door, into an event or a note.
+
+83
+00:05:22.225 --> 00:05:24.277
+Behind the door, trust the types.
+
+84
+00:05:24.500 --> 00:05:25.310
+Quick check.
+
+85
+00:05:25.310 --> 00:05:31.654
+Next month a fourth handler arrives, a weekly report, and it reads the grams field for itself.
+
+86
+00:05:31.654 --> 00:05:33.408
+Can the 2.5 scan break it?
+
+87
+00:05:33.408 --> 00:05:36.985
+And with the door in place, what does the report get?
+
+88
+00:05:40.167 --> 00:05:44.902
+Without the door, yes: it squints at the same handwriting, in its own way.
+
+89
+00:05:44.902 --> 00:05:47.014
+With the door, it never sees 2.5.
+
+90
+00:05:47.014 --> 00:05:51.045
+It only gets events whose Weight was checked once, at the door.

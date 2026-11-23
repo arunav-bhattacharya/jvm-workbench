@@ -1,149 +1,333 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.248
-A Java team wants to call the Kotlin event library.
+00:00:02.700 --> 00:00:05.134
+Pedal Post's depot has two doors.
 
 2
-00:00:06.467 --> 00:00:08.155
-javac can't read Kotlin.
+00:00:05.134 --> 00:00:13.913
+Riders who work there every day come in at the front, speaking the house shorthand: PP-7781, collected, two and a half.
 
 3
-00:00:08.155 --> 00:00:14.907
-It reads the class files kotlinc wrote, and some Kotlin features look odd there, or are missing.
+00:00:14.133 --> 00:00:19.362
+Partner drivers use the side door, where a clerk hands them the standard printed form.
 
 4
-00:00:15.733 --> 00:00:17.639
-First, default arguments.
+00:00:19.362 --> 00:00:23.192
+Both doors lead to the same sorting room, under the same rules.
 
 5
-00:00:17.639 --> 00:00:20.611
-From Kotlin, PlainBus of refunds works.
+00:00:23.400 --> 00:00:25.323
+Our library needs both doors.
 
 6
-00:00:20.833 --> 00:00:24.759
-From Java, the same call fails: no suitable constructor found.
+00:00:25.323 --> 00:00:27.776
+The front door is for Kotlin callers.
 
 7
-00:00:24.759 --> 00:00:29.444
-The class file has only two: the one with every default, and the full one.
+00:00:27.776 --> 00:00:31.356
+The side door is for the support team, who write Java.
 
 8
-00:00:29.667 --> 00:00:34.421
-@JvmOverloads tells kotlinc to write the ones in between.
+00:00:32.267 --> 00:00:35.357
+Now, a question that's easy to be shy about.
 
 9
-00:00:34.421 --> 00:00:36.507
-Now Java's call compiles.
+00:00:35.357 --> 00:00:37.886
+Kotlin and Java both run on the JVM.
 
 10
-00:00:37.233 --> 00:00:40.405
-The reified subscribe is invisible to Java.
+00:00:37.886 --> 00:00:40.485
+They compile to the same class files.
 
 11
-00:00:40.405 --> 00:00:44.905
-It's compiled as a synthetic method, and javac ignores those.
+00:00:40.485 --> 00:00:43.856
+So why can't Java just call my Kotlin, as it is?
 
 12
-00:00:45.133 --> 00:00:49.257
-The KClass one works, if Java converts the class by hand.
+00:00:44.933 --> 00:00:46.154
+Here's the catch.
 
 13
-00:00:49.467 --> 00:00:52.524
-The fix: an overload that takes a Java Class.
+00:00:46.154 --> 00:00:50.176
+javac, the Java compiler, never reads our Kotlin source.
 
 14
-00:00:53.233 --> 00:00:59.875
-From Java, an object member goes through INSTANCE, and a companion val through Companion and a getter.
+00:00:50.176 --> 00:00:54.127
+It reads the class files kotlinc wrote, very literally.
 
 15
-00:01:00.100 --> 00:01:03.967
-@JvmStatic makes publish a real static method.
+00:00:55.033 --> 00:00:56.081
+Let's map that.
 
 16
-00:01:03.967 --> 00:01:07.665
-@JvmField makes SYSTEM a plain static field.
+00:00:56.081 --> 00:01:04.319
+The house shorthand is what lives only in Kotlin source: reified functions, default arguments, objects, value classes.
 
 17
-00:01:08.367 --> 00:01:09.500
-Last, the event.
+00:01:04.319 --> 00:01:06.762
+The printed form is the class file.
 
 18
-00:01:09.500 --> 00:01:14.673
-Its id and amount are value classes, whose init blocks check every value.
+00:01:06.762 --> 00:01:11.231
+And the partner driver, who reads only what's printed, is javac.
 
 19
-00:01:14.900 --> 00:01:18.256
-In the class file, a value class is just what it wraps.
+00:01:12.133 --> 00:01:17.358
+The lesson's demo has a small Kotlin API and a Java class that calls it.
 
 20
-00:01:18.256 --> 00:01:24.236
-So Java sees a private constructor that takes a String and a long, and getters with mangled names.
+00:01:17.358 --> 00:01:21.566
+Here are four ordinary lines a Java developer might write.
 
 21
-00:01:24.467 --> 00:01:29.590
-A @JvmName shortcut would let Java pass a raw long straight past init.
+00:01:21.566 --> 00:01:23.526
+From Kotlin, all four work.
 
 22
-00:01:29.590 --> 00:01:31.712
-The facade does the opposite.
+00:01:23.526 --> 00:01:25.557
+From Java, how many compile?
 
 23
-00:01:32.533 --> 00:01:38.129
-It takes plain values, and builds the value classes itself, so every init block runs.
+00:01:29.033 --> 00:01:30.021
+None of them.
 
 24
-00:01:38.333 --> 00:01:39.940
-A good call goes through.
+00:01:30.021 --> 00:01:33.441
+Let's read javac's complaints, one at a time.
 
 25
-00:01:41.467 --> 00:01:42.322
-Predict.
+00:01:33.667 --> 00:01:37.512
+First: no suitable constructor found for PlainBus(String).
 
 26
-00:01:42.322 --> 00:01:47.350
-A Java caller passes 7781, with no pay_ prefix.
+00:01:37.512 --> 00:01:44.475
+The Kotlin class has default arguments, and Java got only two constructors: no arguments, or all of them.
 
 27
-00:01:47.350 --> 00:01:48.740
-What happens?
+00:01:44.700 --> 00:01:48.093
+Second: no suitable method found for subscribe.
 
 28
-00:01:50.367 --> 00:01:54.107
-PaymentId's init throws, just as it would for Kotlin.
+00:01:48.093 --> 00:01:49.754
+That's the reified one.
 
 29
-00:01:54.933 --> 00:01:58.204
-Here is the facade in Kotlin, and a Java caller.
+00:01:49.754 --> 00:01:55.097
+It gets pasted into each Kotlin caller, and javac can't paste Kotlin code.
 
 30
-00:02:00.633 --> 00:02:01.326
-The rule.
+00:01:55.097 --> 00:02:01.089
+So kotlinc marks it synthetic, made by the compiler, and javac walks right past it.
 
 31
-00:02:01.326 --> 00:02:03.633
-Java sees only the class file.
+00:02:01.300 --> 00:02:05.309
+Third: cannot find symbol, constructor ParcelId(String).
 
 32
-00:02:03.633 --> 00:02:11.171
-Give it Class overloads, @JvmOverloads, statics, and a facade that still builds the value classes.
+00:02:05.309 --> 00:02:08.673
+A value class's constructor is private to Java.
 
 33
-00:02:11.400 --> 00:02:12.600
-Check yourself.
+00:02:08.900 --> 00:02:12.706
+Fourth: cannot find symbol, method describe(String).
 
 34
-00:02:12.600 --> 00:02:19.157
-Without @JvmOverloads, does new PlainBus with a name and a flag compile from Java?
+00:02:12.706 --> 00:02:17.901
+describe takes a value class, so its name in the class file is mangled.
 
 35
-00:02:21.867 --> 00:02:22.150
-Yes.
+00:02:17.901 --> 00:02:23.171
+The weight getter on an event comes out the same way: getWeight-RqKWbHU.
 
 36
-00:02:22.150 --> 00:02:24.770
-The full constructor is always there.
+00:02:23.400 --> 00:02:26.063
+That's a name only a compiler could love.
 
 37
-00:02:24.770 --> 00:02:27.391
-Only the ones in between are missing.
+00:02:26.063 --> 00:02:30.155
+So the point is: Java sees the printed form, not the shorthand.
+
+38
+00:02:30.155 --> 00:02:33.532
+If we want Java at our door, we print what it needs.
+
+39
+00:02:34.433 --> 00:02:39.038
+Each fix asks kotlinc to print one small thing on the form.
+
+40
+00:02:39.038 --> 00:02:43.408
+JvmOverloads: one Java constructor per default argument.
+
+41
+00:02:43.408 --> 00:02:48.949
+A second subscribe that takes Java's Class: an overload javac can call.
+
+42
+00:02:48.949 --> 00:02:53.320
+JvmStatic makes an object's member a real static method.
+
+43
+00:02:53.320 --> 00:03:00.109
+JvmField gives a plain field, and file JvmName names the class for top-level functions.
+
+44
+00:03:01.033 --> 00:03:04.125
+With those fixes, the demo's Java side runs.
+
+45
+00:03:04.125 --> 00:03:06.794
+The Class overload delivers the event.
+
+46
+00:03:06.794 --> 00:03:10.237
+The KClass version works too, the long way round.
+
+47
+00:03:10.237 --> 00:03:14.031
+And FriendlyBus, with JvmOverloads, takes just a name.
+
+48
+00:03:14.933 --> 00:03:23.235
+That leaves the value classes, and here's the easy trap: give Java a way to pass a raw string or a raw long straight in.
+
+49
+00:03:23.235 --> 00:03:26.763
+The value classes lesson warned about exactly this.
+
+50
+00:03:26.763 --> 00:03:32.575
+JvmName on a function that takes a value class lets a raw long walk right past init.
+
+51
+00:03:32.800 --> 00:03:36.485
+In our picture, that's a side door with no clerk.
+
+52
+00:03:36.485 --> 00:03:38.366
+It makes Java happy fast.
+
+53
+00:03:38.366 --> 00:03:44.383
+It also lets in a parcel numbered 7781, which the front door would never accept.
+
+54
+00:03:45.300 --> 00:03:46.991
+So we put the clerk back.
+
+55
+00:03:46.991 --> 00:03:54.907
+A facade, the hotel reception desk from Adapter and Facade, is one small object that gives outsiders a simple way in.
+
+56
+00:03:54.907 --> 00:03:59.507
+Ours takes a string and a long, and builds the value classes itself.
+
+57
+00:03:59.507 --> 00:04:01.199
+So every init block runs.
+
+58
+00:04:02.100 --> 00:04:07.860
+In Kotlin, Events.collected builds a ParcelId and a Weight, and hands back the event.
+
+59
+00:04:07.860 --> 00:04:13.484
+Java calls it with a string and a number, and reads the grams back as a plain long.
+
+60
+00:04:13.700 --> 00:04:16.028
+Now Java tries the bad id.
+
+61
+00:04:16.028 --> 00:04:21.579
+The demo prints: refused from Java: invalid parcel id: '7781'.
+
+62
+00:04:21.579 --> 00:04:26.413
+The side door is easy, and it still checks everything.
+
+63
+00:04:27.333 --> 00:04:29.448
+Our picture breaks in one place.
+
+64
+00:04:29.448 --> 00:04:33.018
+A real side door often has looser rules for strangers.
+
+65
+00:04:33.018 --> 00:04:37.380
+Ours has no rules of its own: the same rules, on a different form.
+
+66
+00:04:37.600 --> 00:04:40.057
+And some of the side door came free.
+
+67
+00:04:40.057 --> 00:04:47.497
+Handler in E shows up in Java as Handler of question mark super E, so one Java handler fits any subscription.
+
+68
+00:04:47.497 --> 00:04:51.115
+The sealed model lets a Java switch skip the default.
+
+69
+00:04:51.115 --> 00:04:56.848
+And fun interfaces with void methods mean no Java lambda ever returns Unit.INSTANCE.
+
+70
+00:04:57.767 --> 00:04:58.788
+One guardrail.
+
+71
+00:04:58.788 --> 00:05:02.146
+Kotlin 2.4 has an experimental JvmExposeBoxed.
+
+72
+00:05:02.146 --> 00:05:09.809
+In a quick test, the getter on the event interface stayed mangled, so keep the facade until that changes.
+
+73
+00:05:09.809 --> 00:05:16.012
+And search your own Kotlin for public reified functions: what does a Java caller see?
+
+74
+00:05:16.933 --> 00:05:19.544
+So, why can't Java just call my Kotlin?
+
+75
+00:05:19.544 --> 00:05:23.225
+Because Java reads the printed form, not the shorthand.
+
+76
+00:05:23.225 --> 00:05:26.772
+Print what it needs: an overload, a static, a facade.
+
+77
+00:05:26.772 --> 00:05:29.248
+Make the side door easy, never loose.
+
+78
+00:05:29.467 --> 00:05:30.249
+Quick check.
+
+79
+00:05:30.249 --> 00:05:34.159
+Registry gets a Kotlin function, weigh, that takes a Weight.
+
+80
+00:05:34.159 --> 00:05:35.397
+What does Java see?
+
+81
+00:05:35.397 --> 00:05:39.243
+And how can Java weigh a parcel without skipping the check?
+
+82
+00:05:42.433 --> 00:05:44.196
+A mangled name it can't call.
+
+83
+00:05:44.196 --> 00:05:50.212
+Add a facade function that takes a plain long and builds the Weight itself, so its init still runs.

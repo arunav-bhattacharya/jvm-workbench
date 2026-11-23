@@ -386,7 +386,7 @@ class Cap3JavaSurface(Narrated):
         fit(tg, 12.6)
         self.say("fixes")
         self.play(FadeIn(hdr), run_time=0.5)
-        for i, key in enumerate(("JvmOverloads asks", "A second subscribe", "JvmStatic makes", "JvmField exposes", "and file JvmName")):
+        for i, key in enumerate(("JvmOverloads:", "A second subscribe", "JvmStatic makes", "JvmField gives", "and file JvmName")):
             self.at_text(key, lead=0.3)
             self.play(FadeIn(trs[i], shift=UP * 0.1), run_time=0.6)
         self.hold()

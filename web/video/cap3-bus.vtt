@@ -1,193 +1,361 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:03.902
-A capture comes in.
+00:00:02.700 --> 00:00:07.843
+Remember the board of bells from the Generics workshop, at the fruit shop's back door?
 
 2
-00:00:03.902 --> 00:00:07.065
-The bus must hand it to everyone who asked for it.
+00:00:07.843 --> 00:00:13.345
+One bell for each kind of delivery, and everyone who asked to hear a bell came when it rang.
 
 3
-00:00:07.267 --> 00:00:09.715
-Each handler subscribes under a type.
+00:00:13.345 --> 00:00:16.096
+Pedal Post needs the same board, in its depot.
 
 4
-00:00:09.715 --> 00:00:11.965
-Ledger and receipts want captures.
+00:00:16.300 --> 00:00:21.825
+When a rider scans PP-7781 as collected, the load board comes for that bell.
 
 5
-00:00:11.965 --> 00:00:14.281
-Movements wants any money movement.
+00:00:21.825 --> 00:00:24.369
+The tracking page wants every bell.
 
 6
-00:00:14.281 --> 00:00:15.869
-Audit wants every event.
+00:00:24.369 --> 00:00:28.949
+And the handover log, kept for insurance, wants every handover.
 
 7
-00:00:16.100 --> 00:00:17.983
-Refunds wants refunds only.
+00:00:29.867 --> 00:00:31.382
+Let's set up the words.
 
 8
-00:00:17.983 --> 00:00:20.913
-They all sit in a map, keyed by that type.
+00:00:31.382 --> 00:00:32.765
+The board is the bus.
 
 9
-00:00:21.133 --> 00:00:26.340
-The bus from the generics workshop looks up one key: the event's own class.
+00:00:32.765 --> 00:00:39.024
+A handler, a small object that reacts to events, subscribes: it signs up for one type of event.
 
 10
-00:00:26.340 --> 00:00:26.896
-Predict.
+00:00:39.024 --> 00:00:45.019
+Code with news publishes an event, and the bus delivers it to every handler that signed up.
 
 11
-00:00:26.896 --> 00:00:28.215
-Which handlers run?
+00:00:45.233 --> 00:00:51.926
+Inside, the bus keeps a registry: a map from each event type to the list of handlers that signed up for it.
 
 12
-00:00:29.633 --> 00:00:31.517
-Only ledger and receipts.
+00:00:51.926 --> 00:00:55.679
+Each bell is a key, and the names under it are its handlers.
 
 13
-00:00:31.767 --> 00:00:33.763
-Movements and audit never run.
+00:00:56.600 --> 00:00:59.537
+Here are the event types from the last sitting.
 
 14
-00:00:33.763 --> 00:00:38.223
-An event's run-time class is never an interface like MoneyMovement.
+00:00:59.537 --> 00:01:02.537
+A parcel event is booked, failed, or a handover.
 
 15
-00:00:39.033 --> 00:00:41.635
-So the bus works out which keys to look up.
+00:01:02.537 --> 00:01:05.537
+And a handover is either collected or delivered.
 
 16
-00:00:41.635 --> 00:00:45.809
-PaymentCaptured implements MoneyMovement, which extends PaymentEvent.
+00:01:06.467 --> 00:01:09.294
+Now, a question that's easy to be shy about.
 
 17
-00:00:46.033 --> 00:00:49.368
-The walk starts at the event's own class: the first key.
+00:01:09.294 --> 00:01:11.287
+A collection is a parcel event.
 
 18
-00:00:49.600 --> 00:00:53.553
-Then it asks that class for its interfaces and its superclass.
+00:01:11.287 --> 00:01:12.379
+Everybody agrees.
 
 19
-00:00:53.767 --> 00:00:56.498
-Object is not an event, so it's skipped.
+00:01:12.379 --> 00:01:17.971
+So if the tracking page signs up for parcel events, why doesn't it hear the collection?
 
 20
-00:00:56.498 --> 00:00:58.751
-MoneyMovement is: the second key.
+00:01:19.067 --> 00:01:24.022
+The workshop's board looked up each event by its class when the program runs.
 
 21
-00:00:58.967 --> 00:01:01.725
-Its supertype, PaymentEvent, is the third.
+00:01:24.022 --> 00:01:32.131
+Three handlers sign up: tracking under ParcelEvent, the handover log under Handover, and the load board under ParcelCollected.
 
 22
-00:01:01.933 --> 00:01:03.692
-Three keys, nearest first.
+00:01:32.131 --> 00:01:34.127
+Then we publish one collection.
 
 23
-00:01:03.692 --> 00:01:06.939
-Siblings like PaymentRefunded are never touched.
+00:01:34.127 --> 00:01:35.349
+Which handlers run?
 
 24
-00:01:07.167 --> 00:01:11.611
-A class's keys never change, so the bus caches them, once per class.
+00:01:38.533 --> 00:01:42.044
+The demo prints: exact class only, and then just load.
 
 25
-00:01:13.233 --> 00:01:15.807
-Now publish visits just those keys.
+00:01:42.044 --> 00:01:47.571
+The event's class is ParcelCollected, so the bus rings that bell, and only that bell.
 
 26
-00:01:15.807 --> 00:01:18.601
-Captures first: ledger, then receipts.
+00:01:47.800 --> 00:01:51.665
+The tracking page is the most patient listener in the depot.
 
 27
-00:01:18.601 --> 00:01:19.704
-Then movements.
+00:01:51.665 --> 00:01:55.143
+It waits by a bell that, by design, nobody ever rings.
 
 28
-00:01:19.704 --> 00:01:20.513
-Then audit.
+00:01:55.143 --> 00:01:57.591
+It compiles, and the page stays blank.
 
 29
-00:01:21.100 --> 00:01:26.525
-Specific handlers run before general ones, and within one key, in subscription order.
+00:01:58.500 --> 00:01:59.228
+Here's why.
 
 30
-00:01:27.333 --> 00:01:29.571
-Audit is a Handler of PaymentEvent.
+00:01:59.228 --> 00:02:03.064
+No event's class is ever the interface ParcelEvent itself.
 
 31
-00:01:29.571 --> 00:01:35.389
-Can it subscribe under PaymentCaptured, where the bus expects a Handler of PaymentCaptured?
+00:02:03.064 --> 00:02:08.025
+A scan is always one of the leaves: collected, delivered, booked or failed.
 
 32
-00:01:37.000 --> 00:01:39.131
-A handler only takes events in.
+00:02:08.025 --> 00:02:13.119
+The same goes for Handover, a middle level the last sitting built on purpose.
 
 33
-00:01:39.131 --> 00:01:42.155
-Audit takes any event, so captures are fine.
+00:02:14.033 --> 00:02:15.990
+The first honest fix is short.
 
 34
-00:01:42.367 --> 00:01:47.045
-So Handler is declared in, and one general handler fits any subscription.
+00:02:15.990 --> 00:02:23.101
+Keep one flat list of pairs, a type and a handler, and ask each pair: is this event an instance of your type?
 
 35
-00:01:47.267 --> 00:01:50.537
-Delete the in, and the same line fails to compile.
+00:02:23.101 --> 00:02:23.949
+It's correct.
 
 36
-00:01:50.767 --> 00:01:54.270
-Java writes ? super E at each use instead.
+00:02:23.949 --> 00:02:26.689
+But every publish asks every subscription.
 
 37
-00:01:54.270 --> 00:01:58.524
-kotlinc puts that wildcard in for Java callers too.
+00:02:26.900 --> 00:02:31.488
+Forty handlers means forty questions per scan, almost all of them misses.
 
 38
-00:01:59.333 --> 00:02:02.263
-One step of the walk, in Java and Kotlin.
+00:02:31.488 --> 00:02:37.145
+Picture a porter who walks the whole wall reading every name aloud, for every single scan.
 
 39
-00:02:04.367 --> 00:02:04.955
-The rule.
+00:02:37.145 --> 00:02:38.653
+Correct, and exhausting.
 
 40
-00:02:04.955 --> 00:02:09.398
-Look up the event's class, then each event supertype, nearest first.
+00:02:38.867 --> 00:02:44.484
+What we really want is a board that knows, for each kind of event, exactly which bells to ring.
 
 41
-00:02:09.398 --> 00:02:12.600
-A handler only takes events in, so declare it in.
+00:02:45.400 --> 00:02:46.826
+That's the second fix.
 
 42
-00:02:12.833 --> 00:02:13.867
-Check yourself.
+00:02:46.826 --> 00:02:48.966
+Keep the registry keyed by class.
 
 43
-00:02:13.867 --> 00:02:16.003
-A PaymentDeclined is published.
+00:02:48.966 --> 00:02:57.135
+Then, for each event class, work out the keys to visit: the class itself, then each supertype that is an event, nearest first.
 
 44
-00:02:16.003 --> 00:02:18.208
-Which keys does the bus look up?
+00:02:57.135 --> 00:03:02.062
+A supertype is a type a class extends or implements, directly or further up.
 
 45
-00:02:20.933 --> 00:02:21.265
-Two.
+00:03:02.062 --> 00:03:04.591
+We'll call that list the dispatch keys.
 
 46
-00:02:21.265 --> 00:02:24.166
-PaymentDeclined, then PaymentEvent.
+00:03:05.100 --> 00:03:06.999
+Let's walk it for a collection.
 
 47
-00:02:24.166 --> 00:02:25.078
-Audit runs.
+00:03:06.999 --> 00:03:10.613
+A queue starts with the event's own class, ParcelCollected.
 
 48
-00:02:25.078 --> 00:02:28.725
-Movements doesn't: a decline moves no money.
+00:03:10.613 --> 00:03:11.348
+Take it off.
+
+49
+00:03:11.348 --> 00:03:17.351
+It's an event, and it's new, so keep it, and put its interface at the back of the queue: Handover.
+
+50
+00:03:17.567 --> 00:03:18.499
+Take Handover.
+
+51
+00:03:18.499 --> 00:03:21.560
+Keep it, and queue its interface, ParcelEvent.
+
+52
+00:03:21.560 --> 00:03:23.557
+Take ParcelEvent, and keep it.
+
+53
+00:03:23.557 --> 00:03:27.151
+Anything that isn't an event, like Object, is skipped.
+
+54
+00:03:27.151 --> 00:03:28.416
+The queue is empty.
+
+55
+00:03:28.633 --> 00:03:32.183
+Three keys: ParcelCollected, Handover, ParcelEvent.
+
+56
+00:03:32.183 --> 00:03:34.550
+Publish looks up only those three.
+
+57
+00:03:34.550 --> 00:03:36.568
+Three bells, not forty names.
+
+58
+00:03:37.100 --> 00:03:37.797
+Your turn.
+
+59
+00:03:37.797 --> 00:03:40.377
+What are the keys for DeliveryFailed?
+
+60
+00:03:43.567 --> 00:03:45.818
+DeliveryFailed, then ParcelEvent.
+
+61
+00:03:45.818 --> 00:03:50.663
+A failed delivery isn't a handover, so the handover log never hears it.
+
+62
+00:03:51.567 --> 00:03:53.729
+Now the same demo with the walk.
+
+63
+00:03:53.729 --> 00:03:56.837
+Walking supertypes: load, handovers, tracking.
+
+64
+00:03:56.837 --> 00:04:01.635
+The tracking page finally hears the collection, after a very long wait.
+
+65
+00:04:01.867 --> 00:04:03.659
+And the order is a promise.
+
+66
+00:04:03.659 --> 00:04:07.576
+The most specific handlers run first, then each wider kind.
+
+67
+00:04:07.576 --> 00:04:11.427
+Within one key, handlers run in the order they subscribed.
+
+68
+00:04:11.427 --> 00:04:19.195
+Sign an insurance handler up under Handover, last of all, and the list becomes: load, handovers, insurance, tracking.
+
+69
+00:04:20.100 --> 00:04:21.752
+Here our picture breaks.
+
+70
+00:04:21.752 --> 00:04:26.640
+On a real wall, someone would wire the every-parcel bell to the others.
+
+71
+00:04:26.640 --> 00:04:28.223
+Our board has no wires.
+
+72
+00:04:28.223 --> 00:04:35.657
+The wiring is the class's own family tree, read with plain Java reflection: getInterfaces and getSuperclass.
+
+73
+00:04:36.567 --> 00:04:38.461
+Here's the heart of the walk.
+
+74
+00:04:38.461 --> 00:04:39.767
+Take the next class.
+
+75
+00:04:39.767 --> 00:04:43.098
+Skip it if it isn't an event, or was found already.
+
+76
+00:04:43.098 --> 00:04:46.428
+Otherwise, queue its interfaces and its superclass.
+
+77
+00:04:46.428 --> 00:04:47.800
+Kotlin says the same.
+
+78
+00:04:49.967 --> 00:04:57.057
+The answer never changes for a class, so the bus works it out once per class and caches it, with computeIfAbsent.
+
+79
+00:04:57.057 --> 00:05:02.140
+On a ConcurrentHashMap that's one atomic step, so two threads can't both fill it.
+
+80
+00:05:03.067 --> 00:05:06.205
+So, subscribe as wide as the job, and no wider.
+
+81
+00:05:06.205 --> 00:05:12.281
+Tracking under ParcelEvent, the handover log under Handover, the load board under the leaf.
+
+82
+00:05:12.281 --> 00:05:18.959
+And remember what wide means: a handler for ParcelEvent also hears every event type added next year.
+
+83
+00:05:19.867 --> 00:05:23.009
+So, why didn't the tracking page hear the collection?
+
+84
+00:05:23.009 --> 00:05:26.923
+Because the board rang only the bell with the event's exact class.
+
+85
+00:05:26.923 --> 00:05:32.260
+Now each publish rings its own bell, then each wider one, nearest first, and nothing else.
+
+86
+00:05:32.467 --> 00:05:33.297
+Quick check.
+
+87
+00:05:33.297 --> 00:05:35.027
+Publish a DeliveryFailed.
+
+88
+00:05:35.027 --> 00:05:38.695
+Which of the three run: tracking, handovers, or load?
+
+89
+00:05:41.867 --> 00:05:42.813
+Only tracking.
+
+90
+00:05:42.813 --> 00:05:49.773
+The keys are DeliveryFailed and ParcelEvent, and the only handler under those two is the tracking page.
