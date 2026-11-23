@@ -1,117 +1,309 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:10.163
-A JVM with the AOT cache still maps classes, links, interprets, and waits for the JIT.
+00:00:02.700 --> 00:00:06.573
+Even with a full back room, the corner shop has a morning routine.
 
 2
-00:00:10.163 --> 00:00:15.023
-In Quarkus's benchmark, its first request took 1,859 ms.
+00:00:06.573 --> 00:00:10.329
+Wheel out the shelves, switch on the tills, and get up to speed.
 
 3
-00:00:15.200 --> 00:00:21.223
-A native image answered in 581 ms, because it did that work in the build.
+00:00:10.533 --> 00:00:15.818
+Now picture a pop up stall, built at a factory, fully stocked, and loaded onto a van.
 
 4
-00:00:22.033 --> 00:00:24.427
-The native-image builder starts at main.
+00:00:15.818 --> 00:00:19.175
+Park it, open the shutter, and you're trading at once.
 
 5
-00:00:24.427 --> 00:00:31.071
-It follows every method call and field access it can see, and works out which classes can show up at each call.
+00:00:19.175 --> 00:00:23.652
+The catch is printed on the side: it sells only what the factory packed.
 
 6
-00:00:31.267 --> 00:00:36.799
-Code it never reaches is left out, and so are the JDK classes nothing uses.
+00:00:24.567 --> 00:00:27.304
+Here's the question you might be shy to ask.
 
 7
-00:00:39.000 --> 00:00:44.166
-It runs static initializers where it can, and saves their objects in the image heap.
+00:00:27.304 --> 00:00:31.721
+If a native image starts in milliseconds, why doesn't everyone use one?
 
 8
-00:00:44.166 --> 00:00:47.611
-Then it compiles every reachable method to machine code.
+00:00:31.721 --> 00:00:32.779
+What's the catch?
 
 9
-00:00:47.800 --> 00:00:53.686
-The binary needs no class loading, no bytecode verification, no interpreter and no JIT.
+00:00:33.867 --> 00:00:37.568
+Lesson 2's best tool still started a JVM.
 
 10
-00:00:53.686 --> 00:00:59.909
-This is the closed-world assumption: everything the program will run is known at build time.
+00:00:37.568 --> 00:00:50.840
+In a benchmark from Quarkus, a framework for Java services, the first request took 4,417 milliseconds on a plain JVM, and 1,859 with the AOT cache.
 
 11
-00:01:00.700 --> 00:01:09.261
-The price is what the analysis can't see: reflection, proxies, resources loaded by name, JNI and serialization.
+00:00:51.767 --> 00:00:54.927
+GraalVM's native image builds the stall.
 
 12
-00:01:09.967 --> 00:01:11.211
-Constants are fine.
+00:00:54.927 --> 00:01:06.858
+It turns your program, and the parts of the JDK it uses, into one ready to run file for one operating system and one kind of CPU, with no JVM to start.
 
 13
-00:01:11.211 --> 00:01:16.188
-Class.forName with a literal name just works, because the build can read it.
+00:01:06.858 --> 00:01:11.520
+It comes with GraalVM or Mandrel, not with a plain OpenJDK.
 
 14
-00:01:16.400 --> 00:01:20.337
-But this decoder takes the class name from a Kafka message header.
+00:01:12.433 --> 00:01:15.046
+So how does the factory know what to pack?
 
 15
-00:01:20.337 --> 00:01:21.768
-The build can't know it.
+00:01:15.046 --> 00:01:17.285
+It follows the shop's own catalogue.
 
 16
-00:01:23.067 --> 00:01:29.303
-On the JVM, Class.forName finds PaymentAuthorized on the class path and loads it.
+00:01:17.285 --> 00:01:22.075
+It starts at main, and follows every method call and field access it can see.
 
 17
-00:01:29.533 --> 00:01:31.929
-The native binary can't load classes.
+00:01:22.075 --> 00:01:24.812
+Every item a page points to goes in the van.
 
 18
-00:01:31.929 --> 00:01:38.469
-Nobody told the build about PaymentAuthorized, so the call throws MissingReflectionRegistrationError.
+00:01:25.033 --> 00:01:26.921
+That's step one, the analysis.
 
 19
-00:01:38.469 --> 00:01:40.412
-It's an Error: don't catch it.
+00:01:26.921 --> 00:01:36.425
+Step two, it runs static initializers where it can, and saves their objects in the image heap, a part of the file mapped straight into memory at start.
 
 20
-00:01:41.300 --> 00:01:45.942
-You tell the build in reachability-metadata.json, on the class path.
+00:01:36.425 --> 00:01:40.264
+Step three, it compiles every reached method to machine code.
 
 21
-00:01:45.942 --> 00:01:49.697
-An entry names the type and the members your code uses.
+00:01:40.467 --> 00:01:46.026
+Code the analysis never reached is left out, and so are the JDK classes nothing uses.
 
 22
-00:01:49.900 --> 00:01:51.822
-A constructor is called &lt;init&gt;.
+00:01:46.026 --> 00:01:53.024
+That's called the closed world assumption: everything the program will ever run is known when you build it.
 
 23
-00:01:51.822 --> 00:01:57.465
-Parameter types are fully qualified, and every method lists them, even when there are none.
+00:01:53.933 --> 00:02:02.018
+The finished file runs on a small runtime, Substrate VM: no class loading, no bytecode checks, no interpreter, and no JIT.
 
 24
-00:01:57.667 --> 00:02:02.153
-The condition turns the entry on only once EventDecoder is reached.
+00:02:02.018 --> 00:02:05.531
+That's why it starts in milliseconds and stays small.
 
 25
-00:02:03.600 --> 00:02:07.438
-Now PaymentAuthorized decodes as it did on the JVM.
+00:02:06.433 --> 00:02:08.776
+Here's the benchmark.
 
 26
-00:02:07.438 --> 00:02:10.824
-RefundIssued isn't listed, so it still fails.
+00:02:08.776 --> 00:02:20.156
+Time to first request: 4,417 milliseconds on the JVM, 1,859 with the cache, and 581 as a native image.
 
 27
-00:02:11.033 --> 00:02:13.922
-In a Quarkus app you rarely write this file.
+00:02:20.156 --> 00:02:28.747
+Memory, as RSS, the memory the operating system counts: 304 MiB, 240, and 95.
 
 28
-00:02:13.922 --> 00:02:19.173
-Extensions know what their libraries reflect on, and Quarkus generates the JSON.
+00:02:28.967 --> 00:02:36.553
+Now the last row: peak throughput, the most requests per second the service handles once it's busy.
 
 29
-00:02:19.173 --> 00:02:23.768
-For classes only your code knows about, you add RegisterForReflection.
+00:02:36.553 --> 00:02:38.315
+The JVM managed 13,265.
+
+30
+00:02:38.315 --> 00:02:42.529
+The native image was compiled completely before it ran.
+
+31
+00:02:42.529 --> 00:02:44.905
+More, about the same, or fewer?
+
+32
+00:02:44.905 --> 00:02:46.131
+Pause and guess.
+
+33
+00:02:48.700 --> 00:02:49.392
+Fewer.
+
+34
+00:02:49.392 --> 00:02:52.393
+5,411 requests per second.
+
+35
+00:02:52.393 --> 00:02:55.163
+That's 59 percent lower.
+
+36
+00:02:55.367 --> 00:03:00.080
+A JIT compiles while the program runs, guided by profiles of real traffic.
+
+37
+00:03:00.080 --> 00:03:04.347
+The build has no traffic to watch, so its code is less specialized.
+
+38
+00:03:04.347 --> 00:03:08.741
+The stall's staff follow a printed script, and never learn shortcuts.
+
+39
+00:03:09.667 --> 00:03:16.724
+So a native image is a sprinter who never trains: brilliant off the line, and no faster on the tenth lap.
+
+40
+00:03:16.724 --> 00:03:21.093
+The JVM starts slowly, learns the course, and wins the long race.
+
+41
+00:03:21.300 --> 00:03:25.573
+Jokes aside: native wins start-up and memory, not peak speed.
+
+42
+00:03:26.500 --> 00:03:29.657
+There's a second price, and it's the one that bites.
+
+43
+00:03:29.657 --> 00:03:34.211
+Reflection is code that looks up classes and methods by name while it runs.
+
+44
+00:03:34.211 --> 00:03:37.976
+If the name is written in the code, the analysis works it out.
+
+45
+00:03:38.200 --> 00:03:45.590
+But the tracking service reads messages from its depots, and each one names its event class in a header, at run time.
+
+46
+00:03:45.590 --> 00:03:48.432
+The analysis is clever, but it isn't psychic.
+
+47
+00:03:49.333 --> 00:03:54.947
+In the shop, that's a customer with a note in their pocket: do you have the thing my aunt wrote down?
+
+48
+00:03:54.947 --> 00:03:57.837
+The stall can sell it only if the factory packed it.
+
+49
+00:03:58.767 --> 00:04:02.235
+On a normal JVM, lookups by name always work.
+
+50
+00:04:02.235 --> 00:04:07.475
+The lesson's DynamicLookupDemo calls a method chosen by two strings.
+
+51
+00:04:07.475 --> 00:04:14.488
+With LocalDate and now, it printed today's date, and with UUID and randomUUID, a random id.
+
+52
+00:04:14.700 --> 00:04:16.356
+Now think like the factory.
+
+53
+00:04:16.356 --> 00:04:21.632
+To support every possible pair of strings, which classes would the build have to pack?
+
+54
+00:04:21.632 --> 00:04:22.613
+Pause and think.
+
+55
+00:04:25.200 --> 00:04:27.251
+All of them: the whole warehouse.
+
+56
+00:04:27.251 --> 00:04:35.641
+So the build packs only what it can see, and a name it was never told about fails at run time, with MissingReflectionRegistrationError.
+
+57
+00:04:35.641 --> 00:04:38.127
+That's an Error, not meant to be caught.
+
+58
+00:04:39.033 --> 00:04:42.348
+Here the stall picture breaks, and it costs real time.
+
+59
+00:04:42.348 --> 00:04:45.233
+A new price tag on a real stall takes a minute.
+
+60
+00:04:45.233 --> 00:04:51.064
+One changed line of your code means building the whole stall again, at the factory, every time.
+
+61
+00:04:51.967 --> 00:04:53.253
+So here's the rule.
+
+62
+00:04:53.253 --> 00:04:56.638
+A native image runs only what the build could see.
+
+63
+00:04:56.638 --> 00:05:00.090
+Anything your code finds by name must be on a list.
+
+64
+00:05:00.090 --> 00:05:03.204
+GraalVM calls that list reachability metadata.
+
+65
+00:05:03.204 --> 00:05:06.251
+The demo even prints the entry it would need.
+
+66
+00:05:07.167 --> 00:05:08.878
+So when is native worth it?
+
+67
+00:05:08.878 --> 00:05:12.490
+When start-up time or memory per copy is your real limit.
+
+68
+00:05:12.490 --> 00:05:20.221
+Not when you need the best peak speed, and not when your code finds classes by names from data, unless you keep that list.
+
+69
+00:05:21.133 --> 00:05:22.406
+So, what's the catch?
+
+70
+00:05:22.406 --> 00:05:25.135
+The stall sells only what the factory packed.
+
+71
+00:05:25.135 --> 00:05:28.408
+You get a start in milliseconds and a small footprint.
+
+72
+00:05:28.408 --> 00:05:33.683
+You give up the JIT's peak speed, quick builds, and every class the build couldn't see.
+
+73
+00:05:33.900 --> 00:05:34.692
+Quick check.
+
+74
+00:05:34.692 --> 00:05:41.559
+Your code calls Class.forName with a class name read from a settings file, and nobody listed that class.
+
+75
+00:05:41.559 --> 00:05:43.605
+What happens in a native image?
+
+76
+00:05:46.200 --> 00:05:49.543
+It fails at run time, with a missing registration error.
+
+77
+00:05:49.543 --> 00:05:53.125
+The build never saw the name, so the class was never packed.

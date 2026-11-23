@@ -482,18 +482,23 @@ class Boot04Crac(Narrated):
         self.wipe()
 
         # ================= three commands, and jcmd =================
-        cm = term(["java -XX:CRaCCheckpointTo=cr -jar tracker.jar     # start; may checkpoint into cr",
-                   "jcmd tracker.jar JDK.checkpoint                   # after warm-up traffic",
-                   "java -XX:CRaCRestoreFrom=cr                       # later, as often as you like"], 22, "a CRaC JDK on Linux")
-        fit(cm, 12.6).move_to([0, 1.7, 0])
+        cm = term(["java -XX:CRaCCheckpointTo=cr -jar tracker.jar",
+                   "jcmd tracker.jar JDK.checkpoint",
+                   "java -XX:CRaCRestoreFrom=cr"], 26, "a CRaC JDK on Linux")
+        cm.move_to([-2.2, 1.8, 0])
+        notes = VGroup(*[T(s, 22, GREY_A) for s in ("start; may checkpoint into cr", "after warm-up traffic",
+                                                    "later, as often as you like")])
+        for n_, l_ in zip(notes, cm[1]):
+            n_.next_to(cm[0], RIGHT, buff=0.3).match_y(l_)
+        cm.add(notes)
         self.say("cmds")
         self.play(FadeIn(cm[0]), FadeIn(cm[2]), run_time=0.5)
         self.at(1)
-        self.play(FadeIn(cm[1][0], shift=RIGHT * 0.1), run_time=0.5)
+        self.play(FadeIn(cm[1][0], shift=RIGHT * 0.1), FadeIn(notes[0]), run_time=0.5)
         self.at(2)
-        self.play(FadeIn(cm[1][1], shift=RIGHT * 0.1), run_time=0.5)
+        self.play(FadeIn(cm[1][1], shift=RIGHT * 0.1), FadeIn(notes[1]), run_time=0.5)
         self.at(4)
-        self.play(FadeIn(cm[1][2], shift=RIGHT * 0.1), run_time=0.5)
+        self.play(FadeIn(cm[1][2], shift=RIGHT * 0.1), FadeIn(notes[2]), run_time=0.5)
         self.hold()
 
         jc = term(["Command executed successfully"], 24, "jcmd's terminal")

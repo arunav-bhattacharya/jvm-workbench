@@ -187,32 +187,28 @@ N = {
     "open2": "Now picture a pop up stall, built at a factory, fully stocked, and loaded onto a van. Park it, open the shutter, and you're trading at once. The catch is printed on the side: it sells only what the factory packed.",
     "shyq": "Here's the question you might be shy to ask. If a native image starts in milliseconds, why doesn't "
             "everyone use one? What's the catch?",
-    "fam": "Lesson 2's best tool still started a JVM. In a benchmark from Quarkus, a framework for Java services, one sample service took 4,417 milliseconds to its first request on a plain JVM, and still 1,859 with the AOT cache.",
-    "def": "GraalVM's native image builds the stall. It turns your program, and the parts of the JDK it uses, into one ready to run file for one operating system and one kind of CPU, with no JVM to start. The tool comes with GraalVM or Mandrel, not with a plain OpenJDK.",
+    "fam": "Lesson 2's best tool still started a JVM. In a benchmark from Quarkus, a framework for Java services, the first request took 4,417 milliseconds on a plain JVM, and 1,859 with the AOT cache.",
+    "def": "GraalVM's native image builds the stall. It turns your program, and the parts of the JDK it uses, into one ready to run file for one operating system and one kind of CPU, with no JVM to start. It comes with GraalVM or Mandrel, not with a plain OpenJDK.",
     "factory": "So how does the factory know what to pack? It follows the shop's own catalogue. It starts at main, and "
                "follows every method call and field access it can see. Every item a page points to goes in the van.",
     "steps": "That's step one, the analysis. Step two, it runs static initializers where it can, and saves their objects in the image heap, a part of the file mapped straight into memory at start. Step three, it compiles every reached method to machine code.",
     "left": "Code the analysis never reached is left out, and so are the JDK classes nothing uses. That's called the "
             "closed world assumption: everything the program will ever run is known when you build it.",
-    "rt": "The finished file runs on a small runtime called Substrate VM. No class loading, no bytecode checks, no "
-          "interpreter, and no JIT. That's why it starts in milliseconds and stays small.",
+    "rt": "The finished file runs on a small runtime, Substrate VM: no class loading, no bytecode checks, no interpreter, and no JIT. That's why it starts in milliseconds and stays small.",
     "table": "Here's the benchmark. Time to first request: 4,417 milliseconds on the JVM, 1,859 with the cache, and 581 as a native image. Memory, as RSS, the memory the operating system counts: 304 MiB, 240, and 95.",
     "predict": "Now the last row: peak throughput, the most requests per second the service handles once it's busy. The JVM managed 13,265. The native image was compiled completely before it ran. More, about the same, or fewer? Pause and guess.",
     "reveal": "Fewer. 5,411 requests per second. That's 59 percent lower.",
-    "why": "A JIT compiles while the program runs, guided by profiles of what the code really does with real traffic. The build has no traffic to watch, so its machine code is less specialized. The stall's staff follow a printed script, and they never learn shortcuts.",
+    "why": "A JIT compiles while the program runs, guided by profiles of real traffic. The build has no traffic to watch, so its code is less specialized. The stall's staff follow a printed script, and never learn shortcuts.",
     "joke": "So a native image is a sprinter who never trains: brilliant off the line, and no faster on the tenth lap. The JVM starts slowly, learns the course, and wins the long race.",
-    "joke2": "Jokes aside, the point is this. Native wins start-up and memory, not peak speed.",
+    "joke2": "Jokes aside: native wins start-up and memory, not peak speed.",
     "blind": "There's a second price, and it's the one that bites. Reflection is code that looks up classes and methods by name while it runs. If the name is written in the code, the analysis works it out.",
-    "blind2": "But the tracking service reads messages from its depots, and each message names its event class in a "
-              "header. That name only arrives at run time. The analysis is clever, but it isn't psychic.",
+    "blind2": "But the tracking service reads messages from its depots, and each one names its event class in a header, at run time. The analysis is clever, but it isn't psychic.",
     "note": "In the shop, that's a customer with a note in their pocket: do you have the thing my aunt wrote down? The stall can sell it only if the factory packed it.",
     "demo": "On a normal JVM, lookups by name always work. The lesson's DynamicLookupDemo calls a method chosen by two strings. With LocalDate and now, it printed today's date, and with UUID and randomUUID, a random id.",
     "demo_q": "Now think like the factory. To support every possible pair of strings, which classes would the build have "
               "to pack? Pause and think.",
     "demo_a": "All of them: the whole warehouse. So the build packs only what it can see, and a name it was never told about fails at run time, with MissingReflectionRegistrationError. That's an Error, not meant to be caught.",
-    "breaks": "Here the stall picture breaks, and the break costs real time. Changing a price tag on a real stall takes "
-              "a minute. Changing one line of your code means building the whole stall again, at the factory, every "
-              "time.",
+    "breaks": "Here the stall picture breaks, and it costs real time. A new price tag on a real stall takes a minute. One changed line of your code means building the whole stall again, at the factory, every time.",
     "rule": "So here's the rule. A native image runs only what the build could see. Anything your code finds by name must be on a list. GraalVM calls that list reachability metadata. The demo even prints the entry it would need.",
     "guard": "So when is native worth it? When start-up time or memory per copy is your real limit. Not when you need the best peak speed, and not when your code finds classes by names from data, unless you keep that list.",
     "moral": "So, what's the catch? The stall sells only what the factory packed. You get a start in milliseconds and a "
@@ -302,7 +298,7 @@ class Boot03ClosedWorld(Narrated):
         self.play(FadeIn(fh), run_time=0.5)
         self.at_text("4,417", lead=0.3)
         self.play(FadeIn(fb[0][0]), GrowFromEdge(fb[0][1], LEFT), FadeIn(fb[0][2]), run_time=0.8)
-        self.at_text("still 1,859", lead=0.3)
+        self.at_text("and 1,859", lead=0.3)
         self.play(FadeIn(fb[1][0]), GrowFromEdge(fb[1][1], LEFT), FadeIn(fb[1][2]), run_time=0.8)
         self.hold()
         self.wipe()
@@ -347,7 +343,7 @@ class Boot03ClosedWorld(Narrated):
         edges = [(0, 1), (1, 2), (1, 3), (3, 4)]
         ar = VGroup(*[edge_arrow(nodes[a], nodes[b], GREY_B) for a, b in edges])
         dead = link(nodes[5], nodes[6])
-        vanb = RoundedRectangle(corner_radius=0.15, width=3.0, height=2.6).set_stroke(APP, 3).set_fill(dim(APP, 0.1), 1).move_to([4.8, -1.6, 0])
+        vanb = RoundedRectangle(corner_radius=0.15, width=3.0, height=2.6).set_stroke(APP, 3).set_fill(dim(APP, 0.1), 1).move_to([4.8, -1.95, 0])
         vanl = T("in the van", 22, APP).next_to(vanb, UP, buff=0.1)
         self.say("factory")
         self.play(FadeIn(nodes), Create(ar), Create(dead), run_time=0.9)
@@ -394,9 +390,9 @@ class Boot03ClosedWorld(Narrated):
         fast = T("starts in milliseconds, stays small", 30, OK).move_to([0, -0.7, 0])
         self.say("rt")
         self.play(FadeIn(svm), run_time=0.6)
-        self.at(1)
+        self.at_text("no class loading", lead=0.3)
         self.play(LaggedStart(*[FadeIn(n, shift=UP * 0.1) for n in nos], lag_ratio=0.4), run_time=1.8)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(fast), run_time=0.5)
         self.hold()
         self.wipe()
@@ -438,7 +434,7 @@ class Boot03ClosedWorld(Narrated):
         self.at(2)
         self.play(FadeIn(rows[2][1][2]), run_time=0.4)
         self.hold(after=0)
-        self.predict(2.2)
+        self.predict(2.0)
         new = T("5,411/s", 26, BAD).move_to(rows[2][1][2])
         drop = T("59% lower", 26, BAD).next_to(new, DOWN, buff=0.12)
         self.say("reveal")
@@ -472,7 +468,7 @@ class Boot03ClosedWorld(Narrated):
         pts = VGroup(T("native wins: start-up and memory", 30, APP), T("the JVM wins: peak speed", 30, ARCH)).arrange(DOWN, buff=0.3)
         fit(pts, 12.4).move_to([0, -2.2, 0])
         self.say("joke2")
-        self.at(1)
+        self.at_text("native wins", lead=0.3)
         self.play(FadeIn(pts[0], shift=UP * 0.1), FadeIn(pts[1], shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.wipe()
@@ -496,9 +492,9 @@ class Boot03ClosedWorld(Narrated):
         self.hold()
         self.say("blind2")
         self.play(FadeIn(c2[0]), run_time=0.6)
-        self.at(1)
+        self.at_text("in a header", lead=0.3)
         self.play(FadeIn(c2l), part(c2[0], 'message.header("type")').animate.set_color(BAD), run_time=0.6)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(c2[1], scale=1.3), run_time=0.5)
         self.hold()
         self.wipe()
@@ -545,7 +541,7 @@ class Boot03ClosedWorld(Narrated):
 
         self.say("demo_q")
         self.hold(after=0)
-        self.predict(2.2)
+        self.predict(2.0)
         wh = VGroup(*[Square(side_length=0.16, stroke_width=0).set_fill(GREY_C, 1) for _ in range(160)]).arrange_in_grid(5, 32, buff=0.06)
         wh.move_to([0, -2.3, 0])
         whl = T("every class there is: the whole warehouse", 24, GREY_A).next_to(wh, DOWN, buff=0.15)
@@ -638,10 +634,10 @@ class Boot03ClosedWorld(Narrated):
         self.say("check")
         self.play(FadeIn(qg2, shift=UP * 0.1), run_time=0.7)
         self.hold(after=0)
-        self.predict(2.2)
+        self.predict(2.0)
         ans = T("fails at run time: the build never saw the name, so the class was never packed", 24, OK)
         fit(ans, 12.4).move_to([0, -2.9, 0])
         self.say("check_a")
         self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
-        self.wait(1.5)
+        self.wait(1.0)
