@@ -1,153 +1,297 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.071
-Your slowest requests got slower.
+00:00:02.700 --> 00:00:04.875
+Every cleaning crew keeps a logbook.
 
 2
-00:00:05.071 --> 00:00:08.449
-Is the garbage collector stopping your threads?
+00:00:04.875 --> 00:00:15.087
+After each round, someone writes one line: when it happened, what kind of round it was and why, how full the floor was before and after, and how long the workers waited.
 
 3
-00:00:08.449 --> 00:00:12.832
-Turn on -Xlog:gc, and the JVM prints one line per collection.
+00:00:15.300 --> 00:00:19.488
+After a bad afternoon, that logbook is how you find out what happened.
 
 4
-00:00:13.433 --> 00:00:16.969
-Read one line as an event on a timeline.
+00:00:20.400 --> 00:00:23.583
+So here's a question that's easy to be shy about.
 
 5
-00:00:16.969 --> 00:00:21.212
-It happened 0.128 seconds after the JVM started.
+00:00:23.583 --> 00:00:25.921
+My requests got slow this afternoon.
 
 6
-00:00:21.433 --> 00:00:23.483
-Collection zero, a young pause.
+00:00:25.921 --> 00:00:27.805
+Was it the garbage collector?
 
 7
-00:00:23.483 --> 00:00:26.457
-Pause means every application thread stopped.
+00:00:27.805 --> 00:00:29.493
+And how would I even know?
 
 8
-00:00:26.457 --> 00:00:29.432
-Normal means only the young part of the heap.
+00:00:30.467 --> 00:00:33.748
+The JVM keeps that logbook too, if you ask.
 
 9
-00:00:29.633 --> 00:00:36.040
-Eden was full, and the heap went from 14 megabytes used to 1, of 256 committed.
+00:00:33.748 --> 00:00:40.006
+One flag, -Xlog:gc, makes the garbage collector write a line for every collection.
 
 10
-00:00:36.267 --> 00:00:41.009
-And 12.723 milliseconds is how long your threads stood still.
+00:00:40.006 --> 00:00:44.204
+Older guides show PrintGCDetails, which JDK 9 replaced.
 
 11
-00:00:41.833 --> 00:00:44.875
-Here are eight real lines from a busier G1 run.
+00:00:45.133 --> 00:00:53.387
+Here's the first line from G1, the default collector, on JDK 25, running the thumbnail service's stand-in load.
 
 12
-00:00:44.875 --> 00:00:46.945
-Which ones stopped your threads?
+00:00:53.387 --> 00:00:54.874
+It looks like noise.
 
 13
-00:00:48.333 --> 00:00:53.332
-A pause line has Pause right after the GC number, and ends in milliseconds.
+00:00:54.874 --> 00:00:55.543
+It isn't.
 
 14
-00:00:53.533 --> 00:00:56.562
-Concurrent Mark Cycle ends in milliseconds too.
+00:00:55.543 --> 00:00:59.261
+Let's read it left to right, like a logbook entry.
 
 15
-00:00:56.562 --> 00:00:58.560
-But it ran beside your threads.
+00:00:59.467 --> 00:01:05.019
+0.440s, in brackets, is when: the time since the JVM started.
 
 16
-00:00:59.067 --> 00:01:01.439
-Three more pauses: six of eight.
+00:01:05.019 --> 00:01:10.936
+Then the log level, info, and the tag, gc, the topic of the line.
 
 17
-00:01:01.439 --> 00:01:06.035
-The longest is the full GC at the end, almost 47 milliseconds.
+00:01:11.167 --> 00:01:13.524
+GC(0) numbers the collection.
 
 18
-00:01:06.233 --> 00:01:09.506
-And look closer at Full and Evacuation Failure.
+00:01:13.524 --> 00:01:16.044
+Round zero, the very first one.
 
 19
-00:01:09.506 --> 00:01:11.943
-A healthy G1 service shows neither.
+00:01:16.267 --> 00:01:19.163
+Pause Young is the event, the kind of round.
 
 20
-00:01:12.867 --> 00:01:14.488
-How big is that heap?
+00:01:19.163 --> 00:01:22.388
+Pause means every application thread was stopped.
 
 21
-00:01:14.488 --> 00:01:21.435
-In a container, the JVM reads the memory limit, and with no heap flags it takes 25% of it.
+00:01:22.388 --> 00:01:26.009
+Normal says it cleaned only the young part of the heap.
 
 22
-00:01:21.633 --> 00:01:25.510
-A pod with a 1 GiB limit gets a 256 MB heap.
+00:01:26.009 --> 00:01:31.077
+And G1 Evacuation Pause is the why: eden, the area for new objects, was full.
 
 23
-00:01:25.510 --> 00:01:28.153
-Why leave three quarters free?
+00:01:31.300 --> 00:01:33.527
+Then, how full the floor was.
 
 24
-00:01:28.933 --> 00:01:31.247
-The heap isn't the whole process.
+00:01:33.527 --> 00:01:36.599
+28M, an arrow, 2M, and 214M in brackets.
 
 25
-00:01:31.247 --> 00:01:37.416
-Metaspace, code cache, thread stacks, GC bookkeeping and direct buffers live outside it.
+00:01:36.599 --> 00:01:47.811
+That's the heap in use before the pause, the heap in use after it, and the committed heap, the memory the operating system has really handed over.
 
 26
-00:01:37.633 --> 00:01:46.088
-With MaxRAMPercentage=75, the same pod gets 768 MB, and the rest still fits.
+00:01:48.033 --> 00:01:52.922
+And last, 8.692ms: how long every one of your threads stood still.
 
 27
-00:01:46.300 --> 00:01:48.953
-Now set -Xmx1g, the whole limit.
+00:01:52.922 --> 00:01:56.921
+That's the number a person waiting on a request feels.
 
 28
-00:01:48.953 --> 00:01:51.689
-What happens once the heap fills?
+00:01:58.200 --> 00:02:02.744
+Now a stretch from the same run, with the start of each line cut off.
 
 29
-00:01:53.467 --> 00:01:58.248
-The rest goes past the limit, and the kernel kills the process.
+00:02:02.744 --> 00:02:03.535
+Seven lines.
 
 30
-00:01:58.248 --> 00:02:00.904
-Exit code 137, no OutOfMemoryError.
+00:02:03.535 --> 00:02:05.642
+Which ones stopped your threads?
 
 31
-00:02:01.800 --> 00:02:06.713
-These JVM flags work the same for Java and Kotlin services.
+00:02:05.642 --> 00:02:06.696
+Pause and guess.
 
 32
-00:02:07.533 --> 00:02:08.277
-The rule.
+00:02:09.867 --> 00:02:14.260
+The tempting answer is every line that ends in milliseconds.
 
 33
-00:02:08.277 --> 00:02:12.659
-Pause after the GC number means your threads stopped.
+00:02:14.260 --> 00:02:17.922
+But look at the second Concurrent Mark Cycle line.
 
 34
-00:02:12.659 --> 00:02:16.876
-Size the heap at 50 to 75% of the limit, never 100.
+00:02:17.922 --> 00:02:24.585
+That cycle took 25.055 ms, and it ran beside your program, while your threads kept working.
 
 35
-00:02:17.067 --> 00:02:18.046
-Quick check.
+00:02:24.800 --> 00:02:29.359
+So here's the rule, and it works for every HotSpot collector.
 
 36
-00:02:18.046 --> 00:02:20.249
-A 4 GiB pod, no heap flags.
+00:02:29.359 --> 00:02:35.711
+A pause line has Pause right after GC and its number, and ends with a duration in ms.
 
 37
-00:02:20.249 --> 00:02:22.207
-How big is the max heap?
+00:02:35.711 --> 00:02:41.391
+Five lines pass: Concurrent Start, Remark, Cleanup, Prepare Mixed and Mixed.
 
 38
-00:02:24.400 --> 00:02:26.561
-1 GiB: a quarter of the limit.
+00:02:41.391 --> 00:02:42.512
+26.5 ms in all.
+
+39
+00:02:43.233 --> 00:02:44.837
+It's like a bread recipe.
+
+40
+00:02:44.837 --> 00:02:48.236
+Knead for five minutes, then let it rise for an hour.
+
+41
+00:02:48.236 --> 00:02:50.801
+Only the kneading keeps your hands busy.
+
+42
+00:02:50.801 --> 00:02:55.804
+So the point is: read the word right after GC, not just the number at the end.
+
+43
+00:02:56.733 --> 00:03:01.887
+Now look at the last two lines: Evacuation Failure, twice in a row.
+
+44
+00:03:01.887 --> 00:03:08.271
+G1 ran out of free regions to copy into, so this heap is too small for what's live.
+
+45
+00:03:08.271 --> 00:03:13.347
+JDK 21 writes just Evacuation Failure, and JDK 25 adds the reason.
+
+46
+00:03:13.347 --> 00:03:17.347
+Search for Evacuation Failure, and you'll find both.
+
+47
+00:03:18.267 --> 00:03:25.237
+-Xlog:gc with a star turns on every GC tag: phases, region counts, metaspace and CPU time.
+
+48
+00:03:25.237 --> 00:03:30.504
+That's ten to fifteen lines per pause, for when you need the detail.
+
+49
+00:03:30.733 --> 00:03:35.287
+For a service, write the log to rotating files with the time of day.
+
+50
+00:03:35.287 --> 00:03:37.699
+The colons split it into four parts.
+
+51
+00:03:37.699 --> 00:03:45.601
+What to log, where to write it, the decorations at the start of each line, and the rotation: at most 5 files of 20 MB.
+
+52
+00:03:46.533 --> 00:03:49.892
+Here a paper logbook and the JVM part ways.
+
+53
+00:03:49.892 --> 00:03:58.484
+When the current gc.log is full, the JVM renames it to a numbered file, like gc.log.0, and starts a fresh one.
+
+54
+00:03:58.484 --> 00:04:02.468
+And with five files, the oldest one is thrown away.
+
+55
+00:04:03.400 --> 00:04:10.832
+The lesson's demo does just this, with tiny 40 KB files so you can watch them rotate.
+
+56
+00:04:10.832 --> 00:04:14.067
+Two seconds of load in a 256 MB heap.
+
+57
+00:04:14.067 --> 00:04:17.739
+The first young pause went from 29M to 2M.
+
+58
+00:04:17.739 --> 00:04:24.383
+The last ones left 120 to 245 MB behind: the floor rose as the cache filled.
+
+59
+00:04:24.383 --> 00:04:31.465
+And the files held 2 Pause Full lines, and 7 to 13 lines with Evacuation Failure.
+
+60
+00:04:32.367 --> 00:04:34.554
+So leave the logbook on in production.
+
+61
+00:04:34.554 --> 00:04:39.676
+It costs a few lines per collection, and in an incident it's the first thing you'll want.
+
+62
+00:04:39.900 --> 00:04:44.818
+A logbook you start after the bad afternoon is just a diary of the next one.
+
+63
+00:04:44.818 --> 00:04:46.953
+So turn it on before you need it.
+
+64
+00:04:47.867 --> 00:04:49.896
+So, was it the garbage collector?
+
+65
+00:04:49.896 --> 00:04:50.942
+Open the logbook.
+
+66
+00:04:50.942 --> 00:04:56.968
+Find the lines with Pause right after the number, and read how long each one stopped your threads.
+
+67
+00:04:56.968 --> 00:04:58.690
+Then watch the after-values.
+
+68
+00:04:58.690 --> 00:05:02.257
+If that floor keeps rising, something is filling the heap.
+
+69
+00:05:03.167 --> 00:05:04.472
+Quick check.
+
+70
+00:05:04.472 --> 00:05:08.607
+GC(17) Concurrent Mark Cycle 25.055ms.
+
+71
+00:05:08.607 --> 00:05:13.939
+Did your threads stand still for 25 milliseconds?
+
+72
+00:05:17.133 --> 00:05:17.328
+No.
+
+73
+00:05:17.328 --> 00:05:22.056
+There's no Pause after the number, so that cycle ran beside your threads.
+
+74
+00:05:22.056 --> 00:05:25.943
+Its two pauses, Remark and Cleanup, have lines of their own.
