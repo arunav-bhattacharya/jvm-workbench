@@ -144,11 +144,11 @@ COURIERS = {"Pedal Post": (PEDAL, "4.50", "30 min"), "Big Blue Vans": (BIGBLUE, 
             "Kestrel": (KESTREL, "4.50", "20 min"), "Gull Express": (GULL, "3.50", "60 min")}
 
 
-def ccard(name, w=5.2):
+def ccard(name, w=5.8):
     col, price, mins = COURIERS[name]
     r = RoundedRectangle(corner_radius=0.12, width=w, height=0.72).set_stroke(col, 3).set_fill(dim(col, 0.16), 1)
     n = T(name, 26, col).move_to(r.get_left() + RIGHT * 0.25, aligned_edge=LEFT)
-    p = M(price, 24, WHITE).move_to(r.get_center() + RIGHT * 0.9)
+    p = M(price, 24, WHITE).move_to(r.get_center() + RIGHT * 0.45)
     m = M(mins, 24, GREY_A).move_to(r.get_right() + LEFT * 0.25, aligned_edge=RIGHT)
     return VGroup(r, n, p, m)
 
@@ -372,7 +372,7 @@ class Pat07Strategy(Narrated):
         order0 = ["Pedal Post", "Big Blue Vans", "Kestrel"]
         cards = {n: ccard(n) for n in order0}
         ys = [1.15, 0.1, -0.95]
-        X0, X1 = -3.2, 3.3
+        X0, X1 = -3.3, 3.4
         hdr = VGroup(T("as they came in", 22, GREY_B).move_to([X0, 2.0, 0]))
         for n, y in zip(order0, ys):
             cards[n].move_to([X0, y, 0])
@@ -408,8 +408,8 @@ class Pat07Strategy(Narrated):
         self.hold()
 
         tie = SurroundingRectangle(VGroup(cards["Pedal Post"], cards["Big Blue Vans"], cards["Kestrel"]), buff=0.1, color=GREY_D)
-        a1 = Arrow([X0 + 2.75, ys[0], 0], [X1 - 2.75, ys[1], 0], buff=0.1, stroke_width=3, color=PEDAL, max_tip_length_to_length_ratio=0.1)
-        a2 = Arrow([X0 + 2.75, ys[2], 0], [X1 - 2.75, ys[2], 0], buff=0.1, stroke_width=3, color=KESTREL, max_tip_length_to_length_ratio=0.1)
+        a1 = Arrow([X0 + 3.0, ys[0], 0], [X1 - 3.0, ys[1], 0], buff=0.1, stroke_width=3, color=PEDAL, max_tip_length_to_length_ratio=0.1)
+        a2 = Arrow([X0 + 3.0, ys[2], 0], [X1 - 3.0, ys[2], 0], buff=0.1, stroke_width=3, color=KESTREL, max_tip_length_to_length_ratio=0.1)
         stab = T("stable: a tie keeps the order it came in", 26, OK).move_to([0, -2.9, 0])
         self.say("stable")
         self.play(FadeOut(alpha), GrowArrow(a1), GrowArrow(a2), run_time=0.8)
@@ -597,7 +597,7 @@ class Pat07Strategy(Narrated):
         self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.5)
         self.hold()
 
-        gc = ccard("Gull Express", 5.2).move_to([0, -0.4, 0])
+        gc = ccard("Gull Express").move_to([0, -0.4, 0])
         qc = T("Check: cheapest, then fastest. Who comes first?", 28).move_to([0, -1.35, 0])
         self.say("check")
         self.play(FadeIn(gc, shift=UP * 0.1), run_time=0.6)

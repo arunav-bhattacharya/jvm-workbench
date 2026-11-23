@@ -34,13 +34,13 @@
       "slug": "pat05-decorator",
       "lesson": "pat-05",
       "section": 0,
-      "title": "A decorator wraps the same interface: the call goes in layer by layer, and the order of the layers changes the fee"
+      "title": "A decorator wraps the same interface and passes the call on; move the cap inside the heavy parcel rule and 8.00 becomes 11.00"
     },
     {
       "slug": "pat11-breaker",
       "lesson": "pat-11",
       "section": 3,
-      "title": "A circuit breaker's three states live in one AtomicReference, and compare-and-set picks the single probe"
+      "title": "A fuse box for the van company: the circuit breaker counts failures, trips, turns callers away at once, and lets one probe test the line"
     },
     {
       "slug": "kt01-inline",
@@ -76,7 +76,7 @@
       "slug": "pat07-strategy",
       "lesson": "pat-07",
       "section": 0,
-      "title": "A strategy is the one decision you plug in: sort keeps the loop, and the comparator decides which quote goes first"
+      "title": "Keep the routine and pass in the one decision: a comparator ranks the couriers, and a stable sort keeps a tie in its order"
     },
     {
       "slug": "gen01-from-zero",
@@ -94,19 +94,19 @@
       "slug": "pat06-composite",
       "lesson": "pat-06",
       "section": 0,
-      "title": "A group answers the same question as a single rule by asking its children, so one recursive function prices the whole fee plan"
+      "title": "A box asks what it holds: one recursive price function prices a box of boxes, and a copied list keeps the box taped shut"
     },
     {
       "slug": "pat09-chain-state",
       "lesson": "pat-09",
       "section": 2,
-      "title": "A request runs along a chain of checks until one answers, and the order of the list is behavior; then a payment's state decides which event is legal"
+      "title": "Answer it, or pass it on: a complaint travels along the shop's desk, each handler answers or calls next, and the order of the list is behavior"
     },
     {
       "slug": "pat08-observer-command",
       "lesson": "pat-08",
       "section": 0,
-      "title": "The ledger tells a list of listeners, each in its own try; a command is an object on an undo stack, pushed only after it worked"
+      "title": "Everyone on the sign-up sheet hears the news, each in its own try with a way out; a command slip goes on the history only after it worked"
     },
     {
       "slug": "fp05-sequences",
@@ -166,7 +166,7 @@
       "slug": "pat10-visitor",
       "lesson": "pat-10",
       "section": 0,
-      "title": "Visitor stores the type-by-job grid by column and reaches a cell in two hops; a sealed switch does it in one"
+      "title": "An inspector with a different check for each kind of goods: Visitor puts each job in one class, and a sealed switch does the same job with less"
     },
     {
       "slug": "gen02-bounds",
