@@ -1,309 +1,595 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form).
-fg.SAY[:0] = [(r"@JvmOverloads", "at J V M overloads"), (r"@JvmStatic", "at J V M static"),
-              (r"@JvmField", "at J V M field"), (r"@JvmName", "at J V M name"), (r"\bkotlinc\b", "kotlin C"),
-              (r"\bKClass\b", "K class"), (r"\bPlainBus\b", "Plain Bus"), (r"\bINSTANCE\b", "instance"),
-              (r"\bpay_", "pay underscore "), (r"\b7781\b", "seven seven eight one"), (r"\binit\b", "in it"),
-              (r"\bSYSTEM\b", "system"), (r"\bPayment(?=[A-Z])", "Payment ")]
+# Spoken forms only (captions keep the written words).
+fg.SAY[:0] = [
+    (r"\bkotlinc\b", "kotlin C"), (r"\bJvmOverloads\b", "J V M Overloads"), (r"\bJvmStatic\b", "J V M Static"),
+    (r"\bJvmField\b", "J V M Field"), (r"\bJvmName\b", "J V M Name"), (r"\bJvmExposeBoxed\b", "J V M Expose Boxed"),
+    (r"\bJvmClassMappingKt\b", "J V M Class Mapping K T"), (r"\bKClass\b", "K Class"), (r"\bParcelId\b", "Parcel I D"),
+    (r"\bPlainBus\b", "Plain Bus"), (r"\bFriendlyBus\b", "Friendly Bus"), (r"\bgetWeight-RqKWbHU\b", "get weight, dash, R Q K W B H U"),
+    (r"\bParcelCollected\b", "Parcel Collected"), (r"\bUnit\.INSTANCE\b", "Unit dot INSTANCE"),
+    (r"\bRegistry\.INSTANCE\b", "Registry dot INSTANCE"), (r"\bEvents\.collected\b", "Events dot collected"),
+    (r"\bRegistry\.subscribe\b", "Registry dot subscribe"), (r"'7781'", "7781"),
+    (r"\bPP-(\d)(\d)(\d)(\d)\b", r"P P \1 \2 \3 \4"), (r"\b2,500\b", "twenty-five hundred"),
+]
+
+# every spoken line, in order
+N = {
+    "open": "Pedal Post's depot has two doors. Riders who work there every day come in at the front, and speak the "
+            "house shorthand: PP-7781, collected, two and a half.",
+    "open2": "Drivers from a partner courier use the side door, where a clerk hands them the standard printed form. "
+             "Both doors lead to the same sorting room, under the same rules.",
+    "doors": "Our library needs both doors. The front door is for Kotlin callers. The side door is for the support "
+             "team, who write Java.",
+    "shyq": "Now, a question that's easy to be shy about. Kotlin and Java both run on the JVM. They compile to the "
+            "same class files. So why can't Java just call my Kotlin, as it is?",
+    "literal": "Here's the catch. javac, the Java compiler, never reads our Kotlin source. It reads the class files "
+               "that kotlinc wrote, and it reads them very literally.",
+    "map": "Let's map that. The house shorthand is everything that lives only in Kotlin source: reified functions, "
+           "default arguments, objects, value classes. The printed form is the class file. And the partner driver, "
+           "who only reads what's printed, is javac.",
+    "setup": "The lesson's demo has a small Kotlin API, written the way Kotlin code is usually written, and a Java "
+             "class that calls it. Here are four ordinary lines a Java developer might write. From Kotlin, all four "
+             "work. From Java, how many compile?",
+    "none": "None of them. Let's read javac's complaints, one at a time.",
+    "e1": "First: no suitable constructor found for PlainBus(String). The Kotlin class has default arguments, and "
+          "Java got only two constructors: the one with no arguments, and the full one. Nothing in between.",
+    "e2": "Second: no suitable method found for subscribe. That's the reified subscribe. A reified function is pasted "
+          "into each Kotlin caller, and javac can't paste Kotlin code. So kotlinc marks it synthetic, made by the "
+          "compiler, and javac walks right past it.",
+    "e3": "Third: cannot find symbol, constructor ParcelId(String). A value class's constructor is private to Java.",
+    "e4": "Fourth: cannot find symbol, method describe(String). describe takes a value class, so its name in the class "
+          "file is mangled: describe, a dash, and some letters. The weight getter on an event comes out the same way, "
+          "as getWeight-RqKWbHU.",
+    "joke": "That's a name only a compiler could love. Nobody on the support team should have to type it. So the point "
+            "is: Java sees the printed form, not the shorthand. If we want Java at our door, we print what it needs.",
+    "fixes": "Each fix asks kotlinc to print one small thing on the form. JvmOverloads asks for one Java constructor "
+             "per default argument. A second subscribe that takes Java's Class, an overload, is something javac can "
+             "call. JvmStatic makes an object's member a real static method. JvmField exposes a constant as a plain "
+             "field, and file JvmName names the class that holds a file's top-level functions.",
+    "run": "With those fixes, the demo's Java side runs. The Class overload delivers the event. The KClass version "
+           "still works, the long way round. And FriendlyBus, with JvmOverloads, takes just a name.",
+    "trap": "That leaves the value classes, and here's the easy trap. The quick fix gives Java a way to pass a raw "
+            "string or a raw long straight in. The value classes lesson warned about exactly this: JvmName on a "
+            "function that takes a value class lets Java pass a raw long straight past init.",
+    "trap2": "In our picture, that's a side door with no clerk. It makes Java happy fast. It also lets in a parcel "
+             "numbered 7781, which the front door would never accept.",
+    "facade": "So we put the clerk back. A facade, the hotel reception desk from Adapter and Facade, is one small "
+              "object that gives outsiders a simple way in. Ours takes plain values, a string and a long, and builds "
+              "the value classes itself. So every init block runs.",
+    "code": "In Kotlin, Events.collected builds a ParcelId and a Weight, and hands back the event. Java calls it with "
+            "a string and a number, and reads the grams back as a plain long.",
+    "refuse": "Now Java tries the bad id. The demo prints: refused from Java: invalid parcel id: '7781'. The side door "
+              "is easy, and it still checks everything.",
+    "breaks": "Our picture breaks in one place. A real side door often has its own, looser rules for strangers. Ours "
+              "has none of its own. It's the same rules, printed on a different form.",
+    "free": "And some of the side door came free, from earlier choices. Handler in E shows up in Java as Handler of "
+            "question mark super E, so one Java handler fits any subscription. The sealed model lets a Java switch "
+            "skip the default. And because handlers are fun interfaces with void methods, no Java lambda ever "
+            "returns Unit.INSTANCE.",
+    "guard": "One guardrail. Kotlin 2.4 has an experimental JvmExposeBoxed that would give Java the value-class "
+             "constructors. In a quick test, the getter on the event interface itself stayed mangled. So keep the "
+             "facade until that changes. And search your own Kotlin for public reified functions: what does a Java "
+             "caller see?",
+    "moral": "So, why can't Java just call my Kotlin? Because Java reads the printed form, not the shorthand. Print "
+             "what it needs: an overload, a static, a facade. Make the side door easy, never loose.",
+    "check": "Quick check. Registry gets a new Kotlin function, weigh, which takes a Weight. What does Java see? And "
+             "how do you let Java weigh a parcel without skipping the check?",
+    "check_a": "A mangled name it can't call. Add a facade function that takes a plain long and builds the Weight "
+               "itself, so its init still runs.",
+}
 
 
-# ---- helpers for this file ----
-def seq(scene, text, *steps, after=0.25):
-    """Speak one line and play several animation groups one after another inside it.
-    A number is a pause; a (anims, run_time) pair is one play; anims may be a callable."""
-    path, dur = voice(text)
-    scene._cue(text, dur)
-    scene.add_sound(path)
-    used = 0
-    for st in steps:
-        if isinstance(st, (int, float)):
-            scene.wait(st); used += st
-        else:
-            anims, rt = st
-            if callable(anims):
-                anims = anims()
-            if rt is None:
-                rt = max(0.5, dur - used - 0.1)
-            scene.play(*anims, run_time=rt); used += rt
-    if dur - used > 0.02:
-        scene.wait(dur - used)
-    if after:
-        scene.wait(after)
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
+
+    def say(self, key):
+        text = N[key]
+        path, dur = voice(text)
+        self._cue(text, dur)
+        self.add_sound(path)
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+        if after:
+            self.wait(after)
+
+    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def wipe(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
+
+    def shy(self, key, lines, big=0):
+        hd = T("a question that's easy to be shy about", 26, GREY_B).move_to([0, 2.5, 0])
+        qs = VGroup(*[T(l, 38 if i == big else 32, WHITE if i == big else GREY_A) for i, (l, _) in enumerate(lines)])
+        qs.arrange(DOWN, buff=0.4).move_to([0, 0.1, 0])
+        for q in qs:
+            fit(q, 12.4)
+        self.say(key)
+        self.play(FadeIn(hd), run_time=0.5)
+        for q, (_, i) in zip(qs, lines):
+            self.at(i)
+            self.play(FadeIn(q, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0.4)
+        self.wipe()
 
 
-def dark(color, k=0.14):
+def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def code(lines, size=22, color=WHITE, ls=0.6, t2c=None):
-    """Monospace block that keeps indentation. Returns a VGroup with one sub-group per line."""
-    t = Text("\n".join(lines), font=MONO, font_size=size, color=color, line_spacing=ls, t2c=t2c or {})
-    out, i = VGroup(), 0
-    for ln in lines:
-        n = len(ln.replace(" ", ""))
-        out.add(VGroup(*t[i:i + n]))
-        i += n
-    return out
+# one colour per thing, the same in all three Part 3 capstone videos
+PEDAL, TRACK, LOAD, TEXTS = TEAL_M, BLUE_M, GOLD_M, PURPLE_M
+CLERK, BAD, OK = YELLOW_M, RED_M, GREEN_M
+KT, JV = PURPLE_M, ORANGE                       # the front door (Kotlin) and the side door (Java)
+PAPER, INK, PEN = "#EDE6D6", "#161616", "#1E4F9C"
 
 
-def titled(label, block, buff=0.16):
-    return VGroup(T(label, 22, GREY_B), block).arrange(DOWN, aligned_edge=LEFT, buff=buff)
+def person(color, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def cross(s=0.2, col=RED_M):
-    return VGroup(Line([-1, -1, 0], [1, 1, 0]), Line([-1, 1, 0], [1, -1, 0])).set_stroke(col, 5).scale(s)
+def door(color, w=1.0, h=1.6):
+    r = Rectangle(width=w, height=h).set_stroke(color, 3).set_fill(dim(color, 0.25), 1)
+    knob = Dot(radius=0.06, color=color).move_to(r.get_right() + LEFT * 0.18)
+    return VGroup(r, knob)
 
 
-def card(lines, col, w, h, sizes=None, mono=None):
-    r = RoundedRectangle(corner_radius=0.12, width=w, height=h, stroke_color=col, stroke_width=3).set_fill(dark(col), 1)
-    txt = VGroup()
-    for k, ln in enumerate(lines):
-        sz = (sizes or [24] * len(lines))[k]
-        is_m = (mono or [True] * len(lines))[k]
-        txt.add((M if is_m else T)(ln, sz, WHITE if k == 0 else GREY_A))
-    txt.arrange(DOWN, buff=0.1).move_to(r)
-    return VGroup(r, txt)
+def bubble(text, color=GREY_A, size=22, mono=False):
+    t = (M if mono else T)(text, size, color)
+    r = RoundedRectangle(corner_radius=0.18, width=t.width + 0.4, height=t.height + 0.35).set_stroke(GREY_B, 2).set_fill(BLACK, 1)
+    return VGroup(r, t.move_to(r))
 
 
-KT, JV, FIX, BAD, CF = BLUE_M, GOLD_M, YELLOW_M, RED_M, GREY_A
-CX = -4.85                     # left edge of the code column (tags sit to its left)
-Y_API, Y_CF, Y_KT, Y_JV = 2.1, 0.65, -0.45, -1.45
+def printed_form(s=1.0):
+    sheet = Rectangle(width=1.0, height=1.3).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    rows = VGroup(*[VGroup(Line(LEFT * 0.3, RIGHT * 0.05, stroke_width=2, color=INK),
+                           Rectangle(width=0.3, height=0.16).set_stroke(INK, 1.2)).arrange(RIGHT, buff=0.06) for _ in range(4)])
+    rows.arrange(DOWN, buff=0.12).move_to(sheet)
+    return VGroup(sheet, rows).scale(s)
 
 
-def lines_at(lines, size, color, y_top, t2c=None):
-    """Left-aligned code lines whose first line's top sits at y_top, starting at x = CX."""
-    g = code(lines, size, color, t2c=t2c)
-    g.move_to([0, 0, 0]).align_to(np.array([CX, 0, 0]), LEFT)
-    g.shift(UP * (y_top - g.get_top()[1]))
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def titled(code, title, color=GREY_B):
+    h = T(title, 22, color).next_to(code, UP, buff=0.22).align_to(code, LEFT)
+    return VGroup(h, code)
+
+
+def term(lines, size=22, title="output", color=GREY_A):
+    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.5, height=t.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
+    t.move_to(r)
+    h = T(title, 20, GREY_B).next_to(r, UP, buff=0.1).align_to(r, LEFT)
+    return VGroup(r, t, h)
+
+
+def err_line(text, size=20):
+    return VGroup(M("javac", size, GREY_B), M("error:", size, BAD), M(text, size, GREY_A)).arrange(RIGHT, buff=0.15)
+
+
+def rule_card(text, size=30, color=CLERK):
+    t = T(text, size, WHITE)
+    fit(t, 11.6)
+    r = RoundedRectangle(corner_radius=0.12, width=t.width + 0.7, height=t.height + 0.5).set_stroke(color, 2.5).set_fill(dim(color, 0.12), 1)
+    return VGroup(r, t.move_to(r))
+
+
+def maprow(left, right, color, size=26):
+    a = T(left, size, color)
+    b = T(right, size)
+    ar = Arrow(LEFT * 0.45, RIGHT * 0.45, stroke_width=3, color=GREY_B, buff=0, max_tip_length_to_length_ratio=0.25)
+    return VGroup(a, ar, b).arrange(RIGHT, buff=0.25)
+
+
+def depot(clerk_at_side=True):
+    """The depot: a sorting room with a front door (Kotlin) on the left and a side door (Java) on the right."""
+    room = Rectangle(width=6.0, height=3.2).set_stroke(GREY_B, 3).set_fill("#141414", 1).move_to([0, 0.3, 0])
+    roof = Polygon(room.get_corner(UL) + LEFT * 0.2, room.get_corner(UR) + RIGHT * 0.2, room.get_top() + UP * 0.9)
+    roof.set_stroke(GREY_B, 3).set_fill("#1b1b1b", 1)
+    sign = T("sorting room: same rules", 24, GREY_A).move_to(room.get_center() + UP * 0.6)
+    fd = door(KT).move_to(room.get_left() + RIGHT * 0.01).align_to(room, DOWN)
+    sd = door(JV).move_to(room.get_right() + LEFT * 0.01).align_to(room, DOWN)
+    g = VGroup(roof, room, sign, fd, sd)
+    g.front, g.side, g.room = fd, sd, room
     return g
 
 
-class Cap3JavaSurface(VoiceScene):
-    """cap3-03 section 2: Java sees the class files kotlinc writes, not Kotlin. Default arguments give Java only the
-    all-defaults and the full constructor (@JvmOverloads), a reified function is synthetic and invisible, a KClass
-    parameter needs getKotlinClass (a Class<E> overload), object and companion members go through INSTANCE and
-    Companion (@JvmStatic, @JvmField), and value classes leave a private (String, long) constructor and mangled
-    getters, so a facade takes plain values and builds the value classes, and every init check still runs."""
+class Cap3JavaSurface(Narrated):
+    """cap3-03, section 2: what Java sees, and a side door that still checks everything. The depot's two doors (house
+    shorthand at the front for Kotlin, a printed form at the side for Java); the shy question (same JVM, same class
+    files, so why can't Java call my Kotlin?); javac reads class files literally, mapped; four Java lines, predict,
+    javac's four errors word for word with their causes; the mangled getter; the fixes kotlinc can print (Class
+    overload, @JvmOverloads, @JvmStatic, @JvmField, @file:JvmName) and the demo's run; the trap of a side door with no
+    clerk; the facade that builds the value classes, in Kotlin and Java; the refusal from Java; where the picture
+    breaks; what came free; the @JvmExposeBoxed guardrail; moral; check."""
 
     def construct(self):
-        self.title_card("One API, two callers", "what Java sees, and the surface that fixes it")
+        self.title_card("Two doors, one set of rules", "what Java sees of a Kotlin library, and a side door that still checks")
 
-        # ---------------- the setup: one library, two callers, one class file ----------------
-        lib = card(["event library", "written in Kotlin"], GREEN_M, 3.4, 1.3, sizes=[28, 22], mono=[False, False])
-        lib.move_to([0, 1.3, 0])
-        kc = card(["Kotlin caller"], KT, 2.8, 0.9, sizes=[26], mono=[False]).move_to([-4.6, -1.1, 0])
-        jc = card(["Java caller"], JV, 2.8, 0.9, sizes=[26], mono=[False]).move_to([4.6, -1.1, 0])
-        ka = Arrow(kc.get_top(), lib.get_left() + DOWN * 0.3, buff=0.12, stroke_width=3, color=KT,
-                   max_tip_length_to_length_ratio=0.08)
-        self.beat("A Java team wants to call the Kotlin event library.",
-                  FadeIn(lib), FadeIn(kc), GrowArrow(ka), FadeIn(jc), run_time=2.0)
-        cfile = card(["the class files", "what kotlinc wrote"], CF, 3.0, 1.1, sizes=[24, 20], mono=[False, False])
-        cfile.move_to([2.6, -1.1, 0])
-        jc.generate_target(); jc.target.move_to([5.5, -2.6, 0])
-        a1 = Arrow(lib.get_bottom() + RIGHT * 0.8, cfile.get_top(), buff=0.12, stroke_width=3, color=GREY_B,
-                   max_tip_length_to_length_ratio=0.12)
-        seq(self, "javac can't read Kotlin. It reads the class files kotlinc wrote, and some Kotlin features look odd "
-                  "there, or are missing.",
-            ([MoveToTarget(jc)], 0.6), ([FadeIn(cfile), GrowArrow(a1)], 0.9), 0.3,
-            (lambda: [GrowArrow(Arrow(jc.get_top(), cfile.get_bottom(), buff=0.12, stroke_width=3, color=JV,
-                                      max_tip_length_to_length_ratio=0.15))], 0.7))
-        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.6)
+        # ================= the depot's two doors =================
+        dp = depot()
+        rider = person(KT, 1.2).next_to(dp.front, LEFT, buff=0.7).align_to(dp.front, DOWN)
+        say_r = bubble("\"PP-7781, collected, two and a half\"", GREY_A, 22).next_to(rider, UP, buff=0.3).shift(RIGHT * 0.6)
+        fl = T("front door", 24, KT).next_to(dp.front, DOWN, buff=0.15)
+        self.say("open")
+        self.play(FadeIn(dp[:3]), run_time=0.7)
+        self.at_text("Riders who", lead=0.3)
+        self.play(FadeIn(dp.front), FadeIn(fl), FadeIn(rider, shift=RIGHT * 0.3), run_time=0.7)
+        self.at_text("and speak", lead=0.3)
+        self.play(FadeIn(say_r, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        drv = person(JV, 1.2).next_to(dp.side, RIGHT, buff=0.9).align_to(dp.side, DOWN)
+        sl = T("side door", 24, JV).next_to(dp.side, DOWN, buff=0.15)
+        pf = printed_form(0.9).next_to(drv, UP, buff=0.3)
+        pf_l = T("the printed form", 22, GREY_A).next_to(pf, UP, buff=0.12)
+        self.say("open2")
+        self.play(FadeIn(dp.side), FadeIn(sl), FadeIn(drv, shift=LEFT * 0.3), run_time=0.7)
+        self.at_text("where a clerk", lead=0.3)
+        self.play(FadeIn(pf, shift=DOWN * 0.1), FadeIn(pf_l), run_time=0.6)
+        self.at_text("Both doors", lead=0.3)
+        self.play(Indicate(dp[2], color=WHITE), run_time=0.8)
+        self.hold()
+        kl = T("Kotlin callers", 26, KT).next_to(fl, DOWN, buff=0.15)
+        jl = T("Java callers: the support team", 26, JV).next_to(sl, DOWN, buff=0.15)
+        jl.shift(RIGHT * min(0, 6.5 - jl.get_right()[0]))
+        self.say("doors")
+        self.at_text("The front door", lead=0.3)
+        self.play(FadeIn(kl, shift=UP * 0.1), run_time=0.6)
+        self.at_text("The side door", lead=0.3)
+        self.play(FadeIn(jl, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------------- the four-row frame ----------------
-        api_box = RoundedRectangle(corner_radius=0.12, width=12.9, height=1.75, stroke_color=GREEN_M, stroke_width=2.5)
-        api_box.set_fill(dark(GREEN_M, 0.08), 1).move_to([0, Y_API, 0])
-        api_tag = T("the Kotlin API", 22, GREEN_M).next_to(api_box, UP, buff=0.1).align_to(api_box, LEFT).shift(RIGHT * 0.2)
-        tags = VGroup(T("class file", 22, CF), T("Kotlin", 22, KT), T("Java", 22, JV))
-        for t, y in zip(tags, (Y_CF + 0.19, Y_KT, Y_JV)):
-            t.move_to([0, y, 0]).align_to(np.array([CX - 0.3, 0, 0]), RIGHT)
-        frame = VGroup(api_box, api_tag, tags)
-        API_TOP = Y_API + 0.72
+        # ================= the shy question =================
+        self.shy("shyq", [("Kotlin and Java both run on the JVM.", 1),
+                          ("They compile to the same class files.", 2),
+                          ("So why can't Java just call my Kotlin, as it is?", 3)], big=2)
 
-        def api(lines, t2c=None):
-            g = code(lines, 22, WHITE, t2c=t2c)
-            g.move_to([0, 0, 0]).align_to(api_box, LEFT).shift(RIGHT * 0.25)
-            g.shift(UP * (API_TOP - g.get_top()[1]))
-            return g
+        # ================= javac reads class files, literally =================
+        def blk(title, color, sub, w=2.9):
+            r = RoundedRectangle(corner_radius=0.12, width=w, height=1.2).set_stroke(color, 3).set_fill(dim(color), 1)
+            a = T(title, 26, color).move_to(r.get_center() + UP * 0.2)
+            b = T(sub, 20, GREY_A).move_to(r.get_center() + DOWN * 0.25)
+            return VGroup(r, a, b)
 
-        def mark(ok, row):
-            m = tick(True, 0.24) if ok else cross(0.2)
-            return m.move_to([6.35, row.get_center()[1], 0])
+        src = blk("Kotlin source", KT, ".kt files").move_to([-4.6, 1.2, 0])
+        kc = M("kotlinc", 24, KT)
+        cls = blk("class files", GREY_A, ".class files").move_to([0, 1.2, 0])
+        jc = blk("javac", JV, "the Java compiler").move_to([4.6, 1.2, 0])
+        a1 = Arrow(src.get_right(), cls.get_left(), buff=0.1, stroke_width=3, color=KT)
+        kc.next_to(a1, UP, buff=0.1)
+        a2 = Arrow(jc.get_left(), cls.get_right(), buff=0.1, stroke_width=3, color=JV)
+        rd = T("reads", 22, JV).next_to(a2, UP, buff=0.1)
+        never = CurvedArrow(jc.get_bottom() + DOWN * 0.1, src.get_bottom() + DOWN * 0.1, angle=-TAU / 6, color=GREY_D)
+        nx = tick(False, 0.3).move_to(never.point_from_proportion(0.5))
+        nl = T("never reads", 22, BAD).next_to(nx, DOWN, buff=0.15)
+        lit = T("and reads them very literally", 26, JV).move_to([0, -2.9, 0])
+        self.say("literal")
+        self.play(FadeIn(src), FadeIn(cls), FadeIn(jc), GrowArrow(a1), FadeIn(kc), run_time=0.9)
+        self.at_text("never reads", lead=0.3)
+        self.play(Create(never), run_time=0.7)
+        self.play(Create(nx), FadeIn(nl), run_time=0.5)
+        self.at_text("It reads the class", lead=0.3)
+        self.play(GrowArrow(a2), FadeIn(rd), run_time=0.6)
+        self.at_text("very literally", lead=0.3)
+        self.play(FadeIn(lit), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        def msg(text, col, under):
-            return T(text, 22, col).next_to(under, DOWN, buff=0.15).align_to(np.array([CX, 0, 0]), LEFT)
+        ms = VGroup(maprow("the house shorthand", "what lives only in Kotlin source", KT),
+                    maprow("the printed form", "the class file", GREY_A),
+                    maprow("the partner driver", "javac: reads only what's printed", JV))
+        ms.arrange(DOWN, aligned_edge=LEFT, buff=0.4).move_to([0, 1.3, 0])
+        fit(ms, 12.4)
+        feats = VGroup(*[M(f, 24, KT) for f in ("reified", "default arguments", "object", "value class")]).arrange(RIGHT, buff=0.6)
+        fit(feats, 12.2).move_to([0, -1.4, 0])
+        feats_l = T("the shorthand:", 24, GREY_B).next_to(feats, UP, buff=0.25)
+        self.say("map")
+        self.at_text("The house", lead=0.3)
+        self.play(FadeIn(ms[0], shift=UP * 0.1), run_time=0.6)
+        self.at_text("reified", lead=0.3)
+        self.play(FadeIn(feats_l), LaggedStart(*[FadeIn(f, shift=UP * 0.1) for f in feats], lag_ratio=0.35), run_time=1.6)
+        self.at_text("The printed", lead=0.3)
+        self.play(FadeIn(ms[1], shift=UP * 0.1), run_time=0.6)
+        self.at_text("And the partner", lead=0.3)
+        self.play(FadeIn(ms[2], shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---- case 1: default arguments ----
-        a_api = api(["class PlainBus(", "    val name: String = \"payments\", val strict: Boolean = false)"])
-        a_cf = lines_at(["PlainBus()    PlainBus(String, boolean)"], 22, CF, Y_CF + 0.32)
-        a_kt = lines_at(["PlainBus(\"refunds\")"], 24, KT, Y_KT + 0.15)
-        a_jv = lines_at(["new PlainBus(\"refunds\");"], 24, JV, Y_JV + 0.15)
-        a_ok, a_x = mark(True, a_kt), mark(False, a_jv)
-        a_err = msg("no suitable constructor found for PlainBus(String)", BAD, a_jv)
-        seq(self, "First, default arguments. From Kotlin, PlainBus of refunds works.",
-            ([FadeIn(frame), FadeIn(a_api)], 1.0), 1.4, ([FadeIn(a_kt), Create(a_ok)], 0.8))
-        seq(self, "From Java, the same call fails: no suitable constructor found. The class file has only two: "
-                  "the one with every default, and the full one.",
-            ([FadeIn(a_jv), Create(a_x), FadeIn(a_err)], 0.9), 2.0, ([FadeIn(a_cf)], 0.8))
-        a_api2 = api(["class PlainBus @JvmOverloads constructor(",
-                      "    val name: String = \"payments\", val strict: Boolean = false)"],
-                     t2c={"@JvmOverloads constructor": FIX})
-        a_cf2 = lines_at(["PlainBus()    PlainBus(String)    PlainBus(String, boolean)"], 22, CF, Y_CF + 0.32)
-        a_cf2[0][10:26].set_color(FIX)
-        a_ok2 = mark(True, a_jv)
-        a_fix = T("fix: @JvmOverloads", 26, FIX).move_to([0, -3.05, 0])
-        seq(self, "@JvmOverloads tells kotlinc to write the ones in between. Now Java's call compiles.",
-            ([FadeTransform(a_api, a_api2), FadeTransform(a_cf, a_cf2), FadeIn(a_fix)], 1.0), 0.8,
-            ([FadeOut(a_err), FadeOut(a_x), Create(a_ok2)], 0.7))
-        self.play(FadeOut(VGroup(a_api2, a_cf2, a_kt, a_jv, a_ok, a_ok2, a_fix)), run_time=0.5)
+        # ================= four Java lines, and javac's four complaints =================
+        jl4 = ['new PlainBus("deliveries");',
+               'Registry.subscribe(e -> { });',
+               'new ParcelCollected(new ParcelId("PP-7781"), new Weight(2_500));',
+               'Registry.INSTANCE.describe("PP-7781");']
+        errs = [VGroup(err_line("no suitable constructor found for PlainBus(String)")),
+                VGroup(err_line("no suitable method found for subscribe((e)->{ })")),
+                VGroup(err_line("cannot find symbol"), M("symbol: constructor ParcelId(String)", 20, GREY_A)),
+                VGroup(err_line("cannot find symbol"), M("symbol: method describe(String)", 20, GREY_A))]
+        rows = VGroup()
+        for line, e in zip(jl4, errs):
+            c = M(line, 24, WHITE)
+            if len(e) > 1:
+                e.arrange(RIGHT, buff=0.35)
+            rows.add(VGroup(c, e).arrange(DOWN, aligned_edge=LEFT, buff=0.14))
+        for r in rows:
+            r[1].shift(RIGHT * 0.4)
+        rows.arrange(DOWN, aligned_edge=LEFT, buff=0.42).move_to([0, -0.15, 0])
+        fit(rows, 12.6)
+        head = T("Java, calling the demo's Kotlin API", 24, JV).next_to(rows, UP, buff=0.3).align_to(rows, LEFT)
+        self.say("setup")
+        self.play(FadeIn(head), run_time=0.5)
+        self.at_text("Here are four", lead=0.3)
+        self.play(LaggedStart(*[FadeIn(r[0], shift=RIGHT * 0.2) for r in rows], lag_ratio=0.3), run_time=1.6)
+        self.at_text("From Kotlin", lead=0.3)
+        oks = VGroup(*[tick(True, 0.16).next_to(r[0], RIGHT, buff=0.25) for r in rows])
+        kt_ok = T("from Kotlin", 20, KT).next_to(oks[0], RIGHT, buff=0.15)
+        self.play(LaggedStart(*[Create(o) for o in oks], lag_ratio=0.2), FadeIn(kt_ok), run_time=0.9)
+        self.hold(after=0)
+        self.play(FadeOut(oks), FadeOut(kt_ok), run_time=0.3)
+        self.predict(2.6, pos=(6.4, 3.3), edge=RIGHT)
+        none = T("from Java: none", 28, BAD).move_to([4.6, 3.3, 0])
+        self.say("none")
+        self.play(FadeIn(none), run_time=0.5)
+        self.hold()
+        for i, key in enumerate(("e1", "e2", "e3")):
+            self.say(key)
+            self.play(FadeIn(rows[i][1], shift=RIGHT * 0.2), Indicate(rows[i][0], color=JV, scale_factor=1.02), run_time=0.8)
+            self.hold()
+        self.say("e4")
+        self.play(FadeIn(rows[3][1], shift=RIGHT * 0.2), Indicate(rows[3][0], color=JV, scale_factor=1.02), run_time=0.8)
+        self.at_text("so its name", lead=0.3)
+        self.play(rows.animate.set_opacity(0.3), FadeOut(head), FadeOut(none), run_time=0.5)
+        mg = VGroup(M("describe-l8x0xus(java.lang.String)", 28, BAD), M("getWeight-RqKWbHU()", 28, BAD)).arrange(DOWN, buff=0.4)
+        bx = SurroundingRectangle(mg, color=GREY_D, buff=0.35).set_fill("#101010", 1)
+        mgl = T("names in the class file", 22, GREY_B).next_to(bx, UP, buff=0.12).align_to(bx, LEFT)
+        grp = VGroup(bx, mg, mgl).move_to([0, 0, 0])
+        self.play(FadeIn(bx), FadeIn(mgl), FadeIn(mg[0]), run_time=0.7)
+        self.at_text("The weight getter", lead=0.3)
+        self.play(FadeIn(mg[1], shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        moral1 = T("Java sees the printed form, not the shorthand", 30, JV).move_to([0, -2.5, 0])
+        self.say("joke")
+        self.play(Wiggle(mg[1], scale_value=1.08), run_time=0.9)
+        self.at_text("So the point", lead=0.3)
+        self.play(FadeIn(moral1, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---- case 2: reified and KClass ----
-        b_api = api(["inline fun <reified E> subscribe(h: Handler<E>)",
-                     "fun <E> subscribe(type: KClass<E>, h: Handler<E>)"])
-        b_cf = lines_at(["reified subscribe: synthetic, javac skips it", "subscribe(KClass, Handler)"], 22, CF, Y_CF + 0.32)
-        b_kt = lines_at(["bus.subscribe<PaymentCaptured> { println(it) }"], 24, KT, Y_KT + 0.15)
-        b_jv = lines_at(["bus.subscribe(e -> { });"], 24, JV, Y_JV + 0.15)
-        b_ok, b_x = mark(True, b_kt), mark(False, b_jv)
-        b_err = msg("no suitable method found for subscribe((e)->{ })", BAD, b_jv)
-        seq(self, "The reified subscribe is invisible to Java. It's compiled as a synthetic method, and javac ignores "
-                  "those.",
-            ([FadeIn(b_api)], 0.8), 0.5, ([FadeIn(b_kt), Create(b_ok)], 0.7), 0.3,
-            ([FadeIn(b_jv), Create(b_x), FadeIn(b_err)], 0.8), 0.5, ([FadeIn(b_cf[0])], 0.7))
-        b_jv2 = lines_at(["bus.subscribe(JvmClassMappingKt.getKotlinClass(", "        PaymentCaptured.class), h);"], 24, JV,
-                         Y_JV + 0.15)
-        b_odd = msg("works, and reads badly", JV, b_jv2)
-        seq(self, "The KClass one works, if Java converts the class by hand.",
-            ([FadeIn(b_cf[1])], 0.6), ([FadeOut(b_x), FadeOut(b_err), FadeTransform(b_jv, b_jv2)], 0.8), 0.6,
-            ([FadeIn(b_odd)], 0.5))
-        b_api2 = api(["inline fun <reified E> subscribe(h: Handler<E>)",
-                      "fun <E> subscribe(type: KClass<E>, h: Handler<E>)",
-                      "fun <E> subscribe(type: Class<E>, h: Handler<E>) = subscribe(type.kotlin, h)"])
-        b_api2[2].set_color(FIX)
-        b_cf2 = lines_at(["reified subscribe: synthetic, javac skips it", "subscribe(KClass, Handler)    subscribe(Class, Handler)"],
-                         22, CF, Y_CF + 0.32)
-        b_cf2[1][25:].set_color(FIX)
-        b_jv3 = lines_at(["bus.subscribe(PaymentCaptured.class, h);"], 24, JV, Y_JV + 0.15)
-        b_ok2 = mark(True, b_jv3)
-        b_fix = T("fix: a Class<E> overload", 26, FIX).move_to([0, -3.05, 0])
-        seq(self, "The fix: an overload that takes a Java Class.",
-            ([FadeTransform(b_api, b_api2), FadeTransform(b_cf, b_cf2), FadeIn(b_fix)], 1.0), 0.4,
-            ([FadeOut(b_odd), FadeTransform(b_jv2, b_jv3), Create(b_ok2)], 0.8))
-        self.play(FadeOut(VGroup(b_api2, b_cf2, b_kt, b_jv3, b_ok, b_ok2, b_fix)), run_time=0.5)
+        # ================= what kotlinc can print for Java =================
+        tbl = [("default arguments", "@JvmOverloads", "one constructor per default"),
+               ("a reified subscribe", "subscribe(Class<E>, ...)", "an overload javac can call"),
+               ("a member of an object", "@JvmStatic", "a real static method"),
+               ("a companion constant", "@JvmField", "a plain field"),
+               ("top-level functions", "@file:JvmName(\"Handlers\")", "names the holding class")]
+        trs = VGroup()
+        for a, b, c in tbl:
+            trs.add(VGroup(T(a, 24, KT), M(b, 22, JV), T(c, 22, GREY_A)))
+        col = [max(r[i].width for r in trs) for i in range(3)]
+        for r in trs:
+            r[0].move_to(ORIGIN, aligned_edge=LEFT)
+            r[1].move_to([col[0] + 0.6, 0, 0], aligned_edge=LEFT)
+            r[2].move_to([col[0] + col[1] + 1.2, 0, 0], aligned_edge=LEFT)
+        trs.arrange(DOWN, aligned_edge=LEFT, buff=0.38)
+        hdr = VGroup(T("Kotlin as written", 22, GREY_B), T("ask kotlinc for", 22, GREY_B), T("what Java gets", 22, GREY_B))
+        for h, x in zip(hdr, (0, col[0] + 0.6, col[0] + col[1] + 1.2)):
+            h.move_to([trs.get_left()[0] + x, trs.get_top()[1] + 0.45, 0], aligned_edge=LEFT)
+        tg = VGroup(hdr, trs).move_to([0, 0.3, 0])
+        fit(tg, 12.6)
+        self.say("fixes")
+        self.play(FadeIn(hdr), run_time=0.5)
+        for i, key in enumerate(("JvmOverloads asks", "A second subscribe", "JvmStatic makes", "JvmField exposes", "and file JvmName")):
+            self.at_text(key, lead=0.3)
+            self.play(FadeIn(trs[i], shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---- case 3: object and companion members ----
-        c_api = api(["object Registry { fun publish(event: Any) { ... } }",
-                     "fun interface Ticker { companion object { val SYSTEM = ... } }"])
-        c_cf = lines_at(["Registry: a static INSTANCE field, publish() is not static",
-                         "Ticker: a static Companion field, SYSTEM behind getSYSTEM()"], 22, CF, Y_CF + 0.32)
-        c_kt = lines_at(["Registry.publish(e)      val t = Ticker.SYSTEM"], 24, KT, Y_KT + 0.15)
-        c_jv = lines_at(["Registry.INSTANCE.publish(e);", "Ticker t = Ticker.Companion.getSYSTEM();"], 24, JV, Y_JV + 0.15)
-        c_ok = mark(True, c_kt)
-        c_odd = T("works, and reads oddly", 22, JV).next_to(c_jv, RIGHT, buff=0.6)
-        seq(self, "From Java, an object member goes through INSTANCE, and a companion val through Companion and a "
-                  "getter.",
-            ([FadeIn(c_api)], 0.8), ([FadeIn(c_kt), Create(c_ok)], 0.6), 0.4,
-            ([FadeIn(c_jv), FadeIn(c_cf), FadeIn(c_odd)], 1.0))
-        c_api2 = api(["object Registry { @JvmStatic fun publish(event: Any) { ... } }",
-                      "fun interface Ticker { companion object { @JvmField val SYSTEM = ... } }"],
-                     t2c={"@JvmStatic": FIX, "@JvmField": FIX})
-        c_cf2 = lines_at(["Registry.publish(): a static method",
-                          "Ticker.SYSTEM: a static field"], 22, CF, Y_CF + 0.32)
-        c_jv2 = lines_at(["Registry.publish(e);", "Ticker t = Ticker.SYSTEM;"], 24, JV, Y_JV + 0.15)
-        c_ok2 = mark(True, c_jv2)
-        c_fix = T("fix: @JvmStatic and @JvmField", 26, FIX).move_to([0, -3.05, 0])
-        seq(self, "@JvmStatic makes publish a real static method. @JvmField makes SYSTEM a plain static field.",
-            ([FadeTransform(c_api, c_api2), FadeIn(c_fix)], 0.9), 0.3,
-            ([FadeTransform(c_cf, c_cf2), FadeOut(c_odd), FadeTransform(c_jv, c_jv2), Create(c_ok2)], 0.9))
-        self.play(FadeOut(VGroup(c_api2, c_cf2, c_kt, c_jv2, c_ok, c_ok2, c_fix)), run_time=0.5)
+        jcode = code_block(['Registry.subscribe(ParcelCollected.class, e -> ...);',
+                            'Registry.INSTANCE.subscribe(JvmClassMappingKt.getKotlinClass(ParcelCollected.class), e -> ...);',
+                            'new FriendlyBus("deliveries");'], 22, hl={"Registry.subscribe": JV, "FriendlyBus": JV})
+        jg = titled(jcode, "Java, with the fixes")
+        out = term(["java handler: PP-7781 2500",
+                    "via KClass:   ParcelCollected(parcelId=PP-7781, weight=2500 g)",
+                    "parcels, deliveries"], 24, "the demo printed")
+        stack = VGroup(jg, out).arrange(DOWN, aligned_edge=LEFT, buff=0.6).move_to([0, 0, 0])
+        fit(stack, 12.6)
+        self.say("run")
+        self.play(FadeIn(jg), FadeIn(out[0]), FadeIn(out[2]), run_time=0.7)
+        self.at_text("The Class overload", lead=0.3)
+        self.play(Indicate(jcode[0], color=JV, scale_factor=1.02), FadeIn(out[1][0]), run_time=0.8)
+        self.at_text("The KClass version", lead=0.3)
+        self.play(Indicate(jcode[1], color=JV, scale_factor=1.02), FadeIn(out[1][1]), run_time=0.8)
+        self.at_text("And FriendlyBus", lead=0.3)
+        self.play(Indicate(jcode[2], color=JV, scale_factor=1.02), FadeIn(out[1][2]), run_time=0.8)
+        self.hold()
+        self.wipe()
 
-        # ---- case 4: value classes ----
-        d_api = api(["value class PaymentId(val value: String) {",
-                     "    init { require(value.startsWith(\"pay_\")) } }",
-                     "data class PaymentCaptured(val paymentId: PaymentId, val amount: Money)"],
-                    t2c={"init": PURPLE_M})
-        d_kt = lines_at(["PaymentCaptured(PaymentId(\"pay_7781\"), Money(1_999))"], 24, KT, Y_KT + 0.15)
-        d_ok = mark(True, d_kt)
-        self.beat("Last, the event. Its id and amount are value classes, whose init blocks check every value.", FadeIn(d_api), FadeIn(d_kt), Create(d_ok), run_time=1.6)
-        d_cf = lines_at(["private PaymentCaptured(String, long)", "getAmount-M68TK6M()"], 22, CF, Y_CF + 0.32)
-        d_jv = lines_at(["new PaymentCaptured(new PaymentId(\"pay_7781\"), new Money(1_999));"], 22, JV, Y_JV + 0.15)
-        d_x = mark(False, d_jv)
-        d_err = msg("PaymentCaptured(String,long) has private access", BAD, d_jv)
-        seq(self, "In the class file, a value class is just what it wraps. So Java sees a private constructor that "
-                  "takes a String and a long, and getters with mangled names.",
-            ([FadeIn(d_cf[0])], 0.8), 2.4, ([FadeIn(d_jv), Create(d_x), FadeIn(d_err)], 0.9), 1.0,
-            ([FadeIn(d_cf[1])], 0.6))
-        d_fix = T("fix: a facade that takes plain values", 26, FIX).move_to([0, -3.05, 0])
-        self.beat("A @JvmName shortcut would let Java pass a raw long straight past init. The facade does the "
-                  "opposite.", FadeIn(d_fix), run_time=1.0)
-        self.play(FadeOut(VGroup(frame, d_api, d_cf, d_kt, d_ok, d_jv, d_x, d_err, d_fix)), run_time=0.6)
+        # ================= the trap: a side door with no clerk =================
+        dp = depot()
+        dp.shift(LEFT * 1.4)
+        raw = VGroup(M("\"7781\"", 24, BAD), M("2500L", 24, BAD)).arrange(DOWN, buff=0.15)
+        raw.move_to([5.4, 0.2, 0])
+        raw_l = T("raw string, raw long", 22, GREY_A).next_to(raw, UP, buff=0.2)
+        warn = T("@JvmName on a value-class function: a raw long walks past init", 24, GREY_A).move_to([0, -2.6, 0])
+        fit(warn, 12.4)
+        self.say("trap")
+        self.play(FadeIn(dp), run_time=0.7)
+        self.at_text("The quick fix", lead=0.3)
+        self.play(FadeIn(raw, shift=LEFT * 0.2), FadeIn(raw_l), run_time=0.6)
+        self.at_text("The value classes lesson", lead=0.3)
+        self.play(FadeIn(warn, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        noc = T("a side door with no clerk", 28, BAD).move_to([0, 3.35, 0])
+        self.say("trap2")
+        self.play(FadeIn(noc), Indicate(dp.side, color=BAD), run_time=0.8)
+        self.at_text("It also lets", lead=0.3)
+        self.play(raw.animate.move_to(dp.room.get_center() + DOWN * 0.6).scale(0.9), FadeOut(raw_l), run_time=1.1)
+        frontx = T("the front door would refuse it", 22, KT).next_to(dp.front, LEFT, buff=0.2).shift(UP * 1.0)
+        frontx.shift(RIGHT * max(0, -6.4 - frontx.get_left()[0]))
+        self.play(FadeIn(frontx), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        # ---------------- the facade as a door that still checks ----------------
-        TY, BY = 1.75, 0.2                      # token track, box row
-        j_b = card(["Java caller"], JV, 1.85, 1.0, sizes=[24], mono=[False]).move_to([-5.55, BY, 0])
-        f_b = card(["Events.captured", "(String, long)"], FIX, 3.0, 1.2, sizes=[24, 22]).move_to([-2.5, BY, 0])
-        g_b = card(["PaymentId(...)", "init: starts with pay_"], PURPLE_M, 3.3, 1.2, sizes=[24, 22], mono=[True, False])
-        g_b.move_to([1.2, BY, 0])
-        r_b = card(["PaymentCaptured"], GREEN_M, 2.85, 1.0, sizes=[24]).move_to([4.95, BY, 0])
-        row = [j_b, f_b, g_b, r_b]
-        ars = VGroup(*[Arrow(a.get_right(), b.get_left(), buff=0.06, stroke_width=3, color=GREY_B,
-                             max_tip_length_to_length_ratio=0.3) for a, b in zip(row, row[1:])])
-        seq(self, "It takes plain values, and builds the value classes itself, so every init block runs.",
-            ([LaggedStart(*[FadeIn(b, shift=RIGHT * 0.15) for b in row], lag_ratio=0.3), Create(ars)], 2.2))
+        # ================= the facade: the clerk is back =================
+        dp = depot()
+        dp.shift(LEFT * 1.6)
+        ck = person(CLERK, 1.2).next_to(dp.side, LEFT, buff=0.25).align_to(dp.side, DOWN)
+        ck_l = T("the facade", 24, CLERK).next_to(ck, UP, buff=0.15)
+        plain = VGroup(M("\"PP-7781\"", 22, JV), M("2_500", 22, JV)).arrange(DOWN, buff=0.12).move_to([5.3, 0.5, 0])
+        built = VGroup(M("ParcelId(\"PP-7781\")", 20, PEDAL), M("Weight(2_500)", 20, PEDAL)).arrange(DOWN, buff=0.12)
+        built.move_to(dp.room.get_center() + DOWN * 0.5)
+        initl = T("every init runs", 22, OK).next_to(built, DOWN, buff=0.15)
+        self.say("facade")
+        self.play(FadeIn(dp), run_time=0.6)
+        self.at_text("So we put", lead=0.3)
+        self.play(FadeIn(ck, shift=RIGHT * 0.2), run_time=0.5)
+        self.at_text("A facade", lead=0.3)
+        self.play(FadeIn(ck_l), run_time=0.5)
+        self.at_text("Ours takes", lead=0.3)
+        self.play(FadeIn(plain, shift=LEFT * 0.2), run_time=0.6)
+        self.at_text("and builds", lead=0.3)
+        self.play(TransformFromCopy(plain, built), run_time=1.0)
+        self.at_text("So every", lead=0.3)
+        self.play(FadeIn(initl), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        def tokn(txt):
-            t = M(txt, 22, WHITE)
-            c = card([txt], JV, t.width + 0.35, 0.62, sizes=[22]).set_z_index(4)
-            return c.move_to([max(j_b.get_x(), -6.35 + c.width / 2), TY, 0])
-        good = tokn("\"pay_7781\", 1_999")
-        good[1][0].set_color(WHITE)
-        stops = [f_b.get_x(), g_b.get_x(), min(r_b.get_x(), 6.35 - good.width / 2)]
-        seq(self, "A good call goes through.",
-            ([FadeIn(good)], 0.3), ([good.animate.move_to([stops[0], TY, 0])], 0.6),
-            ([good.animate.move_to([stops[1], TY, 0])], 0.6), ([good.animate.move_to([stops[2], TY, 0])], 0.6),
-            (lambda: [good[0].animate.set_stroke(GREEN_M), Indicate(r_b[1], color=GREEN_M)], 0.5))
-        self.play(FadeOut(good), run_time=0.3)
-        bad = tokn("\"7781\", 1_999")
-        self.beat("Predict. A Java caller passes 7781, with no pay_ prefix. What happens?", FadeIn(bad), run_time=0.5)
-        self.wait(1.4)
-        thr = VGroup(M("IllegalArgumentException:", 22, BAD), M("invalid payment id: '7781'", 22, BAD))
-        thr.arrange(DOWN, buff=0.1).next_to(g_b, DOWN, buff=0.45)
-        seq(self, "PaymentId's init throws, just as it would for Kotlin.",
-            ([bad.animate.move_to([stops[0], TY, 0])], 0.6), ([bad.animate.move_to([stops[1], TY, 0])], 0.6),
-            (lambda: [bad[0].animate.set_stroke(BAD), Flash(g_b, color=BAD, flash_radius=1.8), FadeIn(thr, shift=UP * 0.1)], 0.7))
-        self.play(FadeOut(VGroup(j_b, f_b, g_b, r_b, ars, bad, thr)), run_time=0.6)
+        kcode = code_block(["object Events {",
+                            "    @JvmStatic",
+                            "    fun collected(parcelId: String, grams: Long): ParcelCollected =",
+                            "        ParcelCollected(ParcelId(parcelId), Weight(grams))   // the init blocks run",
+                            "",
+                            "    @JvmStatic",
+                            "    fun grams(event: Handover): Long = event.weight.grams",
+                            "}"], 22, hl={"// the init blocks run": OK})
+        jcode = code_block(['ParcelCollected c = Events.collected("PP-7781", 2_500);    // validates',
+                            'long grams = Events.grams(c);'], 22, hl={"// validates": OK})
+        kg, jg = titled(kcode, "Kotlin: the facade"), titled(jcode, "Java: through the side door")
+        st = VGroup(kg, jg).arrange(DOWN, aligned_edge=LEFT, buff=0.5).move_to([0, 0.5, 0])
+        fit(st, 12.6)
+        self.say("code")
+        self.play(FadeIn(kg), run_time=0.8)
+        self.at_text("Java calls", lead=0.3)
+        self.play(FadeIn(jg, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        out = term(["refused from Java: invalid parcel id: '7781'"], 24, "the demo printed, for Events.collected(\"7781\", 2_500)")
+        fit(out, 12.4).move_to([0, -2.9, 0])
+        self.say("refuse")
+        self.play(st.animate.shift(UP * 0.5), run_time=0.4)
+        self.play(FadeIn(out), run_time=0.6)
+        self.at_text("The side door", lead=0.3)
+        self.play(Circumscribe(out[1], color=OK, buff=0.08), run_time=0.9)
+        self.hold()
+        self.wipe()
 
-        # ---------------- the code ----------------
-        kcode = code(["object Events {",
-                      "    @JvmStatic",
-                      "    fun captured(paymentId: String, amountMinor: Long): PaymentCaptured =",
-                      "        PaymentCaptured(PaymentId(paymentId), Money(amountMinor))",
-                      "}"], 22)
-        jcode = code(["PaymentCaptured c = Events.captured(\"pay_7781\", 1_999);   // validates",
-                      "long cents = Events.amountMinor(c);"], 22)
-        kcode[1].set_color(FIX)
-        cg = VGroup(titled("Kotlin: the facade", kcode), titled("Java: the caller", jcode)).arrange(DOWN, buff=0.5,
-                                                                                                aligned_edge=LEFT)
-        cg.scale(min(1, 12.4 / cg.width)).move_to([0, 0.5, 0])
-        note = T("PaymentId and Money run their init blocks on every Java call", 22, GREY_B).next_to(cg, DOWN, buff=0.45)
-        self.beat("Here is the facade in Kotlin, and a Java caller.", FadeIn(cg, shift=UP * 0.2), FadeIn(note),
-                  run_time=1.2)
-        self.wait(1.6)
-        self.play(FadeOut(cg), FadeOut(note), run_time=0.6)
+        # ================= where the picture breaks, and what came free =================
+        a = VGroup(T("a real side door:", 26, GREY_A), T("often its own, looser rules", 26, GREY_A)).arrange(DOWN, buff=0.1)
+        b = VGroup(T("ours:", 26, CLERK), T("the same rules, on a different form", 26)).arrange(DOWN, buff=0.1)
+        ab = VGroup(a, b).arrange(RIGHT, buff=1.4).move_to([0, 1.4, 0])
+        self.say("breaks")
+        self.play(FadeIn(a), run_time=0.6)
+        self.at_text("Ours has", lead=0.3)
+        self.play(FadeIn(b, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        free = VGroup(VGroup(M("Handler<in E>", 24, KT), T("Java sees", 22, GREY_B), M("Handler<? super E>", 24, JV)).arrange(RIGHT, buff=0.3),
+                      VGroup(T("sealed model", 24, KT), T("a Java switch needs no", 22, GREY_B), M("default", 24, JV)).arrange(RIGHT, buff=0.3),
+                      VGroup(M("fun interface", 24, KT), T("with void: no", 22, GREY_B), M("return Unit.INSTANCE", 24, JV)).arrange(RIGHT, buff=0.3))
+        free.arrange(DOWN, aligned_edge=LEFT, buff=0.35).move_to([0, -1.5, 0])
+        fl = T("came free, from earlier choices", 24, OK).next_to(free, UP, buff=0.3)
+        self.say("free")
+        self.play(ab.animate.set_opacity(0.35), FadeIn(fl), run_time=0.5)
+        self.at_text("Handler in E", lead=0.3)
+        self.play(FadeIn(free[0], shift=UP * 0.1), run_time=0.6)
+        self.at_text("The sealed", lead=0.3)
+        self.play(FadeIn(free[1], shift=UP * 0.1), run_time=0.6)
+        self.at_text("And because", lead=0.3)
+        self.play(FadeIn(free[2], shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------------- rule and check ----------------
-        rule = VGroup(T("Java sees only the class file.", 30), T("Give it Class overloads, @JvmOverloads, statics,", 30),
-                      T("and a facade that still builds the value classes.", 30)).arrange(DOWN, buff=0.22)
-        rule.scale(min(1, 12.2 / rule.width)).move_to([0, 2.4, 0])
-        self.beat("The rule. Java sees only the class file. Give it Class overloads, @JvmOverloads, statics, and a facade "
-                  "that still builds the value classes.", FadeIn(rule, shift=UP * 0.15), run_time=1.6)
-        chk = VGroup(T("No @JvmOverloads on PlainBus. Does this compile from Java?", 28),
-                     M("new PlainBus(\"refunds\", true);", 28, JV)).arrange(DOWN, buff=0.3).move_to([0, -0.2, 0])
-        chk.scale(min(1, 12 / chk.width))
-        self.beat("Check yourself. Without @JvmOverloads, does new PlainBus with a name and a flag compile from Java?", FadeIn(chk), run_time=1.2)
+        # ================= guardrail =================
+        g1 = VGroup(M("@JvmExposeBoxed", 28, JV), T("experimental in Kotlin 2.4", 24, GREY_A)).arrange(RIGHT, buff=0.4)
+        g2 = T("in a quick test, the getter on the event interface stayed mangled", 24, GREY_A)
+        g3 = T("so keep the facade until that changes", 30, CLERK)
+        g4 = VGroup(T("search your Kotlin for public", 26), M("reified", 26, KT), T("functions: what does Java see?", 26)).arrange(RIGHT, buff=0.15)
+        gg = VGroup(g1, g2, g3, g4).arrange(DOWN, buff=0.45).move_to([0, 0.3, 0])
+        for m in gg:
+            fit(m, 12.4)
+        self.say("guard")
+        self.play(FadeIn(g1), run_time=0.6)
+        self.at_text("In a quick", lead=0.3)
+        self.play(FadeIn(g2), run_time=0.5)
+        self.at_text("So keep", lead=0.3)
+        self.play(FadeIn(g3, shift=UP * 0.1), run_time=0.5)
+        self.at_text("And search", lead=0.3)
+        self.play(FadeIn(g4, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= moral and check =================
+        mq = T("Why can't Java just call my Kotlin?", 32, CLERK).move_to([0, 2.7, 0])
+        m1 = T("Java reads the printed form, not the shorthand", 28).move_to([0, 1.9, 0])
+        rule = rule_card("Print what Java needs: an overload, a static, a facade. Make the side door easy, never loose.", 28)
+        rule.move_to([0, 0.8, 0])
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at_text("Because", lead=0.3)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
+        self.at_text("Print what", lead=0.3)
+        self.play(FadeIn(rule, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        qa = VGroup(T("Check: Registry gets", 28), M("fun weigh(w: Weight)", 26, KT)).arrange(RIGHT, buff=0.2).move_to([0, -0.6, 0])
+        qb = T("What does Java see? How does Java weigh a parcel, check included?", 28, YELLOW_M).next_to(qa, DOWN, buff=0.2)
+        for m in (qa, qb):
+            fit(m, 12.4)
+        self.say("check")
+        self.play(FadeIn(qa, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(qb, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.predict(2.6, pos=(6.4, -3.4), edge=RIGHT)
+        ans = VGroup(T("a mangled name;", 26, BAD), T("a facade that takes a long and builds the Weight", 26, OK)).arrange(RIGHT, buff=0.3)
+        fit(ans, 12.4).move_to([0, -2.6, 0])
+        self.say("check_a")
+        self.play(FadeIn(ans[0], shift=UP * 0.1), run_time=0.5)
+        self.at_text("Add a facade", lead=0.3)
+        self.play(FadeIn(ans[1], shift=UP * 0.1), run_time=0.5)
+        self.hold(after=0)
         self.wait(2.5)
-        ans = T("Yes. The full constructor is always there. Only the ones in between are missing.", 28, GOLD_M)
-        ans.scale(min(1, 12 / ans.width)).move_to([0, -2.1, 0])
-        self.beat("Yes. The full constructor is always there. Only the ones in between are missing.",
-                  FadeIn(ans, shift=UP * 0.15), run_time=1.0)
-        self.wait(0.8)

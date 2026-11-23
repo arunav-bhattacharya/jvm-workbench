@@ -222,7 +222,7 @@ class Kt06Plugins(Narrated):
         for m in ms:
             m.shift(DOWN * (m[0].get_bottom()[1] + 0.95) )
         fit(ms, 10.6)
-        jb = job(wrap=True).move_to([-5.6, -0.68, 0])
+        jb = job(wrap=True).move_to([-5.6, -0.68, 0]).set_z_index(3)
         tick_l = T("each acts on a note on the ticket", 24, NOTE).move_to([0, -2.4, 0])
         self.say("open")
         self.play(Create(belt[0]), FadeIn(belt[1:]), run_time=0.7)
@@ -233,14 +233,16 @@ class Kt06Plugins(Narrated):
         self.play(LaggedStart(*[FadeIn(m, shift=DOWN * 0.15) for m in ms], lag_ratio=0.3), run_time=1.0)
         self.at(3)
         self.play(jb.animate.move_to([ms[0][0].get_center()[0], -0.68, 0]), run_time=0.8)
-        self.play(FadeOut(jb[2]), run_time=0.4)
+        film = jb[2]
+        self.play(FadeOut(film), run_time=0.4)
+        jb.remove(film)
         self.at(4)
-        form = Rectangle(width=0.5, height=0.7).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+        form = Rectangle(width=0.5, height=0.7).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1).set_z_index(3)
         self.play(jb.animate.move_to([ms[1][0].get_center()[0], -0.68, 0]), run_time=0.8)
         form.next_to(jb[0], RIGHT, buff=0.05).align_to(jb[0], DOWN)
         self.play(FadeIn(form, shift=LEFT * 0.1), run_time=0.4)
         self.at(5)
-        sl = Rectangle(width=0.36, height=0.6).set_stroke(dim(M3, 0.6), 1.5).set_fill(M3, 1)
+        sl = Rectangle(width=0.36, height=0.6).set_stroke(dim(M3, 0.6), 1.5).set_fill(M3, 1).set_z_index(3)
         self.play(VGroup(jb, form).animate.move_to([ms[2][0].get_center()[0], -0.68, 0]), run_time=0.8)
         sl.next_to(jb[0], LEFT, buff=0.05).align_to(jb[0], DOWN)
         self.play(FadeIn(sl, shift=RIGHT * 0.1), run_time=0.4)
@@ -268,7 +270,7 @@ class Kt06Plugins(Narrated):
         # ================= frameworks and proxies =================
         yours = framed(M("PrintQueue.print(job)", 24, WHITE), JOB, buff=0.2, k=0.18).move_to([2.6, -0.4, 0])
         prox = RoundedRectangle(corner_radius=0.12, width=8.4, height=3.3).set_stroke(M1, 3).set_fill(dim(M1, 0.08), 1)
-        prox.move_to([1.0, -0.4, 0])
+        prox.move_to([1.0, -0.4, 0]).set_z_index(-1)
         prox_l = T("a proxy: a generated subclass", 24, M1).move_to(prox.get_corner(UL) + RIGHT * 0.25 + DOWN * 0.3, aligned_edge=LEFT)
         before = framed(T("start a clock", 22), M1, buff=0.15, k=0.2).move_to([-1.6, 0.1, 0])
         after = framed(T("write down the time", 22), M1, buff=0.15, k=0.2).move_to([-1.6, -1.1, 0])
@@ -288,25 +290,25 @@ class Kt06Plugins(Narrated):
         self.wipe()
 
         ks = ["class TimedPrintQueue : PrintQueue() {",
-              "    override fun print(job: String): String =",
-              "        super.print(job)    // plus the clock",
+              "    override fun print(job: String) =",
+              "        super.print(job)",
               "}"]
         js = ["class LoggedPrintQueue extends PrintQueue {",
               "    @Override public String print(String job) {",
               "        return super.print(job);",
               "    }",
               "}"]
-        kc = labeled(code_block(ks, 22, color=CODE), "Kotlin").move_to([-6.2, 1.9, 0], aligned_edge=UL)
-        jc = labeled(code_block(js, 22, color=CODE), "Java").move_to([0.4, 1.9, 0], aligned_edge=UL)
+        kc = labeled(code_block(ks, 22, color=CODE), "Kotlin").move_to([-6.2, 3.3, 0], aligned_edge=UL)
+        jc = labeled(code_block(js, 22, color=CODE), "Java").move_to([-6.2, 0.5, 0], aligned_edge=UL)
         self.say("proxy_q")
         self.play(FadeIn(kc, shift=UP * 0.1), FadeIn(jc, shift=UP * 0.1), run_time=0.9)
         self.hold(after=0)
         self.predict()
-        ek = msg_box(["this type is final, so it cannot be extended.",
-                      "'print' in 'PrintQueue' is final and cannot be overridden."], BAD, 22, title="Kotlin")
-        ej = msg_box(["cannot inherit from final PrintQueue"], BAD, 22, title="Java")
-        eg = VGroup(ek, ej).arrange(RIGHT, buff=0.4, aligned_edge=UP).move_to([0, -1.9, 0])
-        fit(eg, 12.6)
+        ek = msg_box(["this type is final,", "so it cannot be extended.",
+                      "'print' in 'PrintQueue' is final", "and cannot be overridden."], BAD, 22, title="Kotlin")
+        ej = msg_box(["cannot inherit from final", "PrintQueue"], BAD, 22, title="Java")
+        ek.move_to([6.3, kc.get_center()[1], 0], aligned_edge=RIGHT)
+        ej.move_to([6.3, jc.get_center()[1], 0], aligned_edge=RIGHT)
         self.say("final")
         self.play(FadeIn(ek, shift=UP * 0.1), run_time=0.7)
         self.at(2)
@@ -385,8 +387,7 @@ class Kt06Plugins(Narrated):
                          "  private final int traySize;",
                          "  public int getTraySize();",
                          "  public java.lang.String print(java.lang.String);",
-                         "  private int secret();",
-                         "}"], 22, color=CODE)
+                         "  private int secret();"], 22, color=CODE)
         jpg = labeled(jp, "javap -p PrintQueue (real output)").move_to([-6.2, -0.1, 0], aligned_edge=UL)
         out = framed(M("printed flyer.pdf from a tray of 500 sheets", 22, OK), OK, buff=0.15, k=0.15)
         out.move_to([-6.2, -3.0, 0], aligned_edge=LEFT)
@@ -498,8 +499,9 @@ class Kt06Plugins(Narrated):
         # ================= where the picture breaks =================
         src = framed(VGroup(T("what you read", 24, GREY_B), M("@OpenForProxies", 22, NOTE), M("class PrintQueue", 22)).arrange(DOWN, buff=0.12), GREY_B, buff=0.25)
         cf = framed(VGroup(T("what the JVM loads", 24, JVM), M("public class PrintQueue", 22, OK), M("(no final)", 22, OK)).arrange(DOWN, buff=0.12), JVM, buff=0.25)
-        bg = VGroup(src, cf).arrange(RIGHT, buff=2.2).move_to([0, 0.8, 0])
-        hid = machine("?", M1, 1.4, 1.0).move_to(bg.get_center() + DOWN * 0.1)
+        src.move_to([-4.3, 0.8, 0])
+        cf.move_to([4.2, 0.8, 0])
+        hid = machine("?", M1, 1.6, 1.0).move_to([-0.1, 0.8, 0])
         hid[1].set_opacity(0)
         hq = T("unseen", 22, GREY_B).move_to(hid[0])
         aa = Arrow(src.get_right(), hid[0].get_left(), buff=0.1, stroke_width=3, color=GREY_B)

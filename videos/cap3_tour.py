@@ -382,11 +382,11 @@ class Cap3Tour(Narrated):
         sc1 = note(["collected", "PP-7781", "2500"], 22)
         sc2 = note(["delivered", "PP-7781", "2500"], 22)
         sc3 = note(["collected", "PP-7782", "2.5"], 22)
-        scans = VGroup(sc1, sc2, sc3).arrange(RIGHT, buff=0.35).move_to([-3.6, 1.7, 0])
+        scans = VGroup(sc1, sc2, sc3).arrange(RIGHT, buff=0.35).move_to([-2.6, 2.35, 0])
         nums = VGroup(*[T(str(i + 1), 22, GREY_B).next_to(s, UP, buff=0.1) for i, s in enumerate(scans)])
         hs = VGroup(handler_box("tracking", TRACK, 2.3, 0.75), handler_box("load board", LOAD, 2.3, 0.75),
-                    handler_box("texts", TEXTS, 2.3, 0.75)).arrange(RIGHT, buff=0.3).move_to([-3.6, -0.3, 0])
-        fit(hs, 7.6)
+                    handler_box("texts", TEXTS, 2.3, 0.75)).arrange(RIGHT, buff=0.3)
+        fit(hs, 6.8).move_to([-2.6, 0.7, 0])
         fl = VGroup(*[Arrow(hs[i].get_right(), hs[i + 1].get_left(), buff=0.04, stroke_width=3, color=GREY_B,
                             max_tip_length_to_length_ratio=0.4) for i in range(2)])
         order = T("each scan visits all three, in turn", 22, GREY_B).next_to(hs, DOWN, buff=0.2)
@@ -405,7 +405,7 @@ class Cap3Tour(Narrated):
         rain = VGroup(*[Line(UP * 0.18, DOWN * 0.18, stroke_width=2, color=TRACK).rotate(-0.3) for _ in range(14)])
         for i, d in enumerate(rain):
             d.move_to([-6.0 + 0.85 * (i % 7) + 0.3 * (i // 7), -2.35 - 0.45 * (i // 7), 0])
-        glove = T("gloves on, in the rain, at a stranger's door", 24, GREY_A).move_to([-3.4, -3.25, 0])
+        glove = T("gloves on, in the rain, at a stranger's door", 24, GREY_A).move_to([-2.6, -3.0, 0])
         self.say("tidy")
         self.at_text("Real scans", lead=0.3)
         self.play(FadeIn(rain, lag_ratio=0.1), FadeIn(glove), run_time=0.9)
@@ -413,12 +413,12 @@ class Cap3Tour(Narrated):
         self.play(FadeOut(rain), FadeOut(glove), run_time=0.4)
 
         q = VGroup(T("Which scan fails, in which handler?", 26, CLERK), T("How many texts go out?", 26, CLERK)).arrange(DOWN, buff=0.15)
-        q.move_to([3.6, 1.7, 0])
+        q.move_to([3.9, 2.3, 0])
         self.say("predict")
         self.at(1)
         self.play(FadeIn(q, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
-        self.predict(2.6, pos=(3.6, 0.85), edge=ORIGIN)
+        self.predict(2.6, pos=(3.9, 1.4), edge=ORIGIN)
 
         # ================= the demo's output =================
         out_l = ["tracking collected PP-7781",
@@ -429,7 +429,7 @@ class Cap3Tour(Narrated):
                  'FAILED   java.lang.NumberFormatException: For input string: "2.5"',
                  "texts sent: 0"]
         out = term(out_l, 20, "the demo printed")
-        fit(out, 12.4).move_to([0, -2.15, 0])
+        fit(out, 12.4).move_to([0, -2.2, 0])
         self.play(FadeOut(q), FadeOut(order), run_time=0.4)
         self.play(FadeIn(out[0]), FadeIn(out[2]), run_time=0.5)
         rows = out[1]
@@ -449,7 +449,7 @@ class Cap3Tour(Narrated):
         self.play(FadeIn(rows[5], shift=RIGHT * 0.2), Wiggle(hs[1], scale_value=1.05), run_time=0.9)
         self.hold()
         told = T("already told the world", 22, TRACK).next_to(hs[0], UP, buff=0.12)
-        never = T("never added it", 22, BAD).next_to(hs[1], UP, buff=0.12)
+        never = T("never added it", 22, BAD).next_to(hs[1], DOWN, buff=0.12)
         self.say("show3")
         self.play(FadeIn(told), Circumscribe(rows[4], color=TRACK, buff=0.04), run_time=0.9)
         self.at_text("and the load", lead=0.3)
@@ -459,14 +459,14 @@ class Cap3Tour(Narrated):
         rows[6].set_color(TEXTS)
         self.play(FadeIn(rows[6]), run_time=0.5)
         self.at_text("The text handler", lead=0.3)
-        typo = M('if (fields["type"] == "deliver")', 22).move_to([3.6, 1.8, 0])
+        typo = M('if (fields["type"] == "deliver")', 22).move_to([3.9, 2.4, 0])
         typo_l = T("one letter short: compiles, never matches", 22, TEXTS).next_to(typo, DOWN, buff=0.15)
         self.play(FadeIn(typo, shift=UP * 0.1), Indicate(hs[2][1], color=TEXTS), run_time=0.7)
         self.play(FadeIn(typo_l), run_time=0.5)
         self.hold()
 
-        two = T("each handler parses and checks for itself", 28, BAD).move_to([3.6, 0.7, 0])
-        fit(two, 6.4)
+        two = T("each handler parses and checks for itself", 28, BAD)
+        fit(two, 5.0).move_to([4.0, 1.0, 0])
         self.say("two")
         self.at_text("Each handler", lead=0.3)
         self.play(FadeIn(two, shift=UP * 0.1), *[Circumscribe(h[0], color=BAD, buff=0.05) for h in hs], run_time=1.0)
@@ -539,10 +539,10 @@ class Cap3Tour(Narrated):
         fm = form("Parcel collected", [("parcel id", "PP- and digits"), ("weight", "grams")], size=22)
         fm.move_to([2.6, 1.0, 0])
         filled = VGroup(M("PP-7781", 22, PEN).move_to(fm[2][0][1]), M("2500", 22, PEN).move_to(fm[2][1][1]))
-        slip = VGroup(Rectangle(width=3.4, height=0.75).set_stroke(BAD, 2).set_fill(PAPER, 1),
-                      T("sent back: \"grams is not a whole number\"", 20, BAD))
+        slip_t = VGroup(T("sent back:", 24, BAD), M("grams is not a whole number: '2.5'", 22, BAD)).arrange(RIGHT, buff=0.2)
+        slip = VGroup(Rectangle(width=slip_t.width + 0.5, height=0.8).set_stroke(BAD, 2).set_fill(PAPER, 1), slip_t)
         slip[1].move_to(slip[0])
-        fit(slip, 4.6)
+        fit(slip, 6.4)
         slip.move_to([2.6, -1.9, 0])
         self.say("analogy2")
         self.play(FadeIn(doorf), FadeIn(ck), FadeIn(ck_l), FadeIn(hand), run_time=0.8)
@@ -651,7 +651,7 @@ class Cap3Tour(Narrated):
         self.wipe()
 
         # ================= guardrail =================
-        sig = M("Map<String, String>", 30, PEN)
+        sig = M("Map<String, String>", 32, WHITE)
         sig_l = T("handed to more than one function?", 28, GREY_A).next_to(sig, DOWN, buff=0.25)
         each = T("each one is a desk squinting at handwriting", 30, BAD).next_to(sig_l, DOWN, buff=0.5)
         keep = T("keep the checks in one place: at the door", 30, CLERK).next_to(each, DOWN, buff=0.4)

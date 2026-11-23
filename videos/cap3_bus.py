@@ -1,337 +1,651 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form).
-fg.SAY[:0] = [(r"\bPayment(?=[A-Z])", "Payment "), (r"\bMoney(?=[A-Z])", "Money "),
-              (r"\bkotlinc\b", "kotlin C"), (r"\? super E", "question mark super E"),
-              (r"\bgetInterfaces\b", "get interfaces"), (r"\bgetSuperclass\b", "get superclass"),
-              (r"\bcomputeIfAbsent\b", "compute if absent"), (r"\bConcurrentHashMap\b", "concurrent hash map"),
-              (r"\bpay_7781\b", "payment 7781")]
+# Spoken forms only (captions keep the written words).
+fg.SAY[:0] = [
+    (r"\bParcelEvent\b", "Parcel Event"), (r"\bParcelCollected\b", "Parcel Collected"), (r"\bParcelDelivered\b", "Parcel Delivered"),
+    (r"\bParcelBooked\b", "Parcel Booked"), (r"\bDeliveryFailed\b", "Delivery Failed"),
+    (r"\bgetInterfaces\b", "get interfaces"), (r"\bgetSuperclass\b", "get superclass"),
+    (r"\bcomputeIfAbsent\b", "compute if absent"), (r"\bConcurrentHashMap\b", "concurrent hash map"),
+    (r"\bPP-(\d)(\d)(\d)(\d)\b", r"P P \1 \2 \3 \4"),
+]
+
+# every spoken line, in order
+N = {
+    "open": "Remember the board of bells from the Generics workshop, at the fruit shop's back door? One bell for each "
+            "kind of delivery, and everyone who asked to hear a bell came when it rang. Pedal Post needs the same "
+            "board, in its depot.",
+    "who": "When a rider scans PP-7781 as collected, the load board comes for that bell. The tracking page wants every "
+           "bell. And the handover log, kept for insurance, wants every handover.",
+    "words": "Let's set up the words. The board is the bus, the object in the middle. A handler, a small object that "
+             "reacts to events, subscribes: it signs up for one type of event. Code with news publishes an event, and "
+             "the bus delivers it to every handler that signed up.",
+    "registry": "Inside, the bus keeps a registry: a map from each event type to the list of handlers that signed up "
+                "for it. Each bell is a key, and the names under it are its handlers.",
+    "tree": "Here are the event types from the last sitting. A parcel event is booked, failed, or a handover. And a "
+            "handover is either collected or delivered.",
+    "shyq": "Now, a question that's easy to be shy about. A collection is a parcel event. Everybody agrees. So if the "
+            "tracking page signs up for parcel events, why doesn't it hear the collection?",
+    "setup": "The workshop's board looked up each event by its class when the program runs. Three handlers sign up: "
+             "tracking under ParcelEvent, the handover log under Handover, and the load board under ParcelCollected. "
+             "Then we publish one collection. Which handlers run?",
+    "show": "The demo prints: exact class only, and then just load. The event's class is ParcelCollected, so the bus "
+            "rings that bell, and only that bell.",
+    "patient": "The tracking page is the most patient listener in the depot. It waits by a bell that, by design, "
+               "nobody ever rings. It compiles, and the page stays blank.",
+    "why": "Here's why. No event's class is ever the interface ParcelEvent itself. A scan is always one of the leaves: "
+           "collected, delivered, booked or failed. The same goes for Handover. And the last sitting built that middle "
+           "level on purpose, so the bus has to honour it.",
+    "flat": "The first honest fix is short. Keep one flat list of pairs, a type and a handler, and ask each pair: is "
+            "this event an instance of your type? It's correct. But every publish asks every subscription.",
+    "flat2": "Forty handlers means forty questions per scan, and almost all of them are misses. Picture a porter who "
+             "walks the whole wall reading every name aloud, for every single scan. Correct, and exhausting.",
+    "wish": "What we really want is a board that knows, for each kind of event, exactly which bells to ring.",
+    "keys": "That's the second fix. Keep the registry keyed by class. Then, for each event class, work out the keys to "
+            "visit: the class itself, then each supertype that is an event, nearest first. A supertype is a type a "
+            "class extends or implements, directly or further up. We'll call that list the dispatch keys.",
+    "walk": "Let's walk it for a collection. A queue starts with the event's own class, ParcelCollected. Take it off. "
+            "It's an event, and it's new, so keep it, and put its interface at the back of the queue: Handover.",
+    "walk2": "Take Handover. Keep it, and queue its interface, ParcelEvent. Take ParcelEvent, and keep it. Anything "
+             "that isn't an event, like Object, is skipped. The queue is empty.",
+    "keys_a": "Three keys: ParcelCollected, Handover, ParcelEvent. Publish looks up only those three. Three bells, not "
+              "forty names.",
+    "predict2": "Your turn. What are the keys for DeliveryFailed?",
+    "predict2_a": "DeliveryFailed, then ParcelEvent. A failed delivery isn't a handover, so the handover log never "
+                  "hears it.",
+    "run2": "Now the same demo with the walk. Walking supertypes: load, handovers, tracking. The tracking page finally "
+            "hears the collection, after a very long wait.",
+    "order": "And the order is a promise. The most specific handlers run first, then each wider kind. Within one key, "
+             "handlers run in the order they subscribed. Sign an insurance handler up under Handover, last of all, and "
+             "the list becomes: load, handovers, insurance, tracking.",
+    "breaks": "Here our picture breaks. On a real wall, someone would wire the every-parcel bell to ring along with the "
+              "others. Our board has no wires. The wiring is the class's own family tree, and the bus reads it with "
+              "plain Java reflection: getInterfaces and getSuperclass. No extra library.",
+    "code": "Here's the heart of the walk. Take the next class. Skip it if it isn't an event, or was found already. "
+            "Otherwise, queue its interfaces and its superclass. Kotlin says the same.",
+    "cache": "The answer never changes for a class, so the bus works it out once per class and caches it, with "
+             "computeIfAbsent. On a ConcurrentHashMap that call is one atomic step, so two threads publishing the "
+             "first collection together can't both fill the cache.",
+    "guard": "So, subscribe as wide as the job, and no wider. Tracking under ParcelEvent, the handover log under "
+             "Handover, the load board under the leaf. And remember what wide means: a handler for ParcelEvent also "
+             "hears every event type added next year.",
+    "moral": "So, why didn't the tracking page hear the collection? Because the board rang only the bell with the "
+             "event's exact class. Now each publish rings its own bell, then each wider one, nearest first, and "
+             "nothing else.",
+    "check": "Quick check. Publish a DeliveryFailed. Which of the three run: tracking, handovers, or load?",
+    "check_a": "Only tracking. The keys are DeliveryFailed and ParcelEvent, and the only handler under those two is "
+               "the tracking page.",
+}
 
 
-# ---- helpers for this file ----
-def seq(scene, text, *steps, after=0.25):
-    """Speak one line and play several animation groups one after another inside it.
-    A number is a pause; a (anims, run_time) pair is one play; anims may be a callable."""
-    path, dur = voice(text)
-    scene._cue(text, dur)
-    scene.add_sound(path)
-    used = 0
-    for st in steps:
-        if isinstance(st, (int, float)):
-            scene.wait(st); used += st
-        else:
-            anims, rt = st
-            if callable(anims):
-                anims = anims()
-            if rt is None:
-                rt = max(0.5, dur - used - 0.1)
-            scene.play(*anims, run_time=rt); used += rt
-    if dur - used > 0.02:
-        scene.wait(dur - used)
-    if after:
-        scene.wait(after)
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
+
+    def say(self, key):
+        text = N[key]
+        path, dur = voice(text)
+        self._cue(text, dur)
+        self.add_sound(path)
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+        if after:
+            self.wait(after)
+
+    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def wipe(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
+
+    def shy(self, key, lines, big=0):
+        hd = T("a question that's easy to be shy about", 26, GREY_B).move_to([0, 2.5, 0])
+        qs = VGroup(*[T(l, 38 if i == big else 32, WHITE if i == big else GREY_A) for i, (l, _) in enumerate(lines)])
+        qs.arrange(DOWN, buff=0.4).move_to([0, 0.1, 0])
+        for q in qs:
+            fit(q, 12.4)
+        self.say(key)
+        self.play(FadeIn(hd), run_time=0.5)
+        for q, (_, i) in zip(qs, lines):
+            self.at(i)
+            self.play(FadeIn(q, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0.4)
+        self.wipe()
 
 
-def dark(color, k=0.14):
+def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def code(lines, size=22, color=WHITE, ls=0.6):
-    """Monospace block that keeps indentation. Returns a VGroup with one sub-group per line."""
-    t = Text("\n".join(lines), font=MONO, font_size=size, color=color, line_spacing=ls)
-    out, i = VGroup(), 0
-    for ln in lines:
-        n = len(ln.replace(" ", ""))
-        out.add(VGroup(*t[i:i + n]))
-        i += n
-    return out
+# one colour per thing, the same in all three Part 3 capstone videos
+PEDAL, TRACK, LOAD, TEXTS = TEAL_M, BLUE_M, GOLD_M, PURPLE_M     # Pedal Post and the model; the handlers
+HAND, INS = PINK, GREY_A                                         # the handover log; insurance
+CLERK, BAD, OK = YELLOW_M, RED_M, GREEN_M
+BELL = GOLD_E
 
 
-def titled(label, block, buff=0.16):
-    return VGroup(T(label, 22, GREY_B), block).arrange(DOWN, aligned_edge=LEFT, buff=buff)
+def bell(s=1.0, color=BELL):
+    dome = AnnularSector(inner_radius=0, outer_radius=0.24, angle=PI).set_stroke(color, 2.5).set_fill(dim(color, 0.6), 1)
+    rim = Line([-0.3, 0, 0], [0.3, 0, 0], stroke_width=4, color=color)
+    clap = Dot([0, -0.07, 0], radius=0.06, color=color)
+    knob = Dot([0, 0.27, 0], radius=0.04, color=color)
+    return VGroup(dome, rim, clap, knob).scale(s)
 
 
-def tbox(name, col, w=None, h=0.78, size=24, dashed=False):
-    """A type or key box: mono name in an outlined, opaque box."""
-    t = M(name, size, WHITE)
-    w = w or t.width + 0.55
-    r = RoundedRectangle(corner_radius=0.12, width=w, height=h, stroke_color=col, stroke_width=3)
-    r.set_fill(dark(col), 1)
-    if dashed:
-        r = DashedVMobject(r, num_dashes=28).set_stroke(col, 2.5)
+def chip(text, color, size=22, h=0.48):
+    t = T(text, size, WHITE)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.32, height=h).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    return VGroup(r, t.move_to(r))
+
+
+def tchip(text, color=PEDAL, size=22, h=0.5):
+    """A type name in a box (monospace)."""
+    t = M(text, size, WHITE)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.3, height=h).set_stroke(color, 2.5).set_fill(dim(color, 0.2), 1)
+    return VGroup(r, t.move_to(r))
+
+
+def tree(size=22, gap=0.95):
+    """The sealed model: ParcelEvent; ParcelBooked, Handover, DeliveryFailed; ParcelCollected, ParcelDelivered."""
+    top = tchip("ParcelEvent", PEDAL, size)
+    mid = VGroup(tchip("ParcelBooked", GREY_B, size), tchip("Handover", PEDAL, size), tchip("DeliveryFailed", GREY_B, size))
+    mid.arrange(RIGHT, buff=0.35)
+    low = VGroup(tchip("ParcelCollected", GREY_B, size), tchip("ParcelDelivered", GREY_B, size)).arrange(RIGHT, buff=0.3)
+    top.move_to(UP * gap)
+    mid.move_to(ORIGIN)
+    low.move_to(DOWN * gap).align_to(mid[1], ORIGIN)
+    low.set_x(mid[1].get_x())
+    edges = VGroup(*[Line(top.get_bottom(), m.get_top(), stroke_width=2, color=GREY_D) for m in mid],
+                   *[Line(mid[1].get_bottom(), l.get_top(), stroke_width=2, color=GREY_D) for l in low])
+    g = VGroup(edges, top, mid, low)
+    g.nodes = {"ParcelEvent": top, "ParcelBooked": mid[0], "Handover": mid[1], "DeliveryFailed": mid[2],
+               "ParcelCollected": low[0], "ParcelDelivered": low[1]}
+    return g
+
+
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def titled(code, title, color=GREY_B):
+    h = T(title, 22, color).next_to(code, UP, buff=0.22).align_to(code, LEFT)
+    return VGroup(h, code)
+
+
+def term(lines, size=22, title="output", color=GREY_A):
+    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.5, height=t.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
     t.move_to(r)
-    return VGroup(r, t)
+    h = T(title, 20, GREY_B).next_to(r, UP, buff=0.1).align_to(r, LEFT)
+    return VGroup(r, t, h)
 
 
-def hchip(name, col, size=24):
-    """A handler chip."""
-    t = T(name, size, WHITE)
-    r = RoundedRectangle(corner_radius=0.1, width=t.width + 0.45, height=0.62, stroke_color=col, stroke_width=2.5)
-    r.set_fill(col, 0.2)
-    t.move_to(r)
-    return VGroup(r, t)
+def rule_card(text, size=30, color=CLERK):
+    t = T(text, size, WHITE)
+    fit(t, 11.6)
+    r = RoundedRectangle(corner_radius=0.12, width=t.width + 0.7, height=t.height + 0.5).set_stroke(color, 2.5).set_fill(dim(color, 0.12), 1)
+    return VGroup(r, t.move_to(r))
 
 
-def badge(n, col=YELLOW_M):
-    c = Circle(radius=0.24, stroke_color=col, stroke_width=3).set_fill(BLACK, 1)
-    return VGroup(c, T(str(n), 24, col).move_to(c))
+def board_row(key, names, w=8.6):
+    """One bell on the board: the bell, its key, and the names signed up under it."""
+    b = bell(0.9)
+    k = M(key, 24, WHITE)
+    ns = VGroup(*[chip(n, c) for n, c in names]).arrange(RIGHT, buff=0.15) if names else VGroup()
+    g = VGroup(b, k).arrange(RIGHT, buff=0.3)
+    row = VGroup(g, ns)
+    if names:
+        ns.next_to(g, RIGHT, buff=0.5)
+        ns.set_x(g.get_left()[0] + 5.2 + ns.width / 2)
+    return row
 
 
-def dim(chip, k=0.35):
-    """Animations that grey out a handler chip (outline, light fill, text) without filling it in."""
-    return [chip[0].animate.set_stroke(opacity=k).set_fill(opacity=0.2 * k), chip[1].animate.set_opacity(k)]
-
-
-def undim(chip):
-    chip[0].set_stroke(opacity=1).set_fill(opacity=0.2); chip[1].set_opacity(1)
-
-
-def cross(s=0.2, col=RED_M):
-    return VGroup(Line([-1, -1, 0], [1, 1, 0]), Line([-1, 1, 0], [1, -1, 0])).set_stroke(col, 5).scale(s)
-
-
-def flow(a, b, col=YELLOW_M, sw=3.5):
-    length = np.linalg.norm(np.array(b) - np.array(a)) or 1
-    return Arrow(a, b, buff=0, stroke_width=sw, color=col, max_tip_length_to_length_ratio=min(0.35, 0.22 / length),
-                 max_stroke_width_to_length_ratio=10)
-
-
-CAP, MOV, EVT, REF, OTH, EV = BLUE_M, GOLD_M, PURPLE_M, TEAL_M, GREY_B, YELLOW_M
-KX, HX0 = -0.9, 1.25                                  # registry: key column, first handler x
-ROWS = [2.05, 0.8, -0.45, -1.7]                       # PaymentCaptured, MoneyMovement, PaymentEvent, PaymentRefunded
-
-
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
-
-
-class Cap3Bus(VoiceScene):
-    """cap3-02 sections 0 and 1: a bus keyed by the exact class misses handlers of MoneyMovement and PaymentEvent;
-    delivery walks the event's class, then its event supertypes, nearest first (cached per class), and calls each
-    key's handlers in subscription order; a handler only takes events in, so Handler<in E> lets one general audit
-    handler fit any subscription."""
-
-    def _cue(self, text, dur):
-        """Captions split only where a new sentence starts (so "? super E" stays in one cue)."""
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
+class Cap3Bus(Narrated):
+    """cap3-02, section 0: route each event to its own class, then up through its supertypes. The depot's board of
+    bells (a callback to the Generics workshop); the words bus, handler, subscribe, publish, registry; the sealed tree;
+    the shy question (a collection is a parcel event, so why doesn't tracking hear it?); predict; the demo's
+    'exact class only: [load]'; why (no event's class is the interface); the flat isInstance list (forty checks) and
+    its porter; the dispatch keys walked on a queue; predict DeliveryFailed; 'walking supertypes: [load, handovers,
+    tracking]'; the order promise and insurance; where the picture breaks (no wires: reflection); the code in Java
+    and Kotlin; the cache; guardrail; moral; check."""
 
     def construct(self):
-        self.title_card("Routing one event", "its own class first, then each supertype, nearest first")
+        self.title_card("A bell for every kind", "the event bus, and the walk from a class up to its supertypes")
 
-        # ---------------- the registry ----------------
-        ev = VGroup(tbox("PaymentCaptured", EV, w=3.3, h=1.15, size=24),)
-        ev_sub = M("pay_7781", 22, GREY_A)
-        ev[0][1].shift(UP * 0.18)
-        ev_sub.move_to(ev[0][0]).shift(DOWN * 0.24)
-        ev.add(ev_sub).move_to([-5.0, 0.8, 0])
-        ev_l = T("the event", 22, GREY_B).next_to(ev, UP, buff=0.2)
+        # ================= the board of bells =================
+        wall = RoundedRectangle(corner_radius=0.1, width=6.4, height=4.4).set_stroke(GREY_B, 2.5).set_fill("#141414", 1)
+        wall.move_to([-2.6, 0.2, 0])
+        bells = VGroup(*[bell(1.1) for _ in range(6)]).arrange_in_grid(2, 3, buff=(1.3, 1.1)).move_to(wall.get_center() + UP * 0.3)
+        names = VGroup(*[VGroup(*[Line(LEFT * 0.35, RIGHT * 0.35, stroke_width=2, color=GREY_B) for _ in range(2)])
+                       .arrange(DOWN, buff=0.12).next_to(b, DOWN, buff=0.25) for b in bells])
+        wall_l = T("the board of bells", 24, BELL).next_to(wall, UP, buff=0.15)
+        self.say("open")
+        self.play(FadeIn(wall), FadeIn(wall_l), run_time=0.6)
+        self.play(LaggedStart(*[FadeIn(b, shift=DOWN * 0.1) for b in bells], lag_ratio=0.12), run_time=1.2)
+        self.at_text("and everyone", lead=0.3)
+        self.play(FadeIn(names, lag_ratio=0.1), run_time=0.9)
+        self.at_text("Pedal Post", lead=0.3)
+        pp = T("Pedal Post's depot", 28, PEDAL).move_to([3.6, 2.2, 0])
+        self.play(FadeIn(pp), run_time=0.5)
+        self.hold()
 
-        keys = VGroup(*[tbox(n, c, w=3.5).move_to([KX, y, 0]) for n, c, y in
-                        zip(["PaymentCaptured", "MoneyMovement", "PaymentEvent", "PaymentRefunded"],
-                            [CAP, MOV, EVT, REF], ROWS)])
-        hands = [[hchip("ledger", CAP), hchip("receipts", CAP)], [hchip("movements", MOV)], [hchip("audit", EVT)],
-                 [hchip("refunds", REF)]]
-        for row, y in zip(hands, ROWS):
-            x = HX0
-            for h in row:
-                h.move_to([x + h.width / 2, y, 0]); x += h.width + 0.3
-        hall = VGroup(*[h for row in hands for h in row])
-        k_head = T("key: the type it subscribed under", 22, GREY_B).move_to([KX, 2.95, 0])
-        h_head = T("handlers", 22, GREY_B).move_to([HX0 + 1.3, 2.95, 0])
-        links = VGroup(*[Line(keys[i].get_right(), hands[i][0].get_left(), stroke_width=2, color=GREY_D)
-                         for i in range(4)])
+        wants = VGroup(VGroup(chip("load board", LOAD), T("the collected bell", 24, GREY_A)).arrange(RIGHT, buff=0.25),
+                       VGroup(chip("tracking", TRACK), T("every bell", 24, GREY_A)).arrange(RIGHT, buff=0.25),
+                       VGroup(chip("handover log", HAND), T("every handover", 24, GREY_A)).arrange(RIGHT, buff=0.25))
+        wants.arrange(DOWN, aligned_edge=LEFT, buff=0.35).move_to([3.7, 0.2, 0])
+        self.say("who")
+        self.at_text("the load board", lead=0.3)
+        self.play(FadeIn(wants[0], shift=LEFT * 0.2), Wiggle(bells[0]), run_time=0.8)
+        self.at_text("The tracking", lead=0.3)
+        self.play(FadeIn(wants[1], shift=LEFT * 0.2), run_time=0.6)
+        self.at_text("And the handover", lead=0.3)
+        self.play(FadeIn(wants[2], shift=LEFT * 0.2), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        self.beat("A capture comes in. The bus must hand it to everyone who asked for it.",
-                  FadeIn(ev, shift=RIGHT * 0.2), FadeIn(ev_l), run_time=1.2)
-        seq(self, "Each handler subscribes under a type. Ledger and receipts want captures. Movements wants any money "
-                  "movement. Audit wants every event.",
-            ([FadeIn(k_head), FadeIn(h_head)], 0.5), 1.0,
-            ([FadeIn(keys[0]), Create(links[0]), FadeIn(hands[0][0]), FadeIn(hands[0][1])], 0.8), 1.2,
-            ([FadeIn(keys[1]), Create(links[1]), FadeIn(hands[1][0])], 0.8), 1.0,
-            ([FadeIn(keys[2]), Create(links[2]), FadeIn(hands[2][0])], 0.8))
-        self.beat("Refunds wants refunds only. They all sit in a map, keyed by that type.",
-                  FadeIn(keys[3]), Create(links[3]), FadeIn(hands[3][0]), run_time=1.0)
+        # ================= the words =================
+        busb = VGroup(RoundedRectangle(corner_radius=0.15, width=2.6, height=1.3).set_stroke(CLERK, 3).set_fill(dim(CLERK), 1),
+                      T("the bus", 30, CLERK))
+        busb[1].move_to(busb[0])
+        busb.move_to([0, 0.6, 0])
+        pub = chip("code with news", GREY_A, 24).move_to([-4.6, 0.6, 0])
+        hs = VGroup(chip("tracking", TRACK), chip("load board", LOAD), chip("handover log", HAND)).arrange(DOWN, buff=0.35)
+        hs.move_to([4.6, 0.6, 0])
+        sub_a = VGroup(*[Arrow(h.get_left(), busb.get_right(), buff=0.12, stroke_width=2.5, color=GREY_B,
+                               max_tip_length_to_length_ratio=0.12) for h in hs])
+        sub_l = T("subscribe: sign up for one type", 22, GREY_A).next_to(hs, DOWN, buff=0.3)
+        pub_a = Arrow(pub.get_right(), busb.get_left(), buff=0.12, stroke_width=3, color=GREY_B)
+        pub_l = T("publish an event", 22, GREY_A).next_to(pub, DOWN, buff=0.3)
+        self.say("words")
+        self.at_text("The board is", lead=0.3)
+        self.play(FadeIn(busb), run_time=0.6)
+        self.at_text("A handler", lead=0.3)
+        self.play(FadeIn(hs, lag_ratio=0.2), run_time=0.8)
+        self.at_text("subscribes", lead=0.3)
+        self.play(LaggedStart(*[GrowArrow(a) for a in sub_a], lag_ratio=0.2), FadeIn(sub_l), run_time=0.9)
+        self.at_text("Code with news", lead=0.3)
+        self.play(FadeIn(pub), GrowArrow(pub_a), FadeIn(pub_l), run_time=0.8)
+        self.at_text("and the bus delivers", lead=0.3)
+        dels = VGroup(*[Arrow(busb.get_right(), h.get_left(), buff=0.12, stroke_width=3, color=CLERK,
+                              max_tip_length_to_length_ratio=0.12) for h in hs])
+        self.play(FadeOut(sub_a), LaggedStart(*[GrowArrow(a) for a in dels], lag_ratio=0.15), run_time=0.9)
+        self.hold()
 
-        # exact class only
-        self.beat("The bus from the generics workshop looks up one key: the event's own class. "
-                  "Predict. Which handlers run?", Indicate(ev[0][1], color=EV), run_time=1.2)
-        self.wait(1.2)
-        tok = Dot(radius=0.13, color=EV).set_z_index(5).move_to(ev.get_right())
-        p1 = keys[0].get_left() + LEFT * 0.05
-        seq(self, "Only ledger and receipts.",
-            ([FadeIn(tok)], 0.15), ([tok.animate.move_to(p1)], 0.7),
-            (lambda: [Indicate(hands[0][0][1], color=CAP), Indicate(hands[0][1][1], color=CAP)], 0.8))
-        miss = VGroup(*[T("never runs", 22, RED_M).next_to(hands[i][0], RIGHT, buff=0.35) for i in (1, 2)])
-        seq(self, "Movements and audit never run. An event's run-time class is never an interface like "
-                  "MoneyMovement.",
-            ([FadeIn(miss), *dim(hands[1][0]), *dim(hands[2][0])], 0.8))
-        self.play(FadeOut(tok), FadeOut(VGroup(ev, ev_l, keys, hall, k_head, h_head, links, miss)), run_time=0.6)
+        reg = VGroup(board_row("ParcelEvent", [("tracking", TRACK)]),
+                     board_row("Handover", [("handover log", HAND)]),
+                     board_row("ParcelCollected", [("load board", LOAD)]))
+        reg.arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([0, -2.2, 0])
+        fit(reg, 12)
+        self.say("registry")
+        self.play(VGroup(busb, pub, hs, pub_a, pub_l, sub_l, dels).animate.scale(0.75).shift(UP * 1.4), run_time=0.7)
+        reg_l = T("the registry", 24, CLERK).next_to(reg, UP, buff=0.15).align_to(reg, LEFT)
+        self.play(FadeIn(reg_l), LaggedStart(*[FadeIn(r) for r in reg], lag_ratio=0.25), run_time=1.2)
+        self.at_text("Each bell", lead=0.3)
+        self.play(*[Indicate(r[0][0], color=BELL) for r in reg], run_time=0.8)
+        self.hold()
+        self.wipe()
 
-        # ---------------- the walk up the type tree ----------------
-        R1, R2, R3 = 2.5, 0.75, -1.05
-        t_evt = tbox("PaymentEvent", EVT).move_to([0.2, R1, 0])
-        t_aut = tbox("PaymentAuthorized", OTH).move_to([-4.5, R2, 0])
-        t_dec = tbox("PaymentDeclined", OTH).move_to([-1.0, R2, 0])
-        t_mov = tbox("MoneyMovement", MOV).move_to([3.4, R2, 0])
-        t_cap = tbox("PaymentCaptured", CAP).move_to([1.75, R3, 0])
-        t_ref = tbox("PaymentRefunded", REF).move_to([5.0, R3, 0])
-        t_obj = tbox("Object", GREY_C, dashed=True).move_to([-3.4, R3, 0])
-        tree = VGroup(t_evt, t_aut, t_dec, t_mov, t_cap, t_ref)
-        edges = VGroup(*[Line(c.get_top(), p.get_bottom(), stroke_width=2, color=GREY_C) for c, p in
-                         [(t_aut, t_evt), (t_dec, t_evt), (t_mov, t_evt), (t_cap, t_mov), (t_ref, t_mov)]])
-        tr_l = T("sealed: every event type in one tree", 22, GREY_B).move_to([-4.2, R1, 0])
-        self.beat("So the bus works out which keys to look up. PaymentCaptured implements MoneyMovement, which "
-                  "extends PaymentEvent.", FadeIn(tree, lag_ratio=0.15), Create(edges), FadeIn(tr_l), run_time=2.4)
+        # ================= the tree =================
+        tr = tree(26, 1.25).move_to([0, 0.3, 0])
+        self.say("tree")
+        self.play(FadeIn(tr[1]), run_time=0.5)
+        self.at_text("A parcel event", lead=0.3)
+        self.play(Create(tr[0][:3]), FadeIn(tr[2], lag_ratio=0.2), run_time=1.0)
+        self.at_text("And a handover", lead=0.3)
+        self.play(Create(tr[0][3:]), FadeIn(tr[3], lag_ratio=0.2), run_time=1.0)
+        self.hold()
+        self.wipe()
 
-        k_l = T("dispatch keys", 24, GREY_B)
-        kc = [tbox("1 PaymentCaptured", CAP, size=22, h=0.66), tbox("2 MoneyMovement", MOV, size=22, h=0.66),
-              tbox("3 PaymentEvent", EVT, size=22, h=0.66)]
-        krow = VGroup(k_l, *kc).arrange(RIGHT, buff=0.3).move_to([0, -2.85, 0])
-        krow.scale(min(1, 12.4 / krow.width))
+        # ================= the shy question =================
+        self.shy("shyq", [("A collection is a parcel event.", 1),
+                          ("So if tracking signs up for parcel events,", 3),
+                          ("why doesn't it hear the collection?", 3)], big=2)
 
-        ring = SurroundingRectangle(t_cap, buff=0.08, corner_radius=0.16, color=EV, stroke_width=5)
-        seq(self, "The walk starts at the event's own class: the first key.",
-            ([Create(ring)], 0.6), 0.6, ([FadeIn(k_l), FadeIn(kc[0], shift=DOWN * 0.2)], 0.7))
-        a_int = flow(t_cap.get_top() + UP * 0.05, t_mov.get_bottom() + DOWN * 0.05)
-        a_sup = flow(t_cap.get_left() + LEFT * 0.05, t_obj.get_right() + RIGHT * 0.05)
-        l_int = M("getInterfaces()", 22, EV).move_to([0.9, -0.12, 0])
-        l_sup = M("getSuperclass()", 22, EV).next_to(a_sup, UP, buff=0.12)
-        seq(self, "Then it asks that class for its interfaces and its superclass.",
-            ([GrowArrow(a_int), FadeIn(l_int)], 0.8), 0.6,
-            ([FadeIn(t_obj), GrowArrow(a_sup), FadeIn(l_sup)], 0.8))
-        x_obj = cross(0.3).move_to(t_obj)
-        n_obj = T("not an event: skipped", 22, RED_M).next_to(t_obj, DOWN, buff=0.2)
-        seq(self, "Object is not an event, so it's skipped. MoneyMovement is: the second key.",
-            ([FadeIn(x_obj), FadeIn(n_obj)], 0.6), 1.2,
-            ([ring.animate.become(SurroundingRectangle(t_mov, buff=0.08, corner_radius=0.16, color=EV, stroke_width=5)),
-              FadeIn(kc[1], shift=DOWN * 0.2)], 0.8))
-        a_up = flow(t_mov.get_top() + UP * 0.05, t_evt.get_bottom() + DOWN * 0.05)
-        seq(self, "Its supertype, PaymentEvent, is the third.",
-            ([GrowArrow(a_up)], 0.7), 0.5,
-            ([ring.animate.become(SurroundingRectangle(t_evt, buff=0.08, corner_radius=0.16, color=EV, stroke_width=5)),
-              FadeIn(kc[2], shift=DOWN * 0.2)], 0.8))
-        sib = VGroup(t_aut, t_dec, t_ref)
-        self.beat("Three keys, nearest first. Siblings like PaymentRefunded are never touched.",
-                  sib.animate.set_opacity(0.3), Indicate(VGroup(*[k_[1] for k_ in kc]), color=WHITE, scale_factor=1.06), run_time=1.4)
-        cache = SurroundingRectangle(VGroup(*kc), buff=0.14, corner_radius=0.14, color=GREY_A, stroke_width=2)
-        c_l = T("cached per class: walked once", 22, GREY_A).next_to(cache, UP, buff=0.12).align_to(cache, RIGHT)
-        self.beat("A class's keys never change, so the bus caches them, once per class.", Create(cache), FadeIn(c_l), run_time=1.2)
-        self.play(FadeOut(VGroup(tree, edges, tr_l, t_obj, a_int, a_sup, a_up, l_int, l_sup, x_obj, n_obj, ring,
-                                 krow, cache, c_l)), run_time=0.6)
+        # ================= exact class only =================
+        reg = VGroup(board_row("ParcelEvent", [("tracking", TRACK)]),
+                     board_row("Handover", [("handovers", HAND)]),
+                     board_row("ParcelCollected", [("load", LOAD)]))
+        reg.arrange(DOWN, aligned_edge=LEFT, buff=0.35).move_to([1.6, 0.9, 0])
+        ev = tchip("ParcelCollected PP-7781", LOAD, 24).move_to([-4.4, 2.6, 0])
+        rule = T("looks up: the event's class", 24, GREY_A).next_to(ev, DOWN, buff=0.2)
+        self.say("setup")
+        self.play(FadeIn(reg[0][0]), FadeIn(reg[1][0]), FadeIn(reg[2][0]), FadeIn(rule), run_time=0.6)
+        self.at_text("tracking under", lead=0.3)
+        self.play(FadeIn(reg[0][1], shift=LEFT * 0.2), run_time=0.4)
+        self.at_text("the handover log", lead=0.3)
+        self.play(FadeIn(reg[1][1], shift=LEFT * 0.2), run_time=0.4)
+        self.at_text("and the load", lead=0.3)
+        self.play(FadeIn(reg[2][1], shift=LEFT * 0.2), run_time=0.4)
+        self.at_text("Then we publish", lead=0.3)
+        self.play(FadeIn(ev, shift=DOWN * 0.2), run_time=0.5)
+        self.hold(after=0)
+        self.predict(2.6, pos=(-4.4, 0.6), edge=ORIGIN)
 
-        # ---------------- publish visits the three keys in order ----------------
-        for i in (1, 2):
-            undim(hands[i][0])
-        bads = VGroup(*[badge(n).next_to(keys[i], LEFT, buff=0.25) for n, i in ((1, 0), (2, 1), (3, 2))])
-        keys[3].set_opacity(0.3); links[3].set_opacity(0.3)
-        hands[3][0][0].set_stroke(opacity=0.3).set_fill(opacity=0.06); hands[3][0][1].set_opacity(0.3)
-        ev.move_to([-5.15, 0.8, 0]); ev_l.next_to(ev, UP, buff=0.2)
-        nv = T("not visited", 22, GREY_B).next_to(hands[3][0], RIGHT, buff=0.35)
-        self.play(FadeIn(VGroup(ev, ev_l, keys, hall, links, k_head, h_head)), FadeIn(bads), FadeIn(nv), run_time=0.8)
-        tok = Dot(radius=0.13, color=EV).set_z_index(5).move_to(ev.get_right())
-        ran = M("ran = [ledger, receipts, movements, audit]", 24, GREY_A,
-                t2c={"ledger,": CAP, "receipts,": CAP, "movements,": MOV, "audit": EVT}).move_to([0.2, -2.95, 0])
-        ran_l, ran_r = ran[0:5], ran[36:37]
-        names = [ran[5:12], ran[12:21], ran[21:31], ran[31:36]]
-        stop = [keys[i].get_left() + LEFT * 0.05 for i in range(3)]
+        out = term(["exact class only:      [load]"], 24, "the demo printed").move_to([0, -2.4, 0])
+        self.say("show")
+        self.play(FadeIn(out), run_time=0.5)
+        self.at_text("The event's class", lead=0.3)
+        hit = SurroundingRectangle(reg[2], color=LOAD, buff=0.1)
+        self.play(ev.animate.scale(0.7).next_to(reg[2][0], LEFT, buff=0.3), run_time=0.8)
+        self.play(Wiggle(reg[2][0][0]), Create(hit), Indicate(reg[2][1], color=LOAD), run_time=0.9)
+        self.hold()
+        quiet = VGroup(*[T("silent", 22, GREY_B).next_to(reg[i][1], RIGHT, buff=0.3) for i in (0, 1)])
+        self.say("patient")
+        self.play(reg[0][0][0].animate.set_opacity(0.4), reg[1][0][0].animate.set_opacity(0.4), FadeIn(quiet), run_time=0.7)
+        self.at_text("It compiles", lead=0.3)
+        self.play(Indicate(reg[0][1], color=TRACK), run_time=0.8)
+        self.hold()
+        self.wipe()
 
-        def hit_(h, n):
-            return [Indicate(h[1], color=WHITE, scale_factor=1.15), FadeIn(n, shift=UP * 0.1)]
-        seq(self, "Now publish visits just those keys. Captures first: ledger, then receipts. Then movements. Then audit.",
-            ([FadeIn(tok), FadeIn(ran_l), FadeIn(ran_r)], 0.2), 1.6, ([tok.animate.move_to(stop[0])], 0.6),
-            (lambda: hit_(hands[0][0], names[0]), 0.55), (lambda: hit_(hands[0][1], names[1]), 0.55),
-            ([tok.animate.move_to(stop[1])], 0.5), (lambda: hit_(hands[1][0], names[2]), 0.55),
-            ([tok.animate.move_to(stop[2])], 0.5), (lambda: hit_(hands[2][0], names[3]), 0.55))
-        self.play(FadeOut(tok), run_time=0.3)
-        self.beat("Specific handlers run before general ones, and within one key, in subscription order.", Indicate(ran, color=WHITE, scale_factor=1.04), run_time=1.4)
-        self.play(FadeOut(VGroup(ev, ev_l, keys, hall, links, k_head, h_head, bads, nv, ran)), run_time=0.6)
+        # ================= why =================
+        tr = tree(26, 1.25).move_to([0, 0.5, 0])
+        self.add(tr)
+        self.say("why")
+        leaves = [tr.nodes[n] for n in ("ParcelCollected", "ParcelDelivered", "ParcelBooked", "DeliveryFailed")]
+        self.at_text("No event's class", lead=0.3)
+        self.play(Circumscribe(tr.nodes["ParcelEvent"], color=BAD, buff=0.06), run_time=0.9)
+        self.at_text("A scan is always", lead=0.3)
+        self.play(*[Indicate(l, color=LOAD, scale_factor=1.08) for l in leaves], run_time=1.0)
+        self.at_text("The same goes", lead=0.3)
+        self.play(Circumscribe(tr.nodes["Handover"], color=BAD, buff=0.06), run_time=0.9)
+        never = T("no event's class is ever an interface: it's always a leaf", 26, GREY_A).move_to([0, -2.6, 0])
+        fit(never, 12.4)
+        self.play(FadeIn(never), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        # ---------------- the handler only consumes: in ----------------
-        line = M("bus.subscribe(PaymentCaptured::class, audit)", 30, t2c={"PaymentCaptured::class": CAP, "audit": EVT})
-        line.scale(min(1, 12.4 / line.width)).move_to([0, 2.6, 0])
-        bus_b = tbox("the bus", GREY_B, w=2.6, h=1.1, size=26).move_to([-3.6, 0.6, 0])
-        bus_b[1].become(T("the bus", 26, WHITE).move_to(bus_b[1]))
-        aud = VGroup(RoundedRectangle(corner_radius=0.12, width=4.4, height=1.1, stroke_color=EVT, stroke_width=3)
-                     .set_fill(dark(EVT), 1))
-        aud.add(VGroup(T("audit", 26, WHITE), M("Handler<PaymentEvent>", 22, EVT)).arrange(DOWN, buff=0.1).move_to(aud[0]))
-        aud.move_to([3.2, 0.6, 0])
-        gives = T("hands it captures only", 22, CAP).move_to([-0.15, 1.35, 0])
-        takes = T("takes any PaymentEvent", 22, EVT).next_to(aud, DOWN, buff=0.2)
-        seq(self, "Audit is a Handler of PaymentEvent. Can it subscribe under PaymentCaptured, where "
-                  "the bus expects a Handler of PaymentCaptured?",
-            ([FadeIn(aud)], 0.8), 1.2, ([FadeIn(line, shift=DOWN * 0.2)], 1.0))
-        self.wait(1.4)
-        chips = [tbox("PaymentCaptured", CAP, size=20, h=0.5).move_to(bus_b.get_right() + RIGHT * 0.9) for _ in range(2)]
-        pipe = flow(bus_b.get_right() + RIGHT * 0.1, aud.get_left() + LEFT * 0.1, col=GREY_B)
-        ok = tick(True, 0.28).next_to(aud, RIGHT, buff=0.3)
-        seq(self, "A handler only takes events in. Audit takes any event, so captures are fine.",
-            ([FadeIn(bus_b), GrowArrow(pipe), FadeIn(gives)], 0.8),
-            ([FadeIn(chips[0])], 0.2), ([chips[0].animate.move_to(aud.get_left() + LEFT * 0.75).set_opacity(0)], 1.0),
-            ([FadeIn(chips[1])], 0.2), ([chips[1].animate.move_to(aud.get_left() + LEFT * 0.75).set_opacity(0)], 1.0),
-            ([FadeIn(takes), Create(ok)], 0.7))
-        self.remove(*chips)
-        decl = M("fun interface Handler<in E : PaymentEvent> { fun handle(event: E) }", 24)
-        decl_in = decl[20:22].set_color(EV)
-        decl.scale(min(1, 12.4 / decl.width)).move_to([0, -1.75, 0])
-        k_tag = T("Kotlin", 22, GREY_B).next_to(decl, UP, buff=0.15).align_to(decl, LEFT)
-        self.beat("So Handler is declared in, and one general handler fits any subscription.",
-                  FadeIn(decl), FadeIn(k_tag), Indicate(decl_in, color=EV, scale_factor=1.4), run_time=1.6)
-        err = VGroup(M("argument type mismatch: actual type is 'Handler<PaymentEvent>',", 22, RED_M),
-                     M("but 'Handler<PaymentCaptured>' was expected.", 22, RED_M)).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-        err.move_to([0, -3.0, 0])
-        bad = cross(0.22).move_to(ok)
-        seq(self, "Delete the in, and the same line fails to compile.",
-            ([decl_in.animate.set_opacity(0.15), FadeOut(ok), FadeIn(bad), FadeIn(err, shift=UP * 0.1)], 0.9))
-        jl = VGroup(T("Java", 22, GREY_B), M("subscribe(Class<E> type, Handler<? super E> handler)", 24, WHITE)
-                    ).arrange(RIGHT, buff=0.3).move_to([0, -3.0, 0])
-        jl[1][31:38].set_color(EV)
-        seq(self, "Java writes ? super E at each use instead. kotlinc puts that wildcard in for Java callers too.",
-            ([decl_in.animate.set_opacity(1), FadeOut(bad), FadeIn(ok), FadeOut(err)], 0.7), 0.5,
-            ([FadeIn(jl, shift=UP * 0.1)], 0.8))
-        self.play(FadeOut(VGroup(line, bus_b, pipe, gives, aud, takes, ok, decl, k_tag, jl)), run_time=0.6)
+        # ================= fix one: a flat list =================
+        pairs = VGroup(*[VGroup(M(t, 20, GREY_A), chip(n, c, 20, 0.42)).arrange(RIGHT, buff=0.2)
+                         for t, n, c in [("ParcelEvent", "tracking", TRACK), ("Handover", "handovers", HAND),
+                                         ("ParcelCollected", "load", LOAD), ("ParcelDelivered", "texts", TEXTS),
+                                         ("ParcelBooked", "welcome", GREY_B), ("DeliveryFailed", "retry desk", GREY_B)]])
+        pairs.arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to([-3.0, 0.3, 0])
+        more = T("... forty of them", 22, GREY_B).next_to(pairs, DOWN, buff=0.2).align_to(pairs, LEFT)
+        ask = T("isInstance(event)?", 22, CLERK)
+        self.say("flat")
+        self.play(FadeIn(pairs, lag_ratio=0.1), run_time=1.0)
+        self.at_text("and ask each", lead=0.3)
+        marks = VGroup()
+        for i, p in enumerate(pairs):
+            ok = i in (0, 1, 2)
+            marks.add(tick(ok, 0.16).next_to(p, RIGHT, buff=0.3))
+        ask.next_to(marks, RIGHT, buff=0.4).align_to(pairs, UP)
+        self.play(FadeIn(ask), run_time=0.4)
+        self.play(LaggedStart(*[Create(m) for m in marks], lag_ratio=0.25), run_time=1.6)
+        self.hold()
+        porter = VGroup(VGroup(Circle(radius=0.14).set_stroke(GREY_A, 3).set_fill(dim(GREY_A, 0.5), 1),
+                               RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(GREY_A, 3)
+                               .set_fill(dim(GREY_A, 0.3), 1)).arrange(DOWN, buff=0.05))
+        porter.move_to([4.2, 1.2, 0])
+        forty = T("forty questions per scan", 28, BAD).move_to([3.6, -0.6, 0])
+        mostly = T("almost all of them misses", 24, GREY_A).next_to(forty, DOWN, buff=0.15)
+        self.say("flat2")
+        self.play(FadeIn(more), FadeIn(forty), FadeIn(mostly), run_time=0.8)
+        self.at_text("Picture a porter", lead=0.3)
+        self.play(FadeIn(porter), run_time=0.4)
+        self.play(porter.animate.move_to([4.2, 2.4, 0]), run_time=0.5)
+        self.play(porter.animate.move_to([4.2, 1.2, 0]), run_time=0.5)
+        self.hold()
+        wish = T("wish: for each kind of event, know exactly which bells to ring", 28, CLERK).move_to([0, -3.1, 0])
+        fit(wish, 12.4)
+        self.say("wish")
+        self.play(FadeIn(wish, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------------- the code: the walk ----------------
-        jc = code(["Class<?> c = queue.removeFirst();",
-                   "if (!PaymentEvent.class.isAssignableFrom(c) || !found.add(c)) continue;",
-                   "queue.addAll(List.of(c.getInterfaces()));",
-                   "if (c.getSuperclass() != null) queue.add(c.getSuperclass());"], 22)
-        kc_ = code(["val c = queue.removeFirst()",
-                    "if (!PaymentEvent::class.java.isAssignableFrom(c) || !found.add(c)) continue",
-                    "queue.addAll(c.interfaces)",
-                    "c.superclass?.let(queue::add)"], 22)
-        for b in (jc, kc_):
-            b[1].set_color(EVT); b[2].set_color(EV); b[3].set_color(EV)
-        cg = VGroup(titled("Java: one step of dispatchKeys(type), inside while (!queue.isEmpty())", jc),
-                    titled("Kotlin", kc_)).arrange(DOWN, buff=0.45, aligned_edge=LEFT)
-        cg.scale(min(1, 12.4 / cg.width)).move_to([0, 0.35, 0])
-        note = T("found is a LinkedHashSet: it keeps the nearest-first order", 22, GREY_B).next_to(cg, DOWN, buff=0.4)
-        self.beat("One step of the walk, in Java and Kotlin.", FadeIn(cg, shift=UP * 0.2), FadeIn(note), run_time=1.4)
-        self.wait(1.3)
-        self.play(FadeOut(VGroup(cg, note)), run_time=0.6)
+        # ================= the dispatch keys, walked =================
+        tr = tree(24, 1.1).move_to([-3.2, 1.3, 0])
+        kdef = VGroup(T("dispatch keys:", 26, CLERK), T("the class itself, then each", 24), T("supertype that is an event,", 24),
+                      T("nearest first", 24)).arrange(DOWN, aligned_edge=LEFT, buff=0.1).move_to([3.9, 1.6, 0])
+        self.say("keys")
+        self.play(FadeIn(tr), run_time=0.7)
+        self.at_text("the class itself", lead=0.3)
+        self.play(FadeIn(kdef[1:], shift=UP * 0.1), run_time=0.7)
+        self.at_text("A supertype", lead=0.3)
+        up = VGroup(Arrow(tr.nodes["ParcelCollected"].get_top(), tr.nodes["Handover"].get_bottom(), buff=0.05, color=CLERK, stroke_width=4),
+                    Arrow(tr.nodes["Handover"].get_top(), tr.nodes["ParcelEvent"].get_bottom(), buff=0.05, color=CLERK, stroke_width=4))
+        self.play(GrowArrow(up[0]), run_time=0.5)
+        self.play(GrowArrow(up[1]), run_time=0.5)
+        self.at_text("We'll call", lead=0.3)
+        self.play(FadeIn(kdef[0], shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(up), run_time=0.3)
 
-        # ---------------- rule and check ----------------
-        rule = VGroup(T("Look up the event's class, then each event supertype, nearest first.", 30),
-                      T("A handler only takes events in, so declare it in.", 30)).arrange(DOWN, buff=0.22)
-        rule.scale(min(1, 12.2 / rule.width)).move_to([0, 2.7, 0])
-        self.beat("The rule. Look up the event's class, then each event supertype, nearest first. A handler only "
-                  "takes events in, so declare it in.", FadeIn(rule, shift=UP * 0.15), run_time=1.6)
-        mini = VGroup(t_evt, t_aut, t_dec, t_mov, t_cap, t_ref, edges).copy()
-        for m in mini:
-            m.set_opacity(1)
-        mini.scale(0.85).move_to([0, 0.35, 0])
-        chk = T("A PaymentDeclined is published. Which keys does the bus look up?", 28).move_to([0, 2.85, 0])
-        chk.scale(min(1, 12 / chk.width))
-        self.beat("Check yourself. A PaymentDeclined is published. Which keys does the bus look up?",
-                  FadeOut(rule), FadeIn(chk), FadeIn(mini), run_time=1.2)
+        # queue and found list
+        q_l = T("queue", 24, GREY_B).move_to([-5.7, -1.6, 0])
+        f_l = T("found", 24, CLERK).move_to([-5.7, -2.7, 0])
+        qslots = [[-3.8 + 2.6 * i, -1.6, 0] for i in range(3)]
+        fslots = [[-3.8 + 2.6 * i, -2.7, 0] for i in range(3)]
+
+        def qchip(name):
+            return tchip(name, GREY_B, 22, 0.46)
+
+        self.say("walk")
+        self.play(FadeIn(q_l), FadeIn(f_l), run_time=0.4)
+        self.at_text("A queue starts", lead=0.3)
+        c1 = qchip("ParcelCollected").move_to(qslots[0])
+        self.play(FadeIn(c1, shift=DOWN * 0.1), Indicate(tr.nodes["ParcelCollected"], color=CLERK), run_time=0.7)
+        self.at_text("Take it off", lead=0.3)
+        self.play(c1.animate.move_to(fslots[0]).set_color(CLERK), run_time=0.7)
+        self.at_text("and put its interface", lead=0.3)
+        c2 = qchip("Handover").move_to(qslots[0])
+        self.play(FadeIn(c2, shift=DOWN * 0.1), Indicate(tr.nodes["Handover"], color=CLERK), run_time=0.7)
+        self.hold()
+        self.say("walk2")
+        self.play(c2.animate.move_to(fslots[1]), run_time=0.6)
+        self.at_text("and queue its", lead=0.3)
+        c3 = qchip("ParcelEvent").move_to(qslots[0])
+        self.play(FadeIn(c3, shift=DOWN * 0.1), Indicate(tr.nodes["ParcelEvent"], color=CLERK), run_time=0.6)
+        self.at_text("Take ParcelEvent", lead=0.3)
+        self.play(c3.animate.move_to(fslots[2]), run_time=0.6)
+        self.at_text("Anything that", lead=0.3)
+        ob = qchip("Object").move_to(qslots[1])
+        self.play(FadeIn(ob, shift=DOWN * 0.1), run_time=0.4)
+        x = tick(False, 0.2).next_to(ob, RIGHT, buff=0.15)
+        self.play(Create(x), run_time=0.3)
+        self.play(FadeOut(ob), FadeOut(x), run_time=0.4)
+        self.hold()
+        keys = VGroup(c1, c2, c3)
+        self.say("keys_a")
+        self.play(*[Indicate(k, color=CLERK, scale_factor=1.06) for k in keys], run_time=0.9)
+        self.at_text("Three bells", lead=0.3)
+        tb = T("three bells, not forty names", 26, CLERK).next_to(kdef, DOWN, buff=0.45)
+        self.play(FadeIn(tb, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        # predict DeliveryFailed
+        self.play(FadeOut(tb), run_time=0.3)
+        df = T("keys for DeliveryFailed?", 28, CLERK).move_to(kdef.get_center() + DOWN * 1.8)
+        self.say("predict2")
+        self.play(FadeIn(df, shift=UP * 0.1), Indicate(tr.nodes["DeliveryFailed"], color=CLERK), run_time=0.7)
+        self.hold(after=0)
+        self.predict(2.6, pos=(3.9, -0.6), edge=ORIGIN)
+        dfk = M("[DeliveryFailed, ParcelEvent]", 24, CLERK).next_to(df, DOWN, buff=0.25)
+        self.say("predict2_a")
+        dup = Arrow(tr.nodes["DeliveryFailed"].get_top(), tr.nodes["ParcelEvent"].get_bottom(), buff=0.05, color=CLERK, stroke_width=4)
+        self.play(FadeIn(dfk), GrowArrow(dup), run_time=0.8)
+        self.at_text("A failed delivery", lead=0.3)
+        self.play(Circumscribe(tr.nodes["Handover"], color=GREY_B, buff=0.05), run_time=0.8)
+        self.hold()
+        self.wipe()
+
+        # ================= the walk, run =================
+        reg = VGroup(board_row("ParcelCollected", [("load", LOAD)]),
+                     board_row("Handover", [("handovers", HAND)]),
+                     board_row("ParcelEvent", [("tracking", TRACK)]))
+        reg.arrange(DOWN, aligned_edge=LEFT, buff=0.35).move_to([1.4, 1.4, 0])
+        nums = VGroup(*[T(f"{i + 1}", 26, CLERK).next_to(r, LEFT, buff=0.35) for i, r in enumerate(reg)])
+        ev = tchip("ParcelCollected PP-7781", LOAD, 22).move_to([-4.9, 2.9, 0])
+        out = term(["exact class only:      [load]", "walking supertypes:    [load, handovers, tracking]"], 24, "the demo printed")
+        out.move_to([0, -1.5, 0])
+        self.say("run2")
+        self.play(FadeIn(reg), FadeIn(ev), FadeIn(out[0]), FadeIn(out[2]), FadeIn(out[1][0]), run_time=0.7)
+        self.at_text("Walking supertypes", lead=0.3)
+        for i, r in enumerate(reg):
+            self.play(FadeIn(nums[i]), Wiggle(r[0][0]), Indicate(r[1], color=WHITE), run_time=0.55)
+        self.play(FadeIn(out[1][1]), run_time=0.5)
+        self.at_text("The tracking page", lead=0.3)
+        self.play(Circumscribe(reg[2][1], color=TRACK, buff=0.06), run_time=0.9)
+        self.hold()
+
+        ins = chip("insurance", INS).next_to(reg[1][1], RIGHT, buff=0.15)
+        line3 = M("[load, handovers, insurance, tracking]", 24, GREY_A).next_to(out, DOWN, buff=0.35).align_to(out[1], LEFT)
+        line3_l = T("with insurance signed up last, under Handover", 20, GREY_B).next_to(line3, DOWN, buff=0.1).align_to(line3, LEFT)
+        spec = T("nearest first; within a key, in subscription order", 24, CLERK).move_to([0, 3.35, 0])
+        self.say("order")
+        self.play(FadeIn(spec), run_time=0.6)
+        self.at_text("Sign an insurance", lead=0.3)
+        self.play(FadeIn(ins, shift=LEFT * 0.2), run_time=0.6)
+        self.at_text("the list becomes", lead=0.3)
+        self.play(FadeIn(line3), FadeIn(line3_l), run_time=0.7)
+        self.hold()
+        self.wipe()
+
+        # ================= where the picture breaks =================
+        b1, b2 = bell(1.4).move_to([-4.6, 1.2, 0]), bell(1.4).move_to([-1.8, 1.2, 0])
+        wire = CubicBezier(b1.get_bottom(), b1.get_bottom() + DOWN * 1.2, b2.get_bottom() + DOWN * 1.2, b2.get_bottom())
+        wire.set_stroke(GREY_B, 3)
+        cross = tick(False, 0.35).move_to(wire.point_from_proportion(0.5))
+        wl = T("a real wall: wires", 24, GREY_A).next_to(VGroup(b1, b2), UP, buff=0.3)
+        tr = tree(20, 0.9).move_to([3.6, 1.0, 0])
+        tl = T("ours: the class's family tree", 24, CLERK).next_to(tr, UP, buff=0.3)
+        refl = VGroup(M("getInterfaces()", 24, CLERK), M("getSuperclass()", 24, CLERK)).arrange(RIGHT, buff=0.6).move_to([0, -2.0, 0])
+        refl_l = T("plain Java reflection, no extra library", 24, GREY_A).next_to(refl, DOWN, buff=0.2)
+        self.say("breaks")
+        self.play(FadeIn(b1), FadeIn(b2), FadeIn(wl), Create(wire), run_time=0.9)
+        self.at_text("Our board has no", lead=0.3)
+        self.play(Create(cross), wire.animate.set_opacity(0.3), run_time=0.5)
+        self.at_text("The wiring is", lead=0.3)
+        self.play(FadeIn(tr), FadeIn(tl), run_time=0.7)
+        self.at_text("plain Java", lead=0.3)
+        self.play(FadeIn(refl, shift=UP * 0.1), FadeIn(refl_l), run_time=0.7)
+        self.hold()
+        self.wipe()
+
+        # ================= the code =================
+        jv = code_block(["while (!queue.isEmpty()) {",
+                         "    Class<?> c = queue.removeFirst();",
+                         "    if (!ParcelEvent.class.isAssignableFrom(c) || !found.add(c)) continue;",
+                         "    queue.addAll(List.of(c.getInterfaces()));",
+                         "    if (c.getSuperclass() != null) queue.add(c.getSuperclass());",
+                         "}"], 22)
+        kt = code_block(["while (queue.isNotEmpty()) {",
+                         "    val c = queue.removeFirst()",
+                         "    if (!ParcelEvent::class.java.isAssignableFrom(c) || !found.add(c)) continue",
+                         "    queue.addAll(c.interfaces)",
+                         "    c.superclass?.let(queue::add)",
+                         "}"], 22)
+        jg, kg = titled(jv, "Java"), titled(kt, "Kotlin")
+        both = VGroup(jg, kg).arrange(DOWN, aligned_edge=LEFT, buff=0.55).move_to([0, 0, 0])
+        fit(both, 12.6)
+        self.say("code")
+        self.play(FadeIn(jg), run_time=0.7)
+        self.at_text("Take the next", lead=0.3)
+        self.play(Indicate(jv[1], color=CLERK, scale_factor=1.03), run_time=0.7)
+        self.at_text("Skip it", lead=0.3)
+        self.play(Indicate(jv[2], color=CLERK, scale_factor=1.03), run_time=0.8)
+        self.at_text("Otherwise", lead=0.3)
+        self.play(Indicate(VGroup(jv[3], jv[4]), color=CLERK, scale_factor=1.03), run_time=0.8)
+        self.at_text("Kotlin says", lead=0.3)
+        self.play(FadeIn(kg, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=1.5)
+        self.wipe()
+
+        # ================= the cache =================
+        cache = VGroup(M("keyCache", 26, CLERK),
+                       VGroup(M("ParcelCollected", 22), M("->", 22, GREY_B), M("[ParcelCollected, Handover, ParcelEvent]", 22, GREY_A)).arrange(RIGHT, buff=0.2),
+                       VGroup(M("DeliveryFailed", 22), M("->", 22, GREY_B), M("[DeliveryFailed, ParcelEvent]", 22, GREY_A)).arrange(RIGHT, buff=0.2))
+        cache.arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to([0, 1.3, 0])
+        fit(cache, 12.4)
+        once = T("worked out once per class", 26, CLERK).next_to(cache, DOWN, buff=0.4)
+        t1 = chip("thread 1", GREY_A).move_to([-2.4, -1.6, 0])
+        t2 = chip("thread 2", GREY_A).move_to([2.4, -1.6, 0])
+        cia = M("computeIfAbsent", 24, CLERK).move_to([0, -1.6, 0])
+        atomic = T("one atomic step: only one of them fills the cache", 24, GREY_A).move_to([0, -2.6, 0])
+        self.say("cache")
+        self.play(FadeIn(cache, lag_ratio=0.2), run_time=1.0)
+        self.at_text("works it out once", lead=0.3)
+        self.play(FadeIn(once), run_time=0.5)
+        self.at_text("On a", lead=0.3)
+        self.play(FadeIn(t1), FadeIn(t2), FadeIn(cia), run_time=0.6)
+        self.at_text("so two threads", lead=0.3)
+        self.play(t1.animate.next_to(cia, LEFT, buff=0.2), t2.animate.next_to(cia, RIGHT, buff=0.2), FadeIn(atomic), run_time=0.8)
+        self.hold()
+        self.wipe()
+
+        # ================= guardrail =================
+        rows = VGroup(VGroup(chip("tracking", TRACK), M("ParcelEvent", 24)).arrange(RIGHT, buff=0.4),
+                      VGroup(chip("handover log", HAND), M("Handover", 24)).arrange(RIGHT, buff=0.4),
+                      VGroup(chip("load board", LOAD), M("ParcelCollected", 24)).arrange(RIGHT, buff=0.4))
+        rows.arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([0, 1.2, 0])
+        head = T("subscribe as wide as the job, and no wider", 32, CLERK).move_to([0, 2.9, 0])
+        nxt = VGroup(M("ParcelEvent", 24, TRACK), T("also hears every event type added next year", 26, GREY_A)).arrange(RIGHT, buff=0.3)
+        fit(nxt, 12.4).move_to([0, -1.6, 0])
+        self.say("guard")
+        self.play(FadeIn(head), run_time=0.6)
+        self.at_text("Tracking under", lead=0.3)
+        self.play(LaggedStart(*[FadeIn(r, shift=UP * 0.1) for r in rows], lag_ratio=0.4), run_time=1.6)
+        self.at_text("And remember", lead=0.3)
+        self.play(FadeIn(nxt, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= moral and check =================
+        mq = T("Why didn't tracking hear the collection?", 32, CLERK).move_to([0, 2.7, 0])
+        m1 = T("the board rang only the bell with the event's exact class", 28).move_to([0, 1.9, 0])
+        rule = rule_card("Ring its own bell, then each wider one, nearest first, and nothing else.", 28).move_to([0, 0.8, 0])
+        for m in (mq, m1):
+            fit(m, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at_text("Because", lead=0.3)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
+        self.at_text("Now each", lead=0.3)
+        self.play(FadeIn(rule, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        qa = T("Check: publish a DeliveryFailed.", 28).move_to([0, -0.6, 0])
+        qb = T("Which run: tracking, handovers, or load?", 28, YELLOW_M).next_to(qa, DOWN, buff=0.2)
+        self.say("check")
+        self.play(FadeIn(qa, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(qb, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.predict(2.6, pos=(6.4, -3.4), edge=RIGHT)
+        ans = VGroup(T("only tracking:", 26, TRACK), M("[DeliveryFailed, ParcelEvent]", 24, GREY_A)).arrange(RIGHT, buff=0.3)
+        fit(ans, 12.4).move_to([0, -2.6, 0])
+        self.say("check_a")
+        self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
         self.wait(2.5)
-        ans = T("Two: PaymentDeclined, then PaymentEvent. Audit runs, movements doesn't.", 28, GOLD_M)
-        ans.scale(min(1, 12 / ans.width)).move_to([0, -2.55, 0])
-        dmark = SurroundingRectangle(mini[2], buff=0.06, corner_radius=0.12, color=EV, stroke_width=4)
-        emark = SurroundingRectangle(mini[0], buff=0.06, corner_radius=0.12, color=EV, stroke_width=4)
-        self.beat("Two. PaymentDeclined, then PaymentEvent. Audit runs. Movements doesn't: a decline moves no money.", Create(dmark), Create(emark), FadeIn(ans, shift=UP * 0.15), run_time=1.2)
-        self.wait(0.8)

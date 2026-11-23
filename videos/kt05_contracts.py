@@ -228,8 +228,8 @@ class Kt05Contracts(Narrated):
 
         # ================= envelopes between desks =================
         d1, d2 = desk(-3.6), desk(3.4)
-        c1 = person(CLERK, 1.4).move_to([-4.5, -1.6 + 0.42, 0])
-        c2 = person(MATE, 1.4).move_to([4.3, -1.6 + 0.42, 0])
+        c1 = person(CLERK, 1.4).move_to([-5.4, -1.6 + 0.42, 0])
+        c2 = person(MATE, 1.4).move_to([5.2, -1.6 + 0.42, 0])
         env = envelope(1.9, 1.2).move_to([-2.9, -0.95, 0])
         inside = paper(["paper: a4"], 20).move_to([-2.9, 0.6, 0])
         self.say("open")
@@ -344,8 +344,8 @@ class Kt05Contracts(Narrated):
         self.wipe()
 
         # ================= the clerk who trusts her own eyes =================
-        dk = desk(-2.6, -1.9, 4.6)
-        me = person(EYE, 1.5).move_to([-5.4, -1.9 + 0.45, 0])
+        dk = desk(-2.4, -1.9, 4.2)
+        me = person(EYE, 1.5).move_to([-5.7, -1.9 + 0.45, 0])
         me_l = T("the compiler", 24, EYE).next_to(me, DOWN, buff=0.15)
         mine = paper(["fun main() {", "  if (paper != null)", "    paper.uppercase()", "}"], 20).move_to([-2.4, -0.7, 0])
         mine_l = T("the function she's reading", 22, GREY_B).next_to(mine, UP, buff=0.18)
