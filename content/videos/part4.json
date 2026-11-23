@@ -12,9 +12,9 @@
     {"slug": "cls03-indy", "lesson": "cls-03", "section": 0, "title": "The cue that says ask the director: invokedynamic calls its bootstrap method once, then calls the linked target directly"},
     {"slug": "perf06-flame-graph", "lesson": "perf-06", "section": 2, "title": "Reading a flame graph: width is samples, left to right is the alphabet, and the wide tops are where to start"},
     {"slug": "mem01-object-layout", "lesson": "mem-01", "section": 1, "title": "The label on every box: a 12-byte header, the fields in the JVM's order, padding to 8, and 4-byte references below 32 GB"},
-    {"slug": "cap4-tour", "lesson": "cap4-01", "section": 0, "title": "A tour of the container: wiring by reflection, interceptors through proxies, then the same wiring generated at build time"},
-    {"slug": "boot03-closed-world", "lesson": "boot-03", "section": 0, "title": "Native image builds a closed world: only code reachable from main gets in, so a class named at run time needs a metadata entry"},
-    {"slug": "boot04-crac", "lesson": "boot-04", "section": 1, "title": "A started JVM is still cold: CRaC saves a warm process to disk and restores it, once your resources let go"},
+    {"slug": "cap4-tour", "lesson": "cap4-01", "section": 0, "title": "A front-of-house manager for the box office: a container reads each constructor, builds what it needs first, and keeps one seating plan for the whole hall"},
+    {"slug": "boot03-closed-world", "lesson": "boot-03", "section": 0, "title": "Native image packs a closed world, like a stall stocked at the factory: only code reachable from main gets in, so a class named at run time needs a list"},
+    {"slug": "boot04-crac", "lesson": "boot-04", "section": 1, "title": "A started JVM is still cold: CRaC takes a photo of a warm process and restores it, once everything that reaches outside has let go"},
     {"slug": "cls02-stack", "lesson": "cls-02", "section": 1, "title": "A stagehand with hooks and a pile of cue cards: the operand stack runs seconds(32, 12500) in seven instructions, and a long takes two slots"},
     {"slug": "mem02-tlab", "lesson": "mem-02", "section": 0, "title": "A stretch of shelf for every worker: new bumps a pointer in the thread's own TLAB, and C2 skips a box that never leaves the desk"},
     {"slug": "mem05-zgc", "lesson": "mem-05", "section": 0, "title": "ZGC moves objects while threads run: colored references and a load barrier that fixes stale ones on the next load"},
@@ -27,7 +27,7 @@
     {"slug": "boot01-slow-start", "lesson": "boot-01", "section": 0, "title": "Every launch runs the same morning routine: create the VM, then unpack and check each class the first time it is needed (818 for a one-class demo)"},
     {"slug": "perf07-investigation", "lesson": "perf-07", "section": 0, "title": "The kitchen that stops to wash up: start from the slow tail and the GC count, find the line that allocates, fix one thing at a time"},
     {"slug": "cls06-classfile", "lesson": "cls-06", "section": 0, "title": "A class file is a page with a strict layout: the CAFEBABE stamp, the version, then a constant pool where each tag sets the entry's size and a Long takes two numbers"},
-    {"slug": "cap4-interceptors", "lesson": "cap4-02", "section": 0, "title": "An interceptor runs around a call and proceed() hands it on: a JDK proxy for a component with interfaces, a Byte Buddy subclass for one without, and retry only the smallest call that is safe to repeat"},
-    {"slug": "cap4-build-time", "lesson": "cap4-03", "section": 1, "title": "A reflective start finds components, reads annotations, orders the graph and has Byte Buddy write a subclass: 2,207 classes and 1,029 ms; the same wiring generated at build time leaves only holders: 991 classes and 266 ms"}
+    {"slug": "cap4-interceptors", "lesson": "cap4-02", "section": 0, "title": "Helpers in a row at the stage door: an interceptor runs around a call and proceed() hands it on; the order changes what you measure, and a retry belongs on the smallest call that is safe to repeat"},
+    {"slug": "cap4-build-time", "lesson": "cap4-03", "section": 1, "title": "Two clocks for the box office: stand-ins cost bytes per call, but a reflective start loads 2,207 classes (814 from Byte Buddy) against 991 when the same wiring is generated at build time"}
   ]
 }

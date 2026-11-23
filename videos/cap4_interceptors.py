@@ -514,7 +514,7 @@ class Cap4Interceptors(Narrated):
         self.wipe()
 
         nt = card(["name:  Booking.reserve", "args:  [C12]", "proceed()   pass it on"], 26)
-        nt[1][2].set_color(RETRY)
+        nt[1][2].set_color("#9C2F66")
         nt_h = M("Invocation", 30, TIMER).next_to(nt, UP, buff=0.3)
         hp = person(TIMER, 1.3).next_to(nt, LEFT, buff=0.8)
         self.say("invocation")
@@ -659,6 +659,8 @@ class Cap4Interceptors(Narrated):
         shc = VGroup(clock_icon(s=0.7), again_icon(s=0.7)).arrange(RIGHT, buff=0.12).move_to(sh).shift(DOWN * 0.1)
         rsub = T("a subclass that overrides each method", 22, GREY_A).move_to(rp.get_bottom() + UP * 0.75)
         rsub2 = T("written by Byte Buddy while the program runs", 22, GREY_A).move_to(rp.get_bottom() + UP * 0.4)
+        for t in (rsub, rsub2, lsub):
+            fit(t, 5.6)
         self.say("jdk")
         self.play(Create(lp), FadeIn(lt), run_time=0.6)
         self.play(FadeIn(sx), FadeIn(ax), run_time=0.6)
@@ -682,10 +684,10 @@ class Cap4Interceptors(Narrated):
                          '}'], 22, hl={'@Timed': TIMER})
         kcg = titled(kc, "Kotlin: final unless you write open")
         fit(kcg, 12.4).move_to([0, 2.0, 0])
-        sh = shirt(COSTUME, 1.0).move_to([-4.4, -0.7, 0])
+        sh = shirt(COSTUME, 1.0).move_to([-5.5, -0.6, 0])
         tag = VGroup(Rectangle(width=1.5, height=0.5).set_stroke(BAD, 2).set_fill(PAPER, 1), T("do not copy", 20, BAD))
         tag[1].move_to(tag[0])
-        tag.rotate(-12 * DEGREES).next_to(sh, RIGHT, buff=-0.25).shift(DOWN * 0.3)
+        tag.rotate(-12 * DEGREES).next_to(sh, DOWN, buff=-0.15).shift(RIGHT * 0.3)
         ref = term(["KFinalPrices: class final=true, feeCents final=true",
                     "  refused: KFinalPrices is final, so no subclass can intercept it:",
                     "           make it open, or give it an interface"], 22, "the demo printed")
@@ -712,7 +714,7 @@ class Cap4Interceptors(Narrated):
         rs_l = T("holds the seat", 22, GREY_A).next_to(rs, DOWN, buff=0.15)
         cf_l = T("hold becomes a ticket", 22, GREY_A).next_to(cf, DOWN, buff=0.15)
         ca = Arrow(rs.get_right(), cf.get_left(), buff=0.1, stroke_width=3, color=GREY_B)
-        wrap = DashedVMobject(RoundedRectangle(corner_radius=0.2, width=calls.width + 1.4, height=2.2).move_to(calls.get_center() + DOWN * 0.25),
+        wrap = DashedVMobject(RoundedRectangle(corner_radius=0.2, width=calls.width + 2.4, height=2.2).move_to(calls.get_center() + DOWN * 0.25),
                               num_dashes=60).set_stroke(RETRY, 2.5)
         wrap_l = T("one retry around both", 24, RETRY).next_to(wrap, UP, buff=0.12)
         to_m = T("times out", 24, BAD).next_to(cf, UP, buff=0.15)
@@ -752,8 +754,8 @@ class Cap4Interceptors(Narrated):
                    "  [reserve, confirm (timed out), confirm]"], 22, "")
         o2[1][1].set_color(OK)
         fit(o2, 12.4).move_to([0, -1.2, 0])
-        wrap2 = VGroup(*[DashedVMobject(RoundedRectangle(corner_radius=0.15, width=b.width + 0.4, height=1.6).move_to(b.get_center() + DOWN * 0.2),
-                                        num_dashes=36).set_stroke(RETRY, 2.5) for b in (rs, cf)])
+        wrap2 = VGroup(*[DashedVMobject(RoundedRectangle(corner_radius=0.15, width=max(b.width, l.width) + 0.4, height=1.6).move_to(b.get_center() + DOWN * 0.2),
+                                        num_dashes=36).set_stroke(RETRY, 2.5) for b, l in ((rs, rs_l), (cf, cf_l))])
         wrap2_l = T("each inner call keeps its own retry", 24, RETRY).next_to(calls, UP, buff=0.55)
         self.say("guard_fix")
         self.play(FadeOut(wrap), FadeOut(wrap_l), Create(wrap2), FadeIn(wrap2_l), run_time=0.9)
@@ -762,9 +764,7 @@ class Cap4Interceptors(Narrated):
         self.at_text("Only the confirmation", lead=0.3)
         self.play(Circumscribe(o2[1][1], color=OK, buff=0.05), run_time=0.9)
         self.hold()
-        refc = chip("the same booking reference", OK, 22).next_to(cf, RIGHT, buff=0.4)
-        if refc.get_right()[0] > 6.5:
-            refc.next_to(cf_l, DOWN, buff=0.15)
+        refc = chip("the same booking reference", OK, 22).move_to([cf.get_x(), 0.1, 0])
         dk = T("a timeout means: you don't know", 26, GREY_A).move_to([0, -2.5, 0])
         self.say("key")
         self.play(FadeIn(dk), run_time=0.6)
