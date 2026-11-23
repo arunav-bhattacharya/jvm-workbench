@@ -1,153 +1,353 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.504
-A card is declined, and authorize throws.
+00:00:02.700 --> 00:00:05.081
+Picture a recipe step that goes wrong.
 
 2
-00:00:05.504 --> 00:00:08.239
-Nothing in its Kotlin signature says so.
+00:00:05.081 --> 00:00:06.271
+The custard splits.
 
 3
-00:00:08.239 --> 00:00:12.341
-A new endpoint forgets the try, and the customer gets a 500.
+00:00:06.271 --> 00:00:11.910
+A calm cook hands back a note: the custard split, let's serve the cake with cream instead.
 
 4
-00:00:12.567 --> 00:00:14.451
-A decline happens every day.
+00:00:11.910 --> 00:00:17.361
+An upset cook throws the pan across the room, and someone further away has to catch it.
 
 5
-00:00:14.451 --> 00:00:19.364
-Return it as a value: a result that holds either the value, or the error.
+00:00:17.567 --> 00:00:22.087
+In code, a returned value is the note, and an exception is the thrown pan.
 
 6
-00:00:19.567 --> 00:00:23.131
-Chain the steps of a payment: validate, authorise, capture.
+00:00:22.087 --> 00:00:26.668
+And earlier in this lesson, we built a kitchen line where the notes travel.
 
 7
-00:00:23.131 --> 00:00:28.327
-Each step keeps the payment on the success track, or switches it to the failure track.
+00:00:27.600 --> 00:00:28.633
+Here it is again.
 
 8
-00:00:28.500 --> 00:00:33.755
-A request for 500 cents passes all three steps, and comes out as Ok.
+00:00:28.633 --> 00:00:31.550
+A good batter walks down the line, step by step.
 
 9
-00:00:34.067 --> 00:00:36.412
-Now a request for 50,000 cents.
+00:00:31.550 --> 00:00:40.847
+When a step fails, the batter leaves through a side door with a note pinned to it, and the note walks straight to the end, past every step still waiting.
 
 10
-00:00:36.412 --> 00:00:39.136
-The issuer declines it at authorise.
+00:00:41.767 --> 00:00:44.780
+But here's a question that's easy to be shy about.
 
 11
-00:00:39.136 --> 00:00:40.423
-Does capture run?
+00:00:44.780 --> 00:00:50.928
+When my code checks several things, should it stop at the first problem, or tell me about all of them?
 
 12
-00:00:42.833 --> 00:00:43.033
-No.
+00:00:50.928 --> 00:00:52.133
+Does it even matter?
 
 13
-00:00:43.033 --> 00:00:48.024
-The train switches to the failure track, and rides past capture to the end.
+00:00:53.067 --> 00:00:55.107
+Let's start with a line of steps.
 
 14
-00:00:48.024 --> 00:00:51.351
-The first failure wins, and nothing after it runs.
+00:00:55.107 --> 00:01:02.278
+The app orders groceries: reserve the ingredient at the shop, check that the delivery arrives in time, then book it.
 
 15
-00:00:51.351 --> 00:00:53.015
-That is called fail fast.
+00:01:02.278 --> 00:01:04.195
+Each step needs the one before.
 
 16
-00:00:53.900 --> 00:00:58.467
-Fail fast suits a pipeline, where each step needs the one before.
+00:01:04.195 --> 00:01:06.853
+You can't book a basket you never reserved.
 
 17
-00:00:58.467 --> 00:00:59.240
-Not a form.
+00:01:07.767 --> 00:01:11.706
+With our hand-written result type, the steps chain with andThen.
 
 18
-00:00:59.240 --> 00:01:03.456
-A client sends an amount of minus 5 and an unknown currency.
+00:01:11.706 --> 00:01:12.259
+It works.
 
 19
-00:01:03.667 --> 00:01:05.612
-Fail fast stops at the amount.
+00:01:12.259 --> 00:01:17.429
+But each step nests inside the one before, and the happy path hides in the brackets.
 
 20
-00:01:05.612 --> 00:01:12.811
-The currency check never runs, so the client fixes one field, sends again, and only then hears about the other.
+00:01:17.633 --> 00:01:23.762
+Arrow, a functional programming library for Kotlin, has the same kind of result type, called Either.
 
 21
-00:01:13.333 --> 00:01:17.589
-To collect every error, run the independent checks side by side.
+00:01:23.762 --> 00:01:28.725
+An Either holds one of two things: a Left with an error, or a Right with a value.
 
 22
-00:01:17.589 --> 00:01:20.515
-Both fail, and both errors land in one list.
+00:01:28.725 --> 00:01:32.096
+And its either block lets the steps read top to bottom.
 
 23
-00:01:20.700 --> 00:01:27.555
-In Arrow, zipOrAccumulate does this: every check runs, and the Amount is built only if all of them pass.
+00:01:33.000 --> 00:01:35.358
+Inside the block, bind unwraps a Right.
 
 24
-00:01:28.467 --> 00:01:30.186
-One trap sits at the edge.
+00:01:35.358 --> 00:01:39.952
+On a Left, it stops the block right there, and that Left becomes the result.
 
 25
-00:01:30.186 --> 00:01:35.543
-runCatching catches every Throwable, and in a coroutine that includes the cancel.
+00:01:39.952 --> 00:01:43.761
+ensure checks a condition, and stops the block when it's false.
 
 26
-00:01:35.543 --> 00:01:37.594
-Cancel this job while it waits.
+00:01:43.761 --> 00:01:46.360
+That's the side door, built into the block.
 
 27
-00:01:37.594 --> 00:01:43.149
-The cancel becomes a failed Result, the job runs on, and the card is charged anyway.
+00:01:47.267 --> 00:01:49.266
+This style is called fail fast.
 
 28
-00:01:43.300 --> 00:01:48.174
-Rethrow CancellationException in onFailure, and the cancel keeps going.
+00:01:49.266 --> 00:01:52.492
+The first failure wins, and nothing after it runs.
 
 29
-00:01:48.174 --> 00:01:49.479
-Nothing is charged.
+00:01:52.492 --> 00:01:55.201
+For a line of steps, that's exactly right.
 
 30
-00:01:50.300 --> 00:01:54.931
-In code, Arrow's either block fails fast, and zipOrAccumulate collects.
+00:01:56.133 --> 00:01:58.096
+Now a different job: a form.
 
 31
-00:01:54.931 --> 00:01:58.911
-Java has no Arrow: you collect the errors in a list yourself.
+00:01:58.096 --> 00:02:04.825
+A cook types an amount of minus 5, with the unit oz, because the scale was left on ounces again.
 
 32
-00:02:00.700 --> 00:02:03.665
-So: fail fast when each step needs the one before.
+00:02:04.825 --> 00:02:05.736
+Two problems.
 
 33
-00:02:03.665 --> 00:02:08.351
-Collect every error when the checks are independent, like the fields of a form.
+00:02:05.736 --> 00:02:11.904
+The amount must be more than zero, and the app only knows grams, millilitres and pieces.
 
 34
-00:02:08.567 --> 00:02:09.543
-A quick check.
+00:02:12.833 --> 00:02:16.977
+Here are the two checks, and a fail fast block that uses both.
 
 35
-00:02:09.543 --> 00:02:12.752
-A request for minus 1 cents rides the railway.
+00:02:16.977 --> 00:02:20.185
+What does failFast give back for minus 5 and oz?
 
 36
-00:02:12.752 --> 00:02:15.264
-Which steps run, and what comes out?
+00:02:23.167 --> 00:02:26.195
+Either.Left, InvalidAmount, minus 5.
 
 37
-00:02:17.667 --> 00:02:18.639
-Only validate.
+00:02:26.195 --> 00:02:27.121
+That's all.
 
 38
-00:02:18.639 --> 00:02:22.181
-It fails, and the result is an Err with the reason.
+00:02:27.121 --> 00:02:29.224
+The unit check never ran.
+
+39
+00:02:30.133 --> 00:02:34.974
+So the cook fixes the amount, saves again, and only now hears about the ounces.
+
+40
+00:02:34.974 --> 00:02:41.041
+It's like a taster who says needs salt, waits for you to salt it, and then mentions that it's cold.
+
+41
+00:02:41.041 --> 00:02:46.495
+Jokes aside: when the checks don't need each other, one complaint per try is a poor deal.
+
+42
+00:02:47.400 --> 00:02:50.606
+What we want is a kitchen inspector with a clipboard.
+
+43
+00:02:50.606 --> 00:02:56.594
+She walks the whole form, writes down every problem she finds, and hands you the full list at once.
+
+44
+00:02:56.594 --> 00:03:00.284
+And only if the clipboard stays empty does the dish get made.
+
+45
+00:03:01.200 --> 00:03:02.029
+Let's map it.
+
+46
+00:03:02.029 --> 00:03:04.324
+Each check is one stop on her round.
+
+47
+00:03:04.324 --> 00:03:06.619
+The clipboard is the list of errors.
+
+48
+00:03:06.619 --> 00:03:10.891
+And the dish, here an Amount, is made only when every check passed.
+
+49
+00:03:11.800 --> 00:03:14.592
+Arrow's inspector is called zipOrAccumulate.
+
+50
+00:03:14.592 --> 00:03:22.523
+It runs checks that don't depend on each other, collects every failure, and calls its last lambda only if all of them passed.
+
+51
+00:03:22.733 --> 00:03:25.045
+Same input, minus 5 and oz.
+
+52
+00:03:25.045 --> 00:03:26.757
+What comes back now?
+
+53
+00:03:29.733 --> 00:03:35.549
+Either.Left, with a list: InvalidAmount, minus 5, and UnsupportedUnit, oz.
+
+54
+00:03:35.549 --> 00:03:37.278
+Both problems at once.
+
+55
+00:03:37.278 --> 00:03:42.937
+And with a good amount and unit, 250 g, it's a Right holding the Amount.
+
+56
+00:03:43.167 --> 00:03:44.976
+Look at the type of that Left.
+
+57
+00:03:44.976 --> 00:03:48.835
+It's a NonEmptyList, a list that always holds at least one item.
+
+58
+00:03:48.835 --> 00:03:52.936
+If there's a Left, there's at least one error, and the type says so.
+
+59
+00:03:53.867 --> 00:03:55.144
+Java has no Either.
+
+60
+00:03:55.144 --> 00:04:02.605
+The lesson's Java version does the same job by hand: a list of errors, one if per rule, and a check at the end.
+
+61
+00:04:03.533 --> 00:04:06.194
+And here's where the clipboard picture breaks.
+
+62
+00:04:06.194 --> 00:04:09.029
+The inspector can only look at things that exist.
+
+63
+00:04:09.029 --> 00:04:12.731
+She can't check the booking of a basket that was never reserved.
+
+64
+00:04:12.731 --> 00:04:16.317
+When a check needs the one before, there's nothing to collect.
+
+65
+00:04:16.317 --> 00:04:18.457
+That's a line, and a line fails fast.
+
+66
+00:04:19.367 --> 00:04:20.483
+So here's the rule.
+
+67
+00:04:20.483 --> 00:04:24.007
+Stop at the first error when each step needs the one before.
+
+68
+00:04:24.007 --> 00:04:27.707
+Collect every error when the checks don't depend on each other.
+
+69
+00:04:28.633 --> 00:04:31.025
+One more tool, for code that throws.
+
+70
+00:04:31.025 --> 00:04:34.547
+Either.catch turns an ordinary exception into a Left.
+
+71
+00:04:34.547 --> 00:04:40.195
+Parse 2OO, typed with two letter Os, and you get a Left with a NumberFormatException.
+
+72
+00:04:40.195 --> 00:04:45.045
+But it lets a CancellationException through, the one that carries a stop.
+
+73
+00:04:45.045 --> 00:04:48.101
+That makes it the safer cousin of runCatching.
+
+74
+00:04:49.033 --> 00:04:50.543
+So the picker is short.
+
+75
+00:04:50.543 --> 00:04:53.431
+A nullable type when nothing needs a reason.
+
+76
+00:04:53.431 --> 00:04:56.647
+A sealed type for a few outcomes of one function.
+
+77
+00:04:56.647 --> 00:05:00.454
+Either when many steps chain, or errors must be collected.
+
+78
+00:05:00.454 --> 00:05:02.357
+And exceptions stay for bugs.
+
+79
+00:05:03.267 --> 00:05:06.585
+So, stop at the first problem, or report them all?
+
+80
+00:05:06.585 --> 00:05:11.031
+It comes down to one question: does each check need the one before?
+
+81
+00:05:11.031 --> 00:05:12.225
+A line fails fast.
+
+82
+00:05:12.225 --> 00:05:13.619
+A clipboard collects.
+
+83
+00:05:14.333 --> 00:05:15.141
+Quick check.
+
+84
+00:05:15.141 --> 00:05:20.724
+A recipe form checks a title and a cooking time, and neither check needs the other.
+
+85
+00:05:20.724 --> 00:05:22.204
+Fail fast, or collect?
+
+86
+00:05:25.200 --> 00:05:25.735
+Collect.
+
+87
+00:05:25.735 --> 00:05:30.486
+The checks are independent, so the cook should hear about both at once.
+
+88
+00:05:30.486 --> 00:05:32.025
+That's zipOrAccumulate.

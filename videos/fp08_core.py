@@ -279,7 +279,7 @@ class Fp08Core(Narrated):
 
         # sort the loop: decisions belong to the card, errands to the cook
         self.say("map")
-        self.play(FadeOut(frame), FadeOut(ttl), run_time=0.5)
+        self.play(FadeOut(frame), FadeOut(ttl), tl.animate.shift(LEFT * 1.6), run_time=0.6)
         top_r, dec_r, bot_r = VGroup(tl[0], tl[1]), VGroup(*tl[2:6]), VGroup(*tl[6:])
         br_c = Brace(dec_r, RIGHT, color=DECIDE)
         lb_c = T("the card: decides", 28, DECIDE).next_to(br_c, RIGHT, buff=0.2)
@@ -507,8 +507,8 @@ class Fp08Core(Narrated):
 
         # ================= moral and a check =================
         mq = T("So where does the pure part go? In the middle.", 34).move_to(UP * 2.6)
-        shell = RoundedRectangle(corner_radius=0.3, width=9.0, height=3.0).set_stroke(ERRAND, 3).set_fill(dim(ERRAND, 0.07), 1).move_to(UP * 0.3)
-        core = RoundedRectangle(corner_radius=0.2, width=4.6, height=1.3).set_stroke(DECIDE, 3).set_fill(dim(DECIDE, 0.15), 1).move_to(UP * 0.2)
+        shell = RoundedRectangle(corner_radius=0.3, width=9.6, height=3.0).set_stroke(ERRAND, 3).set_fill(dim(ERRAND, 0.07), 1).move_to(UP * 0.3)
+        core = RoundedRectangle(corner_radius=0.2, width=6.2, height=1.3).set_stroke(DECIDE, 3).set_fill(dim(DECIDE, 0.15), 1).move_to(UP * 0.2)
         ct = T("decide, every input passed in", 26, DECIDE).move_to(core)
         st = T("read, call the core, act. Nothing more.", 26, ERRAND).move_to(shell.get_top() + DOWN * 0.42)
         self.say("moral")

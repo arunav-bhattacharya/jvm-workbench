@@ -1,149 +1,321 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.020
-Here is a settlement job, written the usual way.
+00:00:02.700 --> 00:00:05.593
+All track long, one picture kept coming back.
 
 2
-00:00:06.020 --> 00:00:16.601
-One loop reads the clock, loads payments, skips refunds, holds recent ones, sums per merchant, computes fees, calls the payout API, and saves the ledger.
+00:00:05.593 --> 00:00:09.128
+The recipe card decides, and the cook does the errands.
 
 3
-00:00:16.800 --> 00:00:17.418
-It works.
+00:00:09.128 --> 00:00:11.121
+The card never lights the oven.
 
 4
-00:00:17.418 --> 00:00:25.731
-But to test one fee rule, you need a fixed clock, a fake store, a fake payout API, and checks on what the fakes recorded.
+00:00:11.121 --> 00:00:13.628
+And the cook never makes up the recipe.
 
 5
-00:00:25.933 --> 00:00:27.264
-Look at the colours.
+00:00:14.533 --> 00:00:17.693
+So here's a question that's easy to be shy about.
 
 6
-00:00:27.264 --> 00:00:29.061
-The teal lines only decide.
+00:00:17.693 --> 00:00:20.273
+Everyone says, keep your functions pure.
 
 7
-00:00:29.061 --> 00:00:31.124
-The gold lines touch the world.
+00:00:20.273 --> 00:00:24.465
+But my program has to read the clock, send orders and save files.
 
 8
-00:00:31.124 --> 00:00:36.115
-Pull them apart: the decisions go into a core, and the I/O wraps around it.
+00:00:24.465 --> 00:00:26.464
+So where does the pure part go?
 
 9
-00:00:36.233 --> 00:00:37.964
-The core is a pure function.
+00:00:27.367 --> 00:00:29.486
+Here's a job from the recipe app.
 
 10
-00:00:37.964 --> 00:00:44.328
-It takes plain values, today's date included, and returns a plan: a value that says what should happen.
+00:00:29.486 --> 00:00:32.760
+Every morning, LegacyShoppingJob runs one big loop.
 
 11
-00:00:44.328 --> 00:00:48.221
-This shape is called a functional core and an imperative shell.
+00:00:32.760 --> 00:00:35.778
+It reads the clock and loads the shopping list.
 
 12
-00:00:48.367 --> 00:00:51.079
-Here is the smallest one, from the lesson.
+00:00:35.778 --> 00:00:44.639
+It skips crossed off items, holds back items it's too early to order, adds up a total per shop, and works out each shop's member discount.
 
 13
-00:00:51.079 --> 00:00:54.502
-Card authorizations older than seven days get voided.
+00:00:44.639 --> 00:00:50.611
+Then it sends the orders, writes each one into the household budget book, and saves the book.
 
 14
-00:00:54.502 --> 00:01:00.120
-The shell reads the clock, and loads two: a1, eight days old, and a2, thirty hours old.
+00:00:50.833 --> 00:00:51.389
+It works.
 
 15
-00:01:00.300 --> 00:01:02.948
-It hands them to the core as values.
+00:00:51.389 --> 00:00:54.046
+But say you want to test one discount rule.
 
 16
-00:01:02.948 --> 00:01:08.393
-The core returns two decisions: void a1, and keep a2, with 138 hours left.
+00:00:54.046 --> 00:00:59.546
+You need a fake store, a fake shop, a fixed clock, and checks on what the fakes recorded.
 
 17
-00:01:08.393 --> 00:01:11.115
-It called nothing, and read no clock.
+00:00:59.546 --> 00:01:03.809
+That's a whole kitchen of props, to taste one spoonful of arithmetic.
 
 18
-00:01:11.300 --> 00:01:14.848
-Then the shell carries out the plan: one call to the gateway.
+00:01:04.533 --> 00:01:07.194
+So let's split it the way the kitchen does.
 
 19
-00:01:15.067 --> 00:01:17.250
-A test needs none of the shell.
+00:01:07.194 --> 00:01:15.238
+The card does the deciding: plain values go in, today's date included, and out comes a plan, a value that says what should happen.
 
 20
-00:01:17.250 --> 00:01:22.603
-Call the core with a list and a date, one day later, and compare the result.
+00:01:15.238 --> 00:01:21.178
+The cook is everything that touches the world: the clock, the list, the orders, the budget book.
 
 21
-00:01:22.603 --> 00:01:25.561
-a2 is still kept, now with 114 hours left.
+00:01:21.178 --> 00:01:23.035
+And the cook follows the plan.
 
 22
-00:01:26.433 --> 00:01:28.917
-All of this needs inputs that hold still.
+00:01:23.967 --> 00:01:27.710
+This shape has a name: functional core, imperative shell.
 
 23
-00:01:28.917 --> 00:01:31.280
-A read-only List does not promise that.
+00:01:27.710 --> 00:01:30.271
+The functional core is a pure function.
 
 24
-00:01:31.280 --> 00:01:35.520
-Build a batch from the caller's list, and both point at the same list.
+00:01:30.271 --> 00:01:32.307
+For our job, it's planShopping.
 
 25
-00:01:35.700 --> 00:01:37.158
-The caller adds p2.
+00:01:32.307 --> 00:01:36.772
+It takes the items, the shops and today, and returns a ShoppingPlan.
 
 26
-00:01:37.158 --> 00:01:41.303
-The batch shows p1 and p2: it changed under your feet.
+00:01:37.000 --> 00:01:39.618
+Everything from this track fits inside.
 
 27
-00:01:41.500 --> 00:01:43.038
-Copy at the boundary.
+00:01:39.618 --> 00:01:43.108
+filterNot, partition, groupBy and sumOf do the work.
 
 28
-00:01:43.038 --> 00:01:48.895
-With toList in Kotlin, or List.copyOf in Java, the batch keeps its own snapshot.
+00:01:43.108 --> 00:01:45.121
+Data classes of vals carry it.
 
 29
-00:01:49.700 --> 00:01:53.531
-In code, the shell is three steps: read, decide, act.
+00:01:45.121 --> 00:01:54.115
+And expected outcomes, like an item from a shop the app doesn't know, come back as values in the plan, not as exceptions or log lines.
 
 30
-00:01:53.531 --> 00:01:55.772
-The same in Kotlin and in Java.
+00:01:55.033 --> 00:01:57.932
+The imperative shell is the thin outer part.
 
 31
-00:01:57.600 --> 00:02:02.492
-So: the core decides from plain values, and the shell does the I/O around it.
+00:01:57.932 --> 00:02:02.741
+It's the only code that touches the world, and it has almost no branches.
 
 32
-00:02:02.700 --> 00:02:03.701
-A quick check.
+00:02:02.741 --> 00:02:04.322
+Read today and the list.
 
 33
-00:02:03.701 --> 00:02:06.774
-A teammate reads the clock inside the core.
+00:02:04.322 --> 00:02:06.167
+Decide, by calling the core.
 
 34
-00:02:06.774 --> 00:02:07.989
-Is it still pure?
+00:02:06.167 --> 00:02:08.933
+Act: send each order, and save the budget.
 
 35
-00:02:10.400 --> 00:02:10.599
-No.
+00:02:09.867 --> 00:02:13.184
+Let's shrink it to something we can run: the fridge.
 
 36
-00:02:10.599 --> 00:02:15.718
-The clock is a hidden input, so the same arguments can give a different plan.
+00:02:13.184 --> 00:02:16.183
+Leftovers older than three days get thrown out.
 
 37
-00:02:15.718 --> 00:02:18.377
-Read it in the shell, and pass today in.
+00:02:16.183 --> 00:02:17.778
+decideFridge is the core.
+
+38
+00:02:17.778 --> 00:02:21.733
+It takes the leftovers and the time now, both as plain values.
+
+39
+00:02:22.567 --> 00:02:26.007
+Now is the 10th of March, at 9 in the morning.
+
+40
+00:02:26.007 --> 00:02:28.923
+The soup, l1, was cooked 4 days before.
+
+41
+00:02:28.923 --> 00:02:31.166
+The rice, l2, 30 hours before.
+
+42
+00:02:31.166 --> 00:02:33.111
+What does the core decide?
+
+43
+00:02:36.100 --> 00:02:37.884
+l1 goes: ThrowOut.
+
+44
+00:02:37.884 --> 00:02:40.956
+l2 stays: Keep, good for PT42H.
+
+45
+00:02:40.956 --> 00:02:47.299
+That's how Java writes 42 hours: three days, 72 hours, minus 30.
+
+46
+00:02:47.500 --> 00:02:48.429
+And the shell?
+
+47
+00:02:48.429 --> 00:02:54.799
+It loads the leftovers, reads the clock, calls the core, and sends a reminder for each ThrowOut.
+
+48
+00:02:54.799 --> 00:03:00.107
+With a fixed clock and a fake phone, it prints: reminder, throw out leftover l1.
+
+49
+00:03:00.333 --> 00:03:03.374
+Now push the time one day later, to the 11th.
+
+50
+00:03:03.374 --> 00:03:04.929
+Which decision changes?
+
+51
+00:03:04.929 --> 00:03:07.564
+Try to answer without running anything.
+
+52
+00:03:10.533 --> 00:03:11.690
+Only the hours.
+
+53
+00:03:11.690 --> 00:03:16.394
+l2 is still kept, now with PT18H left, and l1 goes as before.
+
+54
+00:03:16.394 --> 00:03:21.561
+You can check that from the core alone, with no clock and no phone.
+
+55
+00:03:21.767 --> 00:03:24.886
+We just checked a fridge without opening the fridge.
+
+56
+00:03:24.886 --> 00:03:30.164
+So the point really is: when the time is a parameter, a decision is tested with a value.
+
+57
+00:03:31.067 --> 00:03:32.552
+That changes the tests.
+
+58
+00:03:32.552 --> 00:03:38.754
+The core gets many small tests: build a list, call the function, compare the result with equals.
+
+59
+00:03:38.754 --> 00:03:41.209
+No fakes, no clock, milliseconds each.
+
+60
+00:03:41.209 --> 00:03:45.408
+And the shell gets one test with fakes, just to check the wiring.
+
+61
+00:03:46.333 --> 00:03:48.854
+The kitchen picture breaks in one place.
+
+62
+00:03:48.854 --> 00:03:52.068
+A real cook can improvise when something looks off.
+
+63
+00:03:52.068 --> 00:03:53.265
+The shell must not.
+
+64
+00:03:53.265 --> 00:03:58.307
+Any rule that slips into the shell is a rule you can only test with fakes again.
+
+65
+00:03:59.233 --> 00:04:00.541
+And the honest limit.
+
+66
+00:04:00.541 --> 00:04:02.782
+Neither compiler checks any of this.
+
+67
+00:04:02.782 --> 00:04:06.268
+Kotlin has no keyword for pure, or for deeply immutable.
+
+68
+00:04:06.268 --> 00:04:12.867
+And a read-only List can still change underneath the core, if the caller keeps the mutable list behind it.
+
+69
+00:04:12.867 --> 00:04:15.917
+So the shell copies at the boundary, with toList.
+
+70
+00:04:15.917 --> 00:04:19.092
+The shell stays thin only because you keep it thin.
+
+71
+00:04:20.000 --> 00:04:21.973
+So, where does the pure part go?
+
+72
+00:04:21.973 --> 00:04:22.837
+In the middle.
+
+73
+00:04:22.837 --> 00:04:25.735
+Decide in the core, with every input passed in.
+
+74
+00:04:25.735 --> 00:04:29.435
+Let the shell read, call the core and act, and nothing more.
+
+75
+00:04:30.367 --> 00:04:31.164
+Quick check.
+
+76
+00:04:31.164 --> 00:04:36.744
+A function reads LocalDate.now, and decides whether a bag of flour is past its date.
+
+77
+00:04:36.744 --> 00:04:39.667
+How do you move that decision into the core?
+
+78
+00:04:42.633 --> 00:04:44.484
+Pass today in as a parameter.
+
+79
+00:04:44.484 --> 00:04:46.143
+The shell reads the clock.
+
+80
+00:04:46.143 --> 00:04:50.483
+The core only compares two dates, and you test it with plain values.

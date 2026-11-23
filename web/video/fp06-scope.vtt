@@ -1,165 +1,405 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.113
-Here is a charge of 1999 cents.
+00:00:02.700 --> 00:00:04.840
+Picture a good cook's small habits.
 
 2
-00:00:05.113 --> 00:00:09.860
-You hand it to a small block of code that doubles the amount.
+00:00:04.840 --> 00:00:11.014
+You set up a new tray: paper, a little butter, twelve cookies, and that same tray goes into the oven.
 
 3
-00:00:10.067 --> 00:00:14.713
-When the block is done, the call gives back one of two things.
+00:00:11.014 --> 00:00:17.066
+You jot in the kitchen notebook that tray two went in at ten past, and the tray goes on, unchanged.
 
 4
-00:00:14.713 --> 00:00:16.586
-The block's result, 3998.
+00:00:17.066 --> 00:00:21.223
+You dip a spoon in the soup, and you get an answer back: needs salt.
 
 5
-00:00:16.586 --> 00:00:18.684
-Or the charge you handed in.
+00:00:21.433 --> 00:00:23.256
+Each habit has one clear job.
 
 6
-00:00:19.467 --> 00:00:23.052
-Inside the block, the charge shows up in one of two ways.
+00:00:23.256 --> 00:00:26.460
+From across the room, you can tell which one it is.
 
 7
-00:00:23.052 --> 00:00:27.330
-As this, the block runs inside the charge, so you write amountMinor.
+00:00:27.367 --> 00:00:32.876
+Kotlin has five tiny functions for jobs like these: let, run, with, apply and also.
 
 8
-00:00:27.330 --> 00:00:31.796
-As it, the charge comes in as a parameter, so you write it.amountMinor.
+00:00:32.876 --> 00:00:36.194
+And here's the question many of us are shy to ask.
 
 9
-00:00:31.967 --> 00:00:34.005
-Two questions, two answers each.
+00:00:36.194 --> 00:00:37.721
+They all look the same.
 
 10
-00:00:34.005 --> 00:00:38.273
-That makes four cells, and Kotlin's five scope functions fill them.
+00:00:37.721 --> 00:00:41.836
+Is there a real difference, or do people just pick a favorite?
 
 11
-00:00:38.500 --> 00:00:40.255
-Same block, five functions.
+00:00:42.767 --> 00:00:44.893
+Here's code from the recipe app.
 
 12
-00:00:40.255 --> 00:00:42.140
-What does each one give back?
+00:00:44.893 --> 00:00:51.671
+It sets up a program for the oven, 180 degrees, 12 minutes, oat cookies, and writes a line to the log.
 
 13
-00:00:44.533 --> 00:00:47.414
-let, run and with give back 3998.
+00:00:51.671 --> 00:00:53.333
+Nothing is wrong with it.
 
 14
-00:00:47.414 --> 00:00:50.557
-also and apply give back the charge.
+00:00:53.333 --> 00:00:58.516
+But it says program dot on every line, and nothing marks where the setup ends.
 
 15
-00:00:50.557 --> 00:00:53.001
-Java has no scope functions.
+00:00:59.233 --> 00:01:01.557
+Kotlin code often says it like this.
 
 16
-00:00:53.700 --> 00:00:55.654
-Each cell has a typical job.
+00:01:01.557 --> 00:01:05.494
+apply sets up the new object, and hands back the same object.
 
 17
-00:00:55.654 --> 00:00:59.772
-apply configures an object, and hands the same object back.
+00:01:05.494 --> 00:01:10.464
+Then also writes the log line in passing, and lets the value go on unchanged.
 
 18
-00:00:59.967 --> 00:01:05.179
-also does a side step, like a log line, and the object flows on unchanged.
+00:01:10.464 --> 00:01:14.983
+Those are the first two habits: set up a tray, and note it in passing.
 
 19
-00:01:05.400 --> 00:01:09.467
-let, after a safe call, runs only when the value is not null.
+00:01:15.900 --> 00:01:17.203
+And here's the catch.
 
 20
-00:01:09.467 --> 00:01:11.600
-A missing token skips the block.
+00:01:17.203 --> 00:01:20.990
+The compiler accepts almost any of the five, almost anywhere.
 
 21
-00:01:11.800 --> 00:01:16.500
-run and with compute something new from the object's members, like a risk score.
+00:01:20.990 --> 00:01:23.969
+Pick the wrong one, and the code still compiles.
 
 22
-00:01:17.433 --> 00:01:18.302
-Now the trap.
+00:01:23.969 --> 00:01:26.700
+It just hands back the wrong thing, quietly.
 
 23
-00:01:18.302 --> 00:01:23.249
-It reads like if, else: post the cached payment, or fetch one and post it.
+00:01:27.633 --> 00:01:28.955
+So let's test them.
 
 24
-00:01:23.467 --> 00:01:28.977
-First call: the ledger is empty, post returns an entry id, and run is skipped.
+00:01:28.955 --> 00:01:31.321
+A recipe for pancakes, 4 servings.
 
 25
-00:01:29.600 --> 00:01:30.424
-Second call.
+00:01:31.321 --> 00:01:35.217
+The same block, servings times 2, goes through all five.
 
 26
-00:01:30.424 --> 00:01:34.959
-The payment is still cached, but the ledger has posted it already.
+00:01:35.217 --> 00:01:37.025
+What does each line print?
 
 27
-00:01:34.959 --> 00:01:36.127
-Which blocks run?
+00:01:40.000 --> 00:01:41.831
+let, run and with print 8.
 
 28
-00:01:40.167 --> 00:01:42.389
-post returns null for a duplicate.
+00:01:41.831 --> 00:01:44.576
+also and apply print the recipe itself.
 
 29
-00:01:42.389 --> 00:01:45.461
-The Elvis operator tests the value on its left.
+00:01:44.576 --> 00:01:48.660
+Same block, same recipe, and two of them threw the 8 away.
 
 30
-00:01:45.461 --> 00:01:49.383
-That is the result of the let block, not the cached payment.
+00:01:48.867 --> 00:01:53.292
+It's like asking someone to taste the soup, and getting the whole pot back.
 
 31
-00:01:49.383 --> 00:01:51.213
-It is null, so run runs too.
+00:01:53.292 --> 00:01:57.953
+So the point really is: also and apply hand back the value they were called on.
 
 32
-00:01:51.213 --> 00:01:55.069
-A cache miss, a fetch from the database, and a second post.
+00:01:57.953 --> 00:02:00.727
+let, run and with hand back the block's result.
 
 33
-00:01:55.200 --> 00:01:56.679
-Both blocks ran.
+00:02:01.633 --> 00:02:03.051
+These aren't keywords.
 
 34
-00:01:57.600 --> 00:01:59.671
-Java's Optional has the same trap.
+00:02:03.051 --> 00:02:06.466
+Each one is a tiny function you could write yourself.
 
 35
-00:01:59.671 --> 00:02:04.909
-Write the branch you mean with if or when, or pick the payment first and post it once.
+00:02:06.466 --> 00:02:08.463
+Here are let and apply by hand.
 
 36
-00:02:07.233 --> 00:02:12.317
-So: what should the call give back, and does the block see the object as this or as it?
+00:02:08.463 --> 00:02:13.166
+myLet calls the block with the value, and returns what the block returns.
 
 37
-00:02:12.533 --> 00:02:13.576
-A quick check.
+00:02:13.166 --> 00:02:16.195
+myApply runs the block, then returns the value.
 
 38
-00:02:13.576 --> 00:02:15.512
-The payment is authorized.
+00:02:16.400 --> 00:02:19.349
+The other difference is the type of the block.
 
 39
-00:02:15.512 --> 00:02:17.225
-What status comes back?
+00:02:19.349 --> 00:02:24.990
+For let, it's a plain function type, so the value arrives as the lambda's parameter, it.
 
 40
-00:02:19.633 --> 00:02:20.420
-Authorized.
+00:02:24.990 --> 00:02:27.618
+For apply, it's a lambda with a receiver.
 
 41
-00:02:20.420 --> 00:02:24.212
-also gives back the payment, and the copy is dropped.
+00:02:27.618 --> 00:02:32.362
+Inside it, the value is this, so minutes equals 12 means this dot minutes.
+
+42
+00:02:32.362 --> 00:02:37.105
+Java has no lambda like that, so the Java helper says p dot on every line.
+
+43
+00:02:38.033 --> 00:02:42.238
+So there are two differences, and two questions pick the function.
+
+44
+00:02:42.238 --> 00:02:44.659
+First: what should the call hand back?
+
+45
+00:02:44.659 --> 00:02:47.716
+The same value, to keep chaining it or store it?
+
+46
+00:02:47.716 --> 00:02:48.927
+Then apply or also.
+
+47
+00:02:48.927 --> 00:02:50.965
+Something new, computed from it?
+
+48
+00:02:50.965 --> 00:02:52.367
+Then let, run or with.
+
+49
+00:02:52.600 --> 00:02:55.304
+Second: how does the block use the value?
+
+50
+00:02:55.304 --> 00:03:01.173
+If it mostly sets or calls the value's own members, this reads best: apply, run and with.
+
+51
+00:03:01.173 --> 00:03:05.591
+If it passes the value on to other functions, use it: also and let.
+
+52
+00:03:06.600 --> 00:03:08.864
+And each cell has its kitchen habit.
+
+53
+00:03:08.864 --> 00:03:10.436
+apply sets up a new tray.
+
+54
+00:03:10.436 --> 00:03:12.009
+also notes it in passing.
+
+55
+00:03:12.009 --> 00:03:15.216
+let tastes with a spoon, and brings back an answer.
+
+56
+00:03:15.216 --> 00:03:19.178
+run reads the oven's own dials, and tells you the minutes left.
+
+57
+00:03:19.178 --> 00:03:22.386
+And with reads off the card you're already holding.
+
+58
+00:03:22.386 --> 00:03:24.210
+run and with do the same job.
+
+59
+00:03:24.210 --> 00:03:27.795
+with reads well on its own line, and run fits in a chain.
+
+60
+00:03:28.700 --> 00:03:29.615
+Now the names.
+
+61
+00:03:29.615 --> 00:03:36.085
+These five are the scope functions: small inline functions that run a block with one value in hand.
+
+62
+00:03:36.085 --> 00:03:38.960
+And that value is called the context object.
+
+63
+00:03:39.867 --> 00:03:42.375
+Here's where the kitchen picture breaks.
+
+64
+00:03:42.375 --> 00:03:45.197
+A note in the notebook can't change the soup.
+
+65
+00:03:45.197 --> 00:03:47.893
+But Kotlin doesn't hold a block to its job.
+
+66
+00:03:47.893 --> 00:03:49.210
+This dish is planned.
+
+67
+00:03:49.210 --> 00:03:53.662
+We call also, and inside, we make a copy with the stage set to cooking.
+
+68
+00:03:53.662 --> 00:03:55.480
+What stage does cooking have?
+
+69
+00:03:58.467 --> 00:03:59.035
+Planned.
+
+70
+00:03:59.035 --> 00:04:03.294
+also threw the copy away, and handed back the original dish.
+
+71
+00:04:03.294 --> 00:04:06.559
+Kotlin 2.4.21 compiles this without a warning.
+
+72
+00:04:06.559 --> 00:04:12.024
+The name tells the reader what you meant, and the compiler checks none of it.
+
+73
+00:04:12.024 --> 00:04:15.503
+If you want the copy, use let, or just call copy.
+
+74
+00:04:16.433 --> 00:04:18.647
+The five share one more trick.
+
+75
+00:04:18.647 --> 00:04:25.435
+A val can be assigned only once, yet this line assigns one inside a lambda, and it compiles.
+
+76
+00:04:25.435 --> 00:04:27.575
+The jar gets its label, J-62.
+
+77
+00:04:27.575 --> 00:04:27.870
+How?
+
+78
+00:04:27.870 --> 00:04:35.027
+also declares a contract: a promise to the compiler that the block runs right here, exactly once.
+
+79
+00:04:35.233 --> 00:04:44.443
+Write your own also without that contract, and the same line fails: Captured values cannot be initialized because of possible reassignments.
+
+80
+00:04:44.443 --> 00:04:46.548
+The compiler trusts the promise.
+
+81
+00:04:46.548 --> 00:04:47.797
+It never checks it.
+
+82
+00:04:48.700 --> 00:04:52.324
+So before you pick one, ask whether you need one at all.
+
+83
+00:04:52.324 --> 00:04:55.561
+A plain call, or an if on a val, is often clearer.
+
+84
+00:04:55.561 --> 00:05:00.156
+A scope function with one line inside is often a plain call in costume.
+
+85
+00:05:00.156 --> 00:05:01.450
+And don't nest them.
+
+86
+00:05:01.450 --> 00:05:05.075
+Two its, or two thises, in one place are easy to mix up.
+
+87
+00:05:05.300 --> 00:05:07.862
+One caution for the next section.
+
+88
+00:05:07.862 --> 00:05:13.452
+x?.let, then the Elvis operator, then run, looks like an if and an else.
+
+89
+00:05:13.452 --> 00:05:15.005
+It isn't always one.
+
+90
+00:05:15.933 --> 00:05:19.099
+So, is there a real difference between the five?
+
+91
+00:05:19.099 --> 00:05:20.221
+Yes, exactly two.
+
+92
+00:05:20.221 --> 00:05:22.925
+Is the value this or it inside the block?
+
+93
+00:05:22.925 --> 00:05:26.949
+And does the call hand back the value, or the block's result?
+
+94
+00:05:26.949 --> 00:05:28.532
+Two questions, one cell.
+
+95
+00:05:29.233 --> 00:05:30.124
+Quick check.
+
+96
+00:05:30.124 --> 00:05:32.130
+menu.add returns a slot id.
+
+97
+00:05:32.130 --> 00:05:36.511
+You want to log that id, and keep it flowing on, unchanged.
+
+98
+00:05:36.511 --> 00:05:38.071
+Which one do you use?
+
+99
+00:05:41.067 --> 00:05:41.450
+also.
+
+100
+00:05:41.450 --> 00:05:47.130
+You want the same value back, and the block hands it to the logger, as it.
+
+101
+00:05:47.130 --> 00:05:49.279
+menu.add(dish).also, log it.

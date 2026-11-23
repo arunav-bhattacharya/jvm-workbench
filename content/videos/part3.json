@@ -190,19 +190,19 @@
       "slug": "pat02-factory",
       "lesson": "pat-02",
       "section": 1,
-      "title": "Checkout asks a factory for a gateway and never names the class; when an authorizer and a refunder must match, one call picks the whole card-network family"
+      "title": "Like asking the baker for a loaf, the shop asks for a messenger and never names the class: a function hands it in, and a switch with no default lets the compiler find the new case"
     },
     {
       "slug": "pat04-adapter",
       "lesson": "pat-04",
       "section": 0,
-      "title": "An adapter has your port's shape on one side and the SDK's on the other and translates calls, answers and errors; a facade is one front door that owns the order of the steps and the undo"
+      "title": "Like a travel plug, an adapter fits the courier's old client to the shop's own port and translates calls, answers and errors, so their IOException stops at the edge"
     },
     {
       "slug": "pat03-prototype",
       "lesson": "pat-03",
       "section": 3,
-      "title": "A copy copies the arrow, not the object: two carts share one list until the list can't change and a change builds a new one; named and default arguments replace most builders"
+      "title": "A copy copies the arrow, not the list: two carts share one list until the list can't change, and copy() even skips a private constructor unless init does the checking"
     },
     {
       "slug": "gen09-tokens",

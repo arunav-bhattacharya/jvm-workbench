@@ -1,153 +1,385 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.923
-A fraud job wants the first bad authorization out of a million: number 518.
+00:00:02.700 --> 00:00:05.384
+Picture an evening with a thick recipe book.
 
 2
-00:00:07.923 --> 00:00:13.913
-The risk model takes 2 milliseconds a call, yet a List chain calls it a million times.
+00:00:05.384 --> 00:00:10.081
+You read the first recipe and ask: can I make this with what's in the fridge?
 
 3
-00:00:13.913 --> 00:00:17.952
-33 minutes, for an answer that was there after one second.
+00:00:10.081 --> 00:00:11.606
+No, so you turn the page.
 
 4
-00:00:18.733 --> 00:00:21.229
-To see why, shrink it to five payments.
+00:00:11.606 --> 00:00:14.960
+At the first yes, you close the book and start cooking.
 
 5
-00:00:21.229 --> 00:00:22.957
-The green ones are settled.
+00:00:14.960 --> 00:00:18.925
+Nobody checks every recipe first, and then picks the first match.
 
 6
-00:00:22.957 --> 00:00:28.460
-The chain keeps the settled ones, turns each into its amount, and takes the first two.
+00:00:19.833 --> 00:00:22.716
+Here's a question that's easy to be shy about.
 
 7
-00:00:29.233 --> 00:00:35.633
-On a List, each step runs over every payment, and builds a new list before the next step starts.
+00:00:22.716 --> 00:00:25.349
+A chain of map and filter reads so nicely.
 
 8
-00:00:35.633 --> 00:00:38.633
-filter checks all five, and keeps 1, 3 and 5.
+00:00:25.349 --> 00:00:27.668
+Can it do more work than I asked for?
 
 9
-00:00:39.167 --> 00:00:42.842
-Then map runs on all three, and take keeps the first two.
+00:00:27.668 --> 00:00:29.673
+And what does asSequence change?
 
 10
-00:00:42.842 --> 00:00:45.744
-Eight calls, and a new list after every step.
+00:00:30.600 --> 00:00:32.144
+Here's the recipe app.
 
 11
-00:00:45.744 --> 00:00:47.549
-People call this horizontal.
+00:00:32.144 --> 00:00:34.460
+Its book holds a million recipes.
 
 12
-00:00:48.567 --> 00:00:50.369
-Now put asSequence in front.
+00:00:34.460 --> 00:00:42.811
+To pick tonight's dinner, it asks a matching service, a program on another computer, to rate each recipe from 0 to 100.
 
 13
-00:00:50.369 --> 00:00:52.429
-Building the chain runs nothing.
+00:00:42.811 --> 00:00:45.688
+Each question takes about 2 milliseconds.
 
 14
-00:00:52.429 --> 00:00:55.390
-The work starts when toList asks for a result.
+00:00:45.900 --> 00:00:48.683
+The search is a chain from the last lesson.
 
 15
-00:00:55.390 --> 00:00:56.807
-Which lines print now?
+00:00:48.683 --> 00:00:54.767
+map gives each recipe its score, filter keeps 90 or more, and firstOrNull takes the first one.
 
 16
-00:00:59.200 --> 00:01:03.150
-take asks map, map asks filter, and filter reads payment 1.
+00:00:54.767 --> 00:00:57.291
+It reads well, and the answer is right.
 
 17
-00:01:03.150 --> 00:01:06.765
-It passes, goes straight on to map, and lands in take.
+00:00:57.500 --> 00:01:04.224
+But the first good match is recipe number 518, and this chain still asks about all million.
 
 18
-00:01:06.967 --> 00:01:08.963
-Payment 2 fails the filter.
+00:01:04.224 --> 00:01:09.471
+That's about 33 minutes, for an answer that was ready after one second.
 
 19
-00:01:08.963 --> 00:01:12.956
-Payment 3 passes, is mapped, and take now has its two.
+00:01:09.471 --> 00:01:10.431
+Right answer.
 
 20
-00:01:12.956 --> 00:01:13.843
-So it stops.
+00:01:10.431 --> 00:01:11.244
+Wrong bill.
 
 21
-00:01:13.843 --> 00:01:16.209
-Payments 4 and 5 are never read.
+00:01:12.167 --> 00:01:12.887
+Here's why.
 
 22
-00:01:16.433 --> 00:01:20.931
-The same result, with five calls instead of eight, and no lists in between.
+00:01:12.887 --> 00:01:15.242
+On a List, map and filter are eager.
 
 23
-00:01:20.931 --> 00:01:24.169
-This is vertical: one payment through the whole chain.
+00:01:15.242 --> 00:01:22.768
+Each step loops over everything, writes every result into a brand new list, and only then does the next step start.
 
 24
-00:01:25.067 --> 00:01:26.770
-Back on the million.
+00:01:23.700 --> 00:01:28.485
+Let's shrink it to one tray, with our cookies from the last lesson.
 
 25
-00:01:26.770 --> 00:01:29.667
-The Sequence scores 518 and stops.
+00:01:28.485 --> 00:01:32.270
+Five cookies, c1 to c5, and c1, c3 and c5 are golden.
 
 26
-00:01:30.467 --> 00:01:33.698
-One kind of step breaks the vertical flow: sorting.
+00:01:32.270 --> 00:01:35.269
+We want two golden cookies for a lunchbox.
 
 27
-00:01:33.698 --> 00:01:37.689
-It can't hand out the smallest until it has seen every payment.
+00:01:35.269 --> 00:01:39.983
+So: filter the golden ones, map each one to its grams, and take 2.
 
 28
-00:01:37.689 --> 00:01:43.137
-So the first request pulls all five in, sorts them, and only then hands out payment 5.
+00:01:40.200 --> 00:01:42.576
+Each lambda prints a line when it runs.
 
 29
-00:01:44.933 --> 00:01:47.827
-In Kotlin, the only change is asSequence.
+00:01:42.576 --> 00:01:45.440
+On a List, in what order do the lines come out?
 
 30
-00:01:47.827 --> 00:01:50.508
-A Java Stream is lazy in the same way.
+00:01:49.133 --> 00:01:52.081
+filter runs on all five cookies first.
 
 31
-00:01:50.508 --> 00:01:54.319
-Java has no eager chain: you collect after every step.
+00:01:52.081 --> 00:01:54.486
+Then map runs on c1, c3 and c5.
 
 32
-00:01:56.300 --> 00:01:59.448
-So: a List finishes each step for every element.
+00:01:54.486 --> 00:01:58.520
+Eight calls, and the lunchbox holds 45 and 50 grams.
 
 33
-00:01:59.448 --> 00:02:04.761
-A Sequence moves one element through every step, and only as far as the end asks.
+00:01:58.520 --> 00:02:02.941
+Poor c5 got weighed for a lunchbox that was already full.
 
 34
-00:02:04.967 --> 00:02:05.925
-A quick check.
+00:02:03.767 --> 00:02:06.372
+Now picture a kitchen line with two helpers.
 
 35
-00:02:05.925 --> 00:02:08.595
-On the List, move take(2) to the front.
+00:02:06.372 --> 00:02:08.208
+One checks each cookie's color.
 
 36
-00:02:08.595 --> 00:02:10.512
-How many filter lines print?
+00:02:08.208 --> 00:02:09.571
+The next one weighs it.
 
 37
-00:02:12.900 --> 00:02:14.939
-Two: filter 1 and filter 2.
+00:02:09.571 --> 00:02:14.545
+With a list, the checker goes through the whole tray before the weigher even starts.
 
 38
-00:02:14.939 --> 00:02:18.865
-take cut the list first, so the result is just 1500.
+00:02:15.567 --> 00:02:22.890
+With a sequence, the first cookie walks down the whole line, checked and then weighed, before the second cookie leaves the tray.
+
+39
+00:02:22.890 --> 00:02:25.521
+And when the lunchbox is full, the line stops.
+
+40
+00:02:26.800 --> 00:02:27.691
+Let's map it.
+
+41
+00:02:27.691 --> 00:02:29.129
+A cookie is one item.
+
+42
+00:02:29.129 --> 00:02:32.280
+The two helpers are the steps, filter and map.
+
+43
+00:02:32.280 --> 00:02:36.527
+The lunchbox is take 2, and toList is the one who asks for it.
+
+44
+00:02:36.527 --> 00:02:40.295
+The cookies left on the tray are items nobody looks at.
+
+45
+00:02:41.200 --> 00:02:43.905
+Same chain, with asSequence in front.
+
+46
+00:02:43.905 --> 00:02:45.075
+What prints now?
+
+47
+00:02:48.067 --> 00:02:52.180
+First: built TakeSequence, nothing has run yet.
+
+48
+00:02:52.180 --> 00:02:54.193
+Then filter c1, map c1.
+
+49
+00:02:54.193 --> 00:02:56.118
+filter c2, not golden.
+
+50
+00:02:56.118 --> 00:02:57.693
+filter c3, map c3.
+
+51
+00:02:57.693 --> 00:03:00.931
+Five calls, and the lunchbox is full.
+
+52
+00:03:00.931 --> 00:03:03.381
+c4 and c5 are never touched.
+
+53
+00:03:03.600 --> 00:03:05.452
+Look at that first line again.
+
+54
+00:03:05.452 --> 00:03:07.612
+The sequence is in no hurry at all.
+
+55
+00:03:07.612 --> 00:03:12.057
+It wrote down the plan, and it will wait all evening for someone to ask.
+
+56
+00:03:12.057 --> 00:03:15.637
+So the point really is: nothing runs until something asks.
+
+57
+00:03:16.567 --> 00:03:17.526
+Now the names.
+
+58
+00:03:17.526 --> 00:03:24.925
+A sequence is a lazy chain of steps: no work until a result is wanted, and then only what that result needs.
+
+59
+00:03:24.925 --> 00:03:29.858
+map and filter are intermediate operations: they add a step to the plan.
+
+60
+00:03:29.858 --> 00:03:35.751
+toList, first or sum are terminal operations: they ask for items, and the work starts.
+
+61
+00:03:36.667 --> 00:03:39.819
+Back to the recipe book, and count the calls.
+
+62
+00:03:39.819 --> 00:03:43.181
+The List chain asks the service a million times.
+
+63
+00:03:43.181 --> 00:03:45.913
+The sequence asks 518 times, and stops.
+
+64
+00:03:45.913 --> 00:03:50.606
+Stopping as soon as the answer is known is called short circuiting.
+
+65
+00:03:50.606 --> 00:03:55.580
+And firstOrNull with a lambda is one plain loop that also stops at 518.
+
+66
+00:03:56.500 --> 00:03:57.563
+How does it stop?
+
+67
+00:03:57.563 --> 00:04:01.690
+Each step on a sequence is a small wrapper around the step before.
+
+68
+00:04:01.690 --> 00:04:06.817
+filter makes a FilteringSequence, map a TransformingSequence, take a TakeSequence.
+
+69
+00:04:06.817 --> 00:04:12.444
+toList asks the last wrapper for an item, and it asks the one before it, back to the tray.
+
+70
+00:04:12.444 --> 00:04:15.008
+One cookie gets pulled up the whole line.
+
+71
+00:04:15.933 --> 00:04:21.405
+Here's the heart of the map wrapper in Kotlin, next to the same idea by hand in Java.
+
+72
+00:04:21.405 --> 00:04:25.589
+Get the next item from the step before, and run the lambda on it.
+
+73
+00:04:25.589 --> 00:04:31.383
+Java's stream works the same way, one item at a time, and its demo prints the same counts.
+
+74
+00:04:31.383 --> 00:04:35.245
+The price: lambdas are objects again, and numbers get boxed.
+
+75
+00:04:36.167 --> 00:04:38.050
+Now let's break the picture.
+
+76
+00:04:38.050 --> 00:04:40.539
+Put sortedBy in front of firstOrNull.
+
+77
+00:04:40.539 --> 00:04:42.760
+The service still runs 518 times.
+
+78
+00:04:42.760 --> 00:04:46.796
+But how many recipes does the sequence pull out of the book?
+
+79
+00:04:49.767 --> 00:04:50.688
+All 1,000,000.
+
+80
+00:04:50.688 --> 00:04:58.848
+sortedBy can't hand out the smallest item until it has seen every item, so it pulls the whole book into a list and sorts it.
+
+81
+00:04:58.848 --> 00:05:03.060
+No helper can tell the lightest cookie by looking at one cookie.
+
+82
+00:05:03.060 --> 00:05:07.799
+If you only need the smallest, minByOrNull reads once and sorts nothing.
+
+83
+00:05:08.700 --> 00:05:11.098
+So, should every chain be a sequence?
+
+84
+00:05:11.098 --> 00:05:11.292
+No.
+
+85
+00:05:11.292 --> 00:05:16.477
+For a short chain over a few hundred items, a list is fine, and easier to debug.
+
+86
+00:05:16.477 --> 00:05:22.374
+Reach for a sequence when the input is big, a step is slow, or you need only the first few.
+
+87
+00:05:22.374 --> 00:05:25.096
+And put the step that can stop at the end.
+
+88
+00:05:26.000 --> 00:05:29.151
+So, can a nice chain do more work than you asked for?
+
+89
+00:05:29.151 --> 00:05:32.124
+On a List, yes: each step finishes the whole tray.
+
+90
+00:05:32.124 --> 00:05:37.177
+A sequence sends one cookie down the whole line, and stops when the lunchbox is full.
+
+91
+00:05:37.900 --> 00:05:38.666
+Quick check.
+
+92
+00:05:38.666 --> 00:05:42.240
+In the List chain, move take 2 up, right after the tray.
+
+93
+00:05:42.240 --> 00:05:46.005
+How many filter lines print, and what goes in the lunchbox?
+
+94
+00:05:49.000 --> 00:05:53.387
+Two filter lines, c1 and c2, and the lunchbox holds only 45.
+
+95
+00:05:53.387 --> 00:05:57.116
+That's a different question, so a different answer.
+
+96
+00:05:57.116 --> 00:06:00.113
+Laziness only changes how much work runs.
