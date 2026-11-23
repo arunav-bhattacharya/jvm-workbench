@@ -441,7 +441,7 @@ class Perf04FalseSharing(Narrated):
         self.hold(after=0)
         self.predict(2.4, pos=(6.4, -3.5))
 
-        X0, K = -2.6, 8.4 / 1400
+        X0, K = -2.6, 7.0 / 1400
         def rbar(v0, v1, y, color, h=0.42):
             r = Rectangle(width=max(0.05, v1 * K), height=h).set_stroke(color, 2).set_fill(dim(color, 0.55), 1)
             r.move_to([X0, y, 0], aligned_edge=LEFT)
@@ -449,11 +449,10 @@ class Perf04FalseSharing(Narrated):
         qd = T("a quiet day", 26, GREY_A).move_to([-5.1, 1.2, 0])
         qa = rbar(0, 1387, 1.45, RED_M)
         qa_lo = Line([X0 + 957 * K, 1.2, 0], [X0 + 957 * K, 1.7, 0], stroke_width=3, color=WHITE)
-        qa_t = T("adjacent 957 to 1,387 ms", 22, RED_M).next_to(qa, RIGHT, buff=0.15)
+        qa_t = T("adjacent 957 to 1,387 ms", 22, RED_M).next_to(qa, UP, buff=0.08).align_to(qa, RIGHT)
         qp = rbar(0, 247, 0.9, GREEN_M)
         qp_t = T("padded 206 to 247 ms", 22, GREEN_M).next_to(qp, RIGHT, buff=0.15)
         five = T("about 5 times faster", 26, YELLOW_M).move_to([3.2, 0.3, 0])
-        fit(qa_t, 3.0)
         self.say("quiet")
         self.play(FadeIn(qd), GrowFromEdge(qa, LEFT), Create(qa_lo), FadeIn(qa_t), run_time=0.9)
         self.at_text("Padded took", lead=0.2)
@@ -473,7 +472,7 @@ class Perf04FalseSharing(Narrated):
             tp = T(f"{p:,}", 20, GREEN_M).next_to(bp, RIGHT, buff=0.1)
             bars.add(VGroup(ba, bp, ta, tp))
         lost = T("across nine runs, padded lost one round in three", 22, GREY_B).move_to([2.2, -2.9, 0])
-        small = T("a small gap", 26, YELLOW_M).move_to([3.6, -1.1, 0])
+        small = T("a small gap", 26, YELLOW_M).next_to(bd_t, DOWN, buff=0.25)
         self.say("busy")
         self.play(FadeIn(bd_t), run_time=0.4)
         self.at_text("994", lead=0.2)
@@ -588,7 +587,7 @@ class Perf04FalseSharing(Narrated):
         self.at(1)
         self.play(Circumscribe(VGroup(jv[1], jv[2]), color=GREY_B, buff=0.05), run_time=1.0)
         self.at(2)
-        self.play(Indicate(VGroup(kt[0][0:8], kt[1][0:8], kt[4][0:8]), color=YELLOW_M), run_time=0.9)
+        self.play(*[kt[i][0:8].animate.set_color(YELLOW_M) for i in (0, 1, 4)], run_time=0.9)
         self.hold()
         self.wipe()
 
@@ -631,7 +630,7 @@ class Perf04FalseSharing(Narrated):
         self.at(1)
         self.play(FadeIn(mm[1]), run_time=0.6)
         self.hold()
-        qa = VGroup(T("Check:", 28, YELLOW_M), T("long[] slots, one per worker thread, each adds to its own slot.", 28)).arrange(RIGHT, buff=0.25)
+        qa = VGroup(T("Check:", 28, YELLOW_M), T("an array of longs, one slot per worker thread, each adds to its own.", 28)).arrange(RIGHT, buff=0.25)
         qb = T("Can they slow each other down?", 28)
         qg2 = VGroup(qa, qb).arrange(DOWN, buff=0.18).move_to([0, -1.8, 0])
         fit(qg2, 12.4)

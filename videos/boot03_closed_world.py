@@ -1,351 +1,647 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form).
-fg.SAY += [(r"\bms\b", "milliseconds"), (r"Class\.forName", "Class dot for name"),
-           (r"\bMissingReflectionRegistrationError\b", "Missing Reflection Registration Error"),
-           (r"reachability-metadata\.json", "reachability metadata dot jay-son"), (r"<init>", "init"),
-           (r"\bRegisterForReflection\b", "Register For Reflection"), (r"\bnative-image\b", "native image"),
-           (r"\bJNI\b", "J N I"), (r"\bPaymentAuthorized\b", "Payment Authorized"), (r"\bRefundIssued\b", "Refund Issued"),
-           (r"\bEventDecoder\b", "Event Decoder"), (r"\bparameterTypes\b", "parameter types")]
 
-REACH, HEAP, DROP, REFL, META, JVM_C, OK, BAD = BLUE_M, YELLOW_M, GREY_M, PURPLE_M, GOLD_M, TEAL_M, GREEN_M, RED_M
+# ---- spoken forms only (captions keep the written words); fg.py is shared, so these live here ----
+def _words(n):
+    ones = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
+    tens = "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()
 
+    def u100(k):
+        return ones[k] if k < 20 else tens[k // 10] + ("" if k % 10 == 0 else "-" + ones[k % 10])
 
-def code_block(lines, size=22, color=WHITE, ls=0.7):
-    """Lines of code set as one Text (so columns and indents line up), returned as one VGroup per line."""
-    t = M("\n".join(lines), size, color, line_spacing=ls)
-    out, k = VGroup(), 0
-    for l in lines:
-        n = len(l.replace(" ", ""))
-        out.add(VGroup(*t[k:k + n]))
-        k += n
-    assert k == len(t), "glyph count mismatch"
-    return out
+    def u1000(k):
+        h, r = divmod(k, 100)
+        return (ones[h] + " hundred" + (" " + u100(r) if r else "")) if h else u100(r)
+    th, r = divmod(n, 1000)
+    return (u1000(th) + " thousand" + (" " + u1000(r) if r else "")) if th else u1000(r)
 
 
-def span(glyphs, line, sub, nth=0):
-    """The glyphs of substring sub (its nth occurrence) in one code line."""
-    i = -1
-    for _ in range(nth + 1):
-        i = line.index(sub, i + 1)
-    a = len(line[:i].replace(" ", ""))
-    return VGroup(*glyphs[a:a + len(sub.replace(" ", ""))])
+fg.SAY[:0] = [
+    (r"\b(\d{1,3}),(\d{3})\b", lambda m: _words(int(m.group(1) + m.group(2)))),
+    (r"\bGraalVM\b", "Graal V M"), (r"\bVM\b", "V M"), (r"\bMiB\b", "mebibytes"), (r"\bRSS\b", "R S S"),
+    (r"\bOpenJDK\b", "open J D K"), (r"Class\.forName", "class dot for name"),
+    (r"\bMissingReflectionRegistrationError\b", "missing reflection registration error"),
+    (r"\bDynamicLookupDemo\b", "dynamic lookup demo"), (r"\bLocalDate\b", "local date"), (r"\brandomUUID\b", "random U U I D"),
+    (r"\bUUID\b", "U U I D"),
+]
 
 
-def dimc(color, k=0.14):
-    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
+# ---- local helpers ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-
-def panel(w, h, color, fill=0.08):
-    return RoundedRectangle(corner_radius=0.14, width=w, height=h, stroke_color=color, stroke_width=2.5).set_fill(dimc(color, fill), 1)
-
-
-def arw(a, b, color=GREY_B, buff=0.12):
-    """Arrow with a fixed, modest tip, so short and long arrows match."""
-    pa = a.get_center() if isinstance(a, Mobject) else np.array(a, dtype=float)
-    pb = b.get_center() if isinstance(b, Mobject) else np.array(b, dtype=float)
-    return Arrow(pa, pb, buff=buff, stroke_width=3, color=color, tip_length=0.2,
-                 max_tip_length_to_length_ratio=0.45, max_stroke_width_to_length_ratio=8)
-
-
-def struck(text, size=24):
-    c = chip(text, GREY_M, size)
-    c[1].set_color(GREY_B)
-    s = Line(c.get_left() + RIGHT * 0.08, c.get_right() + LEFT * 0.08, stroke_width=3, color=BAD)
-    return VGroup(c, s)
-
-
-class Boot03ClosedWorld(VoiceScene):
-    """boot-03 s0-s1: native image's closed world, what reflection costs, and the metadata entry that fixes it."""
-
-    def say(self, text, plan=(), after=0.25):
-        """Speak text; plan is a list of (sentence index, [animations], run_time) started at that sentence."""
+    def say(self, key):
+        text = N[key]
         path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
         sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
-        total = sum(len(x) for x in sents)
-        starts, t = [], 0.0
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
         for x in sents:
-            starts.append(t)
-            t += dur * len(x) / total
-        now = 0.0
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now)
-                now = starts[idx]
-            self.play(*anims, run_time=rt)
-            now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
         if after:
             self.wait(after)
 
+    def predict(self, secs=2.4, pos=(6.4, -3.3), edge=RIGHT):
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def wipe(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
+
+
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
+
+
+# one colour per thing, for the whole start-up track (the corner shop)
+KEEP, BOX, ARCH, MODS, APP, HID, BAD, OK, CUST = PURPLE_M, GOLD_M, BLUE_M, TEAL_M, GREEN_M, YELLOW_M, RED_M, GREEN_M, GREY_A
+PAPER, INK = "#EDE6D6", "#161616"
+
+
+def person(color, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
+
+
+def who(color, name, s=1.1, size=22):
+    p = person(color, s)
+    return VGroup(p, T(name, size, color).next_to(p, DOWN, buff=0.12))
+
+
+def paper(lines, size=20, pad=0.16, color=INK):
+    t = M("\n".join(lines), size, color)
+    r = Rectangle(width=t.width + 2 * pad, height=t.height + 2 * pad).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    t.move_to(r)
+    return VGroup(r, t)
+
+
+def crate(w=1.0, h=0.75, color=BOX):
+    """A cardboard box: body [0], lid [1], tape [2]."""
+    body = Rectangle(width=w, height=h).set_stroke(color, 3).set_fill(dim(color, 0.26), 1)
+    lid = Rectangle(width=w, height=0.14).set_stroke(color, 3).set_fill(dim(color, 0.42), 1).move_to(body.get_top() + DOWN * 0.07)
+    tape = Rectangle(width=0.2, height=0.24).set_stroke(width=0).set_fill(dim(color, 0.7), 1).move_to(body.get_top() + DOWN * 0.12)
+    return VGroup(body, lid, tape)
+
+
+def goods(n=3, color=BOX, s=0.22):
+    """A few small items on a shelf: tins and jars."""
+    g = VGroup()
+    for i in range(n):
+        if i % 2 == 0:
+            g.add(RoundedRectangle(corner_radius=0.04, width=s, height=s * 1.4).set_stroke(color, 2).set_fill(dim(color, 0.5), 1))
+        else:
+            g.add(Circle(radius=s * 0.55).set_stroke(color, 2).set_fill(dim(color, 0.5), 1))
+    return g.arrange(RIGHT, buff=0.08, aligned_edge=DOWN)
+
+
+def bulb(on=False):
+    glass = Circle(radius=0.22).set_stroke(GREY_B, 2.5).set_fill(YELLOW_M if on else "#1a1a1a", 1 if on else 1)
+    base = Rectangle(width=0.18, height=0.14).set_stroke(GREY_B, 2).set_fill(GREY_D, 1).next_to(glass, UP, buff=0)
+    cord = Line(base.get_top(), base.get_top() + UP * 0.4, stroke_width=2, color=GREY_B)
+    return VGroup(glass, base, cord)
+
+
+def term(lines, size=20, title="output", color=GREY_A):
+    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.5, height=t.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
+    t.move_to(r)
+    h = T(title, 20, GREY_B).next_to(r, UP, buff=0.1).align_to(r, LEFT)
+    return VGroup(r, t, h)
+
+
+def part(t, s, nth=0):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    flat = re.sub(r"\s", "", t.text)
+    i = -1
+    for _ in range(nth + 1):
+        i = flat.index(k, i + 1)
+    return t[i:i + len(k)]
+
+
+def rule_row(text, size=28, color=WHITE):
+    return VGroup(tick(True, 0.15), T(text, size, color)).arrange(RIGHT, buff=0.2)
+
+
+def stage(title, shop, color, w=2.38):
+    b = box(title, color, w=w, h=0.95, size=24)
+    s = T(shop, 20, GREY_A, slant=ITALIC).next_to(b, DOWN, buff=0.18)
+    return VGroup(b, s)
+
+
+
+def code_block(src, size=22, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def titled(code, title, color=GREY_B):
+    h = T(title, 22, color).next_to(code, UP, buff=0.22).align_to(code, LEFT)
+    return VGroup(h, code)
+
+
+def van(w=4.2):
+    body = RoundedRectangle(corner_radius=0.12, width=w, height=1.7).set_stroke(GREY_B, 3).set_fill("#141414", 1)
+    cab = RoundedRectangle(corner_radius=0.12, width=1.1, height=1.2).set_stroke(GREY_B, 3).set_fill("#141414", 1)
+    cab.next_to(body, RIGHT, buff=0.05).align_to(body, DOWN)
+    wheels = VGroup(*[Circle(radius=0.26).set_stroke(GREY_B, 3).set_fill(BLACK, 1).move_to(body.get_bottom() + RIGHT * x)
+                      for x in (-w / 2 + 0.7, w / 2 - 0.7)])
+    wheels.add(Circle(radius=0.26).set_stroke(GREY_B, 3).set_fill(BLACK, 1).move_to(cab.get_bottom() + RIGHT * 0.1))
+    return VGroup(body, cab, wheels)
+
+
+N = {
+    "open": "Even with a full back room, the corner shop has a morning routine. Wheel out the shelves, switch on the "
+            "tills, and get up to speed.",
+    "open2": "Now picture a pop up stall, built at a factory, fully stocked, and loaded onto a van. Park it, open the shutter, and you're trading at once. The catch is printed on the side: it sells only what the factory packed.",
+    "shyq": "Here's the question you might be shy to ask. If a native image starts in milliseconds, why doesn't "
+            "everyone use one? What's the catch?",
+    "fam": "Lesson 2's best tool still started a JVM. In a benchmark from Quarkus, a framework for Java services, one sample service took 4,417 milliseconds to its first request on a plain JVM, and still 1,859 with the AOT cache.",
+    "def": "GraalVM's native image builds the stall. It turns your program, and the parts of the JDK it uses, into one ready to run file for one operating system and one kind of CPU, with no JVM to start. The tool comes with GraalVM or Mandrel, not with a plain OpenJDK.",
+    "factory": "So how does the factory know what to pack? It follows the shop's own catalogue. It starts at main, and "
+               "follows every method call and field access it can see. Every item a page points to goes in the van.",
+    "steps": "That's step one, the analysis. Step two, it runs static initializers where it can, and saves their objects in the image heap, a part of the file mapped straight into memory at start. Step three, it compiles every reached method to machine code.",
+    "left": "Code the analysis never reached is left out, and so are the JDK classes nothing uses. That's called the "
+            "closed world assumption: everything the program will ever run is known when you build it.",
+    "rt": "The finished file runs on a small runtime called Substrate VM. No class loading, no bytecode checks, no "
+          "interpreter, and no JIT. That's why it starts in milliseconds and stays small.",
+    "table": "Here's the benchmark. Time to first request: 4,417 milliseconds on the JVM, 1,859 with the cache, and 581 as a native image. Memory, as RSS, the memory the operating system counts: 304 MiB, 240, and 95.",
+    "predict": "Now the last row: peak throughput, the most requests per second the service handles once it's busy. The JVM managed 13,265. The native image was compiled completely before it ran. More, about the same, or fewer? Pause and guess.",
+    "reveal": "Fewer. 5,411 requests per second. That's 59 percent lower.",
+    "why": "A JIT compiles while the program runs, guided by profiles of what the code really does with real traffic. The build has no traffic to watch, so its machine code is less specialized. The stall's staff follow a printed script, and they never learn shortcuts.",
+    "joke": "So a native image is a sprinter who never trains: brilliant off the line, and no faster on the tenth lap. The JVM starts slowly, learns the course, and wins the long race.",
+    "joke2": "Jokes aside, the point is this. Native wins start-up and memory, not peak speed.",
+    "blind": "There's a second price, and it's the one that bites. Reflection is code that looks up classes and methods by name while it runs. If the name is written in the code, the analysis works it out.",
+    "blind2": "But the tracking service reads messages from its depots, and each message names its event class in a "
+              "header. That name only arrives at run time. The analysis is clever, but it isn't psychic.",
+    "note": "In the shop, that's a customer with a note in their pocket: do you have the thing my aunt wrote down? The stall can sell it only if the factory packed it.",
+    "demo": "On a normal JVM, lookups by name always work. The lesson's DynamicLookupDemo calls a method chosen by two strings. With LocalDate and now, it printed today's date, and with UUID and randomUUID, a random id.",
+    "demo_q": "Now think like the factory. To support every possible pair of strings, which classes would the build have "
+              "to pack? Pause and think.",
+    "demo_a": "All of them: the whole warehouse. So the build packs only what it can see, and a name it was never told about fails at run time, with MissingReflectionRegistrationError. That's an Error, not meant to be caught.",
+    "breaks": "Here the stall picture breaks, and the break costs real time. Changing a price tag on a real stall takes "
+              "a minute. Changing one line of your code means building the whole stall again, at the factory, every "
+              "time.",
+    "rule": "So here's the rule. A native image runs only what the build could see. Anything your code finds by name must be on a list. GraalVM calls that list reachability metadata. The demo even prints the entry it would need.",
+    "guard": "So when is native worth it? When start-up time or memory per copy is your real limit. Not when you need the best peak speed, and not when your code finds classes by names from data, unless you keep that list.",
+    "moral": "So, what's the catch? The stall sells only what the factory packed. You get a start in milliseconds and a "
+             "small footprint. You give up the JIT's peak speed, quick builds, and every class the build couldn't see.",
+    "check": "Quick check. Your code calls Class.forName with a class name read from a settings file, and nobody listed that class. What happens in a native image?",
+    "check_a": "It fails at run time, with a missing registration error. The build never saw the name, so the class "
+               "was never packed.",
+}
+
+
+class Boot03ClosedWorld(Narrated):
+    """boot-03, section 0: the pop-up stall built at a factory; the shy question; the AOT cache still starts a JVM
+    (1,859 ms); what native image is; the factory follows the catalogue from main (analysis, initializers into the
+    image heap, compile); the closed-world assumption; Substrate VM; the Quarkus table; predict peak throughput
+    (59% lower) and why; the sprinter; reflection by a name from a message header; the note in the pocket;
+    DynamicLookupDemo (real output); the warehouse; the stall rebuilt for a price tag; the rule; when native pays;
+    moral; a check."""
+
     def construct(self):
-        self.title_card("Native image builds a closed world", "reachable code, plus what the metadata names")
+        self.title_card("A closed world", "native image packs only what the build can see")
 
-        # --- the problem: even a cached JVM still does start-up work
-        k, x0 = 7.0 / 4417, -2.3
-        rows = [("JVM", 4417, "4,417 ms", JVM_C, 0.18), ("JVM + AOT cache", 1859, "1,859 ms", JVM_C, 0.4),
-                ("native image", 581, "581 ms", REACH, 0.55)]
-        bars, labs, vals = VGroup(), VGroup(), VGroup()
-        for (name, v, vs, c, op), y in zip(rows, (1.4, 0.3, -0.8)):
-            b = Rectangle(width=v * k, height=0.62, stroke_color=c, stroke_width=2.5).set_fill(c, op)
-            b.move_to([x0, y, 0], aligned_edge=LEFT)
-            bars.add(b)
-            labs.add(T(name, 26, c).move_to([x0 - 0.3, y, 0], aligned_edge=RIGHT))
-            vals.add(M(vs, 24, c).next_to(b, RIGHT, buff=0.22))
-        head = T("time to first request", 28).move_to(UP * 2.6)
-        note = T("a JVM still maps classes, links, interprets and waits for the JIT", 24, GREY_B).move_to(DOWN * 1.95)
-        src = T("Quarkus benchmark: Quarkus 3.34.3, JDK 25.0.2", 22, GREY_B).move_to(DOWN * 2.85)
-        self.say("A JVM with the AOT cache still maps classes, links, interprets, and waits for the JIT. "
-                 "In Quarkus's benchmark, its first request took 1,859 ms.",
-                 [(0, [FadeIn(head), FadeIn(labs[:2]), GrowFromEdge(bars[0], LEFT), GrowFromEdge(bars[1], LEFT)], 1.2),
-                  (0, [FadeIn(note, shift=UP * 0.1)], 0.7),
-                  (1, [FadeIn(vals[:2], shift=LEFT * 0.15), FadeIn(src)], 0.8)])
-        self.say("A native image answered in 581 ms, because it did that work in the build.",
-                 [(0, [FadeIn(labs[2]), GrowFromEdge(bars[2], LEFT)], 0.9), (0, [FadeIn(vals[2], shift=LEFT * 0.15)], 0.5),
-                  (0, [Circumscribe(VGroup(labs[2], bars[2], vals[2]), color=REACH, buff=0.12)], 1.0)])
-        self.play(FadeOut(VGroup(head, bars, labs, vals, note, src)), run_time=0.6)
+        # ================= the shop, then the stall =================
+        FL = -2.3
+        floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
+        chores = VGroup(*[chip(s, KEEP, 24) for s in ("wheel out the shelves", "switch on the tills", "get up to speed")])
+        chores.arrange(RIGHT, buff=0.35).move_to([0, 1.2, 0])
+        fit(chores, 12.4)
+        keeper = who(KEEP, "shopkeeper", 1.0, 20).move_to([0, FL + 0.62, 0])
+        self.say("open")
+        self.play(Create(floor), FadeIn(keeper), run_time=0.6)
+        self.at_text("Wheel out", lead=0.2)
+        self.play(LaggedStart(*[FadeIn(c, shift=UP * 0.1) for c in chores], lag_ratio=0.5), run_time=2.0)
+        self.hold()
 
-        # --- the analysis: everything reachable from main
-        def mnode(label, pos):
-            return mbox(label, GREY_B, h=0.6, size=22).move_to([pos[0], pos[1], 0])
+        fac = VGroup(Rectangle(width=2.4, height=1.6).set_stroke(GREY_B, 3).set_fill("#141414", 1),
+                     Rectangle(width=0.4, height=0.9).set_stroke(GREY_B, 3).set_fill("#141414", 1))
+        fac[1].next_to(fac[0], UP, buff=0).align_to(fac[0], RIGHT).shift(LEFT * 0.3)
+        fac.add(T("factory", 22, GREY_B).move_to(fac[0]))
+        fac.move_to([-4.9, FL + 0.8, 0])
+        v = van(4.0).move_to([-0.6, FL + 0.95, 0])
+        stall = VGroup(*[goods(4, APP).move_to(v[0].get_center() + UP * y) for y in (-0.35, 0.35)])
+        shutter = Rectangle(width=v[0].width - 0.2, height=1.45).set_stroke(GREY_B, 2).set_fill(GREY_D, 1).move_to(v[0])
+        side = T("sells only what the factory packed", 20, BAD).next_to(v, UP, buff=0.2)
+        self.say("open2")
+        self.play(FadeOut(chores), FadeOut(keeper), run_time=0.4)
+        self.play(FadeIn(fac), run_time=0.5)
+        self.play(FadeIn(v), FadeIn(stall), run_time=0.6)
+        self.play(FadeIn(shutter), run_time=0.4)
+        self.at(1)
+        self.play(VGroup(v, stall, shutter).animate.shift(RIGHT * 4.0), run_time=1.0)
+        self.play(shutter.animate.stretch(0.05, 1, about_edge=UP), run_time=0.7)
+        self.at(2)
+        side.next_to(v, UP, buff=0.2)
+        self.play(FadeIn(side, shift=DOWN * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        def dnode(pos):
-            return Dot(np.array([pos[0], pos[1], 0]), radius=0.12, color=GREY_B)
+        # ================= the shy question =================
+        shy = T("a question you might be shy to ask", 26, GREY_B).move_to([0, 2.4, 0])
+        q1 = T("A native image starts in milliseconds.", 36)
+        q2 = T("Why doesn't everyone use one?", 40, APP)
+        q3 = T("What's the catch?", 34, GREY_A)
+        qg = VGroup(q1, q2, q3).arrange(DOWN, buff=0.4).move_to([0, 0.0, 0])
+        self.say("shyq")
+        self.play(FadeIn(shy), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(q1, shift=UP * 0.1), FadeIn(q2, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(q3, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0.4)
+        self.wipe()
 
-        N = {"main": mnode("main()", (-5.3, 0.2)), "ps": mnode("PaymentService", (-2.6, 1.5)),
-             "ed": mnode("EventDecoder", (0.7, 2.5)),
-             "d1": dnode((-3.3, -0.9)), "d2": dnode((-0.6, 0.6)), "d3": dnode((-1.4, -1.8)), "d4": dnode((1.0, -0.4)),
-             "u1": dnode((-5.0, -2.5)), "u2": dnode((-3.0, -2.9)), "u3": dnode((-5.6, 2.4)), "u4": dnode((0.4, -2.85))}
-        jdk_box = RoundedRectangle(corner_radius=0.16, width=3.4, height=5.3, stroke_color=GREY_D, stroke_width=2).move_to([4.6, 0.05, 0])
-        jdk_l = T("JDK", 24, GREY_B).move_to([4.6, 2.35, 0])
-        xs, ys = [3.4, 4.2, 5.0, 5.8], [1.7, 0.85, 0.0, -0.85, -1.7]
-        for i, x in enumerate(xs):
-            for j, y in enumerate(ys):
-                N[f"j{i}{j}"] = dnode((x, y))
-        reach_edges = [[("main", "ps"), ("main", "d1")],
-                       [("ps", "ed"), ("ps", "d2"), ("d1", "d3")],
-                       [("d2", "d4"), ("ed", "j00"), ("d2", "j02"), ("d3", "j04")],
-                       [("d4", "j03"), ("j00", "j11"), ("j02", "j13"), ("j04", "j14")],
-                       [("j11", "j22")], [("j22", "j31")]]
-        dead_edges = [("u1", "u2"), ("u2", "u4"), ("j20", "j30"), ("j33", "j34")]
+        # ================= still a JVM =================
+        def hbar(label, v, mx, c, unit=" ms", w=7.0):
+            b = Rectangle(width=max(0.05, v / mx * w), height=0.42).set_stroke(width=0).set_fill(c, 1)
+            l = T(label, 24, GREY_A)
+            n = T(f"{v:,}{unit}", 24, WHITE)
+            return VGroup(l, b, n)
+        fb = VGroup(hbar("JVM", 4417, 4417, GREY_C), hbar("JVM + AOT cache", 1859, 4417, ARCH))
+        for i, b in enumerate(fb):
+            b[0].move_to([-2.6, 0.6 - i * 0.75, 0], aligned_edge=RIGHT)
+            b[1].move_to([-2.3, 0.6 - i * 0.75, 0], aligned_edge=LEFT)
+            b[2].next_to(b[1], RIGHT, buff=0.15)
+        fh = T("time to first request, a Quarkus sample service", 24, GREY_B).move_to([0, 1.7, 0])
+        self.say("fam")
+        self.at(1)
+        self.play(FadeIn(fh), run_time=0.5)
+        self.at_text("4,417", lead=0.3)
+        self.play(FadeIn(fb[0][0]), GrowFromEdge(fb[0][1], LEFT), FadeIn(fb[0][2]), run_time=0.8)
+        self.at_text("still 1,859", lead=0.3)
+        self.play(FadeIn(fb[1][0]), GrowFromEdge(fb[1][1], LEFT), FadeIn(fb[1][2]), run_time=0.8)
+        self.hold()
+        self.wipe()
 
-        def edge(a, b, color=GREY_D, sw=2):
-            return Arrow(*ends(N[a], N[b]), buff=0.08, stroke_width=sw, color=color,
-                         max_tip_length_to_length_ratio=0.12, max_stroke_width_to_length_ratio=8, tip_length=0.16)
+        # ================= what native image does =================
+        inp = VGroup(box("your program", APP, w=3.4, size=26), box("the JDK parts it uses", GREY_B, w=3.4, size=24)).arrange(DOWN, buff=0.3)
+        inp.move_to([-4.4, 0.6, 0])
+        tool = mbox("native-image", GOLD_M, w=2.8, size=26).move_to([0, 0.6, 0])
+        out = VGroup(box("one ready-to-run file", GREEN_M, w=3.6, size=24), T("one OS, one kind of CPU", 22, GREY_A))
+        out.arrange(DOWN, buff=0.2).move_to([4.4, 0.6, 0])
+        a1 = Arrow(inp.get_right(), tool.get_left(), buff=0.15, stroke_width=3, color=GREY_B)
+        a2 = Arrow(tool.get_right(), out[0].get_left(), buff=0.15, stroke_width=3, color=GREY_B)
+        nojvm = T("no JVM to start", 28, OK).move_to([4.4, -1.0, 0])
+        where = VGroup(T("comes with", 24, GREY_A), chip("GraalVM", GOLD_M, 24), chip("Mandrel", GOLD_M, 24),
+                       T("not in a plain OpenJDK", 24, BAD)).arrange(RIGHT, buff=0.3).move_to([0, -2.4, 0])
+        fit(where, 12.4)
+        self.say("def")
+        self.play(FadeIn(van(2.2).scale(0.6).move_to([0, 2.7, 0])), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(inp), run_time=0.5)
+        self.play(GrowArrow(a1), FadeIn(tool), run_time=0.5)
+        self.play(GrowArrow(a2), FadeIn(out), run_time=0.6)
+        self.at_text("with no JVM", lead=0.3)
+        self.play(FadeIn(nojvm), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(where[:3]), run_time=0.6)
+        self.at_text("not with a plain", lead=0.2)
+        self.play(FadeIn(where[3]), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        g_edges = VGroup(*[edge(a, b) for wave in reach_edges for a, b in wave], *[edge(a, b) for a, b in dead_edges])
-        reached = ["main"] + [b for wave in reach_edges for _, b in wave]
-        unreached_app = [n for n in ("u1", "u2", "u3", "u4")]
-        unreached_jdk = [n for n in N if n.startswith("j") and n not in reached]
-        graph = VGroup(jdk_box, jdk_l, g_edges, *N.values())
+        # ================= the factory follows the catalogue =================
+        names = ["main()", "TrackingService", "EventDecoder", "DepotClient", "Formatter", "OldReport", "XmlExport"]
+        nodes = VGroup(*[mbox(n, GREY_B, size=22) for n in names])
+        nodes[0].move_to([-4.6, 1.8, 0])
+        nodes[1].move_to([-1.2, 1.8, 0])
+        nodes[2].move_to([2.6, 1.8, 0])
+        nodes[3].move_to([-1.2, 0.3, 0])
+        nodes[4].move_to([2.6, 0.3, 0])
+        nodes[5].move_to([-4.6, -1.3, 0])
+        nodes[6].move_to([-1.2, -1.3, 0])
+        edges = [(0, 1), (1, 2), (1, 3), (3, 4)]
+        ar = VGroup(*[edge_arrow(nodes[a], nodes[b], GREY_B) for a, b in edges])
+        dead = link(nodes[5], nodes[6])
+        vanb = RoundedRectangle(corner_radius=0.15, width=3.0, height=2.6).set_stroke(APP, 3).set_fill(dim(APP, 0.1), 1).move_to([4.8, -1.6, 0])
+        vanl = T("in the van", 22, APP).next_to(vanb, UP, buff=0.1)
+        self.say("factory")
+        self.play(FadeIn(nodes), Create(ar), Create(dead), run_time=0.9)
+        self.at(1)
+        self.play(FadeIn(vanb), FadeIn(vanl), run_time=0.5)
+        self.at(2)
+        reach = [0, 1, 2, 3, 4]
+        for i in reach:
+            self.play(nodes[i][0].animate.set_stroke(APP), run_time=0.3)
+        self.at(3)
+        chips = VGroup(*[Square(side_length=0.3, stroke_width=0).set_fill(APP, 1) for _ in reach]).arrange_in_grid(2, 3, buff=0.15).move_to(vanb)
+        self.play(*[TransformFromCopy(nodes[i][0], chips[k]) for k, i in enumerate(reach)], run_time=1.0)
+        self.hold()
 
-        def light(n):
-            m = N[n]
-            if isinstance(m, Dot):
-                return m.animate.set_color(REACH)
-            return AnimationGroup(m[0].animate.set_stroke(REACH).set_fill(dimc(REACH), 1), m[1].animate.set_color(WHITE))
+        stp = VGroup(T("1  analysis: follow calls from main", 26, WHITE),
+                     T("2  run static initializers; save objects in the image heap", 26, WHITE),
+                     T("3  compile every reached method to machine code", 26, WHITE)).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
+        fit(stp, 9.4).move_to([-1.6, -2.7, 0])
+        self.say("steps")
+        self.play(FadeIn(stp[0], shift=RIGHT * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(stp[1], shift=RIGHT * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(stp[2], shift=RIGHT * 0.1), run_time=0.5)
+        self.hold()
 
-        blue = []
-        waves = []
-        for wave in reach_edges:
-            anims = []
-            for a, b in wave:
-                e = edge(a, b, REACH, 3)
-                blue.append(e)
-                anims.append(Succession(GrowArrow(e, run_time=0.5), light(b)))
-            waves.append(AnimationGroup(*anims))
-        blue = VGroup(*blue)
-        self.say("The native-image builder starts at main. "
-                 "It follows every method call and field access it can see, and works out which classes can show up at each call.",
-                 [(0, [FadeIn(graph)], 0.9), (0, [light("main")], 0.5), (0, [Indicate(N["main"], color=REACH, scale_factor=1.1)], 0.7),
-                  (1, [LaggedStart(*waves, lag_ratio=0.75)], 4.6)])
+        out_l = T("left out", 24, GREY_D).next_to(VGroup(nodes[5], nodes[6]), UP, buff=0.15)
+        cw = VGroup(T("the closed-world assumption", 34, APP),
+                    T("everything the program will ever run is known at build time", 24, GREY_A)).arrange(DOWN, buff=0.15)
+        self.say("left")
+        self.play(FadeOut(stp), nodes[5].animate.set_opacity(0.3), nodes[6].animate.set_opacity(0.3), dead.animate.set_opacity(0.3),
+                  FadeIn(out_l), run_time=0.7)
+        self.at(1)
+        cw.move_to([-0.8, -2.8, 0])
+        self.play(FadeIn(cw, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        dead_app = VGroup(*[N[n] for n in unreached_app], g_edges[-4], g_edges[-3])
-        dead_jdk = VGroup(*[N[n] for n in unreached_jdk], g_edges[-2], g_edges[-1])
-        self.say("Code it never reaches is left out, and so are the JDK classes nothing uses.",
-                 [(0, [dead_app.animate.set_color(BAD)], 0.5), (0, [FadeOut(dead_app, shift=DOWN * 0.25)], 0.7),
-                  (0, [dead_jdk.animate.set_color(BAD)], 0.5), (0, [FadeOut(dead_jdk, shift=DOWN * 0.25)], 0.7)])
+        # ================= Substrate VM =================
+        svm = box("Substrate VM", GREEN_M, w=4.0, size=30).move_to([0, 2.2, 0])
+        nos = VGroup(*[VGroup(tick(False, 0.13), T(s, 28)).arrange(RIGHT, buff=0.25) for s in
+                       ("no class loading", "no bytecode checks", "no interpreter", "no JIT")]).arrange(RIGHT, buff=0.6)
+        fit(nos, 12.4).move_to([0, 0.7, 0])
+        fast = T("starts in milliseconds, stays small", 30, OK).move_to([0, -0.7, 0])
+        self.say("rt")
+        self.play(FadeIn(svm), run_time=0.6)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(n, shift=UP * 0.1) for n in nos], lag_ratio=0.4), run_time=1.8)
+        self.at(2)
+        self.play(FadeIn(fast), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        # build steps 2 and 3: image heap and machine code
-        live = VGroup(jdk_box, jdk_l, g_edges[:-4], blue, *[N[n] for n in reached])
-        exe = panel(10.4, 2.6, WHITE, 0.0).move_to(DOWN * 1.75)
-        exe_t = T("pay: one executable for one OS and CPU", 24).move_to(exe.get_top() + DOWN * 0.36)
-        heap_r = panel(3.7, 1.35, HEAP, 0.10).move_to([-2.95, -2.3, 0])
-        heap_t = T("image heap", 22, HEAP).move_to(heap_r.get_top() + DOWN * 0.24)
-        code_r = panel(5.6, 1.35, REACH, 0.10).move_to([2.05, -2.3, 0])
-        code_t = T("machine code", 22, REACH).move_to(code_r.get_top() + DOWN * 0.24)
-        self.play(*[N[n][1].animate.set_opacity(0) for n in ("main", "ps", "ed")], jdk_l.animate.set_opacity(0), run_time=0.4)
-        self.play(live.animate.scale(0.5).move_to(UP * 1.95), run_time=1.0)
-        self.play(FadeIn(VGroup(exe, exe_t, heap_r, heap_t, code_r, code_t)), run_time=0.6)
-        objs = VGroup(*[Square(0.22, stroke_width=0).set_fill(HEAP, 1).move_to(N[n]) for n in ("ps", "ed", "j00", "j11", "j02")])
-        obj_t = VGroup(*[Square(0.22, stroke_width=0).set_fill(HEAP, 1) for _ in objs]).arrange(RIGHT, buff=0.16)
-        obj_t.move_to(heap_r.get_center() + DOWN * 0.18)
-        mc = VGroup(*[RoundedRectangle(corner_radius=0.04, width=0.48, height=0.28, stroke_width=0).set_fill(REACH, 0.85)
-                      for _ in reached]).arrange_in_grid(rows=2, buff=(0.12, 0.12))
-        mc.move_to(code_r.get_center() + DOWN * 0.18)
-        heap_note = T("mapped into memory at start-up", 20, GREY_B).next_to(exe, DOWN, buff=0.12).align_to(heap_r, LEFT)
-        self.say("It runs static initializers where it can, and saves their objects in the image heap. "
-                 "Then it compiles every reachable method to machine code.",
-                 [(0, [FadeIn(objs, scale=0.5)], 0.6),
-                  (0, [LaggedStart(*[o.animate.move_to(t) for o, t in zip(objs, obj_t)], lag_ratio=0.15)], 1.4),
-                  (0, [FadeIn(heap_note)], 0.5),
-                  (1, [LaggedStart(*[TransformFromCopy(N[n], r) for n, r in zip(reached, mc)], lag_ratio=0.08)], 2.4)])
+        # ================= the table =================
+        cols = [-2.1, 1.2, 4.6]
+        hdr = VGroup(*[T(s, 24, c).move_to([x, 2.6, 0]) for s, c, x in (("JVM", GREY_A, cols[0]), ("JVM + AOT cache", ARCH, cols[1]),
+                                                                      ("native image", APP, cols[2]))])
+        hh = T("Quarkus benchmark, tuned by its authors", 20, GREY_B).move_to([0, 3.3, 0])
 
-        nots = VGroup(*[struck(s) for s in ("class loading", "bytecode verification", "interpreter", "JIT")]).arrange(RIGHT, buff=0.3)
-        nots.move_to(UP * 0.6)
-        nots_t = T("at run time, none of these", 24, GREY_B).next_to(nots, UP, buff=0.3)
-        cw = T("closed world: everything that will run is known at build time", 30).move_to(UP * 2.75)
-        self.say("The binary needs no class loading, no bytecode verification, no interpreter and no JIT. "
-                 "This is the closed-world assumption: everything the program will run is known at build time.",
-                 [(0, [FadeOut(live)], 0.6), (0, [FadeIn(nots_t), LaggedStart(*[FadeIn(n, shift=DOWN * 0.15) for n in nots], lag_ratio=0.3)], 1.8),
-                  (1, [Write(cw)], 1.6)])
-        self.play(FadeOut(VGroup(nots, nots_t, cw, exe, exe_t, heap_r, heap_t, code_r, code_t, objs, mc, heap_note)), run_time=0.6)
+        def trow(y, label, vals):
+            l = T(label, 24, GREY_A).move_to([-4.0, y, 0], aligned_edge=RIGHT)
+            vs = VGroup(*[T(v, 26, WHITE).move_to([x, y, 0]) for v, x in zip(vals, cols)])
+            return VGroup(l, vs)
+        rows = VGroup(trow(1.7, "first request", ["4,417 ms", "1,859 ms", "581 ms"]),
+                      trow(0.9, "memory (RSS)", ["304 MiB", "240 MiB", "95 MiB"]),
+                      trow(0.1, "peak throughput", ["13,265/s", "12,389/s", "?"]),
+                      trow(-0.7, "build", ["about 30 s", "+ a training run", "3 to 10 min, 4 to 8 GB"]))
+        rows[3][1][2].scale(0.8)
+        allt = VGroup(hh, hdr, rows)
+        self.say("table")
+        self.play(FadeIn(hh), FadeIn(hdr), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(rows[0][0]), run_time=0.3)
+        for k in range(3):
+            self.play(FadeIn(rows[0][1][k], shift=UP * 0.1), run_time=0.4)
+        self.play(rows[0][1][2].animate.set_color(APP), run_time=0.3)
+        self.at(2)
+        self.play(FadeIn(rows[1][0]), run_time=0.3)
+        for k in range(3):
+            self.play(FadeIn(rows[1][1][k], shift=UP * 0.1), run_time=0.4)
+        self.play(rows[1][1][2].animate.set_color(APP), run_time=0.3)
+        self.hold()
 
-        # --- what the analysis can't see
-        cant_t = T("what the analysis can't see", 32, REFL).move_to(UP * 1.6)
-        cant = VGroup(VGroup(*[chip(s, REFL, 26) for s in ("reflection", "dynamic proxies", "resources loaded by name")]).arrange(RIGHT, buff=0.3),
-                      VGroup(*[chip(s, REFL, 26) for s in ("JNI: calls into native C code", "serialization")]).arrange(RIGHT, buff=0.3)
-                      ).arrange(DOWN, buff=0.3).move_to(DOWN * 0.1)
-        self.say("The price is what the analysis can't see: reflection, proxies, resources loaded by name, JNI and serialization.",
-                 [(0, [FadeIn(cant_t, shift=DOWN * 0.1)], 0.6),
-                  (0, [LaggedStart(*[FadeIn(c, shift=UP * 0.15) for c in [*cant[0], *cant[1]]], lag_ratio=0.45)], 3.2)])
-        self.play(FadeOut(VGroup(cant_t, cant)), run_time=0.5)
+        self.say("predict")
+        self.play(FadeIn(rows[2][0]), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(rows[2][1][0], shift=UP * 0.1), run_time=0.4)
+        self.at(2)
+        self.play(FadeIn(rows[2][1][2]), run_time=0.4)
+        self.hold(after=0)
+        self.predict(2.2)
+        new = T("5,411/s", 26, BAD).move_to(rows[2][1][2])
+        drop = T("59% lower", 26, BAD).next_to(new, DOWN, buff=0.12)
+        self.say("reveal")
+        self.play(FadeIn(rows[2][1][1]), Transform(rows[2][1][2], new), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(drop, shift=UP * 0.1), run_time=0.5)
+        self.hold()
 
-        # --- a constant name is fine, a name from data is not
-        lit_s = 'Class.forName("com.acme.pay.Fees")'
-        lit = M(lit_s, 26).move_to(UP * 2.55)
-        lit_ok = VGroup(tick(True), T("a constant: the build reads the name", 24, OK)).arrange(RIGHT, buff=0.25).next_to(lit, DOWN, buff=0.25)
-        self.say("Constants are fine. Class.forName with a literal name just works, because the build can read it.",
-                 [(0, [FadeIn(lit, shift=UP * 0.1)], 0.7), (1, [FadeIn(lit_ok, shift=UP * 0.1)], 0.7)])
+        why = VGroup(T("JIT: compiles during the run, from real profiles", 26, ARCH),
+                     T("build: no traffic to watch, less specialized code", 26, APP)).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
+        fit(why, 12.4).move_to([0, -2.6, 0])
+        self.say("why")
+        self.play(FadeOut(drop), run_time=0.4)
+        self.play(FadeIn(why[0], shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(why[1], shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        jl = 'Class<?> type = Class.forName(record.headers().get("type"));'
-        kl = 'val type = Class.forName(record.headers().get("type"))'
-        jc, kc = code_block([jl], 24)[0], code_block([kl], 24)[0]
-        jg = VGroup(T("Java", 22, GREY_B), jc).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        kg = VGroup(T("Kotlin", 22, GREY_B), kc).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        code = VGroup(jg, kg).arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to(DOWN * 0.45)
-        hs = VGroup(*[SurroundingRectangle(span(c, l, 'record.headers().get("type")'), color=REFL, buff=0.07, corner_radius=0.06)
-                      for c, l in ((jc, jl), (kc, kl))])
-        dyn = T("a name that arrives with the Kafka message: unknown at build time", 24, REFL).next_to(code, DOWN, buff=0.4)
-        self.say("But this decoder takes the class name from a Kafka message header. The build can't know it.",
-                 [(0, [FadeIn(code, shift=UP * 0.15)], 0.8), (0, [Create(hs)], 0.7), (1, [FadeIn(dyn, shift=UP * 0.1)], 0.6)])
+        # ================= light moment: the sprinter =================
+        track = VGroup(*[Line([-6.0, y, 0], [6.0, y, 0], stroke_width=2, color=GREY_D) for y in (1.6, 0.6, -0.4)])
+        r1 = VGroup(person(APP, 0.9), T("native", 22, APP)).arrange(RIGHT, buff=0.15).move_to([-5.0, 1.1, 0])
+        r2 = VGroup(person(ARCH, 0.9), T("JVM", 22, ARCH)).arrange(RIGHT, buff=0.15).move_to([-5.0, 0.1, 0])
+        self.say("joke")
+        self.play(Create(track), FadeIn(r1), FadeIn(r2), run_time=0.6)
+        self.play(r1.animate.move_to([-1.0, 1.1, 0]), r2.animate.move_to([-4.0, 0.1, 0]), run_time=1.0, rate_func=rush_from)
+        self.play(r1.animate.move_to([1.0, 1.1, 0]), r2.animate.move_to([-1.5, 0.1, 0]), run_time=1.0, rate_func=linear)
+        self.at(1)
+        self.play(r1.animate.move_to([2.6, 1.1, 0]), r2.animate.move_to([4.2, 0.1, 0]), run_time=1.6, rate_func=linear)
+        self.hold()
+        pts = VGroup(T("native wins: start-up and memory", 30, APP), T("the JVM wins: peak speed", 30, ARCH)).arrange(DOWN, buff=0.3)
+        fit(pts, 12.4).move_to([0, -2.2, 0])
+        self.say("joke2")
+        self.at(1)
+        self.play(FadeIn(pts[0], shift=UP * 0.1), FadeIn(pts[1], shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # --- on the JVM vs in the native binary
-        self.play(FadeOut(VGroup(lit, lit_ok, dyn)), run_time=0.4)
-        self.play(VGroup(code, hs).animate.scale(0.9).to_edge(UP, buff=0.6), run_time=0.7)
-        lp = panel(6.1, 4.3, JVM_C).move_to([-3.35, -1.15, 0])
-        rp = panel(6.1, 4.3, REACH).move_to([3.35, -1.15, 0])
-        lt = T("on the JVM", 26, JVM_C).move_to(lp.get_top() + DOWN * 0.38)
-        rt = T("native binary", 26, REACH).move_to(rp.get_top() + DOWN * 0.38)
-        lh = chip("com.acme.pay.PaymentAuthorized", REFL, 22, mono=True).move_to([-3.35, -0.4, 0])
-        rh = chip("com.acme.pay.PaymentAuthorized", REFL, 22, mono=True).move_to([3.35, -0.4, 0])
-        la = arw(lh.get_bottom(), [-3.35, -1.45, 0], JVM_C, buff=0.1)
-        lfound = box("found on the class path, loaded", JVM_C, h=0.66, size=24).move_to([-3.35, -1.8, 0])
-        ldone = VGroup(tick(True), T("the event decodes", 24, OK)).arrange(RIGHT, buff=0.25).move_to([-3.35, -2.75, 0])
-        rnote = T("no class loading at run time", 22, GREY_B).next_to(rt, DOWN, buff=0.14)
-        ra = arw(rh.get_bottom(), [3.35, -1.45, 0], BAD, buff=0.1)
-        rerr = M("MissingReflectionRegistrationError", 22, BAD).move_to([3.35, -1.8, 0])
-        rerr2 = T("extends java.lang.Error: don't catch it", 22, GREY_B).move_to([3.35, -2.6, 0])
-        self.say("On the JVM, Class.forName finds PaymentAuthorized on the class path and loads it.",
-                 [(0, [FadeIn(lp), FadeIn(lt), FadeIn(rp), FadeIn(rt)], 0.7), (0, [FadeIn(lh, shift=DOWN * 0.15)], 0.5),
-                  (0, [GrowArrow(la), FadeIn(lfound, shift=DOWN * 0.1)], 0.8), (0, [FadeIn(ldone, shift=UP * 0.1)], 0.6)])
-        self.say("The native binary can't load classes. "
-                 "Nobody told the build about PaymentAuthorized, so the call throws MissingReflectionRegistrationError. "
-                 "It's an Error: don't catch it.",
-                 [(0, [FadeIn(rnote), FadeIn(rh, shift=DOWN * 0.15)], 0.7),
-                  (1, [GrowArrow(ra)], 0.6), (1, [FadeIn(rerr, shift=DOWN * 0.1)], 0.7),
-                  (2, [FadeIn(rerr2, shift=UP * 0.1)], 0.6)])
-        self.play(FadeOut(VGroup(code, hs, lp, rp, lt, rt, lh, rh, la, lfound, ldone, rnote, ra, rerr, rerr2)), run_time=0.7)
+        # ================= what the analysis can't see =================
+        c1 = VGroup(M('Class.forName("tracker.ParcelScanned")', 28, WHITE), tick(True, 0.18)).arrange(RIGHT, buff=0.35)
+        c1l = T("the name is in the code: the build works it out", 24, OK).next_to(c1, DOWN, buff=0.15)
+        c2 = VGroup(M('Class.forName(message.header("type"))', 28, WHITE), T("?", 40, BAD)).arrange(RIGHT, buff=0.35)
+        c2l = T("the name arrives in a message, at run time", 24, BAD).next_to(c2, DOWN, buff=0.15)
+        g1 = VGroup(c1, c1l).move_to([0, 2.0, 0])
+        g2 = VGroup(c2, c2l).move_to([0, -0.2, 0])
+        refl = T("reflection: looking up classes and methods by name, while the program runs", 24, GREY_B).move_to([0, 3.3, 0])
+        fit(refl, 12.4)
+        same = T("the same call in Java and in Kotlin", 20, GREY_B).move_to([0, -2.9, 0])
+        self.say("blind")
+        self.at(1)
+        self.play(FadeIn(refl), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(c1[0]), FadeIn(same), run_time=0.5)
+        self.play(FadeIn(c1[1]), FadeIn(c1l), run_time=0.5)
+        self.hold()
+        self.say("blind2")
+        self.play(FadeIn(c2[0]), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(c2l), part(c2[0], 'message.header("type")').animate.set_color(BAD), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(c2[1], scale=1.3), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        # --- the fix: a reachability metadata entry
-        J = ['{ "reflection": [ {',
-             '  "condition": { "typeReached": "com.acme.pay.EventDecoder" },',
-             '  "type": "com.acme.pay.PaymentAuthorized",',
-             '  "methods": [',
-             '    { "name": "<init>",',
-             '      "parameterTypes": ["java.lang.String", "java.lang.String", "long"] },',
-             '    { "name": "paymentId", "parameterTypes": [] }',
-             '  ]',
-             '} ] }']
-        js = code_block(J, 22)
-        jbox = panel(js.width + 0.7, js.height + 0.6, META, 0.06).move_to(js)
-        jgrp = VGroup(jbox, js).move_to(UP * 0.55)
-        path = M("META-INF/native-image/<groupId>/<artifactId>/reachability-metadata.json", 22, META).next_to(jbox, UP, buff=0.3)
-        rect = lambda m, c=META: SurroundingRectangle(m, color=c, buff=0.06, corner_radius=0.05)
-        r_type = rect(js[2])
-        r_meth = rect(VGroup(js[3], js[4], js[5], js[6], js[7]))
-        notes_y = DOWN * 2.55
+        FL = -2.0
+        floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
+        v = van(4.0).move_to([2.6, FL + 0.95, 0])
+        stall = VGroup(*[goods(4, APP).move_to(v[0].get_center() + UP * y) for y in (-0.35, 0.35)])
+        cust = who(CUST, "customer", 1.0, 20).move_to([-3.6, FL + 0.62, 0])
+        nt = paper(["the thing my", "aunt wrote down"], 18).next_to(cust[0], UP, buff=0.3)
+        q = T("packed?", 30, BAD).next_to(v, UP, buff=0.25)
+        self.say("note")
+        self.play(Create(floor), FadeIn(v), FadeIn(stall), FadeIn(cust), run_time=0.6)
+        self.at_text("aunt", lead=0.8)
+        self.play(FadeIn(nt, shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(q), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        def note_t(s, c=WHITE):
-            return T(s, 24, c).move_to(notes_y)
+        # ================= DynamicLookupDemo =================
+        java = code_block(["Class<?> type = Class.forName(className);", "Method method = type.getMethod(methodName);",
+                           "method.invoke(null)"], 22)
+        kt = code_block(["val type = Class.forName(className)", "val method = type.getMethod(methodName)",
+                         "method.invoke(null)"], 22)
+        jg = titled(java, "Java")
+        kg = titled(kt, "Kotlin")
+        cg = VGroup(jg, kg).arrange(RIGHT, buff=0.8, aligned_edge=UP)
+        fit(cg, 12.4).move_to([0, 2.2, 0])
+        outp = term(["java.time.LocalDate.now() = 2026-11-23",
+                     "java.util.UUID.randomUUID() = cd9e5cd2-82ea-4f0d-bac4-f00db2f7792b"], 22,
+                    "DynamicLookupDemo, two real runs on the JVM")
+        fit(outp, 12.4).move_to([0, -0.4, 0])
+        self.say("demo")
+        self.play(FadeIn(jg, shift=UP * 0.1), FadeIn(kg, shift=UP * 0.1), run_time=0.8)
+        self.at(1)
+        self.play(part(java[0], "className").animate.set_color(BAD), part(kt[0], "className").animate.set_color(BAD),
+                  part(java[1], "methodName").animate.set_color(BAD), part(kt[1], "methodName").animate.set_color(BAD), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(outp[0]), FadeIn(outp[2]), FadeIn(outp[1][0], shift=RIGHT * 0.1), run_time=0.6)
+        self.at_text("with UUID", lead=0.3)
+        self.play(FadeIn(outp[1][1], shift=RIGHT * 0.1), run_time=0.5)
+        self.hold()
 
-        n1 = note_t("an entry names the type, and the members your code uses", META)
-        self.say("You tell the build in reachability-metadata.json, on the class path. "
-                 "An entry names the type and the members your code uses.",
-                 [(0, [FadeIn(path, shift=DOWN * 0.1), FadeIn(jgrp, shift=UP * 0.15)], 1.0),
-                  (1, [Create(r_type), FadeIn(n1)], 0.7), (1, [ReplacementTransform(r_type, r_meth)], 0.8)])
-        init_g = span(js[4], J[4], '"<init>"')
-        pts = VGroup(span(js[5], J[5], '["java.lang.String", "java.lang.String", "long"]'), span(js[6], J[6], '[]'))
-        n2 = note_t("a constructor is called <init>", HEAP)
-        n3 = note_t("parameter types: fully qualified, primitives by name, listed even when empty", HEAP)
-        self.say("A constructor is called <init>. "
-                 "Parameter types are fully qualified, and every method lists them, even when there are none.",
-                 [(0, [FadeOut(r_meth), FadeOut(n1)], 0.4), (0, [init_g.animate.set_color(HEAP), FadeIn(n2)], 0.6),
-                  (1, [FadeOut(n2)], 0.35), (1, [pts.animate.set_color(HEAP), FadeIn(n3)], 0.6)])
-        r_cond = rect(js[1])
-        n4 = note_t("the entry turns on only once EventDecoder is reached at run time", META)
-        self.say("The condition turns the entry on only once EventDecoder is reached.",
-                 [(0, [FadeOut(n3)], 0.35), (0, [Create(r_cond), FadeIn(n4)], 0.7)])
+        self.say("demo_q")
+        self.hold(after=0)
+        self.predict(2.2)
+        wh = VGroup(*[Square(side_length=0.16, stroke_width=0).set_fill(GREY_C, 1) for _ in range(160)]).arrange_in_grid(5, 32, buff=0.06)
+        wh.move_to([0, -2.3, 0])
+        whl = T("every class there is: the whole warehouse", 24, GREY_A).next_to(wh, DOWN, buff=0.15)
+        err = M("MissingReflectionRegistrationError", 26, BAD).move_to([0, -2.4, 0])
+        errl = T("an Error, not an exception: not meant to be caught", 22, GREY_A).next_to(err, DOWN, buff=0.15)
+        self.say("demo_a")
+        self.play(LaggedStart(*[FadeIn(s) for s in wh], lag_ratio=0.01), run_time=1.2)
+        self.play(FadeIn(whl), run_time=0.4)
+        self.at_text("fails at run time", lead=0.3)
+        self.play(FadeOut(wh), FadeOut(whl), FadeIn(err, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(errl), run_time=0.5)
+        self.hold()
+        self.wipe()
 
-        # --- listed vs not listed
-        meta = chip("reachability-metadata.json", META, 22, mono=True).move_to([-4.1, 2.6, 0])
-        ed = mbox("EventDecoder", REACH, h=0.62, size=24).move_to([2.1, 2.6, 0])
-        fn = M("Class.forName(header)", 22, REFL).move_to([2.1, 1.65, 0])
-        ed_l = DashedLine(ed.get_bottom(), fn.get_top() + UP * 0.08, dash_length=0.08, stroke_width=2, color=GREY_B)
-        pa = mbox("PaymentAuthorized", OK, h=0.66, size=24).move_to([-0.2, 0.25, 0])
-        ri = mbox("RefundIssued", GREY_M, h=0.66, size=24).move_to([4.5, 0.25, 0])
-        ri[1].set_color(GREY_B)
-        pa_l = T("listed", 22, OK).next_to(pa, DOWN, buff=0.14)
-        ri_l = T("not listed", 22, GREY_B).next_to(ri, DOWN, buff=0.14)
-        f1 = DashedLine(fn.get_bottom() + DOWN * 0.06, pa.get_top() + UP * 0.06, dash_length=0.08, stroke_width=2, color=REFL)
-        f2 = DashedLine(fn.get_bottom() + DOWN * 0.06, ri.get_top() + UP * 0.06, dash_length=0.08, stroke_width=2, color=REFL)
-        ma = arw(meta.get_bottom(), pa.get_left() + LEFT * 0.05, META, buff=0.1)
-        sep = DashedLine([-6.3, -0.95, 0], [6.3, -0.95, 0], dash_length=0.1, stroke_width=1.5, color=GREY_D)
-        bt = T("build time", 22, GREY_B).move_to([-5.6, -0.68, 0])
-        rtl = T("run time", 22, GREY_B).move_to([-5.7, -1.25, 0])
-        pa_r = box("decodes as on the JVM", OK, h=0.66, size=24).move_to([-0.2, -2.15, 0])
-        ri_r = box("registration error", BAD, h=0.66, size=24).move_to([4.5, -2.15, 0])
-        pa_a = arw(pa_l.get_bottom(), pa_r.get_top(), OK, buff=0.12)
-        ri_a = arw(ri_l.get_bottom(), ri_r.get_top(), BAD, buff=0.12)
-        self.play(FadeOut(VGroup(n4, r_cond, path)), run_time=0.4)
-        self.play(ReplacementTransform(VGroup(jbox, js), meta), run_time=0.8)
-        self.say("Now PaymentAuthorized decodes as it did on the JVM. RefundIssued isn't listed, so it still fails.",
-                 [(0, [FadeIn(ed), Create(ed_l), FadeIn(fn), FadeIn(sep), FadeIn(bt), FadeIn(rtl)], 0.7),
-                  (0, [Create(f1), FadeIn(pa), GrowArrow(ma), FadeIn(pa_l)], 0.8),
-                  (0, [GrowArrow(pa_a), FadeIn(pa_r, shift=DOWN * 0.1)], 0.7),
-                  (1, [Create(f2), FadeIn(ri), FadeIn(ri_l)], 0.7), (1, [GrowArrow(ri_a), FadeIn(ri_r, shift=DOWN * 0.1)], 0.7)])
-        fig = VGroup(meta, ed, fn, ed_l, pa, ri, pa_l, ri_l, f1, f2, ma, sep, bt, rtl, pa_r, ri_r, pa_a, ri_a)
+        # ================= the picture breaks =================
+        tag = VGroup(paper(["tea  2.50"], 24), T("a real stall: one minute", 26, OK)).arrange(DOWN, buff=0.3).move_to([-3.5, 0.6, 0])
+        rb = VGroup(fac.copy().scale(0.9), T("your code: build it all again", 26, BAD),
+                    T("3 to 10 minutes, 4 to 8 GB, every time", 22, GREY_A)).arrange(DOWN, buff=0.25).move_to([3.3, 0.6, 0])
+        self.say("breaks")
+        self.at(1)
+        self.play(FadeIn(tag, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(rb, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        self.wipe()
 
-        # --- Quarkus writes most of it
-        qt = T("Quarkus writes most of the metadata for you", 32).move_to(UP * 2.8)
-        qs = T("extensions know what their libraries reflect on; Quarkus generates the file", 24, GREY_B).next_to(qt, DOWN, buff=0.25)
-        qj = code_block(["@RegisterForReflection", "public record PaymentAuthorized(",
-                         "    String paymentId, String currency, long amountMinor) { }"], 22)
-        qk = code_block(["@RegisterForReflection", "data class PaymentAuthorized(",
-                         "    val paymentId: String, val currency: String, val amountMinor: Long)"], 22)
-        for q in (qj, qk):
-            q[0].set_color(META)
-        qjg = VGroup(T("Java", 22, GREY_B), qj).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        qkg = VGroup(T("Kotlin", 22, GREY_B), qk).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        qcode = VGroup(qjg, qkg).arrange(DOWN, aligned_edge=LEFT, buff=0.35).move_to(DOWN * 0.75)
-        self.say("In a Quarkus app you rarely write this file. "
-                 "Extensions know what their libraries reflect on, and Quarkus generates the JSON. "
-                 "For classes only your code knows about, you add RegisterForReflection.",
-                 [(0, [FadeOut(fig)], 0.6), (0, [FadeIn(qt, shift=DOWN * 0.1)], 0.7),
-                  (1, [FadeIn(qs, shift=DOWN * 0.1)], 0.7),
-                  (2, [FadeIn(qcode, shift=UP * 0.15)], 0.9), (2, [Indicate(VGroup(qj[0], qk[0]), color=META, scale_factor=1.06)], 0.9)])
-        self.wait(1.0)
+        # ================= the rule, and the list =================
+        r1 = T("A native image runs only what the build could see.", 32, WHITE)
+        r2 = T("Anything your code finds by name must be on a list.", 32, APP)
+        rg = VGroup(r1, r2).arrange(DOWN, buff=0.3).move_to([0, 2.2, 0])
+        fit(rg, 12.4)
+        rm = T("the list: reachability metadata", 28, GOLD_M).move_to([0, 0.6, 0])
+        entry = term(['{ "reflection": [ { "type": "java.time.LocalDate", "methods":',
+                      '    [ { "name": "now", "parameterTypes": [] } ] } ] }'], 22,
+                     "what DynamicLookupDemo printed, the entry it would need")
+        fit(entry, 12.4).move_to([0, -1.3, 0])
+        self.say("rule")
+        self.at(1)
+        self.play(FadeIn(r1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(r2, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(rm), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(entry, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        self.wipe()
+
+        # ================= guardrail =================
+        gr = VGroup(rule_row("Start-up time or memory per copy is your real limit.", 28),
+                    VGroup(tick(False, 0.13), T("You need the best peak speed.", 28)).arrange(RIGHT, buff=0.2),
+                    VGroup(tick(False, 0.13), T("Your code finds classes by names from data, with no list.", 28)).arrange(RIGHT, buff=0.2))
+        gr.arrange(DOWN, aligned_edge=LEFT, buff=0.4)
+        gh = T("when is native worth it?", 30, GREY_A)
+        gg = VGroup(gh, gr).arrange(DOWN, buff=0.5)
+        fit(gg, 12.4).move_to([0, 0.3, 0])
+        self.say("guard")
+        self.play(FadeIn(gh), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(gr[0], shift=RIGHT * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(gr[1], shift=RIGHT * 0.1), run_time=0.5)
+        self.at_text("and not when", lead=0.3)
+        self.play(FadeIn(gr[2], shift=RIGHT * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= moral and check =================
+        v = van(3.2).scale(0.8).move_to([0, 2.4, 0])
+        side = T("sells only what the factory packed", 22, BAD).next_to(v, DOWN, buff=0.2)
+        gets = VGroup(T("you get:", 26, OK), T("a start in milliseconds, a small footprint", 26)).arrange(RIGHT, buff=0.25)
+        gives = VGroup(T("you give up:", 26, BAD), T("peak speed, quick builds, anything unseen", 26)).arrange(RIGHT, buff=0.25)
+        gm = VGroup(gets, gives).arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to([0, 0.2, 0])
+        fit(gm, 12.4)
+        self.say("moral")
+        self.play(FadeIn(v), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(side), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(gets, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(gives, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+
+        qc = VGroup(T("Check:", 28, YELLOW_M), M("Class.forName(nameFromSettings)", 26, WHITE)).arrange(RIGHT, buff=0.25)
+        qc2 = T("works on the JVM; nobody listed it. In a native image?", 28)
+        qg2 = VGroup(qc, qc2).arrange(DOWN, buff=0.2).move_to([0, -1.5, 0])
+        fit(qg2, 12.4)
+        self.say("check")
+        self.play(FadeIn(qg2, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
+        self.predict(2.2)
+        ans = T("fails at run time: the build never saw the name, so the class was never packed", 24, OK)
+        fit(ans, 12.4).move_to([0, -2.9, 0])
+        self.say("check_a")
+        self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.wait(1.5)

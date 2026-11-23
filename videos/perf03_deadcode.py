@@ -342,7 +342,7 @@ class Perf03DeadCode(Narrated):
         self.play(LaggedStart(*[FadeIn(rows[i][:2]) for i in (2, 3, 4)], lag_ratio=0.3), run_time=1.0)
         self.at(1)
         self.play(*[Indicate(rows[i][1], color=YELLOW_M) for i in (2, 3, 4)], run_time=0.9)
-        trick = T("a magic trick", 28, YELLOW_M).next_to(rows[3][1], LEFT, buff=0.9)
+        trick = T("a magic trick", 28, YELLOW_M).move_to([xs[1], -2.2, 0])
         self.at(3)
         self.play(FadeIn(trick), run_time=0.5)
         self.at(4)
@@ -477,10 +477,12 @@ class Perf03DeadCode(Narrated):
         lt = VGroup(*[T(a, 24, C2C) for a, _ in test]).arrange(DOWN, aligned_edge=LEFT, buff=0.42)
         rt = VGroup(*[T(b, 24, C1C) for _, b in test])
         lt.move_to([-6.3, 0.2, 0], aligned_edge=LEFT)
+        ax0 = lt.get_right()[0] + 0.3
         for r, l in zip(rt, lt):
-            r.move_to([1.6, l.get_center()[1], 0], aligned_edge=LEFT)
-        arrs = VGroup(*[Arrow([0.6, l.get_center()[1], 0], [1.45, l.get_center()[1], 0], buff=0, stroke_width=3, color=GREY_B,
+            r.move_to([ax0 + 1.0, l.get_center()[1], 0], aligned_edge=LEFT)
+        arrs = VGroup(*[Arrow([ax0, l.get_center()[1], 0], [ax0 + 0.85, l.get_center()[1], 0], buff=0, stroke_width=3, color=GREY_B,
                               max_tip_length_to_length_ratio=0.3) for l in lt])
+        VGroup(lt, rt, arrs).move_to([0, 0.2, 0])
         fit(VGroup(lt, rt, arrs), 12.6)
         th = T("a fair taste test", 30, C2C).move_to([-3.4, 2.9, 0])
         jh = T("JMH", 34, C1C).move_to([3.4, 2.9, 0])
@@ -509,7 +511,7 @@ class Perf03DeadCode(Narrated):
                          "    public long seconds() {",
                          "        return ReadingMath.readingSeconds(words);   // returned",
                          "    }",
-                         "}"], 22, hl={"long words = 1_234;": C2C, "return": C1C})
+                         "}"], 22, hl={"long words = 1_234;": C2C, "return ReadingMath": C1C})
         kt = code_block(["@State(Scope.Thread)",
                          "open class ReadingBench {          // open: JMH extends it",
                          "    var words = 1_234L             // a plain field",

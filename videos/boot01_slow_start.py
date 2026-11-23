@@ -161,38 +161,33 @@ N = {
     "open2": "Only then can she serve the first customer. And even then she's slow, because she still looks up where the tea is.",
     "shyq": "Here's a question that's easy to be shy about. My main method is three lines long. Why does the JVM, the program that runs my Java and Kotlin, take so long to start? And doesn't it remember anything from last time?",
     "service": "Our running example is a small parcel tracking service. One run on JDK 25 printed: started in 0.151 seconds. Yet the first answer reached the outside 429 milliseconds after launch.",
-    "service2": "Both are true. They time different things. Let's see what fills that wait.",
-    "count_q": "Here's a tiny demo. It has exactly one class of its own. It reads three lines of settings, formats a date, "
-               "and joins a few strings. How many classes does the JVM load to run it? Ten? A hundred? Eight hundred? "
-               "Pause and guess.",
-    "count_a": "On JDK 25, it loaded 818 classes. Here they are, one square each. Exactly one came from the demo. It's the "
-               "green one.",
+    "service2": "Both are true. They time different things.",
+    "count_q": "Here's a tiny demo with exactly one class of its own. It reads three lines of settings, formats a date, and joins a few strings. How many classes does the JVM load to run it? Pause and guess.",
+    "count_a": "On JDK 25, it loaded 818 classes, one square each. Exactly one came from the demo: the green one.",
     "count_b": "793 came ready made, from the JDK's archive. 19 were unpacked on the spot, from its modules file. And 5 were made in memory, for lambdas and such.",
     "joke1": "So we asked the shop for one box, and it unpacked 818. Ours is in there somewhere. Bring a magnifying glass.",
-    "joke1b": "Jokes aside, that's the point. Most of the work is the JDK, not your code. Even an app with 300 classes of its own loaded 1,537 on JDK 21, with the archive off. Its own were only a fifth.",
+    "joke1b": "Jokes aside, most of the work is the JDK, not your code. Even an app with 300 classes of its own loaded 1,537 on JDK 21, with the archive off, and its own were only a fifth.",
     "r1": "When you type java, a small native program, the launcher, starts first. Native means compiled for your machine, like a C program. It loads the JVM and asks it to create a VM, a virtual machine. That's unlocking the door and switching on the lights.",
-    "r2": "That's real work. The JVM reserves the heap, the memory where your objects will live. It builds its interpreter, starts its helper threads, and sets up the core classes and modules. Only then does it look for your main class.",
+    "r2": "The JVM reserves the heap, the memory where your objects will live. It builds its interpreter, starts its helper threads, and sets up the core classes and modules. Only then does it look for your main class.",
     "r3": "Then the boxes. The first time a class is needed, the JVM finds its class file and parses it into metaspace, the memory it keeps for class data. That's unpacking a box.",
     "r4": "Next it verifies the bytecode, the instructions in the class file, checking that each one is type safe before any of them runs. That's the delivery note, checked item by item.",
     "r5": "Then your code runs in the interpreter, one instruction at a time, like looking up every price in the catalogue. The JIT compilers turn hot methods into machine code, but only after gathering profiles: counts of what the code really does. That's learning the popular items by heart, and it takes a while.",
     "r6": "A framework, a library that starts and wires your program, adds chores of its own: scanning for annotations, creating objects by name, and reading configuration.",
     "restart_q": "Now the second shy question. Stop the JVM and start it again. How much of this morning does it skip? "
                  "Pause and guess.",
-    "restart_a": "Almost none. Nothing of this survives the process. The next launch unpacks, checks and learns it all "
-                 "again, with exactly the same care.",
+    "restart_a": "Almost none. Nothing of this survives the process. The next launch unpacks, checks and learns it all again.",
     "joke2": "You have to admire the dedication. The same tins of tea, checked against the same delivery note, every single "
              "morning. Thorough, yes. Quick, no.",
     "joke2b": "So the point really is this. Start-up is work the JVM repeats on every launch.",
     "archive": "There's one exception. The JDK ships an archive of about 1,300 of its own classes, already parsed, and the JVM maps them from disk instead of unpacking them. Those were the 793 blue squares. The next lesson builds bigger archives.",
     "log": "You can watch this yourself. -Xlog:class+load prints one line per class, and the end of each line says where it came from.",
-    "log2": "shared objects file: ready made, from the archive. jrt: the JDK's modules file, parsed now. file: your class path, the folders and JAR files that hold your code. And a class name marks a hidden class, made in memory. Each lambda gets one.",
+    "log2": "shared objects file: ready made, from the archive. jrt: the JDK's modules file, parsed now. file: your class path, the folders and JAR files that hold your code. And a class name marks a hidden class, made in memory, like the one each lambda gets.",
     "breaks": "Here the shop picture breaks, and the break matters. Our shopkeeper unpacks everything before she opens. The JVM opens first, and unpacks a box only when someone asks for something inside it.",
-    "breaks2": "That's called lazy loading. It's why a one class demo loads 818 classes, and not every class the JDK has.",
-    "guard": "Three rules of thumb. The line your program prints isn't the whole story: the wait starts at launch. Count before you cut: most loaded classes are the JDK's. And the archive covers only the JDK's classes: your classes and the JIT start cold every time.",
+    "breaks2": "That's called lazy loading. It's why a one class demo loads 818 classes, not the whole JDK.",
+    "guard": "Three rules of thumb. The printed line isn't the whole story: the wait starts at launch. Count before you cut: most classes are the JDK's. And the archive covers only the JDK's classes: yours, and the JIT, start cold.",
     "moral": "So, why does a three line main start slowly? Because every launch runs the whole morning routine: open the shop, unpack and check each box when it's first needed, look up prices until the JIT learns, and let the framework do its chores. And the JVM remembers almost nothing, apart from the JDK's ready made shelves.",
     "check": "Quick check. A hidden class has no class file. Why can its source never start with file?",
-    "check_a": "Because file names the place a class's bytes were read from. A hidden class's bytes were made in memory. "
-               "There was never a file to name.",
+    "check_a": "Because file names where a class's bytes were read from, and a hidden class's bytes were made in memory.",
 }
 
 
@@ -298,17 +293,12 @@ class Boot01SlowStart(Narrated):
         opts = VGroup(*[T(s, 34, GREY_B) for s in ("10?", "100?", "800?")]).arrange(RIGHT, buff=1.2).move_to([0, 0.4, 0])
         self.say("count_q")
         self.play(FadeIn(dq[0], shift=UP * 0.1), run_time=0.6)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(dq[1]), run_time=0.5)
-        self.at(3)
-        self.at_text("Ten?", lead=0.1)
-        self.play(FadeIn(opts[0]), run_time=0.3)
-        self.at_text("A hundred?", lead=0.1)
-        self.play(FadeIn(opts[1]), run_time=0.3)
-        self.at_text("Eight hundred?", lead=0.1)
-        self.play(FadeIn(opts[2]), run_time=0.3)
+        self.at(2)
+        self.play(LaggedStart(*[FadeIn(o) for o in opts], lag_ratio=0.4), run_time=1.0)
         self.hold(after=0)
-        self.predict(2.2)
+        self.predict(2.0)
         self.play(FadeOut(opts), FadeOut(dq), run_time=0.5)
 
         COLS, ROWS, P = 41, 20, 0.19
@@ -322,7 +312,7 @@ class Boot01SlowStart(Narrated):
         self.say("count_a")
         self.play(LaggedStart(*[FadeIn(s) for s in sq], lag_ratio=0.004), run_time=1.6)
         self.play(FadeIn(total, shift=UP * 0.1), run_time=0.5)
-        self.at(2)
+        self.at(1)
         self.play(sq[0].animate.set_fill(APP, 1), run_time=0.5)
         ring = Circle(radius=0.26, color=APP, stroke_width=4).move_to(sq[0])
         self.play(Create(ring), run_time=0.5)
@@ -362,11 +352,10 @@ class Boot01SlowStart(Narrated):
         bar = VGroup(T("a 300-class app, JDK 21, archive off:", 22, GREY_A), big,
                      VGroup(T("1,537 loaded", 24, WHITE), T("its own: about a fifth", 24, APP)).arrange(RIGHT, buff=1.2)).arrange(DOWN, buff=0.2)
         self.say("joke1b")
-        self.at(1)
         self.play(FadeOut(lens), FadeOut(sq), FadeOut(legs), FadeOut(total), run_time=0.6)
         jdk = T("most of the work is the JDK, not your code", 32, WHITE).move_to([0, 1.6, 0])
         self.play(FadeIn(jdk, shift=UP * 0.1), run_time=0.5)
-        self.at(2)
+        self.at(1)
         bar.move_to([0, -0.8, 0])
         self.play(FadeIn(bar[0]), GrowFromEdge(big, LEFT), run_time=0.9)
         self.play(FadeIn(bar[2]), run_time=0.5)
@@ -410,15 +399,14 @@ class Boot01SlowStart(Narrated):
         then = T("only then: find your main class", 24, KEEP).next_to(jobs, DOWN, buff=0.35)
         self.say("r2")
         self.play(FadeOut(cg), FadeOut(nat), run_time=0.4)
-        self.at(1)
         self.play(FadeIn(jobs[0], shift=RIGHT * 0.1), run_time=0.4)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(jobs[1], shift=RIGHT * 0.1), run_time=0.4)
         self.at_text("starts its helper", lead=0.1)
         self.play(FadeIn(jobs[2], shift=RIGHT * 0.1), run_time=0.4)
         self.at_text("sets up the core", lead=0.1)
         self.play(FadeIn(jobs[3], shift=RIGHT * 0.1), run_time=0.4)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(then), run_time=0.4)
         self.hold()
 
@@ -495,7 +483,7 @@ class Boot01SlowStart(Narrated):
         self.at(1)
         self.play(FadeIn(stop, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
-        self.predict(2.2)
+        self.predict(2.0)
 
         again = VGroup(*[T("again", 22, BAD).next_to(s[0], DOWN, buff=0.18) for s in st])
         loop = CurvedArrow(st[4][0].get_bottom() + DOWN * 0.95, st[0][0].get_bottom() + DOWN * 0.95, angle=-PI / 5,
@@ -516,7 +504,7 @@ class Boot01SlowStart(Narrated):
             tin = RoundedRectangle(corner_radius=0.05, width=0.5, height=0.7).set_stroke(BOX, 2.5).set_fill(dim(BOX, 0.5), 1)
             tea = T("tea", 16, WHITE).move_to(tin)
             days.add(VGroup(T(d, 22, GREY_A), VGroup(tin, tea), tick(True, 0.14)).arrange(DOWN, buff=0.15))
-        days.arrange(RIGHT, buff=0.75).move_to(AREA + np.array([0, -0.1, 0]))
+        days.arrange(RIGHT, buff=0.75).scale(1.4).move_to(AREA + np.array([0, -0.1, 0]))
         self.say("joke2")
         self.play(FadeOut(loop), FadeOut(again), run_time=0.4)
         self.at(1)
@@ -533,13 +521,13 @@ class Boot01SlowStart(Narrated):
         self.play(FadeIn(rule1, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
-        shelf_b = RoundedRectangle(corner_radius=0.12, width=5.4, height=1.0).set_stroke(ARCH, 3).set_fill(dim(ARCH, 0.25), 1)
-        shelf_t = T("the JDK's archive: about 1,300 classes, ready made", 22, ARCH)
-        fit(shelf_t, 5.1)
+        shelf_b = RoundedRectangle(corner_radius=0.12, width=9.6, height=1.0).set_stroke(ARCH, 3).set_fill(dim(ARCH, 0.25), 1)
+        shelf_t = T("the JDK's archive: about 1,300 classes, ready made", 28, ARCH)
+        fit(shelf_t, 9.2)
         shelf = VGroup(shelf_b, shelf_t.move_to(shelf_b)).move_to(AREA + np.array([0, -0.15, 0]))
         sq2 = VGroup(*[Square(side_length=0.13, stroke_width=0).set_fill(ARCH, 1) for _ in range(40)]).arrange(RIGHT, buff=0.04)
         sq2.next_to(shelf, DOWN, buff=0.35)
-        sq_l = T("the 793 blue squares", 22, ARCH).next_to(sq2, DOWN, buff=0.15)
+        sq_l = T("the 793 blue squares", 26, ARCH).next_to(sq2, DOWN, buff=0.15)
         brace = Arrow(shelf.get_top(), VGroup(st[1][0], st[2][0]).get_bottom() + DOWN * 0.05, buff=0.1, color=ARCH, stroke_width=3)
         self.say("archive")
         self.play(FadeOut(rule1), run_time=0.4)
@@ -615,7 +603,7 @@ class Boot01SlowStart(Narrated):
         self.play(d2.animate.set_stroke(OK), FadeIn(cust, shift=LEFT * 0.2), FadeIn(ask), run_time=0.6)
         self.play(FadeOut(b2[1], scale=0.6), FadeIn(st2), run_time=0.6)
         self.hold()
-        lazy = VGroup(T("lazy loading", 36, BOX), T("818 classes, not every class the JDK has", 24, GREY_A)).arrange(DOWN, buff=0.15)
+        lazy = VGroup(T("lazy loading", 36, BOX), T("818 classes, not the whole JDK", 24, GREY_A)).arrange(DOWN, buff=0.15)
         lazy.move_to([0, -3.2, 0])
         self.say("breaks2")
         self.play(FadeIn(lazy[0], shift=UP * 0.1), run_time=0.5)
@@ -669,10 +657,10 @@ class Boot01SlowStart(Narrated):
         self.say("check")
         self.play(FadeOut(keep), FadeIn(qg2, shift=UP * 0.1), run_time=0.7)
         self.hold(after=0)
-        self.predict(2.2)
+        self.predict(2.0)
         ans = T("file: names where the bytes were read from; a hidden class's bytes were made in memory", 24, OK)
         fit(ans, 12.4).move_to([0, -2.9, 0])
         self.say("check_a")
         self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
-        self.wait(2.0)
+        self.wait(1.0)

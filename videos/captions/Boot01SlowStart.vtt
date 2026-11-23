@@ -1,15 +1,15 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.207
+00:00:02.700 --> 00:00:05.174
 Picture a corner shop with an odd habit.
 
 2
-00:00:05.207 --> 00:00:09.041
+00:00:05.174 --> 00:00:09.008
 Every evening, the shopkeeper packs the whole shop into boxes.
 
 3
-00:00:09.041 --> 00:00:18.071
+00:00:09.008 --> 00:00:18.037
 Every morning, she unlocks the door, switches on the lights, unpacks each box, checks every item against its delivery note, and fills the shelves.
 
 4
@@ -21,429 +21,333 @@ Only then can she serve the first customer.
 And even then she's slow, because she still looks up where the tea is.
 
 6
-00:00:25.733 --> 00:00:28.834
+00:00:25.767 --> 00:00:28.856
 Here's a question that's easy to be shy about.
 
 7
-00:00:28.834 --> 00:00:31.192
+00:00:28.856 --> 00:00:31.207
 My main method is three lines long.
 
 8
-00:00:31.192 --> 00:00:37.528
-So why does the JVM, the program that runs my compiled Java and Kotlin, take so long to start?
+00:00:31.207 --> 00:00:36.714
+Why does the JVM, the program that runs my Java and Kotlin, take so long to start?
 
 9
-00:00:37.528 --> 00:00:41.504
-And doesn't it remember anything from the last time it ran?
+00:00:36.714 --> 00:00:39.937
+And doesn't it remember anything from last time?
 
 10
-00:00:42.600 --> 00:00:47.253
+00:00:41.033 --> 00:00:45.733
 Our running example is a small parcel tracking service.
 
 11
-00:00:47.253 --> 00:00:51.399
-Ask it where parcel PX-1042 is, and it tells you.
-
-12
-00:00:51.399 --> 00:00:55.798
+00:00:45.733 --> 00:00:50.176
 One run on JDK 25 printed: started in 0.151 seconds.
 
-13
-00:00:55.798 --> 00:01:01.805
+12
+00:00:50.176 --> 00:00:56.243
 Yet the first answer reached the outside 429 milliseconds after launch.
 
-14
-00:01:02.000 --> 00:01:03.396
-Both numbers are true.
+13
+00:00:56.467 --> 00:00:57.416
+Both are true.
 
-15
-00:01:03.396 --> 00:01:05.109
+14
+00:00:57.416 --> 00:00:59.248
 They time different things.
 
+15
+00:00:59.248 --> 00:01:01.351
+Let's see what fills that wait.
+
 16
-00:01:05.109 --> 00:01:09.615
-Let's find out what fills that wait, and we'll start by counting boxes.
+00:01:02.267 --> 00:01:06.230
+Here's a tiny demo with exactly one class of its own.
 
 17
-00:01:10.533 --> 00:01:11.975
-Here's a tiny demo.
-
-18
-00:01:11.975 --> 00:01:14.707
-It has exactly one class of its own.
-
-19
-00:01:14.707 --> 00:01:20.323
+00:01:06.230 --> 00:01:11.764
 It reads three lines of settings, formats a date, and joins a few strings.
 
-20
-00:01:20.323 --> 00:01:23.738
+18
+00:01:11.764 --> 00:01:15.130
 How many classes does the JVM load to run it?
 
-21
-00:01:23.738 --> 00:01:24.042
+19
+00:01:15.130 --> 00:01:15.429
 Ten?
 
-22
-00:01:24.042 --> 00:01:24.801
+20
+00:01:15.429 --> 00:01:16.176
 A hundred?
 
-23
-00:01:24.801 --> 00:01:25.863
+21
+00:01:16.176 --> 00:01:17.223
 Eight hundred?
 
-24
-00:01:25.863 --> 00:01:27.077
+22
+00:01:17.223 --> 00:01:18.420
 Pause and guess.
+
+23
+00:01:21.700 --> 00:01:26.296
+On JDK 25, it loaded 818 classes, one square each.
+
+24
+00:01:26.296 --> 00:01:30.524
+Exactly one came from the demo: the green one.
 
 25
-00:01:30.867 --> 00:01:33.777
-On JDK 25, it loaded 818 classes.
+00:01:30.733 --> 00:01:34.279
+793 came ready made, from the JDK's archive.
 
 26
-00:01:33.777 --> 00:01:36.511
-Here they are, one square each.
+00:01:34.279 --> 00:01:38.469
+19 were unpacked on the spot, from its modules file.
 
 27
-00:01:36.511 --> 00:01:39.244
-Exactly one came from the demo.
+00:01:38.469 --> 00:01:42.337
+And 5 were made in memory, for lambdas and such.
 
 28
-00:01:39.244 --> 00:01:40.920
-It's the green one.
-
-29
-00:01:41.067 --> 00:01:45.247
-793 came ready made, from an archive the JDK ships.
-
-30
-00:01:45.247 --> 00:01:50.986
-19 were read from the JDK's own modules file and unpacked on the spot.
-
-31
-00:01:50.986 --> 00:01:55.167
-And 5 were made in memory, for things like lambdas.
-
-32
-00:01:55.333 --> 00:01:59.354
+00:01:42.567 --> 00:01:46.587
 So we asked the shop for one box, and it unpacked 818.
 
-33
-00:01:59.354 --> 00:02:01.364
+29
+00:01:46.587 --> 00:01:48.597
 Ours is in there somewhere.
 
-34
-00:02:01.364 --> 00:02:03.225
+30
+00:01:48.597 --> 00:01:50.459
 Bring a magnifying glass.
 
+31
+00:01:50.667 --> 00:01:55.776
+Jokes aside, most of the work is the JDK, not your code.
+
+32
+00:01:55.776 --> 00:02:06.360
+Even an app with 300 classes of its own loaded 1,537 on JDK 21, with the archive off, and its own were only a fifth.
+
+33
+00:02:07.267 --> 00:02:11.905
+When you type java, a small native program, the launcher, starts first.
+
+34
+00:02:11.905 --> 00:02:15.629
+Native means compiled for your machine, like a C program.
+
 35
-00:02:03.400 --> 00:02:05.955
-Jokes aside, that's the point.
+00:02:15.629 --> 00:02:19.744
+It loads the JVM and asks it to create a VM, a virtual machine.
 
 36
-00:02:05.955 --> 00:02:09.616
-Most of the work is the JDK, not your code.
-
-37
-00:02:09.616 --> 00:02:18.473
-A generated app with 300 classes of its own loaded 1,537 classes on JDK 21, with the archive turned off.
-
-38
-00:02:18.473 --> 00:02:21.368
-Its own classes were only a fifth.
-
-39
-00:02:22.267 --> 00:02:25.055
-So what does the JVM do with all those boxes?
-
-40
-00:02:25.055 --> 00:02:30.259
-Let's walk through the morning, one step at a time, and match each step to the shop.
-
-41
-00:02:30.400 --> 00:02:35.284
-When you type java, a small native program called the launcher starts first.
-
-42
-00:02:35.284 --> 00:02:39.332
-Native means compiled for your machine, the way C programs are.
-
-43
-00:02:39.332 --> 00:02:44.023
-The launcher loads the JVM and asks it to create a VM, a virtual machine.
-
-44
-00:02:44.023 --> 00:02:47.493
+00:02:19.744 --> 00:02:23.272
 That's unlocking the door and switching on the lights.
 
-45
-00:02:47.667 --> 00:02:49.528
-Creating the VM is real work.
+37
+00:02:23.500 --> 00:02:24.580
+That's real work.
 
-46
-00:02:49.528 --> 00:02:54.406
-The JVM reserves memory for the heap, the area where your objects will live.
+38
+00:02:24.580 --> 00:02:28.838
+The JVM reserves the heap, the memory where your objects will live.
 
-47
-00:02:54.406 --> 00:03:01.403
-It builds its interpreter, starts its own helper threads, and sets up the core classes and the module system.
+39
+00:02:28.838 --> 00:02:34.874
+It builds its interpreter, starts its helper threads, and sets up the core classes and modules.
 
-48
-00:03:01.403 --> 00:03:04.163
+40
+00:02:34.874 --> 00:02:37.607
 Only then does it look for your main class.
 
-49
-00:03:04.333 --> 00:03:05.419
+41
+00:02:37.833 --> 00:02:38.926
 Then the boxes.
 
-50
-00:03:05.419 --> 00:03:16.064
-The first time something needs a class, the JVM finds its class file and parses it into its own form, in metaspace, memory it keeps for class data.
+42
+00:02:38.926 --> 00:02:48.252
+The first time a class is needed, the JVM finds its class file and parses it into metaspace, the memory it keeps for class data.
 
-51
-00:03:16.064 --> 00:03:17.729
+43
+00:02:48.252 --> 00:02:49.928
 That's unpacking a box.
 
-52
-00:03:17.867 --> 00:03:23.765
-Next it verifies the bytecode, the instructions javac and kotlinc write into class files.
+44
+00:02:50.133 --> 00:02:58.038
+Next it verifies the bytecode, the instructions in the class file, checking that each one is type safe before any of them runs.
 
-53
-00:03:23.765 --> 00:03:28.404
-It checks that every instruction is type safe before any of them runs.
-
-54
-00:03:28.404 --> 00:03:31.519
+45
+00:02:58.038 --> 00:03:00.963
 That's the delivery note, checked item by item.
 
-55
-00:03:31.667 --> 00:03:39.401
-Then your code runs in the interpreter, one instruction at a time, like a shopkeeper looking up every price in the catalogue.
+46
+00:03:01.167 --> 00:03:08.176
+Then your code runs in the interpreter, one instruction at a time, like looking up every price in the catalogue.
 
-56
-00:03:39.401 --> 00:03:44.289
-The JIT compilers turn hot methods, the ones that run often, into machine code.
+47
+00:03:08.176 --> 00:03:15.999
+The JIT compilers turn hot methods into machine code, but only after gathering profiles: counts of what the code really does.
 
-57
-00:03:44.289 --> 00:03:48.621
-But first they wait for profiles: counts of what the code really does.
-
-58
-00:03:48.621 --> 00:03:52.643
+48
+00:03:15.999 --> 00:03:20.067
 That's learning the popular items by heart, and it takes a while.
 
-59
-00:03:52.800 --> 00:03:59.067
-And a framework, a library that starts and wires your program for you, adds chores of its own.
+49
+00:03:20.300 --> 00:03:31.123
+A framework, a library that starts and wires your program, adds chores of its own: scanning for annotations, creating objects by name, and reading configuration.
 
-60
-00:03:59.067 --> 00:04:04.867
-It scans classes for annotations, creates objects by name, and reads its configuration.
-
-61
-00:04:05.067 --> 00:04:07.070
+50
+00:03:31.333 --> 00:03:33.336
 Now the second shy question.
 
-62
-00:04:07.070 --> 00:04:09.359
+51
+00:03:33.336 --> 00:03:35.625
 Stop the JVM and start it again.
 
-63
-00:04:09.359 --> 00:04:12.077
+52
+00:03:35.625 --> 00:03:38.343
 How much of this morning does it skip?
 
-64
-00:04:12.077 --> 00:04:13.221
+53
+00:03:38.343 --> 00:03:39.488
 Pause and guess.
 
-65
-00:04:16.467 --> 00:04:17.250
+54
+00:03:42.267 --> 00:03:43.066
 Almost none.
 
-66
-00:04:17.250 --> 00:04:19.665
+55
+00:03:43.066 --> 00:03:45.531
 Nothing of this survives the process.
 
-67
-00:04:19.665 --> 00:04:25.148
-The next launch unpacks, checks and learns it all again, with exactly the same care.
+56
+00:03:45.531 --> 00:03:49.263
+The next launch unpacks, checks and learns it all again.
 
-68
-00:04:25.333 --> 00:04:27.675
+57
+00:03:49.467 --> 00:03:51.809
 You have to admire the dedication.
 
-69
-00:04:27.675 --> 00:04:33.392
+58
+00:03:51.809 --> 00:03:57.526
 The same tins of tea, checked against the same delivery note, every single morning.
 
-70
-00:04:33.392 --> 00:04:34.357
+59
+00:03:57.526 --> 00:03:58.490
 Thorough, yes.
 
-71
-00:04:34.357 --> 00:04:35.045
+60
+00:03:58.490 --> 00:03:59.179
 Quick, no.
 
-72
-00:04:35.200 --> 00:04:37.237
+61
+00:03:59.400 --> 00:04:01.437
 So the point really is this.
 
-73
-00:04:37.237 --> 00:04:40.803
+62
+00:04:01.437 --> 00:04:05.003
 Start-up is work the JVM repeats on every launch.
 
-74
-00:04:41.000 --> 00:04:44.215
-There is one exception, and we already saw it.
+63
+00:04:05.233 --> 00:04:06.950
+There's one exception.
 
-75
-00:04:44.215 --> 00:04:49.738
-A JDK build ships an archive of about 1,300 of its own classes, already parsed.
+64
+00:04:06.950 --> 00:04:17.405
+The JDK ships an archive of about 1,300 of its own classes, already parsed, and the JVM maps them from disk instead of unpacking them.
 
-76
-00:04:49.738 --> 00:04:53.512
-The JVM maps them from disk instead of unpacking them.
-
-77
-00:04:53.512 --> 00:04:55.749
+65
+00:04:17.405 --> 00:04:19.902
 Those were the 793 blue squares.
 
-78
-00:04:55.749 --> 00:05:00.852
-The next lesson is about that archive, and the bigger ones you can build.
+66
+00:04:19.902 --> 00:04:22.945
+The next lesson builds bigger archives.
 
-79
-00:05:01.733 --> 00:05:04.060
-You can watch the unpacking yourself.
+67
+00:04:23.867 --> 00:04:25.632
+You can watch this yourself.
 
-80
-00:05:04.060 --> 00:05:08.147
-Run java with -Xlog:class+load, and it prints one line per class.
+68
+00:04:25.632 --> 00:04:31.496
+-Xlog:class+load prints one line per class, and the end of each line says where it came from.
 
-81
-00:05:08.147 --> 00:05:11.417
-The end of each line says where the class came from.
+69
+00:04:31.700 --> 00:04:35.229
+shared objects file: ready made, from the archive.
 
-82
-00:05:11.600 --> 00:05:15.441
-shared objects file means ready made, from the archive.
+70
+00:04:35.229 --> 00:04:38.052
+jrt: the JDK's modules file, parsed now.
 
-83
-00:05:15.441 --> 00:05:19.143
-jrt means the JDK's modules file, parsed on the spot.
+71
+00:04:38.052 --> 00:04:42.922
+file: your class path, the folders and JAR files that hold your code.
 
-84
-00:05:19.143 --> 00:05:25.358
-file is your own class path, the folders and JAR files where the JVM looks for your code.
+72
+00:04:42.922 --> 00:04:48.921
+And a class name marks a hidden class, made in memory, like the one each lambda gets.
 
-85
-00:05:25.358 --> 00:05:31.713
-And a class name as the source marks a hidden class, made in memory while the program runs.
-
-86
-00:05:31.713 --> 00:05:33.180
-Each lambda gets one.
-
-87
-00:05:34.067 --> 00:05:37.440
+73
+00:04:49.833 --> 00:04:53.190
 Here the shop picture breaks, and the break matters.
 
-88
-00:05:37.440 --> 00:05:40.749
+74
+00:04:53.190 --> 00:04:56.483
 Our shopkeeper unpacks everything before she opens.
 
-89
-00:05:40.749 --> 00:05:41.787
-The JVM doesn't.
+75
+00:04:56.483 --> 00:05:02.035
+The JVM opens first, and unpacks a box only when someone asks for something inside it.
 
-90
-00:05:41.787 --> 00:05:47.043
-It opens first, and unpacks a box only when someone asks for something inside it.
-
-91
-00:05:47.200 --> 00:05:49.375
+76
+00:05:02.267 --> 00:05:04.441
 That's called lazy loading.
 
-92
-00:05:49.375 --> 00:05:55.576
+77
+00:05:04.441 --> 00:05:10.643
 It's why a one class demo loads 818 classes, and not every class the JDK has.
 
-93
-00:05:56.467 --> 00:05:58.434
-Three things to keep in mind.
+78
+00:05:11.567 --> 00:05:13.072
+Three rules of thumb.
 
-94
-00:05:58.434 --> 00:06:02.232
-One: the line your program prints isn't the whole story.
+79
+00:05:13.072 --> 00:05:17.805
+The printed line isn't the whole story: the wait starts at launch.
 
-95
-00:06:02.232 --> 00:06:03.995
-The wait starts at launch.
+80
+00:05:17.805 --> 00:05:21.318
+Count before you cut: most classes are the JDK's.
 
-96
-00:06:03.995 --> 00:06:05.759
-Two: count before you cut.
+81
+00:05:21.318 --> 00:05:26.911
+And the archive covers only the JDK's classes: yours, and the JIT, start cold.
 
-97
-00:06:05.759 --> 00:06:10.914
-The class load log shows whose classes they are, and most will be the JDK's.
-
-98
-00:06:10.914 --> 00:06:14.508
-Three: the archive covers only the JDK's own classes.
-
-99
-00:06:14.508 --> 00:06:18.849
-Your classes, the interpreter and the JIT start cold every time.
-
-100
-00:06:19.733 --> 00:06:22.706
+82
+00:05:27.833 --> 00:05:30.775
 So, why does a three line main start slowly?
 
-101
-00:06:22.706 --> 00:06:26.220
-Because every launch runs the whole morning routine.
+83
+00:05:30.775 --> 00:05:43.545
+Because every launch runs the whole morning routine: open the shop, unpack and check each box when it's first needed, look up prices until the JIT learns, and let the framework do its chores.
 
-102
-00:06:26.220 --> 00:06:27.166
-Open the shop.
+84
+00:05:43.545 --> 00:05:48.760
+And the JVM remembers almost nothing, apart from the JDK's ready made shelves.
 
-103
-00:06:27.166 --> 00:06:30.747
-Unpack and check each box the first time it's needed.
-
-104
-00:06:30.747 --> 00:06:33.517
-Look up prices until the JIT learns them.
-
-105
-00:06:33.517 --> 00:06:35.679
-Let the framework do its chores.
-
-106
-00:06:35.679 --> 00:06:41.220
-And no, the JVM remembers almost nothing, apart from the JDK's ready made shelves.
-
-107
-00:06:41.400 --> 00:06:42.189
+85
+00:05:48.967 --> 00:05:49.755
 Quick check.
 
-108
-00:06:42.189 --> 00:06:44.357
+86
+00:05:49.755 --> 00:05:51.924
 A hidden class has no class file.
 
-109
-00:06:44.357 --> 00:06:47.052
+87
+00:05:51.924 --> 00:05:54.619
 Why can its source never start with file?
 
-110
-00:06:50.267 --> 00:06:53.858
-Because file names the place a class's bytes were read from.
-
-111
-00:06:53.858 --> 00:06:56.431
-A hidden class's bytes were made in memory.
-
-112
-00:06:56.431 --> 00:06:58.287
-There was never a file to name.
+88
+00:05:57.400 --> 00:06:03.103
+Because file names where a class's bytes were read from, and a hidden class's bytes were made in memory.
