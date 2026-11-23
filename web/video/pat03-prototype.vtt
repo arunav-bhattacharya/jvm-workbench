@@ -1,189 +1,321 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:04.535
-Here is a cart called c1.
+00:00:02.700 --> 00:00:07.282
+Down the street from the corner shop is the print shop, with a big photocopier.
 
 2
-00:00:04.535 --> 00:00:08.132
-Its skus field holds a list with one item, sku-1.
+00:00:07.282 --> 00:00:12.271
+Fill in a form once, copy it, change two lines on each copy, and you've saved an hour.
 
 3
-00:00:08.333 --> 00:00:10.735
-Copy it, and change only the id.
+00:00:12.500 --> 00:00:15.475
+The corner shop does the same thing every week.
 
 4
-00:00:10.735 --> 00:00:13.061
-Now there is a second cart, c2.
+00:00:15.475 --> 00:00:21.996
+The Saturday breakfast box is set up once, and each customer gets a copy with their own name and notes.
 
 5
-00:00:13.267 --> 00:00:16.225
-The copy takes each field's value as it is.
+00:00:21.996 --> 00:00:26.237
+Tests do it too: one sample order, copied and changed in each test.
 
 6
-00:00:16.225 --> 00:00:18.840
-But the value of skus is not the list.
+00:00:27.167 --> 00:00:30.887
+In Kotlin, a data class gives you copy for free.
 
 7
-00:00:18.840 --> 00:00:20.698
-It is an arrow to the list.
+00:00:30.887 --> 00:00:34.375
+Here's a cart with an id and a list of items.
 
 8
-00:00:20.698 --> 00:00:23.725
-So c2 gets a second arrow, to the same list.
+00:00:34.375 --> 00:00:35.538
+c1 holds bread.
 
 9
-00:00:23.867 --> 00:00:26.199
-Now add sku-2 to c2's list.
+00:00:35.538 --> 00:00:38.173
+c2 is a copy of c1, with a new id.
 
 10
-00:00:26.400 --> 00:00:28.284
-What does c1's list hold now?
+00:00:38.173 --> 00:00:40.576
+Then we add milk to c2's items.
 
 11
-00:00:30.067 --> 00:00:30.877
-Both items.
+00:00:40.800 --> 00:00:43.951
+Here's a question we're all a little shy to ask.
 
 12
-00:00:30.877 --> 00:00:32.202
-Nobody touched c1.
+00:00:43.951 --> 00:00:45.461
+copy made a new object.
 
 13
-00:00:32.202 --> 00:00:36.252
-But there is only one list, and both carts point at it.
+00:00:45.461 --> 00:00:48.152
+So the two carts are separate now, right?
 
 14
-00:00:36.467 --> 00:00:37.984
-This is a shallow copy.
+00:00:48.152 --> 00:00:49.531
+What's in c1's items?
 
 15
-00:00:37.984 --> 00:00:41.941
-It copies the fields, and shares every object they point to.
+00:00:52.700 --> 00:00:59.128
+The lesson's CopyTrap demo printed: c1.items after changing c2: bread, milk.
 
 16
-00:00:42.133 --> 00:00:45.644
-Kotlin's copy() works this way, and its docs say so.
+00:00:59.333 --> 00:00:59.746
+Well.
 
 17
-00:00:45.644 --> 00:00:48.952
-So does a Java record wither, and Object.clone().
+00:00:59.746 --> 00:01:02.057
+Nobody put milk in cart one.
 
 18
-00:00:50.033 --> 00:00:54.752
-So a copy is shallow until you make it deep, one nested object at a time.
+00:01:02.057 --> 00:01:03.791
+And yet, there it is.
 
 19
-00:00:54.752 --> 00:00:57.791
-The simple way: store a list that can't change.
+00:01:04.700 --> 00:01:06.459
+Let's look one level down.
 
 20
-00:00:58.000 --> 00:01:00.460
-Now c2 can't add to the shared list.
+00:01:06.459 --> 00:01:10.520
+A field that holds an object doesn't hold the object itself.
 
 21
-00:01:00.667 --> 00:01:05.829
-To change c2's items, you build a new list: the old items plus sku-2.
+00:01:10.520 --> 00:01:15.189
+It holds a reference: an arrow that points to where the object lives.
 
 22
-00:01:05.829 --> 00:01:07.400
-Only c2 points to it.
+00:01:15.189 --> 00:01:18.167
+So c1's items field is an arrow to one list.
 
 23
-00:01:07.600 --> 00:01:09.953
-And c1 still holds one item.
+00:01:18.400 --> 00:01:22.168
+copy makes a new cart, and copies each field's value.
 
 24
-00:01:11.133 --> 00:01:15.621
-In Kotlin, make the field a read-only List and change it with plus.
+00:01:22.168 --> 00:01:25.297
+The id is a plain value, so c2 gets its own.
 
 25
-00:01:15.621 --> 00:01:21.984
-In Java, wrap it with List.copyOf in the compact constructor, and let withers build a new list.
+00:01:25.297 --> 00:01:27.785
+But the value in items is an arrow.
 
 26
-00:01:22.933 --> 00:01:26.240
-Building an object from scratch has a different trap.
+00:01:27.785 --> 00:01:30.558
+So copy copies the arrow, not the list.
 
 27
-00:01:26.240 --> 00:01:27.363
-Look at this call.
+00:01:30.558 --> 00:01:31.980
+Two carts, one list.
 
 28
-00:01:27.567 --> 00:01:29.344
-Which value is the timeout?
+00:01:32.200 --> 00:01:33.381
+Now c2 adds milk.
 
 29
-00:01:30.533 --> 00:01:31.795
-You have to count.
+00:01:33.381 --> 00:01:37.478
+It follows its arrow, and writes on the only list there is.
 
 30
-00:01:31.795 --> 00:01:36.563
-The Java fix is a builder: a second class with one method per field.
+00:01:37.478 --> 00:01:41.159
+c1 follows its arrow to the same list, and sees milk.
 
 31
-00:01:36.767 --> 00:01:38.827
-Kotlin fixes it in the language.
+00:01:41.367 --> 00:01:43.311
+This is called a shallow copy.
 
 32
-00:01:38.827 --> 00:01:42.689
-Arguments can carry names, and parameters can have defaults.
+00:01:43.311 --> 00:01:49.402
+Each field's value is copied, and when the value is a reference, only the reference is copied.
 
 33
-00:01:42.867 --> 00:01:48.313
-So the call sets the four values it needs, in any order, and the defaults fill the rest.
+00:01:49.402 --> 00:01:53.291
+The Kotlin docs say it plainly: copy creates a shallow copy.
 
 34
-00:01:48.533 --> 00:01:50.653
-copy() gives you a changed copy.
+00:01:53.500 --> 00:01:57.496
+If copy had an honest name, it would be called copyTheArrows.
 
 35
-00:01:50.653 --> 00:01:54.627
-And checks in init run on every construction, copy included.
+00:01:57.496 --> 00:01:58.740
+It's very obliging.
 
 36
-00:01:54.833 --> 00:01:56.774
-Java has no named arguments.
+00:01:58.740 --> 00:02:02.736
+It copies exactly what you asked for, and not one thing more.
 
 37
-00:01:56.774 --> 00:02:00.863
-If Java code calls the class a lot, give it a real builder.
+00:02:03.667 --> 00:02:06.074
+And here the photocopier picture breaks.
 
 38
-00:02:01.933 --> 00:02:02.521
-The rule.
+00:02:06.074 --> 00:02:07.999
+A photocopy is a separate sheet.
 
 39
-00:02:02.521 --> 00:02:05.589
-A copy shares every object its fields point to.
+00:02:07.999 --> 00:02:10.466
+Writing on it never changes the original.
 
 40
-00:02:05.589 --> 00:02:10.551
-Keep those objects unchangeable, and build a new one when you need a change.
+00:02:10.466 --> 00:02:13.715
+But picture a form with a shopping list clipped to it.
 
 41
-00:02:10.733 --> 00:02:11.738
-Quick check.
+00:02:13.715 --> 00:02:17.687
+copy gives you a new form, with the same shopping list clipped on.
 
 42
-00:02:11.738 --> 00:02:15.172
-A Payment holds a MutableMap of metadata.
+00:02:17.687 --> 00:02:21.477
+Write on the copy's list, and you've written on the original's.
 
 43
-00:02:15.172 --> 00:02:20.448
-You make p2 with p1.copy(), then put a retry key into p2's map.
+00:02:22.400 --> 00:02:28.503
+Making a new object by copying one and changing a few fields is the pattern called Prototype.
 
 44
-00:02:20.448 --> 00:02:21.704
-Does p1 see it?
+00:02:28.503 --> 00:02:33.293
+And now you know its catch: every copy is shallow until you make it safe.
 
 45
-00:02:24.100 --> 00:02:24.396
-Yes.
+00:02:34.200 --> 00:02:35.690
+Java is no different.
 
 46
-00:02:24.396 --> 00:02:27.136
-copy() copied the arrow, not the map.
+00:02:35.690 --> 00:02:42.714
+A record's wither, a method that returns a copy with one field changed, passes the same list along.
 
 47
-00:02:27.136 --> 00:02:29.432
-Both payments point at one map.
+00:02:42.714 --> 00:02:48.390
+And Java's original tool, Cloneable, is an interface with no clone method in it.
+
+48
+00:02:48.390 --> 00:02:50.519
+A promise with nothing inside.
+
+49
+00:02:50.519 --> 00:02:51.087
+Skip it.
+
+50
+00:02:52.000 --> 00:02:54.649
+The fix is the same in both languages.
+
+51
+00:02:54.649 --> 00:03:02.804
+Store a list that can't change: a read-only List in Kotlin, and List.copyOf in the Java record's compact constructor.
+
+52
+00:03:02.804 --> 00:03:07.892
+To add milk, build a new list: copy, with items equal to items plus milk.
+
+53
+00:03:08.600 --> 00:03:09.993
+Watch the arrows now.
+
+54
+00:03:09.993 --> 00:03:12.711
+c2 gets a brand new list, bread and milk.
+
+55
+00:03:12.711 --> 00:03:15.629
+c1 still points at its own list, just bread.
+
+56
+00:03:15.629 --> 00:03:21.000
+And sharing a list is harmless now, because nobody can write on the shared sheet.
+
+57
+00:03:21.233 --> 00:03:22.473
+So here's the rule.
+
+58
+00:03:22.473 --> 00:03:25.476
+A copy is only as safe as the parts it shares.
+
+59
+00:03:25.476 --> 00:03:27.760
+Share only parts that can't change.
+
+60
+00:03:28.667 --> 00:03:30.742
+Kotlin has one more copy trap.
+
+61
+00:03:30.742 --> 00:03:36.899
+Say Email has a private constructor, and a factory, Email.of, that checks for an at sign.
+
+62
+00:03:36.899 --> 00:03:39.320
+The generated copy is still public.
+
+63
+00:03:39.320 --> 00:03:44.992
+So copy, with the value not-an-email, compiles, and walks right past your factory.
+
+64
+00:03:45.200 --> 00:03:48.558
+The demo printed: copy() skipped the factory.
+
+65
+00:03:48.558 --> 00:03:56.840
+Kotlin 2.4 only warns, at the line that calls copy, and says this will become an error in language version 2.5.
+
+66
+00:03:57.767 --> 00:03:58.468
+Two fixes.
+
+67
+00:03:58.468 --> 00:04:03.868
+Add ConsistentCopyVisibility, and copy becomes as private as the constructor.
+
+68
+00:04:03.868 --> 00:04:08.777
+Or, safer still, put the check in an init block, because copy runs it.
+
+69
+00:04:08.777 --> 00:04:16.140
+The demo's Price checks for a negative number there, and copy with minus one printed: negative price: -1.
+
+70
+00:04:17.067 --> 00:04:19.744
+So, is a copy separate from the original?
+
+71
+00:04:19.744 --> 00:04:21.637
+Only as far as its fields go.
+
+72
+00:04:21.637 --> 00:04:23.204
+Plain values are copied.
+
+73
+00:04:23.204 --> 00:04:25.033
+Arrows are copied as arrows.
+
+74
+00:04:25.033 --> 00:04:30.583
+Make what's shared unchangeable, keep your checks in init, and copies are safe again.
+
+75
+00:04:30.800 --> 00:04:31.611
+Quick check.
+
+76
+00:04:31.611 --> 00:04:35.395
+The breakfast box template holds a mutable list of tags.
+
+77
+00:04:35.395 --> 00:04:38.908
+Anna's copy gets the tag no nuts, added to its list.
+
+78
+00:04:38.908 --> 00:04:41.813
+What do Ben's box and the template now say?
+
+79
+00:04:45.000 --> 00:04:48.864
+No nuts, both of them, because all three share one list.
+
+80
+00:04:48.864 --> 00:04:54.315
+With a read-only list and copy with tags plus no nuts, only Anna's box changes.
