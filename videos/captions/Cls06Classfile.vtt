@@ -1,145 +1,341 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.785
-A class file is a byte array with a fixed layout.
+00:00:02.700 --> 00:00:04.708
+Picture a theatre's prompt book.
 
 2
-00:00:05.785 --> 00:00:08.367
-The first four bytes are always CAFEBABE.
+00:00:04.708 --> 00:00:06.401
+It follows a strict layout.
 
 3
-00:00:08.567 --> 00:00:14.138
-Then the minor and major version: 0x41 is 65, which means Java 21.
+00:00:06.401 --> 00:00:11.483
+The first page carries a stamp, naming the edition of the house rules it follows.
 
 4
-00:00:14.138 --> 00:00:17.092
-Then the size of the constant pool.
+00:00:11.483 --> 00:00:15.812
+Then comes the glossary, a numbered list of every name the book uses.
 
 5
-00:00:17.300 --> 00:00:22.661
-In the pool, each entry starts with a tag, and the tag decides how many bytes follow.
+00:00:15.812 --> 00:00:16.941
+And then the cues.
 
 6
-00:00:22.867 --> 00:00:26.436
-So to find anything after the pool, you walk every entry.
+00:00:17.867 --> 00:00:20.776
+Here's a question that's easy to be shy about.
 
 7
-00:00:26.667 --> 00:00:29.199
-And every JDK adds a major version.
+00:00:20.776 --> 00:00:22.484
+A class file is just bytes.
 
 8
-00:00:29.199 --> 00:00:33.613
-Frameworks shipped their own ASM, and a release for each one.
+00:00:22.484 --> 00:00:26.658
+So how does anything know where one part ends and the next begins?
 
 9
-00:00:33.800 --> 00:00:40.527
-Since JDK 24, the JDK has its own library for it: the ClassFile API.
+00:00:26.658 --> 00:00:30.011
+And why would anyone need a whole library to read it?
 
 10
-00:00:41.400 --> 00:00:46.911
-Its parse method turns the bytes into a ClassModel: an immutable description of the class.
+00:00:31.100 --> 00:00:35.106
+In lesson 2, javap showed us a class as a tidy listing.
 
 11
-00:00:47.133 --> 00:00:51.705
-A model is a sequence of elements: methods, fields and attributes.
+00:00:35.106 --> 00:00:43.337
+Underneath, a class file is an array of bytes with a fixed layout, set out in chapter 4 of the JVM specification.
 
 12
-00:00:51.933 --> 00:00:57.380
-Open a method's code, and you get more elements: one typed object per instruction.
+00:00:44.267 --> 00:00:49.232
+Here are the first ten bytes of java/lang/Object.class, on JDK 25.
 
 13
-00:00:57.600 --> 00:00:58.601
-And it's lazy.
+00:00:49.232 --> 00:00:55.928
+The first four are the magic number, CAFEBABE: the stamp that says, this is a class file.
 
 14
-00:00:58.601 --> 00:01:01.389
-A part is parsed only when you open it.
+00:00:56.133 --> 00:00:59.770
+Every class file you have ever run carries those same four bytes.
 
 15
-00:01:02.467 --> 00:01:04.304
-Building runs the other way.
+00:00:59.770 --> 00:01:02.568
+It must be the most printed stamp in the building.
 
 16
-00:01:04.304 --> 00:01:07.323
-You pass lambdas, and each one gets a builder.
+00:01:03.300 --> 00:01:08.272
+Next come two version numbers, minor and major, two bytes each.
 
 17
-00:01:07.533 --> 00:01:10.491
-The CodeBuilder has one method per instruction.
+00:01:08.272 --> 00:01:09.455
+A small puzzle.
 
 18
-00:01:10.491 --> 00:01:14.331
-Each call emits one element, and build turns them into bytes.
+00:01:09.455 --> 00:01:11.823
+The major version reads 00 45.
 
 19
-00:01:15.233 --> 00:01:21.384
-To change a class, a transform hands each element of the old class to the new class's builder.
+00:01:11.823 --> 00:01:13.953
+Which Java wrote this page?
 
 20
-00:01:21.600 --> 00:01:25.319
-Pass it through with builder.with, and it comes out unchanged.
+00:01:13.953 --> 00:01:15.216
+Pause and guess.
 
 21
-00:01:25.533 --> 00:01:27.439
-Call nothing, and it's dropped.
+00:01:18.200 --> 00:01:19.591
+Hex 45 is 69.
 
 22
-00:01:27.667 --> 00:01:31.957
-A code transform does the same with instructions.
+00:01:19.591 --> 00:01:26.332
+From Java 5 on, the Java version is the major version minus 44.
 
 23
-00:01:31.957 --> 00:01:38.261
-Call other builder methods, and you replace it: ldc 290 becomes ldc 310.
+00:01:26.332 --> 00:01:28.151
+So 69 is Java 25.
 
 24
-00:01:38.467 --> 00:01:44.606
-It's a flatMap: each element in, zero, one or more out.
+00:01:28.151 --> 00:01:33.608
+The labs' own classes say 41, which is 65: Java 21.
 
 25
-00:01:44.606 --> 00:01:50.299
-FeeRuleV2's fee now returns 3,875 instead of 3,625.
+00:01:33.833 --> 00:01:35.343
+And the stamp matters.
 
 26
-00:01:51.467 --> 00:01:55.776
-In code, it's a lambda that gets the builder and one element.
+00:01:35.343 --> 00:01:42.479
+A JVM refuses a class file whose major version is newer than its own, with UnsupportedClassVersionError.
 
 27
-00:01:55.776 --> 00:01:57.965
-Kotlin calls the same Java API.
+00:01:42.479 --> 00:01:47.763
+An old stage manager won't run a book printed under rules they've never read.
 
 28
-00:01:59.133 --> 00:01:59.781
-The rule.
+00:01:48.667 --> 00:01:55.614
+Every number in the file is big-endian, biggest byte first, which is exactly how DataInputStream reads.
 
 29
-00:01:59.781 --> 00:02:02.227
-A class is a sequence of elements.
+00:01:55.614 --> 00:02:04.787
+So the first four fields take four lines: readInt for the magic number, then three unsigned shorts, for minor, major and the pool count.
 
 30
-00:02:02.227 --> 00:02:08.199
-Parse reads them, build writes them, and a transform maps each one to zero or more.
+00:02:05.700 --> 00:02:07.296
+Then comes the glossary.
 
 31
-00:02:08.400 --> 00:02:09.529
-Quick check.
+00:02:07.296 --> 00:02:13.612
+Its real name is the constant pool: a numbered table of every name and constant the class uses.
 
 32
-00:02:09.529 --> 00:02:16.112
-For ldc 290, a code transform calls with on the element, then ldc 310.
+00:02:13.612 --> 00:02:15.274
+And here's the hard part.
 
 33
-00:02:16.112 --> 00:02:18.745
-What does the new code hold?
+00:02:15.274 --> 00:02:20.660
+Each entry starts with a one-byte tag, and the tag decides how many bytes follow.
 
 34
-00:02:21.133 --> 00:02:21.800
-Both.
+00:02:20.867 --> 00:02:25.510
+A Utf8 entry, a piece of text, has a two-byte length, then the text.
 
 35
-00:02:21.800 --> 00:02:24.735
-ldc 290, then ldc 310.
+00:02:25.510 --> 00:02:31.383
+A Class entry has two bytes: the number of the Utf8 entry that holds the class's name.
 
 36
-00:02:24.735 --> 00:02:27.937
-One element in, two out.
+00:02:31.383 --> 00:02:34.593
+A Methodref, a reference to a method, has four.
+
+37
+00:02:34.593 --> 00:02:37.597
+And a Long or a Double takes up two numbers.
+
+38
+00:02:38.500 --> 00:02:40.762
+Here the prompt book picture breaks.
+
+39
+00:02:40.762 --> 00:02:45.098
+A printed glossary has line breaks, so your eye finds the next entry.
+
+40
+00:02:45.098 --> 00:02:46.355
+The bytes have none.
+
+41
+00:02:46.355 --> 00:02:50.943
+To find the tenth entry, you read the first nine, and add up their sizes.
+
+42
+00:02:51.867 --> 00:02:55.580
+Remember lesson 2's javap listing of StackDemo.
+
+43
+00:02:55.580 --> 00:02:57.950
+Entry 7 is a Long, a thousand.
+
+44
+00:02:57.950 --> 00:02:59.925
+The next line is entry 9.
+
+45
+00:02:59.925 --> 00:03:01.111
+Where did 8 go?
+
+46
+00:03:01.111 --> 00:03:02.375
+Pause and guess.
+
+47
+00:03:05.367 --> 00:03:05.922
+Nowhere.
+
+48
+00:03:05.922 --> 00:03:12.996
+The eight-byte constant at 7 sits in two seats, like a cellist who buys a second ticket for the cello.
+
+49
+00:03:12.996 --> 00:03:18.059
+Seat 7 is the cellist, seat 8 is the cello, and the next guest sits in 9.
+
+50
+00:03:18.267 --> 00:03:21.095
+Now say your reader counts every entry once.
+
+51
+00:03:21.095 --> 00:03:22.509
+The Long at 7 is fine.
+
+52
+00:03:22.509 --> 00:03:26.109
+But it calls the next entry 8, when the file calls it 9.
+
+53
+00:03:26.109 --> 00:03:34.080
+Every number after that is off by one, and the walk runs one entry past the end of the glossary, into the bytes that follow.
+
+54
+00:03:35.000 --> 00:03:36.241
+So here's the rule.
+
+55
+00:03:36.241 --> 00:03:41.725
+Each entry's size depends on its tag, so one wrong count shifts everything after it.
+
+56
+00:03:41.725 --> 00:03:43.553
+Count Long and Double twice.
+
+57
+00:03:43.767 --> 00:03:50.643
+After the glossary come the access flags, then this_class, the number of the Class entry that names this class.
+
+58
+00:03:50.643 --> 00:03:55.599
+Then the superclass, the interfaces, the fields, the methods and the attributes.
+
+59
+00:03:56.500 --> 00:03:58.924
+Now picture doing this for real.
+
+60
+00:03:58.924 --> 00:04:03.772
+The house rules change with every JDK release, every six months.
+
+61
+00:04:03.772 --> 00:04:07.787
+Until JDK 24, the JDK had no public library for this.
+
+62
+00:04:07.787 --> 00:04:15.059
+So frameworks borrowed a printing press from outside: ASM, the long-standing class-file library.
+
+63
+00:04:15.059 --> 00:04:17.483
+Byte Buddy carries its own copy.
+
+64
+00:04:17.700 --> 00:04:23.142
+Twice a year the rules change, and the whole street lines up at the press shop for new type.
+
+65
+00:04:23.142 --> 00:04:25.863
+So the real cost isn't reading the bytes once.
+
+66
+00:04:25.863 --> 00:04:27.341
+It's keeping up, forever.
+
+67
+00:04:28.267 --> 00:04:36.150
+Since JDK 24, Java has a press of its own: the ClassFile API, in the package java.lang.classfile.
+
+68
+00:04:36.150 --> 00:04:39.645
+On JDK 25 you use it with no special flags.
+
+69
+00:04:39.645 --> 00:04:46.228
+It reads a class, prints new ones, and copies a class while changing parts of it.
+
+70
+00:04:47.133 --> 00:04:48.011
+So, the names.
+
+71
+00:04:48.011 --> 00:04:52.021
+The stamp is the magic number, then the minor and major version.
+
+72
+00:04:52.021 --> 00:04:54.152
+The glossary is the constant pool.
+
+73
+00:04:54.152 --> 00:04:56.909
+And the cues are the methods and their code.
+
+74
+00:04:57.833 --> 00:04:58.913
+Rules of thumb.
+
+75
+00:04:58.913 --> 00:05:01.936
+Walk the format by hand once, to learn it.
+
+76
+00:05:01.936 --> 00:05:05.031
+For every class, on every JDK, use a press.
+
+77
+00:05:05.031 --> 00:05:13.092
+And on UnsupportedClassVersionError, read the stamp: the file was printed under newer rules than that JVM knows.
+
+78
+00:05:14.000 --> 00:05:17.013
+So, how does anything know where one part ends?
+
+79
+00:05:17.013 --> 00:05:21.244
+By counting from the stamp, with every tag deciding the next step.
+
+80
+00:05:21.244 --> 00:05:25.988
+One slip breaks everything after it, so the JDK now carries its own press.
+
+81
+00:05:26.900 --> 00:05:27.949
+Quick check.
+
+82
+00:05:27.949 --> 00:05:33.108
+The labs' own classes start with ca fe ba be, 00 00, 00 41.
+
+83
+00:05:33.108 --> 00:05:35.731
+Which Java version wrote them?
+
+84
+00:05:38.900 --> 00:05:42.727
+Hex 41 is 65, and 65 minus 44 is 21.
+
+85
+00:05:42.727 --> 00:05:47.404
+Java 21, the release the build compiles for.

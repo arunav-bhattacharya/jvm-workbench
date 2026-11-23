@@ -1,477 +1,441 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.833
+00:00:02.700 --> 00:00:05.806
 Picture a small theatre company putting on a play.
 
 2
-00:00:05.833 --> 00:00:09.180
+00:00:05.806 --> 00:00:09.161
 A new prop, say a crown, doesn't just appear on stage.
 
 3
-00:00:09.180 --> 00:00:10.357
+00:00:09.161 --> 00:00:10.341
 Someone fetches it.
 
 4
-00:00:10.357 --> 00:00:14.572
+00:00:10.341 --> 00:00:14.566
 The crew checks it, and gives it a labelled spot on the props table.
 
 5
-00:00:14.572 --> 00:00:18.105
-And only at the dress rehearsal does an actor pick it up.
+00:00:14.566 --> 00:00:17.859
+Only at the dress rehearsal does an actor pick it up.
 
 6
-00:00:19.000 --> 00:00:21.786
+00:00:18.767 --> 00:00:21.532
 Here's a question that's easy to be shy about.
 
 7
-00:00:21.786 --> 00:00:26.450
+00:00:21.532 --> 00:00:26.161
 When my code mentions a class, its start-up code runs right then, doesn't it?
 
 8
-00:00:26.450 --> 00:00:28.449
-Mention a class, and it wakes up?
-
-9
-00:00:29.533 --> 00:00:31.616
+00:00:27.233 --> 00:00:29.404
 Let's start from code you know.
 
-10
-00:00:31.616 --> 00:00:33.699
+9
+00:00:29.404 --> 00:00:31.575
 A class can have start-up code.
 
-11
-00:00:33.699 --> 00:00:37.865
-In Java, that's a static block, and static fields with values.
+10
+00:00:31.575 --> 00:00:33.256
+In Java, a static block.
 
-12
-00:00:37.865 --> 00:00:40.552
+11
+00:00:33.256 --> 00:00:36.058
 In Kotlin, an object with an init block.
 
-13
-00:00:40.552 --> 00:00:45.524
+12
+00:00:36.058 --> 00:00:41.240
 The JVM, the program that runs your compiled code, runs it once per class.
 
-14
-00:00:45.667 --> 00:00:47.792
+13
+00:00:41.467 --> 00:00:43.604
 Here's a tiny class, Limits.
 
+14
+00:00:43.604 --> 00:00:45.360
+MAX_CAST is an int, 12.
+
 15
-00:00:47.792 --> 00:00:50.448
-MAX_CAST is a static final int, 12.
+00:00:45.360 --> 00:00:47.422
+CAP is an Integer, also 12.
 
 16
-00:00:50.448 --> 00:00:53.408
-CAP is a static final Integer, also 12.
-
-17
-00:00:53.408 --> 00:00:55.912
+00:00:47.422 --> 00:00:49.941
 And the static block prints init.
 
-18
-00:00:56.067 --> 00:01:00.442
+17
+00:00:50.167 --> 00:00:54.542
 Now another class prints Limits.MAX_CAST, and then Limits.CAP.
 
-19
-00:01:00.442 --> 00:01:01.995
+18
+00:00:54.542 --> 00:00:56.095
 When does init appear?
 
-20
-00:01:01.995 --> 00:01:05.524
+19
+00:00:56.095 --> 00:00:59.624
 Before the first value, between the two, or never?
 
-21
-00:01:05.524 --> 00:01:06.653
+20
+00:00:59.624 --> 00:01:00.753
 Pause and guess.
 
-22
-00:01:09.867 --> 00:01:11.409
+21
+00:01:03.733 --> 00:01:05.311
 Hold on to that guess.
 
-23
-00:01:11.409 --> 00:01:13.932
-To check it, we need one fact first.
-
-24
-00:01:13.932 --> 00:01:16.876
+22
+00:01:05.311 --> 00:01:08.324
 Bringing in a class sounds like one event.
 
-25
-00:01:16.876 --> 00:01:18.768
+23
+00:01:08.324 --> 00:01:10.260
 Inside the JVM, it's three.
 
-26
-00:01:19.333 --> 00:01:20.762
+24
+00:01:10.867 --> 00:01:12.304
 Back to the theatre.
 
-27
-00:01:20.762 --> 00:01:23.333
+25
+00:01:12.304 --> 00:01:14.891
 A new prop goes through three steps.
 
-28
-00:01:23.333 --> 00:01:25.189
+26
+00:01:14.891 --> 00:01:16.759
 First, someone fetches it.
 
-29
-00:01:25.189 --> 00:01:26.261
+27
+00:01:16.759 --> 00:01:17.837
 That's loading.
 
-30
-00:01:26.261 --> 00:01:35.473
-The JVM finds the class file's bytes, in a folder or a jar, and turns them into a Class object, with a method called defineClass.
+28
+00:01:17.837 --> 00:01:25.599
+The JVM finds the class's bytes, in a folder or a jar, and turns them into a Class object, with defineClass.
 
-31
-00:01:35.667 --> 00:01:39.065
+29
+00:01:25.800 --> 00:01:29.199
 Second, before any scene uses it, the crew gets it ready.
 
-32
-00:01:39.065 --> 00:01:40.317
+30
+00:01:29.199 --> 00:01:30.451
 They check it's safe.
 
-33
-00:01:40.317 --> 00:01:43.656
+31
+00:01:30.451 --> 00:01:33.790
 They give it an empty, labelled spot on the props table.
 
-34
-00:01:43.656 --> 00:01:47.174
+32
+00:01:33.790 --> 00:01:37.307
 And they fill in the cue sheet that says where it's needed.
 
-35
-00:01:47.174 --> 00:01:50.036
+33
+00:01:37.307 --> 00:01:40.169
 That's linking, and it has the same three parts.
 
-36
-00:01:50.200 --> 00:01:51.937
+34
+00:01:40.400 --> 00:01:42.137
 Checking is verification.
 
-37
-00:01:51.937 --> 00:01:59.997
+35
+00:01:42.137 --> 00:01:50.197
 The JVM checks that the bytecode, the instructions inside, is type-safe: no instruction treats a number as a string.
 
-38
-00:01:59.997 --> 00:02:02.081
+36
+00:01:50.197 --> 00:01:52.281
 The empty spot is preparation.
 
-39
-00:02:02.081 --> 00:02:07.501
+37
+00:01:52.281 --> 00:01:57.701
 The static fields are created, and set to their defaults: zero, false or null.
 
-40
-00:02:07.501 --> 00:02:09.724
+38
+00:01:57.701 --> 00:01:59.924
 And the cue sheet is resolution.
 
-41
-00:02:09.724 --> 00:02:13.963
+39
+00:01:59.924 --> 00:02:04.163
 Names, like method fire in class Lights, become direct links.
 
-42
-00:02:14.133 --> 00:02:19.253
+40
+00:02:04.367 --> 00:02:09.490
 Third comes the dress rehearsal, the only step that puts actors on stage.
 
-43
-00:02:19.253 --> 00:02:20.796
+41
+00:02:09.490 --> 00:02:11.034
 That's initialization.
 
-44
-00:02:20.796 --> 00:02:25.073
+42
+00:02:11.034 --> 00:02:15.315
 The JVM runs the class's static start-up code, top to bottom.
 
-45
-00:02:25.073 --> 00:02:32.016
-javac, the Java compiler, collects all of it into one method, named &lt;clinit&gt;, short for class init.
+43
+00:02:15.315 --> 00:02:20.649
+javac collects it all into one method, named &lt;clinit&gt;, short for class init.
 
-46
-00:02:32.200 --> 00:02:34.600
+44
+00:02:20.867 --> 00:02:23.266
 So two of the three steps are crew work.
 
-47
-00:02:34.600 --> 00:02:38.799
+45
+00:02:23.266 --> 00:02:27.466
 Nobody claps for the crew, and none of your code runs while they work.
 
-48
-00:02:38.799 --> 00:02:40.839
+46
+00:02:27.466 --> 00:02:29.505
 Only the rehearsal runs your code.
 
+47
+00:02:29.733 --> 00:02:34.491
+So loading a class and running its start-up code are separate events.
+
+48
+00:02:34.491 --> 00:02:39.731
+HotSpot, the JVM inside your JDK, does each step as late as it's allowed to.
+
 49
-00:02:41.000 --> 00:02:42.481
-So the point is this.
-
-50
-00:02:42.481 --> 00:02:47.275
-Loading a class, and running its start-up code, are separate events.
-
-51
-00:02:47.275 --> 00:02:49.108
-They can happen far apart.
-
-52
-00:02:49.108 --> 00:02:54.467
-HotSpot, the JVM inside your JDK, runs each step as late as it's allowed to.
-
-53
-00:02:55.400 --> 00:02:58.244
+00:02:40.633 --> 00:02:43.477
 And here's where the theatre picture breaks.
 
-54
-00:02:58.244 --> 00:03:01.476
+50
+00:02:43.477 --> 00:02:46.709
 A real crew checks the whole prop before the show.
 
-55
-00:03:01.476 --> 00:03:08.199
+51
+00:02:46.709 --> 00:02:53.432
 The JVM may fill in the cue sheet lazily, one name at a time, and never at all for code that never runs.
 
-56
-00:03:08.333 --> 00:03:09.709
+52
+00:02:53.633 --> 00:02:55.004
 The lesson tried it.
 
-57
-00:03:09.709 --> 00:03:13.904
+53
+00:02:55.004 --> 00:02:59.186
 A class that used a deleted Helper class loaded and ran fine.
 
-58
-00:03:13.904 --> 00:03:19.269
+54
+00:02:59.186 --> 00:03:04.533
 It failed with NoClassDefFoundError only when the branch that used Helper ran.
 
-59
-00:03:19.269 --> 00:03:23.464
-And a class with broken bytecode was accepted by defineClass.
-
-60
-00:03:23.464 --> 00:03:27.865
-The VerifyError came only when code first asked for its methods.
-
-61
-00:03:28.600 --> 00:03:30.907
+55
+00:03:05.367 --> 00:03:07.653
 So which uses start the rehearsal?
 
-62
-00:03:30.907 --> 00:03:34.367
-The Java Language Specification lists them exactly.
-
-63
-00:03:34.367 --> 00:03:36.266
+56
+00:03:07.653 --> 00:03:09.536
 Creating an object with new.
 
-64
-00:03:36.266 --> 00:03:37.895
+57
+00:03:09.536 --> 00:03:11.150
 Calling a static method.
 
-65
-00:03:37.895 --> 00:03:39.591
+58
+00:03:11.150 --> 00:03:12.832
 Assigning a static field.
 
-66
-00:03:39.591 --> 00:03:42.644
+59
+00:03:12.832 --> 00:03:15.858
 Reading a static field that isn't a constant.
 
-67
-00:03:42.644 --> 00:03:45.765
+60
+00:03:15.858 --> 00:03:18.952
 Reflection, such as Class.forName with a name.
 
-68
-00:03:45.765 --> 00:03:49.496
+61
+00:03:18.952 --> 00:03:22.651
 And a subclass always initializes its superclass first.
 
-69
-00:03:49.667 --> 00:03:50.858
+62
+00:03:22.867 --> 00:03:24.058
 And these don't.
 
-70
-00:03:50.858 --> 00:03:52.272
+63
+00:03:24.058 --> 00:03:25.472
 Reading a constant.
 
-71
-00:03:52.272 --> 00:03:53.836
+64
+00:03:25.472 --> 00:03:27.036
 Writing Limits.class.
 
-72
-00:03:53.836 --> 00:03:56.218
+65
+00:03:27.036 --> 00:03:29.418
 Making an empty array of Limits.
 
-73
-00:03:56.218 --> 00:04:00.089
+66
+00:03:29.418 --> 00:03:33.289
 Or Class.forName, with false as its second argument.
 
-74
-00:04:01.000 --> 00:04:02.554
+67
+00:03:34.200 --> 00:03:35.778
 Now, back to your guess.
 
-75
-00:04:02.554 --> 00:04:08.704
-The lesson's InitPuzzle runs eight steps, and prints an indented line whenever a &lt;clinit&gt; runs.
+68
+00:03:35.778 --> 00:03:39.919
+The lesson's InitPuzzle prints a line whenever a &lt;clinit&gt; runs.
 
-76
-00:04:08.704 --> 00:04:10.193
+69
+00:03:39.919 --> 00:03:41.431
 Here's its real output.
 
-77
-00:04:10.600 --> 00:04:14.187
+70
+00:03:41.833 --> 00:03:45.420
 Step 3 reads Limits.MAX_CAST, and nothing prints.
 
-78
-00:04:14.187 --> 00:04:18.432
+71
+00:03:45.420 --> 00:03:49.665
 Step 4 reads Limits.CAP, and there it is: Limits.&lt;clinit&gt;.
 
-79
-00:04:18.432 --> 00:04:21.287
+72
+00:03:49.665 --> 00:03:52.520
 So init appears between the two values.
 
-80
-00:04:21.467 --> 00:04:23.427
-The rest of the list agrees.
+73
+00:03:52.733 --> 00:03:54.874
+The rest agrees with the list.
 
-81
-00:04:23.427 --> 00:04:30.498
-Step 1 reads parentValue through Child, and only Parent wakes up, because Parent declares that field.
+74
+00:03:54.874 --> 00:03:59.156
+Step 1 wakes only Parent, the class that declares the field.
 
-82
-00:04:30.498 --> 00:04:32.038
+75
+00:03:59.156 --> 00:04:00.726
 new Child wakes Child.
 
-83
-00:04:32.038 --> 00:04:36.239
-The array, Lazy.class, and forName with false print nothing.
+76
+00:04:00.726 --> 00:04:04.152
+The array, Lazy.class and forName print nothing.
 
-84
-00:04:36.239 --> 00:04:39.249
-Only Lazy.touch, a static call, wakes Lazy.
+77
+00:04:04.152 --> 00:04:06.079
+Only Lazy.touch wakes Lazy.
 
-85
-00:04:40.133 --> 00:04:42.042
+78
+00:04:07.000 --> 00:04:08.909
 So why is MAX_CAST different?
 
-86
-00:04:42.042 --> 00:04:48.558
+79
+00:04:08.909 --> 00:04:15.424
 It's a constant variable: a static final primitive or String whose value the compiler can work out.
 
-87
-00:04:48.558 --> 00:04:52.375
+80
+00:04:15.424 --> 00:04:19.242
 javac copied the 12 straight into the caller's class file.
 
-88
-00:04:52.375 --> 00:04:55.797
+81
+00:04:19.242 --> 00:04:22.664
 At run time, the caller never touches Limits at all.
 
-89
-00:04:55.933 --> 00:04:57.279
+82
+00:04:22.867 --> 00:04:24.212
 CAP is an Integer.
 
-90
-00:04:57.279 --> 00:05:01.016
+83
+00:04:24.212 --> 00:04:27.949
 To store 12 in it, the code calls Integer.valueOf.
 
-91
-00:05:01.016 --> 00:05:05.575
+84
+00:04:27.949 --> 00:04:32.508
 A method call isn't a constant, so reading CAP is a real use.
 
-92
-00:05:06.467 --> 00:05:11.274
+85
+00:04:33.433 --> 00:04:38.279
 A constant is like a line the director photocopied into everyone's script.
 
-93
-00:05:11.274 --> 00:05:14.522
+86
+00:04:38.279 --> 00:04:41.553
 Nobody phones the props table to find out it's 12.
 
-94
-00:05:14.522 --> 00:05:16.471
-They just read their own copy.
-
-95
-00:05:16.667 --> 00:05:20.570
+87
+00:04:41.767 --> 00:04:45.670
 So reading a constant isn't a use of its class at all.
 
-96
-00:05:20.570 --> 00:05:21.437
+88
+00:04:45.670 --> 00:04:46.537
 It's a copy.
 
-97
-00:05:22.333 --> 00:05:24.173
+89
+00:04:47.467 --> 00:04:49.268
 Kotlin draws the same line.
 
-98
-00:05:24.173 --> 00:05:27.035
-const val MAX_CAST is copied into callers.
+90
+00:04:49.268 --> 00:04:51.469
+const val is copied into callers.
 
-99
-00:05:27.035 --> 00:05:34.599
-A plain val CAP becomes a private field and a getter on the object, so reading it runs the object's init block.
+91
+00:04:51.469 --> 00:04:55.871
+A plain val is read through the object, so it runs the init block.
 
-100
-00:05:35.467 --> 00:05:38.468
-Now the names, for things you've already seen.
+92
+00:04:56.800 --> 00:04:59.290
+Now the names fit things you've seen.
 
-101
-00:05:38.468 --> 00:05:40.165
-Loading fetches the bytes.
+93
+00:04:59.290 --> 00:05:00.366
+Loading fetches.
 
-102
-00:05:40.165 --> 00:05:42.775
+94
+00:05:00.366 --> 00:05:03.057
 Linking verifies, prepares and resolves.
 
-103
-00:05:42.775 --> 00:05:46.821
-And initialization runs &lt;clinit&gt;, once, on the first real use.
+95
+00:05:03.057 --> 00:05:06.960
+Initialization runs &lt;clinit&gt;, once, on the first real use.
 
-104
-00:05:47.733 --> 00:05:49.505
-Three rules to take with you.
+96
+00:05:07.867 --> 00:05:09.519
+Two rules to take with you.
 
-105
-00:05:49.505 --> 00:05:51.948
+97
+00:05:09.519 --> 00:05:11.967
 One: mentioning a class is not using it.
 
-106
-00:05:51.948 --> 00:05:56.713
+98
+00:05:11.967 --> 00:05:16.740
 If you need its start-up code to have run, check that your use is on the list.
 
-107
-00:05:56.867 --> 00:06:04.195
+99
+00:05:16.967 --> 00:05:24.295
 Two: turn a constant into a computed value, like a number read from a setting, and you change when the class starts up.
 
-108
-00:06:04.195 --> 00:06:06.843
+100
+00:05:24.295 --> 00:05:26.943
 That's the day the rehearsal quietly moves.
 
-109
-00:06:07.000 --> 00:06:15.156
-Three: a missing class shows up as NoClassDefFoundError when the code that needs it first runs, not when the program starts.
-
-110
-00:06:16.067 --> 00:06:18.698
+101
+00:05:27.867 --> 00:05:30.498
 So, does mentioning a class wake it up?
 
-111
-00:06:18.698 --> 00:06:18.900
+102
+00:05:30.498 --> 00:05:30.700
 No.
 
-112
-00:06:18.900 --> 00:06:21.802
+103
+00:05:30.700 --> 00:05:33.602
 Fetch, then check and label, then rehearse.
 
-113
-00:06:21.802 --> 00:06:26.120
+104
+00:05:33.602 --> 00:05:37.920
 Only the rehearsal runs your code, and only a real use calls it.
 
-114
-00:06:26.267 --> 00:06:27.322
+105
+00:05:38.133 --> 00:05:39.188
 Quick check.
 
-115
-00:06:27.322 --> 00:06:29.872
+106
+00:05:39.188 --> 00:05:41.738
 Some code runs new Limits[3].
 
-116
-00:06:29.872 --> 00:06:31.279
+107
+00:05:41.738 --> 00:05:43.145
 Does init print?
 
-117
-00:06:34.333 --> 00:06:34.568
+108
+00:05:46.133 --> 00:05:46.368
 No.
 
-118
-00:06:34.568 --> 00:06:39.187
+109
+00:05:46.368 --> 00:05:50.987
 An empty array holds no Limits yet, so the rehearsal waits.
 
-119
-00:06:39.187 --> 00:06:40.988
+110
+00:05:50.987 --> 00:05:52.788
 Step 5 printed nothing.

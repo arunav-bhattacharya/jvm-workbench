@@ -158,24 +158,24 @@ def hook(x, y, n):
 
 N = {
     "open": "Every show in a theatre runs from a prompt book: the stage manager's copy of the script, full of cues in a "
-            "terse shorthand, like LX 14 GO. The audience never sees it. Your class files are the JVM's prompt book. "
+            "terse shorthand, like LX 14 GO. Your class files are the JVM's prompt book. "
             "The compiler turns each method into bytecode: short instructions the JVM follows one by one.",
     "shyq": "Here's a question that's easy to be shy about. When I write one line of arithmetic, does the JVM do it in "
             "one step? And while it's working, where does it keep the half-done answer?",
-    "example": "Let's take the lesson's example, from the lighting desk. A slow fade runs as many small steps. How long "
+    "example": "Let's take the lesson's example, from the lighting desk. How long "
                "does a fade of 12,500 steps, 32 milliseconds each, run? Here's the method in Java and in Kotlin. The "
-               "milliseconds are a long, as time in milliseconds usually is.",
+               "milliseconds are a long.",
     "javap": "javap, a tool that comes with every JDK, prints the bytecode inside a class file. For this one line, "
              "javac wrote seven instructions.",
     "pain": "Seven. And not one of them names a place for the answer. lload_0, iload_2, i2l. It reads like a prompt "
-            "book in a shorthand nobody taught us. Wouldn't it be nice to have a picture that makes it readable?",
+            "book in a shorthand nobody taught us. Wouldn't a picture help?",
     "desk": "Here's one. Picture a stagehand at a small desk. On the wall are numbered hooks. On the desk is a pile of "
             "cue cards. Every instruction tells the stagehand to take the top card or two off the pile, do one small "
             "job, and put the result back on top, as a new card.",
-    "map": "Let's map it. Every method call gets a frame with two areas. The hooks are the local variable slots: "
+    "map": "Every method call gets a frame with two areas. The hooks are the local variable slots: "
            "numbered places that hold the parameters and local variables. The pile is the operand stack. "
            "Instructions take their inputs from it, and put their results on it.",
-    "hooks": "Our call is seconds(32, 12500). The parameters start on the hooks. stepMillis is a long, and a long takes "
+    "hooks": "Our call is seconds(32, 12500). stepMillis is a long, and a long takes "
              "two slots, so it fills hooks 0 and 1. steps hangs on hook 2.",
     "t1": "Now one card at a time. lload_0: copy the long from hook 0 onto the pile. 32. iload_2: copy the int from "
           "hook 2. Now 12,500 sits on top.",
@@ -190,27 +190,27 @@ N = {
           "the 400 to the caller. The program prints: 400 seconds.",
     "size_q": "Now a question about size. At its busiest, the pile held two cards. So how big a pile does this method "
               "need? Two, surely? Pause and guess.",
-    "size_a": "javap dash v says: stack equals 4, locals equals 3. Four, because a long takes two slots on the stack "
+    "size_a": "javap -v says: stack equals 4, locals equals 3. Four, because a long takes two slots on the stack "
               "too, just as it does on the hooks. Two longs at once, four slots. And three hooks: two for stepMillis, "
               "one for steps.",
     "breaks": "And that's where the picture breaks. A real stagehand can glance at any card in the pile. An "
               "instruction sees only the top ones. And no real cue card takes two places because it carries a big "
               "number.",
-    "verify": "The typed cards buy something. The verifier, the JVM's type check from the last lesson, follows the "
-              "card types through every instruction, without running anything. A class that put a String on the pile "
+    "verify": "The verifier, the JVM's type check from the last lesson, follows the "
+              "card types through every instruction. A class that put a String on the pile "
               "and then ran ireturn loaded fine, then failed with VerifyError: Bad type on operand stack.",
     "kotlin": "And Kotlin? kotlinc wrote almost the same cards. It pushes the 1,000 as a small int, with sipush, then "
               "widens it with i2l. A difference of style: both leave the same long 1,000 on the pile.",
-    "name": "Now the names. The pile is the operand stack. The hooks are the local variable slots. And a machine whose "
-            "instructions work off a pile, instead of naming storage places, is a stack machine. That's the JVM.",
-    "countpp": "Here's why it matters beyond arithmetic. Remember count++ from the first track? On a static field, it "
+    "name": "Now the names. The pile is the operand stack. The hooks are the local variable slots. A machine that works "
+            "off a pile like this is a stack machine. That's the JVM.",
+    "countpp": "Remember count++ from the first track? On a static field, it "
                "compiled to four cards: getstatic, iconst_1, iadd, putstatic. getstatic copies the field onto this "
                "thread's own pile. Another thread can run between any two of those four.",
     "joke3": "count++ looks like one move. It's four, with room for an interruption between each. Like a quick "
              "costume change, which never is.",
     "guard": "So here's the rule. One line of source can be many instructions. Read the bytecode before you count on "
              "it. And when you read it, check three things: the first letter for the type, two slots for every long "
-             "and double, and the stack and locals sizes in javap dash v.",
+             "and double, and the stack and locals sizes in javap -v.",
     "moral": "So, is one line one step? No. It's a stagehand with a row of hooks and a pile of typed cards, one small "
              "job per card. Read our line as cues: load 32, load 12,500, widen it, multiply, push 1,000, divide, "
              "return 400.",
@@ -245,9 +245,9 @@ class Cls02Stack(Narrated):
         self.play(FadeIn(book), FadeIn(btitle), run_time=0.7)
         self.at_text("LX 14 GO", lead=0.2)
         self.play(LaggedStart(*[FadeIn(c, shift=RIGHT * 0.1) for c in cues], lag_ratio=0.3), run_time=1.0)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(cf), FadeIn(ctitle), FadeIn(eq), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(LaggedStart(*[FadeIn(c, shift=RIGHT * 0.1) for c in ins], lag_ratio=0.25), run_time=1.0)
         self.hold()
         self.wipe()
@@ -281,9 +281,9 @@ class Cls02Stack(Narrated):
         self.say("example")
         self.at(1)
         self.play(FadeIn(fade[0:2]), FadeIn(fade[2:]), run_time=0.8)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(jg, shift=UP * 0.1), FadeIn(kg, shift=UP * 0.1), run_time=0.9)
-        self.at(4)
+        self.at(3)
         self.play(part(java[0], "longstepMillis").animate.set_color(LONGC), part(kt[0], "stepMillis:Long").animate.set_color(LONGC),
                   part(java[0], "intsteps").animate.set_color(INTC), part(kt[0], "steps:Int").animate.set_color(INTC), run_time=0.7)
         self.hold()
@@ -351,11 +351,10 @@ class Cls02Stack(Narrated):
         frame_l = T("one frame per method call", 24, GREY_B).next_to(mp, UP, buff=0.3).align_to(mp, LEFT)
         self.say("map")
         self.play(FadeOut(VGroup(demo[0], merged)), run_time=0.4)
-        self.at(1)
         self.play(FadeIn(frame_l), run_time=0.5)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(mp[0], shift=RIGHT * 0.1), Indicate(hooks, color=INTC, scale_factor=1.1), run_time=0.8)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(mp[1], shift=RIGHT * 0.1), Indicate(desk, color=INSTC, scale_factor=1.05), run_time=0.8)
         self.hold()
         self.play(FadeOut(VGroup(mp, frame_l)), run_time=0.4)
@@ -369,11 +368,10 @@ class Cls02Stack(Narrated):
         lab_i = T("steps", 22, INTC).next_to(c_int, DOWN, buff=0.15)
         self.say("hooks")
         self.play(FadeIn(call, shift=UP * 0.1), run_time=0.6)
-        self.at(1)
         self.play(Indicate(hooks, color=WHITE, scale_factor=1.05), run_time=0.6)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(c_long, shift=DOWN * 0.2), FadeIn(lab_l), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(c_int, shift=DOWN * 0.2), FadeIn(lab_i), run_time=0.7)
         self.hold()
         self.play(FadeOut(lab_l), FadeOut(lab_i), FadeOut(call), run_time=0.3)
@@ -401,7 +399,7 @@ class Cls02Stack(Narrated):
         p1 = card("12500", INTC, size=22).move_to(c_int)
         self.play(p1.animate.move_to(slot(1)), run_time=0.9)
         self.at(4)
-        self.play(Indicate(p1, color=INTC, scale_factor=1.1), run_time=0.6)
+        self.play(Indicate(p1[1], color=INTC, scale_factor=1.1), run_time=0.6)
         self.hold()
 
         qmark = T("?", 40, INSTC).next_to(bc[2], RIGHT, buff=0.3)
@@ -409,7 +407,7 @@ class Cls02Stack(Narrated):
         self.say("predict")
         self.play(FadeIn(lm), run_time=0.5)
         self.at(1)
-        self.play(Indicate(p1, color=INTC, scale_factor=1.15), run_time=0.6)
+        self.play(Indicate(p1[1], color=INTC, scale_factor=1.15), run_time=0.6)
         self.at(2)
         self.play(point(2), bc[2].animate.set_opacity(0.15), FadeIn(qmark), run_time=0.5)
         self.hold(after=0)
@@ -417,7 +415,7 @@ class Cls02Stack(Narrated):
 
         self.say("t2")
         self.play(bc[2].animate.set_opacity(1), FadeOut(qmark), run_time=0.4)
-        self.play(p1.animate.shift(RIGHT * 2.3), run_time=0.5)
+        self.play(p1.animate.shift(RIGHT * 1.9), run_time=0.5)
         p1b = card("12500L", LONGC, size=22).move_to(p1)
         self.play(ReplacementTransform(p1, p1b), run_time=0.7)
         self.play(p1b.animate.move_to(slot(1)), run_time=0.6)
@@ -445,7 +443,7 @@ class Cls02Stack(Narrated):
         self.say("t3")
         self.play(point(3), run_time=0.3)
         both = VGroup(p0, p1b)
-        self.play(both.animate.shift(RIGHT * 2.3), run_time=0.5)
+        self.play(both.animate.shift(RIGHT * 1.9), run_time=0.5)
         r1 = card("400000L", LONGC, size=22).move_to(both)
         self.play(ReplacementTransform(both, r1), run_time=0.6)
         self.play(r1.animate.move_to(slot(0)), run_time=0.5)
@@ -455,17 +453,17 @@ class Cls02Stack(Narrated):
         pool = T("constant pool, entry 7", 22, GREY_B).next_to(k, UP, buff=0.12)
         self.play(FadeIn(k), FadeIn(pool), run_time=0.4)
         self.play(k.animate.move_to(slot(1)), FadeOut(pool), run_time=0.8)
-        self.at(3)
+        self.at(2)
         self.play(point(5), run_time=0.3)
         b2 = VGroup(r1, k)
-        self.play(b2.animate.shift(RIGHT * 2.3), run_time=0.5)
+        self.play(b2.animate.shift(RIGHT * 1.9), run_time=0.5)
         r2 = card("400L", LONGC).move_to(b2)
         self.play(ReplacementTransform(b2, r2), run_time=0.6)
         self.play(r2.animate.move_to(slot(0)), run_time=0.5)
-        self.at(4)
+        self.at(3)
         self.play(point(6), run_time=0.3)
         self.play(r2.animate.move_to([3.6, 1.2, 0]), run_time=0.8)
-        self.at(5)
+        self.at(4)
         out = term(["400 seconds"], 26, "StackDemo, real output").move_to([3.6, 0.0, 0])
         self.play(FadeIn(out, shift=UP * 0.1), run_time=0.6)
         self.hold()
@@ -502,10 +500,10 @@ class Cls02Stack(Narrated):
         self.hold()
 
         brk = VGroup(T("where the picture breaks", 24, GREY_B),
-                     T("a stagehand sees every card; an instruction, only the top ones", 24, WHITE),
-                     T("no real card takes two places for a big number", 24, WHITE)).arrange(DOWN, buff=0.18, aligned_edge=LEFT)
-        brk.move_to([3.0, 1.35, 0])
-        fit(brk, 7.6)
+                     T("an instruction sees only the top cards", 24, WHITE),
+                     T("no real card takes two places", 24, WHITE)).arrange(DOWN, buff=0.18, aligned_edge=LEFT)
+        brk.move_to([3.7, 0.3, 0])
+        fit(brk, 5.6)
         self.say("breaks")
         self.play(FadeOut(VGroup(sz, need, real)), FadeIn(brk[0]), run_time=0.5)
         self.at(1)
@@ -525,9 +523,8 @@ class Cls02Stack(Narrated):
         fit(err, 12.4)
         self.say("verify")
         self.play(FadeIn(vh), run_time=0.5)
-        self.at(1)
         self.play(Indicate(vh[0], color=TEAL_M, scale_factor=1.2), run_time=0.7)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(vpile, shift=DOWN * 0.2), run_time=0.5)
         self.play(FadeIn(vins), FadeIn(vnote), run_time=0.5)
         self.at_text("then failed", lead=0.2)
@@ -542,11 +539,11 @@ class Cls02Stack(Narrated):
         cols = VGroup(jt, kt2).arrange(RIGHT, buff=1.6, aligned_edge=UP).move_to([0, 0.5, 0])
         self.say("kotlin")
         self.play(FadeIn(jt), FadeIn(kt2), run_time=0.8)
-        self.at(1)
+        self.at(2)
         bk = SurroundingRectangle(VGroup(kcol[4], kcol[5]), buff=0.08, color=INTC, stroke_width=2.5)
         bj = SurroundingRectangle(jcol[4], buff=0.08, color=LONGC, stroke_width=2.5)
         self.play(Create(bk), Create(bj), run_time=0.6)
-        self.at(2)
+        self.at(3)
         same = T("both leave the same long 1,000 on the pile", 26, OK).move_to([0, -2.6, 0])
         self.play(FadeIn(same), run_time=0.5)
         self.hold()
@@ -566,19 +563,22 @@ class Cls02Stack(Narrated):
 
         # ================= count++ =================
         src = VGroup(T("source:", 26, GREY_B), M("count++", 30, WHITE)).arrange(RIGHT, buff=0.25).move_to([-4.0, 2.4, 0])
-        four = code_block(["getstatic  count", "iconst_1", "iadd", "putstatic  count"], 26).move_to([-3.6, 0.2, 0])
-        t1 = who(BLUE_M, "thread 1", 1.0, 20).move_to([1.6, 0.3, 0])
-        t2 = who(RED_M, "thread 2", 1.0, 20).move_to([4.6, 0.3, 0])
-        gap = VGroup(*[T("<- another thread can run here", 22, RED_M).next_to(four[i], RIGHT, buff=0.3).shift(DOWN * 0.27)
-                       for i in range(3)])
+        four = code_block(["getstatic  count", "iconst_1", "iadd", "putstatic  count"], 26).arrange(DOWN, aligned_edge=LEFT, buff=0.45).move_to([-3.6, 0.5, 0])
+        t1 = who(BLUE_M, "thread 1", 1.0, 20).move_to([3.0, 0.9, 0])
+        t2 = who(RED_M, "thread 2", 1.0, 20).move_to([5.2, 0.9, 0])
+        gx = four.get_left()[0] - 0.25
+        marks = VGroup(*[Line([gx, (four[i].get_bottom()[1] + four[i + 1].get_top()[1]) / 2, 0],
+                              [four.get_right()[0] + 0.2, (four[i].get_bottom()[1] + four[i + 1].get_top()[1]) / 2, 0],
+                              stroke_width=2, color=RED_M) for i in range(3)])
+        gap = VGroup(marks, T("another thread can run in any gap", 24, RED_M).next_to(four, DOWN, buff=0.35).align_to(four, LEFT))
         self.say("countpp")
         self.play(FadeIn(src), run_time=0.5)
         self.at(1)
         self.play(LaggedStart(*[FadeIn(l, shift=RIGHT * 0.1) for l in four], lag_ratio=0.25), run_time=1.2)
-        self.at(3)
+        self.at(2)
         self.play(Indicate(four[0], color=INSTC, scale_factor=1.1), FadeIn(t1), run_time=0.7)
-        self.at(4)
-        self.play(LaggedStart(*[FadeIn(g) for g in gap], lag_ratio=0.3), run_time=1.2)
+        self.at(3)
+        self.play(LaggedStart(*[Create(m) for m in marks], lag_ratio=0.3), FadeIn(gap[1]), run_time=1.2)
         self.hold()
 
         cc = VGroup(T("one move?", 30, GREY_A), T("four, with three gaps", 30, INSTC)).arrange(RIGHT, buff=0.5).move_to([0, -2.6, 0])
@@ -597,7 +597,7 @@ class Cls02Stack(Narrated):
         chk.move_to([0, -0.9, 0])
         self.say("guard")
         self.play(FadeIn(rule, shift=UP * 0.1), run_time=0.6)
-        self.at(1)
+        self.at(2)
         self.play(FadeIn(rule2), run_time=0.5)
         for i in range(3):
             self.at_text(["the first letter", "two slots", "the stack and locals"][i], lead=0.3)
@@ -613,7 +613,7 @@ class Cls02Stack(Narrated):
         fit(seq, 12.6).move_to([0, 1.3, 0])
         self.say("moral")
         self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
-        self.at(2)
+        self.at(3)
         self.play(LaggedStart(*[FadeIn(c, shift=UP * 0.1) for c in seq], lag_ratio=0.4), run_time=3.5)
         self.hold()
 

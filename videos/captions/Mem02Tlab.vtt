@@ -1,153 +1,349 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.470
-Many threads create objects at the same time.
+00:00:02.700 --> 00:00:05.715
+Back in the warehouse, new boxes arrive all day.
 
 2
-00:00:05.470 --> 00:00:09.903
-All of them go into eden, one area of the heap that every thread shares.
+00:00:05.715 --> 00:00:12.121
+Picture every worker walking to the floor manager's desk with each new box, to ask where it should go.
 
 3
-00:00:10.100 --> 00:00:15.599
-If each new took memory straight from eden, every thread would need this one pointer.
+00:00:12.333 --> 00:00:15.476
+The queue at that desk would soon be longer than the work.
 
 4
-00:00:15.599 --> 00:00:16.893
-One thread moves it.
+00:00:16.467 --> 00:00:19.477
+So here's a question that's easy to be shy about.
 
 5
-00:00:16.893 --> 00:00:17.928
-The others wait.
+00:00:19.477 --> 00:00:23.592
+Every new in Java needs memory, and all the threads share one heap.
 
 6
-00:00:18.967 --> 00:00:21.171
-How would you stop them fighting over it?
+00:00:23.592 --> 00:00:26.172
+So doesn't every new have to wait in line?
 
 7
-00:00:23.167 --> 00:00:25.658
-Give each thread its own piece of eden.
+00:00:27.267 --> 00:00:29.601
+Here's what the warehouse does instead.
 
 8
-00:00:25.658 --> 00:00:27.383
-Now no thread needs a lock.
+00:00:29.601 --> 00:00:32.715
+Each worker reserves a stretch of empty shelf, once.
 
 9
-00:00:28.067 --> 00:00:31.935
-That piece is a TLAB: a thread-local allocation buffer.
+00:00:32.715 --> 00:00:38.103
+Then every new box goes in the next free spot of their own stretch, without asking anyone.
 
 10
-00:00:33.967 --> 00:00:38.048
-To allocate, the thread checks that the object fits before the end.
+00:00:38.333 --> 00:00:39.146
+Let's map it.
 
 11
-00:00:38.048 --> 00:00:41.276
-Then it adds the size to top, and stores the new top.
+00:00:39.146 --> 00:00:43.461
+The workers are threads, the paths of work running through a program.
 
 12
-00:00:41.467 --> 00:00:43.416
-A compare, an add and a store.
+00:00:43.461 --> 00:00:48.088
+The new-arrivals floor is eden, the part of the heap where new objects go.
 
 13
-00:00:43.416 --> 00:00:46.664
-The JIT puts them right into your compiled method.
+00:00:48.088 --> 00:00:52.153
+The reserved stretch is a TLAB, a thread-local allocation buffer.
 
 14
-00:00:48.467 --> 00:00:51.311
-What happens when the next object doesn't fit?
+00:00:52.153 --> 00:00:55.092
+And the next free spot is a pointer called top.
 
 15
-00:00:53.600 --> 00:00:57.960
-The thread takes a fresh TLAB from eden, with one atomic update.
+00:00:56.000 --> 00:01:01.210
+Putting an object in a TLAB means moving top forward by the object's size.
 
 16
-00:00:57.960 --> 00:01:01.229
-That happens once per TLAB, not once per object.
+00:01:01.210 --> 00:01:03.885
+That's called bump-pointer allocation.
 
 17
-00:01:02.033 --> 00:01:04.306
-And sometimes new allocates nothing.
+00:01:03.885 --> 00:01:07.476
+Here's HotSpot's fast path, from the JDK 25 source.
 
 18
-00:01:04.306 --> 00:01:08.408
-This loop builds a million Points, and only adds up their fields.
+00:01:07.700 --> 00:01:10.313
+Does the object fit between top and end?
 
 19
-00:01:08.408 --> 00:01:11.312
-In the interpreter, each one is a real object.
+00:01:10.313 --> 00:01:12.992
+Then move top, and hand back the old top.
 
 20
-00:01:11.833 --> 00:01:14.507
-Can anything outside the method ever see p?
+00:01:12.992 --> 00:01:14.952
+A compare, an add and a store.
 
 21
-00:01:16.500 --> 00:01:16.720
-No.
+00:01:15.167 --> 00:01:19.492
+Then the JVM writes the object's header and zeroes its fields.
 
 22
-00:01:16.720 --> 00:01:25.153
-p never goes into a field or a collection, it's never returned, and it never goes to a call that C2 doesn't inline.
+00:01:19.492 --> 00:01:29.259
+Once the JIT, the part of the JVM that turns busy code into machine code, has compiled a method, these few instructions sit right inside it.
 
 23
-00:01:25.367 --> 00:01:29.020
-C2, the JIT for hot methods, checks exactly this.
+00:01:29.259 --> 00:01:31.421
+A new doesn't even make a call.
 
 24
-00:01:29.020 --> 00:01:30.735
-That's escape analysis.
+00:01:31.633 --> 00:01:33.493
+And when the stretch is full?
 
 25
-00:01:30.933 --> 00:01:34.752
-Then it skips the object, and keeps x and y in registers.
+00:01:33.493 --> 00:01:34.839
+That's the slow path.
 
 26
-00:01:34.752 --> 00:01:36.493
-That's scalar replacement.
+00:01:34.839 --> 00:01:42.214
+The thread goes back to eden for a fresh TLAB, with one atomic update, a single step no other thread can interrupt.
 
 27
-00:01:37.400 --> 00:01:39.325
-Count the bytes of each call.
+00:01:42.214 --> 00:01:45.612
+That's the only moment two threads' allocations meet.
 
 28
-00:01:39.325 --> 00:01:44.571
-The first rounds allocate megabytes, while the interpreter and C1 run the code.
+00:01:46.533 --> 00:01:48.602
+How often does that happen?
 
 29
-00:01:44.571 --> 00:01:46.231
-From round 4 or so, zero.
+00:01:48.602 --> 00:01:56.266
+The lesson's TlabDemo allocates five million small arrays of 40 bytes, 200 MB in all, on one thread.
 
 30
-00:01:46.400 --> 00:01:53.340
-With escape analysis off, every round allocates 32,000,000 bytes: a million 32-byte points.
+00:01:56.266 --> 00:01:58.411
+How many trips back to eden?
 
 31
-00:01:53.567 --> 00:01:57.371
-So never assert that code allocates nothing in a unit test.
+00:01:58.411 --> 00:01:59.637
+Pause and guess.
 
 32
-00:01:58.100 --> 00:02:02.544
-Java and Kotlin compile to the same new, so both behave the same.
+00:02:02.633 --> 00:02:04.698
+Here's one JDK 25 run.
 
 33
-00:02:03.367 --> 00:02:11.096
-The rule: new is a pointer bump in your own TLAB, and an object that never leaves a hot method may never be allocated.
+00:02:04.698 --> 00:02:11.453
+By the first collection, the thread had used about 98 MB in 196 refills.
 
 34
-00:02:11.300 --> 00:02:12.178
-Quick check.
+00:02:11.453 --> 00:02:17.365
+So each TLAB held about 500 KB, roughly 12,500 arrays per trip.
 
 35
-00:02:12.178 --> 00:02:14.737
-The loop adds each Point to a list.
+00:02:17.365 --> 00:02:22.244
+And slow allocs is 0: no array had to skip its TLAB.
 
 36
-00:02:14.737 --> 00:02:16.931
-Does C2 remove the allocation?
+00:02:23.167 --> 00:02:27.638
+Twelve and a half thousand boxes for every visit to the floor manager.
 
 37
-00:02:19.300 --> 00:02:19.619
-No.
+00:02:27.638 --> 00:02:30.384
+That manager has a lot of quiet afternoons.
 
 38
-00:02:19.619 --> 00:02:21.959
-The list is a way out.
+00:02:30.384 --> 00:02:34.344
+So the point is: threads almost never meet when they allocate.
+
+39
+00:02:35.433 --> 00:02:39.888
+Now here the warehouse picture breaks, and the break teaches something.
+
+40
+00:02:39.888 --> 00:02:43.715
+In a warehouse, carrying a box to its shelf is the hard part.
+
+41
+00:02:43.715 --> 00:02:46.601
+In the JVM, the bump costs a few instructions.
+
+42
+00:02:46.601 --> 00:02:47.919
+The bill comes later.
+
+43
+00:02:48.133 --> 00:02:51.586
+Every TLAB a thread fills brings eden closer to full.
+
+44
+00:02:51.586 --> 00:02:58.557
+And a full eden calls the cleaning crew: a young collection, the garbage collector's run that empties eden.
+
+45
+00:02:59.467 --> 00:03:04.809
+So what you pay for is the allocation rate, the bytes allocated per second.
+
+46
+00:03:04.809 --> 00:03:10.079
+A service that allocates 1 GB a second fills a 500 MB eden twice a second.
+
+47
+00:03:10.079 --> 00:03:17.131
+With G1, the default collector, each of those is a pause, a moment when the program's threads stop.
+
+48
+00:03:17.131 --> 00:03:18.342
+One new is cheap.
+
+49
+00:03:18.342 --> 00:03:19.980
+A flood of them is not.
+
+50
+00:03:20.900 --> 00:03:24.130
+Now, sometimes a box never leaves a worker's desk.
+
+51
+00:03:24.130 --> 00:03:28.136
+This loop makes a Point, adds up its two fields, and moves on.
+
+52
+00:03:28.136 --> 00:03:29.880
+p is never stored anywhere.
+
+53
+00:03:30.100 --> 00:03:33.758
+A Point is a 12-byte header plus two longs: 32 bytes.
+
+54
+00:03:33.758 --> 00:03:37.071
+So a million of them should be 32 million bytes.
+
+55
+00:03:37.071 --> 00:03:42.523
+The lesson's demo calls sumPoints ten times, and counts the bytes of each call.
+
+56
+00:03:42.523 --> 00:03:43.834
+What do you expect?
+
+57
+00:03:43.834 --> 00:03:44.939
+Pause and guess.
+
+58
+00:03:48.633 --> 00:03:51.792
+Round 0: about 3.3 million bytes.
+
+59
+00:03:51.792 --> 00:03:53.802
+Round 1: 1.6 million.
+
+60
+00:03:53.802 --> 00:03:55.908
+Round 2: 262 thousand.
+
+61
+00:03:55.908 --> 00:03:57.248
+Round 3: zero.
+
+62
+00:03:57.248 --> 00:04:00.693
+And zero for every round after that.
+
+63
+00:04:00.693 --> 00:04:03.756
+Same code, same new, zero bytes.
+
+64
+00:04:04.667 --> 00:04:08.044
+That's C2, the JIT compiler for the hottest methods.
+
+65
+00:04:08.044 --> 00:04:13.564
+Its escape analysis checks whether an object can be seen anywhere outside the method.
+
+66
+00:04:13.564 --> 00:04:20.513
+If it can't, C2 keeps the fields in registers, the processor's own small slots, and never makes the object.
+
+67
+00:04:20.513 --> 00:04:22.656
+That's called scalar replacement.
+
+68
+00:04:22.867 --> 00:04:30.127
+In the warehouse, it's a worker who notices a box never leaves the desk, and just writes its contents on the notepad.
+
+69
+00:04:31.033 --> 00:04:33.037
+But look at the first rounds.
+
+70
+00:04:33.037 --> 00:04:37.597
+The interpreter, and C1, the quick first compiler, make every box.
+
+71
+00:04:37.597 --> 00:04:42.087
+C2 only notices after watching the method run thousands of times.
+
+72
+00:04:42.087 --> 00:04:44.643
+A person would notice the first time.
+
+73
+00:04:44.643 --> 00:04:50.032
+And with escape analysis switched off, every round allocated 32 million bytes.
+
+74
+00:04:50.933 --> 00:04:51.800
+So two rules.
+
+75
+00:04:51.800 --> 00:04:58.403
+Escape analysis is a bonus, not a promise: never assert that code allocates nothing in a unit test.
+
+76
+00:04:58.403 --> 00:05:04.472
+And an object escapes when you store it in a field, an array or a collection, or return it.
+
+77
+00:05:04.472 --> 00:05:05.872
+It helps tight loops.
+
+78
+00:05:05.872 --> 00:05:08.673
+It can't help a map full of boxed numbers.
+
+79
+00:05:09.600 --> 00:05:11.714
+So, does every new wait in line?
+
+80
+00:05:11.714 --> 00:05:11.912
+No.
+
+81
+00:05:11.912 --> 00:05:18.982
+Each thread fills its own stretch of shelf by bumping a pointer, and sometimes C2 skips the box altogether.
+
+82
+00:05:18.982 --> 00:05:24.069
+What costs you is the rate: how fast the boxes pile up for the cleaning crew.
+
+83
+00:05:25.000 --> 00:05:25.796
+Quick check.
+
+84
+00:05:25.796 --> 00:05:30.237
+Two threads each allocate a million small objects at the same time.
+
+85
+00:05:30.237 --> 00:05:32.359
+When do they have to take turns?
+
+86
+00:05:35.533 --> 00:05:39.007
+Only when one of them fetches a fresh TLAB from eden.
+
+87
+00:05:39.007 --> 00:05:43.333
+That's one atomic update per stretch of shelf, not one per object.

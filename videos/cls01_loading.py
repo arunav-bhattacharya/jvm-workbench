@@ -217,7 +217,7 @@ class Cls01Loading(Narrated):
         self.title_card("When does a class wake up?", "loading, linking and initialization")
 
         # ================= the theatre: fetch, table, rehearsal =================
-        FL = -2.2
+        FL = -2.9
 
         def build():
             g = {}
@@ -235,7 +235,7 @@ class Cls01Loading(Narrated):
             g["cue"] = paper(["cue sheet", "crown: scene 2"], 20).next_to([0.95, FL + 1.12, 0], UP, buff=0.02)
             g["stage"] = Line([3.2, FL + 0.35, 0], [6.4, FL + 0.35, 0], stroke_width=6, color=GOLD_M)
             g["stage_l"] = T("stage", 20, GOLD_M).next_to(g["stage"], DOWN, buff=0.12).shift(LEFT * 0.9)
-            g["cone"] = Polygon([4.8, 0.2, 0], [3.8, FL + 0.38, 0], [5.8, FL + 0.38, 0]).set_stroke(width=0).set_fill(YELLOW_M, 0.13)
+            g["cone"] = Polygon([4.8, -0.5, 0], [3.8, FL + 0.38, 0], [5.8, FL + 0.38, 0]).set_stroke(width=0).set_fill(YELLOW_M, 0.13)
             ap = person(ACTOR, 1.0).next_to([4.8, FL + 0.38, 0], UP, buff=0)
             g["actor"] = VGroup(ap, T("actor", 20, ACTOR).next_to(g["stage"], DOWN, buff=0.12).shift(RIGHT * 0.6))
             return g
@@ -363,7 +363,7 @@ class Cls01Loading(Narrated):
         self.at(3)
         self.play(FadeIn(cue, shift=DOWN * 0.1), run_time=0.6)
         self.at(4)
-        self.play(Indicate(bk[0], color=LINKC, scale_factor=1.03), run_time=0.7)
+        self.play(Indicate(bk[1], color=LINKC, scale_factor=1.15), run_time=0.7)
         self.hold()
 
         sub = bk[2]
@@ -411,12 +411,12 @@ class Cls01Loading(Narrated):
                   run_time=0.6)
         self.play(FadeIn(crew_l), run_time=0.4)
         self.at(2)
-        self.play(FadeIn(yours), Indicate(bi[0], color=INITC, scale_factor=1.05), run_time=0.8)
+        self.play(FadeIn(yours), Indicate(bi[1], color=INITC, scale_factor=1.12), run_time=0.8)
         self.hold()
 
         far = VGroup(T("separate events, maybe far apart:", 26, WHITE),
                      T("HotSpot runs each step as late as it's allowed to", 26, GREY_A)).arrange(DOWN, buff=0.18)
-        far.move_to([0, 0.35, 0])
+        far.move_to([0, 0.3, 0])
         self.say("crew2")
         self.play(FadeOut(crew_l), FadeOut(yours), bl.animate.set_opacity(1), bk.animate.set_opacity(1),
                   a1.animate.set_opacity(1), run_time=0.5)

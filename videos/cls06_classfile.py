@@ -12,68 +12,33 @@ fg.SAY[:0] = [
 
 # every spoken line, in order
 N = {
-    "open": "Picture a theatre's prompt book. It follows a strict layout. The first page carries a stamp, naming the "
-            "edition of the house rules it follows. Then comes the glossary, a numbered list of every name the book "
-            "uses. And then the cues.",
-    "shyq": "Here's a question that's easy to be shy about. A class file is just bytes. So how does anything know "
-            "where one part ends and the next begins? And why would anyone need a whole library to read it?",
-    "fam": "In lesson 2, javap showed us a class as a tidy listing. Underneath, a class file is an array of bytes with "
-           "a fixed layout, set out in chapter 4 of the JVM specification. javap, the verifier, Proxy and Byte Buddy "
-           "all read or write that one format.",
-    "first": "Here are the first ten bytes of java/lang/Object.class, on JDK 25. The first four are the magic number, "
-             "CAFEBABE: the stamp that says, this is a class file.",
-    "cafe": "Every class file you have ever run carries those same four bytes. It must be the most printed stamp in "
-            "the building. So the very first thing in the file says what kind of file it is.",
-    "ver": "Next come two version numbers, minor and major, two bytes each. A small puzzle. The major version reads "
-           "00 45. Which Java wrote this page? Pause and guess.",
-    "ver_a": "Hex 45 is 69. From Java 5 on, the Java version is the major version minus 44. So 69 is Java 25. The "
-             "labs' own classes say 41, which is 65: Java 21, because the build compiles them with release 21.",
-    "refuse": "And the stamp matters. A JVM refuses a class file whose major version is newer than its own, with "
-              "UnsupportedClassVersionError. An old stage manager won't run a book printed under rules they've never "
-              "read.",
-    "code": "Every number in the file is big-endian, biggest byte first, which is exactly how DataInputStream reads. "
-            "So the first four fields take four lines: readInt for the magic number, then three unsigned shorts, "
-            "for minor, major and the pool count.",
-    "gloss": "Then comes the glossary. Its real name is the constant pool: a numbered table of every name and "
-             "constant the class uses. And here's the hard part. Each entry starts with a one-byte tag, and the tag "
-             "decides how many bytes follow.",
-    "tags": "A Utf8 entry, a piece of text, has a two-byte length, then the text. A Class entry has two bytes: the "
-            "number of the Utf8 entry that holds the class's name. A Methodref, a reference to a method, has four. "
-            "And a Long or a Double takes up two numbers.",
-    "breaks": "Here the prompt book picture breaks. A printed glossary has line breaks, so your eye finds the next "
-              "entry. The bytes have none. To find the tenth entry, you read the first nine, and add up their sizes.",
-    "predict": "Remember lesson 2's javap listing of StackDemo. Entry 7 is a Long, a thousand. The next line is "
-               "entry 9. Where did 8 go? Pause and guess.",
-    "seat": "Nowhere. The eight-byte constant at 7 sits in two seats, like a cellist who buys a second ticket for "
-            "the cello. Seat 7 is the cellist, seat 8 is the cello, and the next guest sits in 9.",
-    "wrong": "Now say your reader counts every entry once. The Long at 7 is fine. But it calls the next entry 8, when "
-             "the file calls it 9. Every number after that is off by one, and the walk runs one entry past the end "
-             "of the glossary, into the bytes that follow.",
-    "rule": "So here's the rule. Each entry's size depends on its tag, so one wrong count shifts everything after it. "
-            "Count Long and Double twice.",
-    "after": "After the glossary come the access flags, then this_class, the number of the Class entry that names "
-             "this class. Then the superclass, the interfaces, the fields, the methods and the attributes.",
-    "press": "Now picture doing this for real. The house rules change with every JDK release, every six months, "
-             "sometimes with new kinds of entries. Until JDK 24, the JDK had no public library for this. So "
-             "frameworks borrowed a printing press from outside: ASM, the long-standing class-file library. Byte "
-             "Buddy carries its own copy.",
-    "joke": "Twice a year the rules change, and the whole street lines up at the press shop for new type. So the "
-            "real cost isn't reading the bytes once. It's keeping up, forever.",
-    "own": "Since JDK 24, Java has a press of its own: the ClassFile API, in the package java.lang.classfile. On JDK "
-           "25 you use it with no special flags. It reads a class, prints new ones, and copies a class while "
-           "changing parts of it. That's the rest of this lesson.",
-    "name": "So, the names. The stamp is the magic number, then the minor and major version. The glossary is the "
-            "constant pool. And the cues are the methods and their code.",
-    "guard": "Two rules of thumb. Walk the format by hand once: it's the best way to learn it. For every class, on "
-             "every JDK, use a press. And when a JVM says UnsupportedClassVersionError, read the stamp: the file was "
-             "printed under newer rules than that JVM knows.",
-    "moral": "So, how does anything know where one part ends? Only by counting, from the stamp onward, with every "
-             "tag deciding the next step. That's why one slip breaks everything after it, and why the JDK now "
-             "carries its own press.",
-    "check": "Quick check. The labs' own classes start with ca fe ba be, 00 00, 00 41. Which Java version wrote "
-             "them?",
-    "check_a": "Hex 41 is 65, and 65 minus 44 is 21. Java 21, the release the build compiles for.",
+    'open': "Picture a theatre's prompt book. It follows a strict layout. The first page carries a stamp, naming the edition of the house rules it follows. Then comes the glossary, a numbered list of every name the book uses. And then the cues.",
+    'shyq': "Here's a question that's easy to be shy about. A class file is just bytes. So how does anything know where one part ends and the next begins? And why would anyone need a whole library to read it?",
+    'fam': 'In lesson 2, javap showed us a class as a tidy listing. Underneath, a class file is an array of bytes with a fixed layout, set out in chapter 4 of the JVM specification.',
+    'first': 'Here are the first ten bytes of java/lang/Object.class, on JDK 25. The first four are the magic number, CAFEBABE: the stamp that says, this is a class file.',
+    'cafe': 'Every class file you have ever run carries those same four bytes. It must be the most printed stamp in the building.',
+    'ver': 'Next come two version numbers, minor and major, two bytes each. A small puzzle. The major version reads 00 45. Which Java wrote this page? Pause and guess.',
+    'ver_a': "Hex 45 is 69. From Java 5 on, the Java version is the major version minus 44. So 69 is Java 25. The labs' own classes say 41, which is 65: Java 21.",
+    'refuse': "And the stamp matters. A JVM refuses a class file whose major version is newer than its own, with UnsupportedClassVersionError. An old stage manager won't run a book printed under rules they've never read.",
+    'code': 'Every number in the file is big-endian, biggest byte first, which is exactly how DataInputStream reads. So the first four fields take four lines: readInt for the magic number, then three unsigned shorts, for minor, major and the pool count.',
+    'gloss': "Then comes the glossary. Its real name is the constant pool: a numbered table of every name and constant the class uses. And here's the hard part. Each entry starts with a one-byte tag, and the tag decides how many bytes follow.",
+    'tags': "A Utf8 entry, a piece of text, has a two-byte length, then the text. A Class entry has two bytes: the number of the Utf8 entry that holds the class's name. A Methodref, a reference to a method, has four. And a Long or a Double takes up two numbers.",
+    'breaks': 'Here the prompt book picture breaks. A printed glossary has line breaks, so your eye finds the next entry. The bytes have none. To find the tenth entry, you read the first nine, and add up their sizes.',
+    'predict': "Remember lesson 2's javap listing of StackDemo. Entry 7 is a Long, a thousand. The next line is entry 9. Where did 8 go? Pause and guess.",
+    'seat': 'Nowhere. The eight-byte constant at 7 sits in two seats, like a cellist who buys a second ticket for the cello. Seat 7 is the cellist, seat 8 is the cello, and the next guest sits in 9.',
+    'wrong': 'Now say your reader counts every entry once. The Long at 7 is fine. But it calls the next entry 8, when the file calls it 9. Every number after that is off by one, and the walk runs one entry past the end of the glossary, into the bytes that follow.',
+    'rule': "So here's the rule. Each entry's size depends on its tag, so one wrong count shifts everything after it. Count Long and Double twice.",
+    'after': 'After the glossary come the access flags, then this_class, the number of the Class entry that names this class. Then the superclass, the interfaces, the fields, the methods and the attributes.',
+    'press': 'Now picture doing this for real. The house rules change with every JDK release, every six months. Until JDK 24, the JDK had no public library for this. So frameworks borrowed a printing press from outside: ASM, the long-standing class-file library. Byte Buddy carries its own copy.',
+    'joke': "Twice a year the rules change, and the whole street lines up at the press shop for new type. So the real cost isn't reading the bytes once. It's keeping up, forever.",
+    'own': 'Since JDK 24, Java has a press of its own: the ClassFile API, in the package java.lang.classfile. On JDK 25 you use it with no special flags. It reads a class, prints new ones, and copies a class while changing parts of it.',
+    'name': 'So, the names. The stamp is the magic number, then the minor and major version. The glossary is the constant pool. And the cues are the methods and their code.',
+    'guard': 'Rules of thumb. Walk the format by hand once, to learn it. For every class, on every JDK, use a press. And on UnsupportedClassVersionError, read the stamp: the file was printed under newer rules than that JVM knows.',
+    'moral': 'So, how does anything know where one part ends? By counting from the stamp, with every tag deciding the next step. One slip breaks everything after it, so the JDK now carries its own press.',
+    'check': "Quick check. The labs' own classes start with ca fe ba be, 00 00, 00 41. Which Java version wrote them?",
+    'check_a': 'Hex 41 is 65, and 65 minus 44 is 21. Java 21, the release the build compiles for.',
 }
+
 
 
 # one colour per part of the page, for this video
@@ -234,7 +199,7 @@ def brace_lab(mobs, text, color, size=22, buff=0.12):
 
 def prompt_book(s=1.0):
     page = Rectangle(width=4.2, height=5.0).set_stroke(GREY_B, 2).set_fill(PAPER, 1)
-    stamp = RoundedRectangle(corner_radius=0.1, width=2.6, height=0.6).set_stroke(STAMP, 3).set_fill(dim(STAMP, 0.25), 1)
+    stamp = RoundedRectangle(corner_radius=0.1, width=2.6, height=0.6).set_stroke(STAMP, 3).set_fill("#F3D9A8", 1)
     stamp_t = T("house rules, edition 25", 20, INK).move_to(stamp)
     st = VGroup(stamp, stamp_t).move_to(page.get_top() + DOWN * 0.6)
     gh = T("Glossary", 22, "#1F6F60").next_to(st, DOWN, buff=0.3).align_to(page, LEFT).shift(RIGHT * 0.35)
@@ -286,17 +251,17 @@ class Cls06Classfile(Narrated):
         self.play(FadeIn(book[2][0]), FadeIn(book[3][0]), run_time=0.5)
         self.at(2)
         self.play(FadeIn(book[1], scale=1.2), run_time=0.6)
-        tags[0].next_to(book[1], RIGHT, buff=0.7).set_x(4.8)
+        tags[0].next_to(book[1], RIGHT, buff=0.7).set_x(4.3)
         fit(tags[0], 4.3)
         self.play(FadeIn(tags[0], shift=LEFT * 0.1), run_time=0.4)
         self.at(3)
         self.play(LaggedStart(*[FadeIn(x, shift=RIGHT * 0.05) for x in book[2][1]], lag_ratio=0.2), run_time=0.9)
-        tags[1].move_to([4.8, book[2].get_y(), 0])
+        tags[1].move_to([4.3, book[2].get_y(), 0])
         fit(tags[1], 4.3)
         self.play(FadeIn(tags[1], shift=LEFT * 0.1), run_time=0.4)
         self.at(4)
         self.play(FadeIn(book[3][1]), run_time=0.5)
-        tags[2].move_to([4.8, book[3].get_y(), 0])
+        tags[2].move_to([4.3, book[3].get_y(), 0])
         self.play(FadeIn(tags[2], shift=LEFT * 0.1), run_time=0.4)
         self.hold()
         self.wipe()
@@ -338,7 +303,6 @@ class Cls06Classfile(Narrated):
         self.at(1)
         self.play(GrowArrow(ar), FadeIn(rg), run_time=0.8)
         self.play(FadeIn(spec), run_time=0.5)
-        self.at(2)
         self.play(LaggedStart(*[FadeIn(u, shift=UP * 0.1) for u in users], lag_ratio=0.2), run_time=0.9)
         self.hold()
         self.wipe()
@@ -370,7 +334,7 @@ class Cls06Classfile(Narrated):
         rows_l = T("every class file you have ever run", 22, GREY_A).move_to([0, -3.1, 0])
         self.say("cafe")
         self.play(LaggedStart(*[FadeIn(r, shift=UP * 0.15) for r in rows], lag_ratio=0.15), FadeIn(rows_l), run_time=1.2)
-        self.at(2)
+        self.at(1)
         self.play(Indicate(stamp_l, color=STAMP, scale_factor=1.05), run_time=0.8)
         self.hold()
         self.play(FadeOut(rows), FadeOut(rows_l), FadeOut(stamp_l), run_time=0.5)
@@ -515,9 +479,12 @@ class Cls06Classfile(Narrated):
         self.hold()
 
         # ================= break it: count every entry once =================
-        wrongs = VGroup(*[M(f"reader: #{n}", 20, BAD) for n in (8, 9)])
+        wrongs = VGroup(*[M(f"#{n}?", 24, BAD) for n in (8, 9)])
         for w, k in zip(wrongs, (4, 5)):
             w.next_to(seats[k], DOWN, buff=0.2)
+        wl = T("the reader's count:", 22, BAD).next_to(wrongs[0], LEFT, buff=0.4).align_to(wrongs[0], DOWN)
+        wl.set_x(seats[2].get_x())
+        wrongs[0].add(wl)
         offl = T("every number after it: off by one", 26, BAD).move_to([0, -3.15, 0])
         self.say("wrong")
         self.play(FadeOut(jv), run_time=0.4)
@@ -549,8 +516,8 @@ class Cls06Classfile(Narrated):
 
         parts = [("magic", STAMP), ("versions", STAMP), ("constant pool", GLOSS), ("access flags", GREY_B), ("this_class", GREY_B),
                  ("super", GREY_B), ("interfaces", GREY_B), ("fields", GREY_B), ("methods", CUES), ("attributes", GREY_B)]
-        strip2 = VGroup(*[box(t, c, h=0.62, size=20) for t, c in parts]).arrange(RIGHT, buff=0.08)
-        fit(strip2, 12.6).move_to([0, -1.4, 0])
+        strip2 = VGroup(*[box(t, c, w=2.3, h=0.62, size=22) for t, c in parts]).arrange_in_grid(rows=2, cols=5, buff=(0.12, 0.25))
+        fit(strip2, 12.4).move_to([0, -1.7, 0])
         strip2_l = T("the whole page, in order", 22, GREY_B).next_to(strip2, UP, buff=0.2)
         self.say("after")
         self.play(FadeIn(strip2[0:3]), FadeIn(strip2_l), run_time=0.6)
@@ -652,7 +619,7 @@ class Cls06Classfile(Narrated):
         self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.5)
         self.at(2)
         self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.5)
-        self.at_text("and why", lead=0.3)
+        self.at_text("so the JDK", lead=0.3)
         self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.5)
         self.hold()
         self.wipe()
