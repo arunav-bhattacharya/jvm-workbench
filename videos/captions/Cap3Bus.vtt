@@ -1,369 +1,369 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.843
+00:00:02.733 --> 00:00:07.876
 Remember the board of bells from the Generics workshop, at the fruit shop's back door?
 
 2
-00:00:07.843 --> 00:00:13.345
+00:00:07.876 --> 00:00:13.378
 One bell for each kind of delivery, and everyone who asked to hear a bell came when it rang.
 
 3
-00:00:13.345 --> 00:00:16.096
+00:00:13.378 --> 00:00:16.129
 Pedal Post needs the same board, in its depot.
 
 4
-00:00:16.346 --> 00:00:21.871
+00:00:16.267 --> 00:00:21.792
 When a rider scans PP-7781 as collected, the load board comes for that bell.
 
 5
-00:00:21.871 --> 00:00:24.415
+00:00:21.792 --> 00:00:24.336
 The tracking page wants every bell.
 
 6
-00:00:24.415 --> 00:00:28.995
+00:00:24.336 --> 00:00:28.916
 And the handover log, kept for insurance, wants every handover.
 
 7
-00:00:29.945 --> 00:00:31.420
+00:00:29.800 --> 00:00:31.274
 Let's set up the words.
 
 8
-00:00:31.420 --> 00:00:34.433
+00:00:31.274 --> 00:00:34.287
 The board is the bus, the object in the middle.
 
 9
-00:00:34.433 --> 00:00:40.523
+00:00:34.287 --> 00:00:40.377
 A handler, a small object that reacts to events, subscribes: it signs up for one type of event.
 
 10
-00:00:40.523 --> 00:00:46.356
+00:00:40.377 --> 00:00:46.211
 Code with news publishes an event, and the bus delivers it to every handler that signed up.
 
 11
-00:00:46.606 --> 00:00:53.299
+00:00:46.400 --> 00:00:53.093
 Inside, the bus keeps a registry: a map from each event type to the list of handlers that signed up for it.
 
 12
-00:00:53.299 --> 00:00:57.051
+00:00:53.093 --> 00:00:56.845
 Each bell is a key, and the names under it are its handlers.
 
 13
-00:00:58.001 --> 00:01:00.939
+00:00:57.733 --> 00:01:00.671
 Here are the event types from the last sitting.
 
 14
-00:01:00.939 --> 00:01:03.939
+00:01:00.671 --> 00:01:03.671
 A parcel event is booked, failed, or a handover.
 
 15
-00:01:03.939 --> 00:01:06.939
+00:01:03.671 --> 00:01:06.671
 And a handover is either collected or delivered.
 
 16
-00:01:07.889 --> 00:01:10.716
+00:01:07.600 --> 00:01:10.428
 Now, a question that's easy to be shy about.
 
 17
-00:01:10.716 --> 00:01:12.709
+00:01:10.428 --> 00:01:12.420
 A collection is a parcel event.
 
 18
-00:01:12.709 --> 00:01:13.801
+00:01:12.420 --> 00:01:13.513
 Everybody agrees.
 
 19
-00:01:13.801 --> 00:01:19.393
+00:01:13.513 --> 00:01:19.104
 So if the tracking page signs up for parcel events, why doesn't it hear the collection?
 
 20
-00:01:20.493 --> 00:01:25.448
+00:01:20.200 --> 00:01:25.156
 The workshop's board looked up each event by its class when the program runs.
 
 21
-00:01:25.448 --> 00:01:33.557
+00:01:25.156 --> 00:01:33.265
 Three handlers sign up: tracking under ParcelEvent, the handover log under Handover, and the load board under ParcelCollected.
 
 22
-00:01:33.557 --> 00:01:35.553
+00:01:33.265 --> 00:01:35.260
 Then we publish one collection.
 
 23
-00:01:35.553 --> 00:01:36.775
+00:01:35.260 --> 00:01:36.483
 Which handlers run?
 
 24
-00:01:39.975 --> 00:01:43.486
+00:01:39.733 --> 00:01:43.244
 The demo prints: exact class only, and then just load.
 
 25
-00:01:43.486 --> 00:01:49.013
+00:01:43.244 --> 00:01:48.771
 The event's class is ParcelCollected, so the bus rings that bell, and only that bell.
 
 26
-00:01:49.263 --> 00:01:53.127
+00:01:48.933 --> 00:01:52.798
 The tracking page is the most patient listener in the depot.
 
 27
-00:01:53.127 --> 00:01:56.606
+00:01:52.798 --> 00:01:56.276
 It waits by a bell that, by design, nobody ever rings.
 
 28
-00:01:56.606 --> 00:01:59.053
+00:01:56.276 --> 00:01:58.724
 It compiles, and the page stays blank.
 
 29
-00:02:00.003 --> 00:02:00.723
+00:01:59.600 --> 00:02:00.320
 Here's why.
 
 30
-00:02:00.723 --> 00:02:04.520
+00:02:00.320 --> 00:02:04.117
 No event's class is ever the interface ParcelEvent itself.
 
 31
-00:02:04.520 --> 00:02:09.430
+00:02:04.117 --> 00:02:09.027
 A scan is always one of the leaves: collected, delivered, booked or failed.
 
 32
-00:02:09.430 --> 00:02:11.198
+00:02:09.027 --> 00:02:10.794
 The same goes for Handover.
 
 33
-00:02:11.198 --> 00:02:16.762
+00:02:10.794 --> 00:02:16.359
 And the last sitting built that middle level on purpose, so the bus has to honour it.
 
 34
-00:02:17.712 --> 00:02:19.669
+00:02:17.267 --> 00:02:19.224
 The first honest fix is short.
 
 35
-00:02:19.669 --> 00:02:26.780
+00:02:19.224 --> 00:02:26.335
 Keep one flat list of pairs, a type and a handler, and ask each pair: is this event an instance of your type?
 
 36
-00:02:26.780 --> 00:02:27.628
+00:02:26.335 --> 00:02:27.183
 It's correct.
 
 37
-00:02:27.628 --> 00:02:30.368
+00:02:27.183 --> 00:02:29.923
 But every publish asks every subscription.
 
 38
-00:02:30.618 --> 00:02:35.704
+00:02:30.067 --> 00:02:35.153
 Forty handlers means forty questions per scan, and almost all of them are misses.
 
 39
-00:02:35.704 --> 00:02:41.355
+00:02:35.153 --> 00:02:40.804
 Picture a porter who walks the whole wall reading every name aloud, for every single scan.
 
 40
-00:02:41.355 --> 00:02:42.862
+00:02:40.804 --> 00:02:42.311
 Correct, and exhausting.
 
 41
-00:02:43.112 --> 00:02:48.729
+00:02:42.467 --> 00:02:48.084
 What we really want is a board that knows, for each kind of event, exactly which bells to ring.
 
 42
-00:02:49.679 --> 00:02:51.106
+00:02:49.000 --> 00:02:50.426
 That's the second fix.
 
 43
-00:02:51.106 --> 00:02:53.245
+00:02:50.426 --> 00:02:52.566
 Keep the registry keyed by class.
 
 44
-00:02:53.245 --> 00:03:01.414
+00:02:52.566 --> 00:03:00.735
 Then, for each event class, work out the keys to visit: the class itself, then each supertype that is an event, nearest first.
 
 45
-00:03:01.414 --> 00:03:06.341
+00:03:00.735 --> 00:03:05.662
 A supertype is a type a class extends or implements, directly or further up.
 
 46
-00:03:06.341 --> 00:03:08.870
+00:03:05.662 --> 00:03:08.191
 We'll call that list the dispatch keys.
 
 47
-00:03:09.420 --> 00:03:11.319
+00:03:08.667 --> 00:03:10.566
 Let's walk it for a collection.
 
 48
-00:03:11.319 --> 00:03:14.933
+00:03:10.566 --> 00:03:14.179
 A queue starts with the event's own class, ParcelCollected.
 
 49
-00:03:14.933 --> 00:03:15.668
+00:03:14.179 --> 00:03:14.915
 Take it off.
 
 50
-00:03:15.668 --> 00:03:21.671
+00:03:14.915 --> 00:03:20.917
 It's an event, and it's new, so keep it, and put its interface at the back of the queue: Handover.
 
 51
-00:03:21.921 --> 00:03:22.853
+00:03:21.067 --> 00:03:21.999
 Take Handover.
 
 52
-00:03:22.853 --> 00:03:25.914
+00:03:21.999 --> 00:03:25.060
 Keep it, and queue its interface, ParcelEvent.
 
 53
-00:03:25.914 --> 00:03:27.911
+00:03:25.060 --> 00:03:27.057
 Take ParcelEvent, and keep it.
 
 54
-00:03:27.911 --> 00:03:31.505
+00:03:27.057 --> 00:03:30.651
 Anything that isn't an event, like Object, is skipped.
 
 55
-00:03:31.505 --> 00:03:32.770
+00:03:30.651 --> 00:03:31.916
 The queue is empty.
 
 56
-00:03:33.020 --> 00:03:36.570
+00:03:32.067 --> 00:03:35.616
 Three keys: ParcelCollected, Handover, ParcelEvent.
 
 57
-00:03:36.570 --> 00:03:38.936
+00:03:35.616 --> 00:03:37.983
 Publish looks up only those three.
 
 58
-00:03:38.936 --> 00:03:40.955
+00:03:37.983 --> 00:03:40.001
 Three bells, not forty names.
 
 59
-00:03:41.505 --> 00:03:42.202
+00:03:40.533 --> 00:03:41.231
 Your turn.
 
 60
-00:03:42.202 --> 00:03:44.782
+00:03:41.231 --> 00:03:43.811
 What are the keys for DeliveryFailed?
 
 61
-00:03:47.982 --> 00:03:50.234
+00:03:47.067 --> 00:03:49.318
 DeliveryFailed, then ParcelEvent.
 
 62
-00:03:50.234 --> 00:03:55.078
+00:03:49.318 --> 00:03:54.163
 A failed delivery isn't a handover, so the handover log never hears it.
 
 63
-00:03:56.028 --> 00:03:58.190
+00:03:55.067 --> 00:03:57.229
 Now the same demo with the walk.
 
 64
-00:03:58.190 --> 00:04:01.298
+00:03:57.229 --> 00:04:00.337
 Walking supertypes: load, handovers, tracking.
 
 65
-00:04:01.298 --> 00:04:06.096
+00:04:00.337 --> 00:04:05.135
 The tracking page finally hears the collection, after a very long wait.
 
 66
-00:04:06.346 --> 00:04:08.139
+00:04:05.333 --> 00:04:07.126
 And the order is a promise.
 
 67
-00:04:08.139 --> 00:04:12.056
+00:04:07.126 --> 00:04:11.043
 The most specific handlers run first, then each wider kind.
 
 68
-00:04:12.056 --> 00:04:15.906
+00:04:11.043 --> 00:04:14.894
 Within one key, handlers run in the order they subscribed.
 
 69
-00:04:15.906 --> 00:04:23.674
+00:04:14.894 --> 00:04:22.661
 Sign an insurance handler up under Handover, last of all, and the list becomes: load, handovers, insurance, tracking.
 
 70
-00:04:24.624 --> 00:04:26.299
+00:04:23.533 --> 00:04:25.208
 Here our picture breaks.
 
 71
-00:04:26.299 --> 00:04:32.370
+00:04:25.208 --> 00:04:31.279
 On a real wall, someone would wire the every-parcel bell to ring along with the others.
 
 72
-00:04:32.370 --> 00:04:33.975
+00:04:31.279 --> 00:04:32.884
 Our board has no wires.
 
 73
-00:04:33.975 --> 00:04:42.628
+00:04:32.884 --> 00:04:41.538
 The wiring is the class's own family tree, and the bus reads it with plain Java reflection: getInterfaces and getSuperclass.
 
 74
-00:04:42.628 --> 00:04:43.815
+00:04:41.538 --> 00:04:42.724
 No extra library.
 
 75
-00:04:44.765 --> 00:04:46.659
+00:04:43.600 --> 00:04:45.494
 Here's the heart of the walk.
 
 76
-00:04:46.659 --> 00:04:47.965
+00:04:45.494 --> 00:04:46.800
 Take the next class.
 
 77
-00:04:47.965 --> 00:04:51.296
+00:04:46.800 --> 00:04:50.131
 Skip it if it isn't an event, or was found already.
 
 78
-00:04:51.296 --> 00:04:54.626
+00:04:50.131 --> 00:04:53.462
 Otherwise, queue its interfaces and its superclass.
 
 79
-00:04:54.626 --> 00:04:55.998
+00:04:53.462 --> 00:04:54.833
 Kotlin says the same.
 
 80
-00:04:58.198 --> 00:05:05.290
+00:04:57.000 --> 00:05:04.092
 The answer never changes for a class, so the bus works it out once per class and caches it, with computeIfAbsent.
 
 81
-00:05:05.290 --> 00:05:13.763
+00:05:04.092 --> 00:05:12.565
 On a ConcurrentHashMap that call is one atomic step, so two threads publishing the first collection together can't both fill the cache.
 
 82
-00:05:14.713 --> 00:05:17.852
+00:05:13.467 --> 00:05:16.605
 So, subscribe as wide as the job, and no wider.
 
 83
-00:05:17.852 --> 00:05:23.928
+00:05:16.605 --> 00:05:22.681
 Tracking under ParcelEvent, the handover log under Handover, the load board under the leaf.
 
 84
-00:05:23.928 --> 00:05:30.605
+00:05:22.681 --> 00:05:29.359
 And remember what wide means: a handler for ParcelEvent also hears every event type added next year.
 
 85
-00:05:31.555 --> 00:05:34.698
+00:05:30.267 --> 00:05:33.409
 So, why didn't the tracking page hear the collection?
 
 86
-00:05:34.698 --> 00:05:38.612
+00:05:33.409 --> 00:05:37.323
 Because the board rang only the bell with the event's exact class.
 
 87
-00:05:38.612 --> 00:05:43.949
+00:05:37.323 --> 00:05:42.660
 Now each publish rings its own bell, then each wider one, nearest first, and nothing else.
 
 88
-00:05:44.199 --> 00:05:45.029
+00:05:42.800 --> 00:05:43.630
 Quick check.
 
 89
-00:05:45.029 --> 00:05:46.759
+00:05:43.630 --> 00:05:45.360
 Publish a DeliveryFailed.
 
 90
-00:05:46.759 --> 00:05:50.427
+00:05:45.360 --> 00:05:49.028
 Which of the three run: tracking, handovers, or load?
 
 91
-00:05:53.627 --> 00:05:54.573
+00:05:52.267 --> 00:05:53.213
 Only tracking.
 
 92
-00:05:54.573 --> 00:06:01.533
+00:05:53.213 --> 00:06:00.173
 The keys are DeliveryFailed and ParcelEvent, and the only handler under those two is the tracking page.

@@ -17,7 +17,7 @@ N = {
             "board, in its depot.",
     "who": "When a rider scans PP-7781 as collected, the load board comes for that bell. The tracking page wants every "
            "bell. And the handover log, kept for insurance, wants every handover.",
-    "words": "Let's set up the words. The board is the bus, the object in the middle. A handler, a small object that "
+    "words": "Let's set up the words. The board is the bus. A handler, a small object that "
              "reacts to events, subscribes: it signs up for one type of event. Code with news publishes an event, and "
              "the bus delivers it to every handler that signed up.",
     "registry": "Inside, the bus keeps a registry: a map from each event type to the list of handlers that signed up "
@@ -34,12 +34,12 @@ N = {
     "patient": "The tracking page is the most patient listener in the depot. It waits by a bell that, by design, "
                "nobody ever rings. It compiles, and the page stays blank.",
     "why": "Here's why. No event's class is ever the interface ParcelEvent itself. A scan is always one of the leaves: "
-           "collected, delivered, booked or failed. The same goes for Handover. And the last sitting built that middle "
-           "level on purpose, so the bus has to honour it.",
+           "collected, delivered, booked or failed. The same goes for Handover, a middle level the last sitting built "
+           "on purpose.",
     "flat": "The first honest fix is short. Keep one flat list of pairs, a type and a handler, and ask each pair: is "
             "this event an instance of your type? It's correct. But every publish asks every subscription.",
-    "flat2": "Forty handlers means forty questions per scan, and almost all of them are misses. Picture a porter who "
-             "walks the whole wall reading every name aloud, for every single scan. Correct, and exhausting.",
+    "flat2": "Forty handlers means forty questions per scan, almost all of them misses. Picture a porter who walks "
+             "the whole wall reading every name aloud, for every single scan. Correct, and exhausting.",
     "wish": "What we really want is a board that knows, for each kind of event, exactly which bells to ring.",
     "keys": "That's the second fix. Keep the registry keyed by class. Then, for each event class, work out the keys to "
             "visit: the class itself, then each supertype that is an event, nearest first. A supertype is a type a "
@@ -58,14 +58,13 @@ N = {
     "order": "And the order is a promise. The most specific handlers run first, then each wider kind. Within one key, "
              "handlers run in the order they subscribed. Sign an insurance handler up under Handover, last of all, and "
              "the list becomes: load, handovers, insurance, tracking.",
-    "breaks": "Here our picture breaks. On a real wall, someone would wire the every-parcel bell to ring along with the "
-              "others. Our board has no wires. The wiring is the class's own family tree, and the bus reads it with "
-              "plain Java reflection: getInterfaces and getSuperclass. No extra library.",
+    "breaks": "Here our picture breaks. On a real wall, someone would wire the every-parcel bell to the others. Our "
+              "board has no wires. The wiring is the class's own family tree, read with plain Java reflection: "
+              "getInterfaces and getSuperclass.",
     "code": "Here's the heart of the walk. Take the next class. Skip it if it isn't an event, or was found already. "
             "Otherwise, queue its interfaces and its superclass. Kotlin says the same.",
     "cache": "The answer never changes for a class, so the bus works it out once per class and caches it, with "
-             "computeIfAbsent. On a ConcurrentHashMap that call is one atomic step, so two threads publishing the "
-             "first collection together can't both fill the cache.",
+             "computeIfAbsent. On a ConcurrentHashMap that's one atomic step, so two threads can't both fill it.",
     "guard": "So, subscribe as wide as the job, and no wider. Tracking under ParcelEvent, the handover log under "
              "Handover, the load board under the leaf. And remember what wide means: a handler for ParcelEvent also "
              "hears every event type added next year.",
@@ -377,7 +376,7 @@ class Cap3Bus(Narrated):
         self.at_text("No event's class", lead=0.3)
         self.play(Circumscribe(tr.nodes["ParcelEvent"], color=BAD, buff=0.06), run_time=0.9)
         self.at_text("A scan is always", lead=0.3)
-        self.play(*[Indicate(l, color=LOAD, scale_factor=1.08) for l in leaves], run_time=1.0)
+        self.play(*[Indicate(l[1], color=LOAD, scale_factor=1.08) for l in leaves], run_time=1.0)
         self.at_text("The same goes", lead=0.3)
         self.play(Circumscribe(tr.nodes["Handover"], color=BAD, buff=0.06), run_time=0.9)
         never = T("no event's class is ever an interface: it's always a leaf", 26, GREY_A).move_to([0, -2.6, 0])
@@ -456,18 +455,18 @@ class Cap3Bus(Narrated):
         self.play(FadeIn(q_l), FadeIn(f_l), run_time=0.4)
         self.at_text("A queue starts", lead=0.3)
         c1 = qchip("ParcelCollected").move_to(qslots[0])
-        self.play(FadeIn(c1, shift=DOWN * 0.1), Indicate(tr.nodes["ParcelCollected"], color=CLERK), run_time=0.7)
+        self.play(FadeIn(c1, shift=DOWN * 0.1), Indicate(tr.nodes["ParcelCollected"][1], color=CLERK), run_time=0.7)
         self.at_text("Take it off", lead=0.3)
-        self.play(c1.animate.move_to(fslots[0]).set_color(CLERK), run_time=0.7)
+        self.play(c1.animate.move_to(fslots[0]), run_time=0.7)
         self.at_text("and put its interface", lead=0.3)
         c2 = qchip("Handover").move_to(qslots[0])
-        self.play(FadeIn(c2, shift=DOWN * 0.1), Indicate(tr.nodes["Handover"], color=CLERK), run_time=0.7)
+        self.play(FadeIn(c2, shift=DOWN * 0.1), Indicate(tr.nodes["Handover"][1], color=CLERK), run_time=0.7)
         self.hold()
         self.say("walk2")
         self.play(c2.animate.move_to(fslots[1]), run_time=0.6)
         self.at_text("and queue its", lead=0.3)
         c3 = qchip("ParcelEvent").move_to(qslots[0])
-        self.play(FadeIn(c3, shift=DOWN * 0.1), Indicate(tr.nodes["ParcelEvent"], color=CLERK), run_time=0.6)
+        self.play(FadeIn(c3, shift=DOWN * 0.1), Indicate(tr.nodes["ParcelEvent"][1], color=CLERK), run_time=0.6)
         self.at_text("Take ParcelEvent", lead=0.3)
         self.play(c3.animate.move_to(fslots[2]), run_time=0.6)
         self.at_text("Anything that", lead=0.3)
@@ -479,7 +478,7 @@ class Cap3Bus(Narrated):
         self.hold()
         keys = VGroup(c1, c2, c3)
         self.say("keys_a")
-        self.play(*[Indicate(k, color=CLERK, scale_factor=1.06) for k in keys], run_time=0.9)
+        self.play(*[Indicate(k[1], color=CLERK, scale_factor=1.1) for k in keys], run_time=0.9)
         self.at_text("Three bells", lead=0.3)
         tb = T("three bells, not forty names", 26, CLERK).next_to(kdef, DOWN, buff=0.45)
         self.play(FadeIn(tb, shift=UP * 0.1), run_time=0.6)
@@ -489,7 +488,7 @@ class Cap3Bus(Narrated):
         self.play(FadeOut(tb), run_time=0.3)
         df = T("keys for DeliveryFailed?", 28, CLERK).move_to(kdef.get_center() + DOWN * 1.8)
         self.say("predict2")
-        self.play(FadeIn(df, shift=UP * 0.1), Indicate(tr.nodes["DeliveryFailed"], color=CLERK), run_time=0.7)
+        self.play(FadeIn(df, shift=UP * 0.1), Indicate(tr.nodes["DeliveryFailed"][1], color=CLERK), run_time=0.7)
         self.hold(after=0)
         self.predict(2.6, pos=(3.9, -0.6), edge=ORIGIN)
         dfk = M("[DeliveryFailed, ParcelEvent]", 24, CLERK).next_to(df, DOWN, buff=0.25)
@@ -536,7 +535,7 @@ class Cap3Bus(Narrated):
         # ================= where the picture breaks =================
         b1, b2 = bell(1.4).move_to([-4.6, 1.2, 0]), bell(1.4).move_to([-1.8, 1.2, 0])
         wire = CubicBezier(b1.get_bottom(), b1.get_bottom() + DOWN * 1.2, b2.get_bottom() + DOWN * 1.2, b2.get_bottom())
-        wire.set_stroke(GREY_B, 3)
+        wire.set_stroke(GREY_B, 3).set_fill(opacity=0)
         cross = tick(False, 0.35).move_to(wire.point_from_proportion(0.5))
         wl = T("a real wall: wires", 24, GREY_A).next_to(VGroup(b1, b2), UP, buff=0.3)
         tr = tree(20, 0.9).move_to([3.6, 1.0, 0])
@@ -546,7 +545,7 @@ class Cap3Bus(Narrated):
         self.say("breaks")
         self.play(FadeIn(b1), FadeIn(b2), FadeIn(wl), Create(wire), run_time=0.9)
         self.at_text("Our board has no", lead=0.3)
-        self.play(Create(cross), wire.animate.set_opacity(0.3), run_time=0.5)
+        self.play(Create(cross), wire.animate.set_stroke(opacity=0.3), run_time=0.5)
         self.at_text("The wiring is", lead=0.3)
         self.play(FadeIn(tr), FadeIn(tl), run_time=0.7)
         self.at_text("plain Java", lead=0.3)
