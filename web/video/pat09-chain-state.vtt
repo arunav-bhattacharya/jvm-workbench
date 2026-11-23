@@ -1,145 +1,425 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.590
-A charge request reaches your payment API.
+00:00:02.700 --> 00:00:05.626
+A customer comes to the corner shop's counter.
 
 2
-00:00:05.590 --> 00:00:12.335
-Before anything charges the card, it passes three checks: logging, auth, and an idempotency check.
+00:00:05.626 --> 00:00:08.489
+The teapot from her gift box arrived cracked.
 
 3
-00:00:12.533 --> 00:00:18.065
-Each check either answers now, and the request goes no further, or hands it to the next one.
+00:00:08.489 --> 00:00:09.888
+So who sorts that out?
 
 4
-00:00:18.267 --> 00:00:21.038
-This one has a token and the key 7781.
+00:00:10.900 --> 00:00:12.654
+The shop has a simple habit.
 
 5
-00:00:21.038 --> 00:00:24.903
-Every check passes it on, and the charge answers 200.
+00:00:12.654 --> 00:00:16.788
+The shop assistant can sort out anything worth up to 5.00 herself.
 
 6
-00:00:24.903 --> 00:00:28.185
-On the way back out, logging writes its line.
+00:00:16.788 --> 00:00:20.922
+Anything bigger goes to the manager, who can sort out up to 50.00.
 
 7
-00:00:28.400 --> 00:00:29.779
-Send it again.
+00:00:20.922 --> 00:00:24.367
+The rest goes to head office, which answers everything.
 
 8
-00:00:29.779 --> 00:00:34.899
-Idempotency has seen 7781, so it answers 409 itself.
+00:00:24.367 --> 00:00:25.056
+Eventually.
 
 9
-00:00:35.133 --> 00:00:39.386
-Key 7782 arrives with no token, and auth answers 401.
+00:00:25.967 --> 00:00:28.931
+So here's a question that's easy to be shy about.
 
 10
-00:00:39.386 --> 00:00:44.683
-The client adds the token and retries, and this time it's charged.
+00:00:28.931 --> 00:00:31.836
+Why not write one method that knows all of this?
 
 11
-00:00:45.500 --> 00:00:50.392
-That's a chain of responsibility: each link answers now, or calls the next.
+00:00:31.836 --> 00:00:36.434
+An if for the assistant, an if for the manager, and an else for head office.
 
 12
-00:00:50.600 --> 00:00:55.082
-Now swap auth and idempotency, and replay the last two requests.
+00:00:36.434 --> 00:00:38.068
+Why build anything fancier?
 
 13
-00:00:55.082 --> 00:00:57.182
-What does the fixed retry get?
+00:00:39.000 --> 00:00:41.107
+Let's try it, and watch it grow.
 
 14
-00:00:57.182 --> 00:00:58.023
-Pause on it.
+00:00:41.107 --> 00:00:42.490
+First the two limits.
 
 15
-00:01:00.200 --> 00:01:00.558
-409.
+00:00:42.490 --> 00:00:44.202
+Then: no receipt, no help.
 
 16
-00:01:00.558 --> 00:01:10.127
-Idempotency took key 7782 before auth turned that request away, so the honest retry looks like a duplicate.
+00:00:44.202 --> 00:00:46.178
+Then: one complaint per order.
 
 17
-00:01:10.127 --> 00:01:12.631
-Order 7782 is never charged.
+00:00:46.178 --> 00:00:49.931
+Then the complaints book, which writes down every answer.
 
 18
-00:01:12.631 --> 00:01:15.672
-The order of the list is behavior.
+00:00:49.931 --> 00:00:52.565
+Every new rule lands in the same method.
 
 19
-00:01:16.633 --> 00:01:19.157
-State is the other half of this lesson.
+00:00:52.767 --> 00:00:54.830
+It's not really a method any more.
 
 20
-00:01:19.157 --> 00:01:25.500
-A payment goes from Created to Authorized, Captured and Refunded, and a Decline can fail it early.
+00:00:54.830 --> 00:00:57.623
+It's the whole staff, squeezed onto one chair.
 
 21
-00:01:25.700 --> 00:01:29.571
-Each state accepts only some events, and picks the next state.
+00:00:57.833 --> 00:01:04.667
+What we'd like is for each person to know only two things: their own job, and that somebody comes after them.
 
 22
-00:01:29.571 --> 00:01:32.255
-Authorize moves this payment to Authorized.
+00:01:05.600 --> 00:01:08.515
+And that's exactly how the real counter works.
 
 23
-00:01:32.255 --> 00:01:34.253
-Capture moves it on to Captured.
+00:01:08.515 --> 00:01:11.811
+Nobody needs to know who sits further down the line.
 
 24
-00:01:34.433 --> 00:01:37.765
-A new payment, still Created, gets a Capture.
+00:01:11.811 --> 00:01:15.803
+Each person looks at the complaint, and does one of two things.
 
 25
-00:01:37.765 --> 00:01:38.728
-What happens?
+00:01:15.803 --> 00:01:16.437
+Answer it.
 
 26
-00:01:38.728 --> 00:01:39.616
-Pause on it.
+00:01:16.437 --> 00:01:17.324
+Or pass it on.
 
 27
-00:01:41.800 --> 00:01:42.490
-Rejected.
+00:01:18.133 --> 00:01:18.992
+Let's map it.
 
 28
-00:01:42.490 --> 00:01:46.933
-Created has no rule for Capture, so the transition throws.
+00:01:18.992 --> 00:01:20.907
+The complaint is the request.
 
 29
-00:01:47.867 --> 00:01:51.857
-In code, that's sealed states, sealed events, and one pure function.
+00:01:20.907 --> 00:01:23.351
+Each person in the line is a handler.
 
 30
-00:01:51.857 --> 00:01:55.965
-It switches on the state, then on the event, and anything else throws.
+00:01:23.351 --> 00:01:28.040
+Passing it on is a call to next: the rest of the line, whoever that is.
 
 31
-00:01:56.767 --> 00:02:05.861
-The rule: a chain passes the request along until one link answers, and in a state machine, the current state decides what may happen next.
+00:01:28.040 --> 00:01:30.220
+And head office is the last stop.
 
 32
-00:02:06.567 --> 00:02:07.603
-A quick check.
+00:01:31.133 --> 00:01:35.769
+In code, a handler is a small function of the complaint and next.
 
 33
-00:02:07.603 --> 00:02:11.598
-A Refund arrives for a payment that's only Authorized.
+00:01:35.769 --> 00:01:37.266
+Here's the assistant.
 
 34
-00:02:11.598 --> 00:02:12.560
-What happens?
+00:01:37.266 --> 00:01:40.190
+The shop counts in cents, so 5.00 is 500.
 
 35
-00:02:14.500 --> 00:02:15.295
-Rejected.
+00:01:40.190 --> 00:01:41.545
+Worth that or less?
 
 36
-00:02:15.295 --> 00:02:18.033
-Only Captured accepts a Refund.
+00:01:41.545 --> 00:01:43.684
+Answer now: assistant, sorted.
+
+37
+00:01:43.684 --> 00:01:46.251
+And the rest of the line never runs.
+
+38
+00:01:46.251 --> 00:01:47.820
+Otherwise, pass it on.
+
+39
+00:01:48.733 --> 00:01:50.621
+Now the whole desk, as a list.
+
+40
+00:01:50.621 --> 00:01:52.257
+First the complaints book.
+
+41
+00:01:52.257 --> 00:01:55.278
+Then the receipt check: no receipt, turned away.
+
+42
+00:01:55.278 --> 00:01:59.934
+Then once per order: a second complaint about the same order, turned away.
+
+43
+00:01:59.934 --> 00:02:03.017
+Then the assistant, the manager, and head office.
+
+44
+00:02:03.633 --> 00:02:05.569
+The book is the interesting one.
+
+45
+00:02:05.569 --> 00:02:08.412
+It calls next first, and writes its line after.
+
+46
+00:02:08.412 --> 00:02:11.255
+So on the way in, the book does nothing at all.
+
+47
+00:02:11.255 --> 00:02:14.945
+It waits for the reply to come back, and then writes it down.
+
+48
+00:02:15.767 --> 00:02:17.935
+That's the shape of every handler.
+
+49
+00:02:17.935 --> 00:02:20.231
+Code before next runs on the way in.
+
+50
+00:02:20.231 --> 00:02:23.610
+Code after next runs on the way back, with the reply.
+
+51
+00:02:23.610 --> 00:02:26.097
+And no next at all ends the trip early.
+
+52
+00:02:27.500 --> 00:02:29.345
+Now four customers come in.
+
+53
+00:02:29.345 --> 00:02:32.966
+One: the cracked teapot, worth 18.00, with a receipt.
+
+54
+00:02:32.966 --> 00:02:34.811
+Two: the same teapot again.
+
+55
+00:02:34.811 --> 00:02:38.842
+Three: stale bread, worth 2.50, but the receipt is at home.
+
+56
+00:02:38.842 --> 00:02:41.848
+Four: the same bread, back with the receipt.
+
+57
+00:02:42.067 --> 00:02:43.516
+Who answers each one?
+
+58
+00:02:43.516 --> 00:02:45.932
+And how many complaints get sorted?
+
+59
+00:02:45.932 --> 00:02:47.036
+Pause and guess.
+
+60
+00:02:50.633 --> 00:02:53.735
+Here's what the lesson's ComplaintDeskDemo printed.
+
+61
+00:02:53.735 --> 00:02:58.540
+The teapot is worth 18.00, too much for the assistant, so the manager sorts it.
+
+62
+00:02:58.767 --> 00:03:03.189
+The second time, once per order stops it: we sorted this one already.
+
+63
+00:03:03.400 --> 00:03:06.506
+The bread without a receipt: please bring the receipt.
+
+64
+00:03:06.506 --> 00:03:09.728
+And when she comes back with it, the assistant sorts it.
+
+65
+00:03:09.933 --> 00:03:11.378
+Two complaints sorted.
+
+66
+00:03:11.378 --> 00:03:12.757
+And look at the book.
+
+67
+00:03:12.757 --> 00:03:19.127
+It wrote a line for all four, the turned away ones too, because every reply travels back past it.
+
+68
+00:03:19.833 --> 00:03:23.133
+That's where the shop picture breaks, in a useful way.
+
+69
+00:03:23.133 --> 00:03:28.022
+In the shop, an assistant who passes a complaint on may never hear how it ended.
+
+70
+00:03:28.022 --> 00:03:35.661
+In code, the reply comes back through every handler that passed it on, and each one can read it, write it down, or change it.
+
+71
+00:03:36.367 --> 00:03:38.433
+Now let's break it on purpose.
+
+72
+00:03:38.433 --> 00:03:43.117
+Swap two handlers, so once per order comes before the receipt check.
+
+73
+00:03:43.117 --> 00:03:44.770
+The same four customers.
+
+74
+00:03:44.770 --> 00:03:45.666
+What changes?
+
+75
+00:03:45.666 --> 00:03:46.768
+Pause and guess.
+
+76
+00:03:50.267 --> 00:03:55.399
+The bread without a receipt is marked as handled first, and only then turned away.
+
+77
+00:03:55.399 --> 00:04:00.343
+So when she comes back with the receipt, she hears: we sorted this one already.
+
+78
+00:04:00.343 --> 00:04:01.657
+Complaints sorted: 1.
+
+79
+00:04:01.867 --> 00:04:02.232
+Well.
+
+80
+00:04:02.232 --> 00:04:06.616
+She now has a receipt, a complaint, and the same stale loaf.
+
+81
+00:04:06.833 --> 00:04:10.498
+So the point is this: the order of the list is behavior.
+
+82
+00:04:10.498 --> 00:04:13.770
+Moving two lines changed what a customer was told.
+
+83
+00:04:13.770 --> 00:04:15.472
+Pin the order with a test.
+
+84
+00:04:16.400 --> 00:04:19.597
+What we built has a name: Chain of Responsibility.
+
+85
+00:04:19.597 --> 00:04:26.312
+A request travels along a list of handlers, and each handler either answers it, or passes it to the next.
+
+86
+00:04:27.033 --> 00:04:31.640
+The 1994 book of design patterns links handlers with a setNext method.
+
+87
+00:04:31.640 --> 00:04:32.759
+We don't need it.
+
+88
+00:04:32.759 --> 00:04:38.419
+Start from the last stop, and wrap it in each handler, from the last one to the first.
+
+89
+00:04:38.419 --> 00:04:45.065
+That walk is called a fold, and the chain it builds can't change, so one desk serves every complaint.
+
+90
+00:04:45.967 --> 00:04:46.972
+Two guardrails.
+
+91
+00:04:46.972 --> 00:04:51.599
+Every path through a handler must answer, or call next, exactly once.
+
+92
+00:04:51.599 --> 00:04:57.298
+Forget next, and in Java it's tempting to return null: the complaint just disappears.
+
+93
+00:04:57.298 --> 00:05:00.784
+Call next twice, and everything after it runs twice.
+
+94
+00:05:00.784 --> 00:05:02.661
+Two new teapots in the post.
+
+95
+00:05:02.867 --> 00:05:10.084
+And work for the way back, like the book's line, belongs in a finally block, so an exception further down can't skip it.
+
+96
+00:05:11.000 --> 00:05:12.829
+So, why not one big method?
+
+97
+00:05:12.829 --> 00:05:17.300
+Because in a chain, each person knows one job, and one word: next.
+
+98
+00:05:17.300 --> 00:05:19.265
+The list decides who answers.
+
+99
+00:05:19.265 --> 00:05:23.059
+And the reply comes back past everyone who passed it on.
+
+100
+00:05:23.267 --> 00:05:24.197
+Quick check.
+
+101
+00:05:24.197 --> 00:05:30.165
+A customer brings a complaint worth 60.00, with a receipt, about a new order.
+
+102
+00:05:30.165 --> 00:05:31.096
+Who answers?
+
+103
+00:05:31.096 --> 00:05:33.576
+And does the book write it down?
+
+104
+00:05:36.767 --> 00:05:41.341
+Head office, because 60.00 is more than the manager can sort.
+
+105
+00:05:41.341 --> 00:05:41.941
+And yes.
+
+106
+00:05:41.941 --> 00:05:46.515
+The reply travels back through the book, so it gets its line.

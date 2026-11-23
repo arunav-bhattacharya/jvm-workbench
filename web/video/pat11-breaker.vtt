@@ -1,141 +1,357 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:04.980
-The card issuer is having a bad day.
+00:00:02.700 --> 00:00:05.831
+Ten o'clock on a busy Saturday at the corner shop.
 
 2
-00:00:04.980 --> 00:00:08.527
-Each charge waits two seconds for a timeout, then fails.
+00:00:05.831 --> 00:00:08.650
+The Big Blue Vans booking service goes quiet.
 
 3
-00:00:08.527 --> 00:00:12.960
-Your callers wait for nothing, and the issuer gets no room to recover.
+00:00:08.650 --> 00:00:12.094
+Every call to it hangs for two seconds, and then fails.
 
 4
-00:00:13.167 --> 00:00:15.963
-A circuit breaker stops calling it for a while.
+00:00:12.094 --> 00:00:16.103
+And each time, a customer at the counter stands there and waits.
 
 5
-00:00:15.963 --> 00:00:19.532
-It wraps every call to the issuer, the way a decorator does.
+00:00:16.633 --> 00:00:23.531
+A service, here, is another program the shop's program calls over the network, like the van company's booking line.
 
 6
-00:00:19.532 --> 00:00:21.912
-And it is always in one of three states.
+00:00:24.033 --> 00:00:27.185
+So here's a question that's easy to be shy about.
 
 7
-00:00:22.133 --> 00:00:23.847
-Closed is the normal state.
+00:00:27.185 --> 00:00:29.822
+The van company is the one that's broken.
 
 8
-00:00:23.847 --> 00:00:27.720
-Calls pass through, and the breaker counts failures in a row.
+00:00:29.822 --> 00:00:32.267
+So why is my shop the one that's slow?
 
 9
-00:00:27.720 --> 00:00:30.132
-A success sets the count back to zero.
+00:00:32.867 --> 00:00:34.778
+Because the shop keeps dialing.
 
 10
-00:00:30.333 --> 00:00:34.454
-Now the issuer goes down again, and fails three times in a row.
+00:00:34.778 --> 00:00:37.675
+The first customer waits two seconds, for a no.
 
 11
-00:00:34.454 --> 00:00:36.809
-The third failure trips the breaker.
+00:00:37.675 --> 00:00:40.634
+The next one waits two seconds, for the same no.
 
 12
-00:00:36.809 --> 00:00:39.164
-It opens, until 30 seconds from now.
+00:00:40.634 --> 00:00:44.456
+Every call holds a thread, and the queue at the counter grows.
 
 13
-00:00:39.367 --> 00:00:41.102
-Open means calls fail fast.
+00:00:44.667 --> 00:00:46.824
+And the usual cure makes it worse.
 
 14
-00:00:41.102 --> 00:00:45.342
-The breaker throws CallNotPermitted at once, with no network trip.
+00:00:46.824 --> 00:00:53.171
+Retry three times, and each customer waits three times as long, for an answer that was never coming.
 
 15
-00:00:45.342 --> 00:00:49.776
-Your callers get a quick answer, and the issuer gets room to recover.
+00:00:53.400 --> 00:00:58.975
+It's like phoning a shop that's closed for the day, and deciding the fix is to phone it faster.
 
 16
-00:00:50.000 --> 00:00:53.146
-When the cool-down ends, the breaker goes half-open.
+00:00:59.200 --> 00:01:06.844
+What we'd like is for the shop to notice that the line is dead, stop dialing for a while, and now and then, check whether it's back.
 
 17
-00:00:53.146 --> 00:00:56.413
-It lets one trial call through, and that call decides.
+00:01:07.767 --> 00:01:12.346
+The shop's back room already has a thing that does exactly that: the fuse box.
 
 18
-00:00:56.633 --> 00:00:58.964
-If it succeeds, the breaker closes.
+00:01:12.346 --> 00:01:19.449
+When something goes wrong in the wiring, the circuit breaker trips and cuts the power, so the fault can't do more damage.
 
 19
-00:00:58.964 --> 00:01:03.025
-If it fails, the breaker opens again, for another 30 seconds.
+00:01:19.667 --> 00:01:20.521
+Let's map it.
 
 20
-00:01:04.000 --> 00:01:06.918
-Every request thread shares this one breaker.
+00:01:20.521 --> 00:01:23.151
+The wire is the call to the van company.
 
 21
-00:01:06.918 --> 00:01:09.641
-So the state lives in one AtomicReference.
+00:01:23.151 --> 00:01:26.438
+Closed means the power flows, so calls go through.
 
 22
-00:01:09.641 --> 00:01:15.476
-Each state is a small immutable record, and the reference only changes by compare-and-set.
+00:01:26.438 --> 00:01:32.486
+After a run of failures, it trips to open: calls fail at once, without even trying the vans.
 
 23
-00:01:15.700 --> 00:01:18.985
-Compare-and-set takes the record you read, and a new one.
+00:01:32.486 --> 00:01:38.074
+After a cool-down, it goes half-open, and lets one test call through, called a probe.
 
 24
-00:01:18.985 --> 00:01:23.308
-It swaps the new one in only if the reference still holds the one you read.
+00:01:38.074 --> 00:01:40.047
+If the probe works, it closes.
 
 25
-00:01:24.000 --> 00:01:27.095
-The breaker opened with a 30-second cool-down.
+00:01:40.047 --> 00:01:41.559
+If not, it opens again.
 
 26
-00:01:27.095 --> 00:01:33.485
-In a test, an injected clock jumps 31 seconds ahead, and eight threads call at the same moment.
+00:01:41.767 --> 00:01:44.151
+Yes, closed means the calls go through.
 
 27
-00:01:33.667 --> 00:01:40.820
-Each one reads Open, sees that the cool-down is over, and calls compareAndSet, from that Open to HalfOpen.
+00:01:44.151 --> 00:01:48.429
+Think of a closed loop of wire: the current can get all the way round.
 
 28
-00:01:41.033 --> 00:01:43.363
-Exactly one wins, and runs the probe.
+00:01:48.429 --> 00:01:49.957
+Open means there's a gap.
 
 29
-00:01:43.363 --> 00:01:47.769
-For the other seven, the reference no longer holds the Open they read.
+00:01:50.867 --> 00:01:52.476
+Let's use small numbers.
 
 30
-00:01:47.769 --> 00:01:51.357
-Their compareAndSet fails, and they get CallNotPermitted.
+00:01:52.476 --> 00:01:58.041
+The breaker opens after three failures in a row, and stays open for thirty seconds.
 
 31
-00:01:51.567 --> 00:01:56.181
-With a plain set, all eight would get through, to an issuer that may still be down.
+00:01:58.041 --> 00:01:59.985
+A booking fails: closed, one.
 
 32
-00:01:57.100 --> 00:02:01.196
-In code, it is a few lines, the same in Java and in Kotlin.
+00:01:59.985 --> 00:02:01.662
+Another one: closed, two.
 
 33
-00:02:01.196 --> 00:02:02.237
-Read the state.
+00:02:01.662 --> 00:02:04.008
+A third: that's three, so it trips.
 
 34
-00:02:02.237 --> 00:02:08.277
-If it is Open and the time is up, try compareAndSet to HalfOpen, and throw if you lose.
+00:02:04.008 --> 00:02:06.288
+Open, for the next thirty seconds.
 
 35
-00:02:08.467 --> 00:02:18.628
-So the breaker is three patterns in one class: sealed states, a wrapper around every call, and one AtomicReference that changes only by compare-and-set.
+00:02:06.500 --> 00:02:08.366
+Now the next booking arrives.
+
+36
+00:02:08.366 --> 00:02:12.999
+The breaker is open, so it's turned away at once, with CallNotPermitted.
+
+37
+00:02:12.999 --> 00:02:15.766
+No call to the van company, and no waiting.
+
+38
+00:02:15.766 --> 00:02:19.433
+The customer hears no right away, and can try Pedal Post.
+
+39
+00:02:20.367 --> 00:02:21.962
+Now the tricky moment.
+
+40
+00:02:21.962 --> 00:02:26.532
+The breaker opened at 10:00:00, with a thirty second cool-down.
+
+41
+00:02:26.532 --> 00:02:30.231
+At 10:00:31, eight threads call at the same moment.
+
+42
+00:02:30.231 --> 00:02:32.914
+How many calls reach the van company?
+
+43
+00:02:32.914 --> 00:02:34.075
+Pause and guess.
+
+44
+00:02:37.467 --> 00:02:39.910
+Let's be fair to the obvious code first.
+
+45
+00:02:39.910 --> 00:02:45.225
+Each thread reads the state, sees that the cool-down is over, and sets it to half-open.
+
+46
+00:02:45.225 --> 00:02:48.951
+But two threads can both read open before either one sets it.
+
+47
+00:02:48.951 --> 00:02:53.899
+Then several probes go out together, to a service that's barely back on its feet.
+
+48
+00:02:54.500 --> 00:02:58.330
+So the move from open to half-open is a compare-and-set.
+
+49
+00:02:58.330 --> 00:03:01.818
+Read it as: update it only if nobody beat me to it.
+
+50
+00:03:01.818 --> 00:03:02.776
+All eight try.
+
+51
+00:03:02.776 --> 00:03:05.306
+Exactly one wins, and runs the probe.
+
+52
+00:03:05.306 --> 00:03:09.957
+The other seven find the state already changed, and are turned away.
+
+53
+00:03:09.957 --> 00:03:11.393
+So the answer is one.
+
+54
+00:03:12.300 --> 00:03:16.990
+Now look at what it's made of: three patterns from this track, in one class.
+
+55
+00:03:16.990 --> 00:03:21.433
+Its states are sealed records with a transition, as in the State lesson.
+
+56
+00:03:21.433 --> 00:03:25.568
+Its call wraps any operation and keeps its shape, like a decorator.
+
+57
+00:03:25.568 --> 00:03:30.567
+And its state lives in an AtomicReference, a holder that threads can swap safely.
+
+58
+00:03:31.500 --> 00:03:36.039
+Here's the transition after a failed call, applied in one atomic step.
+
+59
+00:03:36.039 --> 00:03:37.985
+A failed probe opens it again.
+
+60
+00:03:37.985 --> 00:03:41.227
+A closed breaker that reaches the threshold trips.
+
+61
+00:03:41.227 --> 00:03:43.692
+A closed one below it counts one more.
+
+62
+00:03:43.692 --> 00:03:45.443
+And an open one stays open.
+
+63
+00:03:45.667 --> 00:03:47.999
+Kotlin says the same thing with a when.
+
+64
+00:03:48.900 --> 00:03:51.018
+One more choice makes it testable.
+
+65
+00:03:51.018 --> 00:03:54.631
+Time comes from a Clock passed in through the constructor.
+
+66
+00:03:54.631 --> 00:04:00.611
+So a test hands it a fake clock, and moves time forward 31 seconds at once, instead of sleeping.
+
+67
+00:04:00.833 --> 00:04:05.576
+A test that sleeps for thirty seconds is a test that nobody runs twice.
+
+68
+00:04:06.500 --> 00:04:09.104
+The fuse box picture breaks in two places.
+
+69
+00:04:09.104 --> 00:04:12.203
+A real breaker stays off until a person resets it.
+
+70
+00:04:12.203 --> 00:04:15.923
+The software one tries again by itself, after the cool-down.
+
+71
+00:04:15.923 --> 00:04:19.208
+And a real breaker reacts to the current in the wire.
+
+72
+00:04:19.208 --> 00:04:25.221
+The software one only counts failures, so you must tell it which errors mean the service is sick.
+
+73
+00:04:25.433 --> 00:04:30.195
+A van company that answers, no vans free in your area, is working perfectly.
+
+74
+00:04:30.195 --> 00:04:34.769
+That's a polite no, not a sick service, and it must not trip the breaker.
+
+75
+00:04:35.700 --> 00:04:36.929
+So here's the rule.
+
+76
+00:04:36.929 --> 00:04:45.335
+Count only the failures that mean the service is sick, and let one probe, chosen by compare-and-set, decide when it has recovered.
+
+77
+00:04:45.567 --> 00:04:46.559
+Two guardrails.
+
+78
+00:04:46.559 --> 00:04:53.700
+Retry in one layer only, outside the breaker, and never retry a rejection: that's the breaker doing its job.
+
+79
+00:04:53.700 --> 00:05:03.421
+And a breaker lives in one program's memory: two copies of the program have two breakers, so a limit for the whole shop needs something they share.
+
+80
+00:05:04.333 --> 00:05:06.005
+So, why was my shop slow?
+
+81
+00:05:06.005 --> 00:05:07.610
+Because it kept dialing.
+
+82
+00:05:07.610 --> 00:05:15.703
+A breaker counts the sick failures, trips, turns callers away at once, and lets one probe find out when the line is back.
+
+83
+00:05:15.933 --> 00:05:16.706
+Quick check.
+
+84
+00:05:16.706 --> 00:05:21.661
+The breaker is closed, with two failures counted, and the threshold is three.
+
+85
+00:05:21.661 --> 00:05:23.142
+The next call succeeds.
+
+86
+00:05:23.142 --> 00:05:24.493
+What's the state now?
+
+87
+00:05:27.667 --> 00:05:29.546
+Closed, with zero failures.
+
+88
+00:05:29.546 --> 00:05:31.426
+A success resets the count.
+
+89
+00:05:31.426 --> 00:05:34.001
+Only three failures in a row trip it.
