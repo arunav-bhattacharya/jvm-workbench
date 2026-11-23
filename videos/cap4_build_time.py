@@ -17,14 +17,13 @@ fg.SAY[:0] = [
 N = {
     "open": "Picture the box office computer restarting ten minutes before the doors open, with the queue already out "
             "on the street. The program has to be back before the first customer reaches the counter.",
-    "repeat": "And every start repeats the whole of the last two lessons. Scan the classes. Read every annotation, the "
-              "labels like Component and Timed. Check the graph of who needs whom. And have Byte Buddy sew its "
-              "costume copy.",
+    "repeat": "And every start repeats the whole of the last two lessons. Scan the classes. Read every annotation. Check "
+              "the graph of who needs whom. And have Byte Buddy sew its costume copy.",
     "shyq": "Here's a question that's easy to be shy about. One call through a stand-in costs a few hundred "
             "nanoseconds at most. That's nothing. So aren't the stand-ins free?",
-    "percall": "Let's be fair to that thought, because it's half right. The lesson timed one call four ways, with JMH, "
-               "a harness that measures code only after the JVM has warmed up. On a busy machine the times jumped "
-               "around, so look at the bytes each call left behind.",
+    "percall": "Let's be fair to that thought; it's half right. The lesson timed one call with JMH, a harness that measures "
+               "code only after the JVM has warmed up. On a busy machine the times jumped around, so look at the bytes each "
+               "call left behind.",
     "percall2": "A direct call: zero bytes. Byte Buddy's subclass: about 160. The JDK proxy: 208. At 2,000 booking "
                 "calls a second, that's 400 kilobytes a second, next to a network call that takes milliseconds. "
                 "Nothing.",
@@ -41,7 +40,7 @@ N = {
                "through reflection is an object of a proxy class too. So asking, is this a Component, makes "
                "stand-ins as well.",
     "hidden": "And more than a hundred are hidden classes, which the JVM makes for its own use, for lambdas and method "
-              "handles. Reflection itself runs on method handles these days.",
+              "handles.",
     "shop": "Every one of those classes is found, read and checked again, like the corner shop from the Startup track "
             "that unpacks every box each morning. Then it runs slowly at first, because nothing is warm yet. In the "
             "lesson's run, from main to the first ticket took 1,029 milliseconds. The machine was busy, and times "
@@ -66,14 +65,13 @@ N = {
              "setting at start-up, unless the generator wrote code for it. And a holder fails for good. If a "
              "constructor throws inside one, every later request throws NoClassDefFoundError until a restart. That's "
              "where our picture breaks: a manager on the night can still improvise. A printed sheet can't.",
-    "moral": "So, are the stand-ins free? Per call, nearly. Per start, no: the machinery behind them loaded more than "
-             "a thousand extra classes, every single time. Measure both clocks. Then move what depends only on your "
-             "classes to the build, and let the queue in on time.",
+    "moral": "So, are the stand-ins free? Per call, nearly. Per start, no: the machinery behind them loaded more than a "
+             "thousand extra classes, every time. Measure both clocks. Then move what depends only on your classes to the "
+             "build, and let the queue in on time.",
     "next": "Our generator was a small program we ran by hand. In Part 5, the build itself reads your annotations and "
             "writes files like this every time, with KSP.",
-    "check": "Quick check. Which of these can the generated registry do when the program starts: pick the booking "
-             "service from a setting on the command line, or build the seating plan exactly once when eight threads "
-             "ask?",
+    "check": "Quick check. Which of these can the generated registry do when the program starts: pick the booking service "
+             "from a command-line setting, or build the seating plan exactly once when eight threads ask?",
     "check_a": "The second. The holder builds it once, under the class initialization lock. Picking a part from a "
                "setting needs code the generator wrote at build time.",
 }

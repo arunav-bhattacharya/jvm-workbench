@@ -22,11 +22,10 @@ N = {
             "it just retries. Nobody wrote a loop. So where does the code that retries actually live?",
     "pain": "Let's first write it the honest way, inside the method. Note the time. Try the booking service, up to "
             "three times. And whatever happens, record how long it took.",
-    "pain2": "Now find the real work. It's one line: the call to reserve. Everything else is plumbing. Kotlin says the "
-             "same thing, line for line.",
-    "copies": "And this plumbing gets copied into confirm, into cancel, and into every method it will "
-              "ever grow. One line of work, a dozen lines guarding it. And the timer and the retry are tangled, so "
-              "changing one means reading both.",
+    "pain2": "Now find the real work. It's one line: the call to reserve. Everything else is plumbing. Kotlin is the same,"
+             " line for line.",
+    "copies": "And this plumbing gets copied into confirm, into cancel, and into every method it will ever grow. One line "
+              "of work, a dozen lines guarding it.",
     "wish": "Wouldn't it be nice to write the plumbing once, for any method, and keep reserve down to its one line?",
     "analogy": "Remember the stand-in at the stage door, from the Class loading track? Every request meant for the "
                "actor reaches the stand-in first.",
@@ -43,8 +42,8 @@ N = {
              "outcome.",
     "finally": "That finally is the tricky line. It runs on success and on failure, so a failed call is timed too. "
                "Kotlin has the same shape.",
-    "retryic": "And the helper that tries again is just a loop around proceed. After a failure it was told to retry, "
-               "it calls proceed once more.",
+    "retryic": "The helper that tries again is just a loop: after a failure it was told to retry, it calls proceed once "
+               "more.",
     "predict": "Now, does the order of the helpers matter? The demo sends one booking call that fails twice, then "
                "answers. Once with the timekeeper outside the retry, and once inside. How many entries does the "
                "timekeeper write each way? Pause and guess.",
@@ -53,16 +52,16 @@ N = {
     "which": "Neither is wrong; they measure different things. The lab puts the timer outside. The customer at the "
              "counter doesn't care that attempt three was quick. They waited for all three.",
     "how": "How does the container put the chain in front of a real part? It depends on the part.",
-    "jdk": "If the part has an interface, the JDK writes a stand-in that implements it, a JDK proxy. Every call goes "
-           "through the chain, and then to the real object behind it.",
+    "jdk": "If the part has an interface, the JDK writes a stand-in that implements it, a JDK proxy. Every call runs the"
+           " chain, then reaches the real object behind it.",
     "sub": "If the part has no interface, Byte Buddy, a library that writes classes while the program runs, sews a "
            "costume copy: a subclass whose overrides run the chain.",
-    "final": "That's where Kotlin bites. A Kotlin class is final unless you write open, so no subclass may copy it. "
-             "Think of a costume with a do not copy tag sewn in. So the container checks at start-up, and refuses "
-             "with a message. An annotation only works if a stand-in can reach the method.",
-    "guard_q": "Now the guardrail, and it's about what you retry. Selling a ticket takes two calls. Reserve holds the "
-               "seat, and confirm turns the hold into a ticket. Say the first confirm times out. If the retry wraps "
-               "both calls as one, what does the booking service see? Pause and guess.",
+    "final": "That's where Kotlin bites. A Kotlin class is final unless you write open, so no subclass may copy it. Think "
+             "of a costume with a do not copy tag sewn in. The container checks at start-up, and refuses. An annotation "
+             "only works if a stand-in can reach the method.",
+    "guard_q": "Now the guardrail: what you retry. Selling a ticket takes two calls. Reserve holds the seat, and confirm "
+               "turns the hold into a ticket. Say the first confirm times out. If the retry wraps both calls as one, what "
+               "does the booking service see? Pause and guess.",
     "guard_a": "Reserve, the confirm that timed out, then reserve again, and confirm. One customer, two seats held, and "
                "an empty one on the night that nobody else can buy.",
     "guard_fix": "Through the container's proxy, each inner call keeps its own retry. So the booking service sees "
@@ -77,7 +76,7 @@ N = {
              "smallest call that's safe to repeat.",
     "check": "Quick check. A third helper writes down every request it passes on, and it stands inside the retry. A "
              "cancellation times out once, then works. How many lines does it write?",
-    "check_a": "Two. Inside the retry, it sees every attempt. Outside the retry, it would write just one.",
+    "check_a": "Two. Inside the retry, it sees every attempt. Outside, it would write just one.",
 }
 
 
@@ -413,7 +412,7 @@ class Cap4Interceptors(Narrated):
         self.at_text("It's one line", lead=0.3)
         self.play(*[jv[i].animate.set_opacity(0.3) for i in range(len(jv)) if i != 4], FadeIn(realw), run_time=0.8)
         self.play(Circumscribe(jv[4], color=OK, buff=0.05), run_time=0.8)
-        self.at_text("Kotlin says", lead=0.3)
+        self.at_text("Kotlin is the", lead=0.3)
         for i in range(len(kt)):
             if i != 5:
                 kt[i].set_opacity(0.3)
@@ -438,8 +437,6 @@ class Cap4Interceptors(Narrated):
         self.play(FadeIn(dots), run_time=0.4)
         self.at_text("One line of work", lead=0.3)
         self.play(FadeIn(one), *[Indicate(c[2][3], color=OK) for c in cards], run_time=0.9)
-        self.at_text("And the timer", lead=0.3)
-        self.play(FadeIn(tang, shift=UP * 0.1), run_time=0.7)
         self.hold()
         self.wipe()
         wish = T("Write the plumbing once, for any method.", 34, MANAGER)
@@ -576,7 +573,7 @@ class Cap4Interceptors(Narrated):
         back_l = T("a failure it was told to retry: once more", 24, BAD).next_to(back, DOWN, buff=0.15)
         self.say("retryic")
         self.play(FadeIn(loop_b), FadeIn(pr_b), GrowArrow(go), run_time=0.8)
-        self.at_text("After a failure", lead=0.3)
+        self.at_text("after a failure", lead=0.3)
         self.play(Create(back), FadeIn(back_l), run_time=1.0)
         self.hold(after=0.4)
         self.wipe()
@@ -665,7 +662,7 @@ class Cap4Interceptors(Narrated):
         self.say("jdk")
         self.play(Create(lp), FadeIn(lt), run_time=0.6)
         self.play(FadeIn(sx), FadeIn(ax), run_time=0.6)
-        self.at_text("Every call", lead=0.3)
+        self.at_text("Every call runs", lead=0.3)
         self.play(FadeIn(sch), GrowArrow(la), FadeIn(lsub), run_time=0.8)
         self.hold()
         self.say("sub")
@@ -701,7 +698,7 @@ class Cap4Interceptors(Narrated):
         self.at_text("Think of", lead=0.3)
         self.play(FadeIn(sh), run_time=0.4)
         self.play(FadeIn(tag, shift=DOWN * 0.2), run_time=0.5)
-        self.at_text("So the container", lead=0.3)
+        self.at_text("The container checks", lead=0.3)
         self.play(FadeIn(ref), run_time=0.8)
         self.at_text("An annotation", lead=0.3)
         self.play(FadeIn(rule, shift=UP * 0.1), run_time=0.7)

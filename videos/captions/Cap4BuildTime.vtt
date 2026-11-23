@@ -1,133 +1,345 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.862
-Until the container is wired, no payment goes through.
+00:00:02.700 --> 00:00:09.597
+Picture the box office computer restarting ten minutes before the doors open, with the queue already out on the street.
 
 2
-00:00:05.862 --> 00:00:10.137
-Here is one start, from the first line of main to the first payment done.
+00:00:09.597 --> 00:00:13.828
+The program has to be back before the first customer reaches the counter.
 
 3
-00:00:10.367 --> 00:00:13.251
-The reflective container does everything now.
+00:00:14.767 --> 00:00:18.488
+And every start repeats the whole of the last two lessons.
 
 4
-00:00:13.251 --> 00:00:19.916
-It finds the components, reads their annotations, orders the graph, and has Byte Buddy write a subclass.
+00:00:18.488 --> 00:00:19.579
+Scan the classes.
 
 5
-00:00:20.133 --> 00:00:23.760
-Ready after 1,029 milliseconds.
+00:00:19.579 --> 00:00:23.364
+Read every annotation, the labels like Component and Timed.
 
 6
-00:00:23.760 --> 00:00:26.568
-It loaded 2,207 classes.
+00:00:23.364 --> 00:00:25.545
+Check the graph of who needs whom.
 
 7
-00:00:27.800 --> 00:00:33.183
-The same app, wired by generated code, loads 991 classes.
+00:00:25.545 --> 00:00:28.176
+And have Byte Buddy sew its costume copy.
 
 8
-00:00:33.400 --> 00:00:37.161
-So 1,216 classes are pure machinery.
+00:00:29.117 --> 00:00:32.025
+Here's a question that's easy to be shy about.
 
 9
-00:00:37.367 --> 00:00:45.117
-814 come from byte-buddy.jar: Byte Buddy's own machinery, loaded before it can write one subclass.
+00:00:32.025 --> 00:00:36.324
+One call through a stand-in costs a few hundred nanoseconds at most.
 
 10
-00:00:45.333 --> 00:00:52.295
-Then the 3 classes it writes, 30 JDK proxy classes, and 123 hidden classes.
+00:00:36.324 --> 00:00:37.273
+That's nothing.
 
 11
-00:00:52.500 --> 00:00:58.715
-Each one is found, parsed and verified, then run in the interpreter, because nothing is hot yet.
+00:00:37.273 --> 00:00:39.106
+So aren't the stand-ins free?
 
 12
-00:00:59.533 --> 00:01:04.616
-None of this depends on anything but the classes, and those are fixed when you build.
+00:00:40.200 --> 00:00:43.837
+Let's be fair to that thought, because it's half right.
 
 13
-00:01:04.616 --> 00:01:07.547
-So run the same steps on the build machine, once.
+00:00:43.837 --> 00:00:51.045
+The lesson timed one call four ways, with JMH, a harness that measures code only after the JVM has warmed up.
 
 14
-00:01:07.767 --> 00:01:11.613
-A cycle in the graph now fails the build instead of the deploy.
+00:00:51.045 --> 00:00:56.732
+On a busy machine the times jumped around, so look at the bytes each call left behind.
 
 15
-00:01:11.833 --> 00:01:20.757
-The generator writes plain Java: a holder class for each singleton, and the interceptors as source, with the annotation values written in.
+00:00:56.967 --> 00:00:59.178
+A direct call: zero bytes.
 
 16
-00:01:20.967 --> 00:01:21.558
-Predict.
+00:00:59.178 --> 00:01:01.986
+Byte Buddy's subclass: about 160.
 
 17
-00:01:21.558 --> 00:01:24.073
-What is left for each start to do?
+00:01:01.986 --> 00:01:03.602
+The JDK proxy: 208.
 
 18
-00:01:25.800 --> 00:01:27.103
-Only the holders.
+00:01:03.602 --> 00:01:13.045
+At 2,000 booking calls a second, that's 400 kilobytes a second, next to a network call that takes milliseconds.
 
 19
-00:01:27.103 --> 00:01:34.923
-The JVM initializes each one the first time get touches it, once, under the class initialization lock.
+00:01:13.045 --> 00:01:13.725
+Nothing.
 
 20
-00:01:35.133 --> 00:01:41.945
-Ready after 266 milliseconds, with 991 classes, and no reflection.
+00:01:14.667 --> 00:01:17.062
+So per call, the stand-ins are cheap.
 
 21
-00:01:42.467 --> 00:01:50.431
-On a busy machine the times moved by a factor of two between runs, but the reflective start was always several times slower.
+00:01:17.062 --> 00:01:19.523
+But there's a second clock: the start.
 
 22
-00:01:51.233 --> 00:01:53.878
-Here is one holder, in Java and Kotlin.
+00:01:20.467 --> 00:01:30.589
+The demo starts the box office in a fresh JVM, wired by our container: fourteen parts, one JDK proxy, and one Byte Buddy subclass.
 
 23
-00:01:53.878 --> 00:01:57.540
-A plain new call, with its dependency's holder inside.
+00:01:30.589 --> 00:01:35.806
+How many classes does the JVM load before the first ticket is sold?
 
 24
-00:01:57.767 --> 00:01:58.413
-The price.
+00:01:35.806 --> 00:01:36.818
+About thirty?
 
 25
-00:01:58.413 --> 00:02:01.388
-The set of components is fixed when you build.
+00:01:36.818 --> 00:01:38.142
+About a thousand?
 
 26
-00:02:01.388 --> 00:02:05.851
-And a holder whose constructor throws stays failed until you restart.
+00:01:38.142 --> 00:01:39.933
+More than two thousand?
 
 27
-00:02:06.667 --> 00:02:07.295
-The rule.
+00:01:39.933 --> 00:01:41.179
+Pause and guess.
 
 28
-00:02:07.295 --> 00:02:11.481
-Work that depends only on the classes belongs at build time.
+00:01:44.867 --> 00:01:45.506
+2,207.
 
 29
-00:02:11.481 --> 00:02:14.132
-A start should run only ordinary code.
+00:01:45.506 --> 00:01:50.832
+The same box office wired by plain code loads 991.
 
 30
-00:02:14.333 --> 00:02:15.373
-Check yourself.
+00:01:50.832 --> 00:01:54.135
+So 1,216 classes are machinery.
 
 31
-00:02:15.373 --> 00:02:20.363
-In the generated container, where does @Retry's 3 come from at run time?
+00:01:54.135 --> 00:01:57.117
+Here's where they come from.
 
 32
-00:02:23.067 --> 00:02:24.795
-From the generated source.
+00:01:58.067 --> 00:02:01.108
+814 come from the Byte Buddy library itself.
 
 33
-00:02:24.795 --> 00:02:29.181
-The generator read @Retry at build time and wrote 3 into the code.
+00:02:01.108 --> 00:02:07.190
+It loads its own model of types, and its class writer, before it can write one subclass.
+
+34
+00:02:07.190 --> 00:02:12.167
+The costume department unpacks its whole sewing room to sew one costume.
+
+35
+00:02:12.417 --> 00:02:18.141
+3 classes are what it sewed: the costume copy of the show closer, and two little helpers.
+
+36
+00:02:18.383 --> 00:02:23.287
+30 are JDK proxy classes, and only one of them is our booking stand-in.
+
+37
+00:02:23.287 --> 00:02:28.744
+Every annotation you read through reflection is an object of a proxy class too.
+
+38
+00:02:28.744 --> 00:02:32.611
+So asking, is this a Component, makes stand-ins as well.
+
+39
+00:02:32.850 --> 00:02:40.275
+And more than a hundred are hidden classes, which the JVM makes for its own use, for lambdas and method handles.
+
+40
+00:02:40.275 --> 00:02:43.722
+Reflection itself runs on method handles these days.
+
+41
+00:02:44.667 --> 00:02:53.977
+Every one of those classes is found, read and checked again, like the corner shop from the Startup track that unpacks every box each morning.
+
+42
+00:02:53.977 --> 00:02:57.806
+Then it runs slowly at first, because nothing is warm yet.
+
+43
+00:02:57.806 --> 00:03:02.758
+In the lesson's run, from main to the first ticket took 1,029 milliseconds.
+
+44
+00:03:02.758 --> 00:03:07.380
+The machine was busy, and times moved by a factor of two between runs.
+
+45
+00:03:07.380 --> 00:03:09.361
+The class counts barely moved.
+
+46
+00:03:10.300 --> 00:03:11.732
+So, is Byte Buddy slow?
+
+47
+00:03:11.732 --> 00:03:13.164
+That's the wrong model.
+
+48
+00:03:13.164 --> 00:03:17.398
+Byte Buddy does at every start what a compiler could have done once.
+
+49
+00:03:17.398 --> 00:03:24.620
+Everything the container works out depends only on the classes, and the classes are fixed when the program is built.
+
+50
+00:03:25.567 --> 00:03:32.495
+Picture the front-of-house manager from the first lesson, writing the evening's running order the afternoon before.
+
+51
+00:03:32.495 --> 00:03:34.965
+On the night, nobody reads a single card.
+
+52
+00:03:34.965 --> 00:03:36.893
+The crew just follows the sheet.
+
+53
+00:03:37.933 --> 00:03:38.912
+Let's map that.
+
+54
+00:03:38.912 --> 00:03:40.674
+The afternoon is the build.
+
+55
+00:03:40.674 --> 00:03:46.678
+The running order is a Java class that a generator writes, a registry, with plain new calls.
+
+56
+00:03:46.678 --> 00:03:50.397
+And the night is the start, which only follows the sheet.
+
+57
+00:03:51.333 --> 00:03:56.247
+Each shared part gets a holder class: a small class with one static field.
+
+58
+00:03:56.247 --> 00:04:00.629
+The JVM fills that field the first time someone touches the class.
+
+59
+00:04:00.629 --> 00:04:05.276
+Once, even when many threads ask, under the class initialization lock.
+
+60
+00:04:05.276 --> 00:04:08.330
+No map, no lock of our own, and no reflection.
+
+61
+00:04:08.330 --> 00:04:11.185
+In Kotlin, an object is a holder class too.
+
+62
+00:04:12.133 --> 00:04:17.526
+Now the same box office, started from the generated registry.
+
+63
+00:04:17.526 --> 00:04:18.587
+991 classes.
+
+64
+00:04:18.587 --> 00:04:24.422
+Nothing from Byte Buddy, no JDK proxies, nothing sewn at start-up.
+
+65
+00:04:24.422 --> 00:04:30.699
+And ready in 266 milliseconds, against 1,029, on the same busy machine.
+
+66
+00:04:31.633 --> 00:04:33.462
+That's the rule of this lesson.
+
+67
+00:04:33.462 --> 00:04:37.770
+What depends only on your classes can be worked out once, when you build.
+
+68
+00:04:37.770 --> 00:04:40.720
+Do it there, and leave the start only what's left.
+
+69
+00:04:41.817 --> 00:04:43.297
+You give up two things.
+
+70
+00:04:43.297 --> 00:04:51.861
+The set of parts is fixed when you build: nothing can pick a part from a setting at start-up, unless the generator wrote code for it.
+
+71
+00:04:51.861 --> 00:04:53.663
+And a holder fails for good.
+
+72
+00:04:53.663 --> 00:05:00.102
+If a constructor throws inside one, every later request throws NoClassDefFoundError until a restart.
+
+73
+00:05:00.102 --> 00:05:04.995
+That's where our picture breaks: a manager on the night can still improvise.
+
+74
+00:05:04.995 --> 00:05:06.411
+A printed sheet can't.
+
+75
+00:05:07.350 --> 00:05:09.141
+So, are the stand-ins free?
+
+76
+00:05:09.141 --> 00:05:10.268
+Per call, nearly.
+
+77
+00:05:10.268 --> 00:05:17.033
+Per start, no: the machinery behind them loaded more than a thousand extra classes, every single time.
+
+78
+00:05:17.033 --> 00:05:18.360
+Measure both clocks.
+
+79
+00:05:18.360 --> 00:05:24.130
+Then move what depends only on your classes to the build, and let the queue in on time.
+
+80
+00:05:24.367 --> 00:05:27.874
+Our generator was a small program we ran by hand.
+
+81
+00:05:27.874 --> 00:05:34.961
+In Part 5, the build itself reads your annotations and writes files like this every time, with KSP.
+
+82
+00:05:35.900 --> 00:05:36.641
+Quick check.
+
+83
+00:05:36.641 --> 00:05:48.564
+Which of these can the generated registry do when the program starts: pick the booking service from a setting on the command line, or build the seating plan exactly once when eight threads ask?
+
+84
+00:05:51.750 --> 00:05:52.430
+The second.
+
+85
+00:05:52.430 --> 00:05:56.326
+The holder builds it once, under the class initialization lock.
+
+86
+00:05:56.326 --> 00:06:00.965
+Picking a part from a setting needs code the generator wrote at build time.
