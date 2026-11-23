@@ -299,7 +299,7 @@ def attached(lines, size=20, extra=0.0):
     t = M("\n".join(lines), size, PEN)
     r = Rectangle(width=max(1.8, t.width + 0.5), height=t.height + 0.5 + extra).set_stroke(ATTACH, 2.5).set_fill(PAPER, 1)
     t.move_to(r).align_to(r, UP).shift(DOWN * 0.25)
-    st = Line(LEFT * 0.16, RIGHT * 0.16, stroke_width=5, color=GREY_B).move_to(r.get_corner(UL) + RIGHT * 0.35 + DOWN * 0.12)
+    st = Line(LEFT * 0.16, RIGHT * 0.16, stroke_width=5, color=GREY_B).move_to(r.get_corner(UR) + LEFT * 0.3 + DOWN * 0.12)
     return VGroup(r, t, st)
 
 
@@ -350,7 +350,7 @@ class Dop01Records(Narrated):
         self.at(3)
         twin = VGroup(slip, vals, sl).copy().move_to([0.1, 0.35, 0])
         eq = M("=", 44, WHITE).move_to([-1.95, 0.35, 0])
-        same = T("same loan", 24, GREY_A).next_to(eq, DOWN, buff=1.6)
+        same = T("same loan", 24, GREY_A).move_to([-1.95, -2.5, 0])
         self.play(FadeIn(twin, shift=LEFT * 0.2), run_time=0.7)
         self.play(FadeIn(eq), FadeIn(same), run_time=0.5)
         self.at(4)
@@ -480,11 +480,11 @@ class Dop01Records(Narrated):
         kt = M("data class Shelfmark(val section: String, val shelf: Int)", 26, WHITE,
                t2c={"data class": KT, "section": SEC, "shelf": SHF})
         jl, kl = T("Java", 22, GREY_B), T("Kotlin", 22, GREY_B)
-        hdr = VGroup(VGroup(jl, jv).arrange(RIGHT, buff=0.3), VGroup(kl, kt).arrange(RIGHT, buff=0.3)).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
-        hdr[1][0].align_to(hdr[0][0], LEFT)
-        hdr[1][1].align_to(hdr[0][1], LEFT)
+        hdr = VGroup(VGroup(jl, jv).arrange(RIGHT, buff=0.45), VGroup(kl, kt).arrange(RIGHT, buff=0.45)).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
+        hdr[0][1].align_to(hdr[1][1], LEFT)
+        hdr[0][0].align_to(hdr[1][0], RIGHT)
         fit(hdr, 12.0)
-        hdr.move_to([0, 2.65, 0])
+        hdr.move_to([0, 2.85, 0])
         self.say("name")
         self.play(FadeOut(mrows), FadeOut(back), sm_g.animate.scale(0.7).move_to([-5.2, -1.1, 0]), run_time=0.8)
         self.at(1)
@@ -493,9 +493,9 @@ class Dop01Records(Narrated):
         self.play(FadeIn(hdr[1], shift=DOWN * 0.1), run_time=0.7)
         self.hold()
 
-        RY2 = [1.25, 0.6, -0.05, -0.7, -1.35]
+        RY2 = [1.15, 0.5, -0.15, -0.8, -1.45]
         LX2, SX2, HX2 = -2.4, 1.6, 3.4
-        panel2 = RoundedRectangle(corner_radius=0.15, width=8.6, height=3.5).set_stroke(OK, 2).move_to([1.4, -0.05, 0])
+        panel2 = RoundedRectangle(corner_radius=0.15, width=8.6, height=3.5).set_stroke(OK, 2).move_to([1.4, -0.15, 0])
         labs2 = VGroup(*[M(r, 24, WHITE).move_to([LX2, y, 0], aligned_edge=LEFT) for r, y in zip(ROWS5, RY2)])
         chips2 = VGroup(*[VGroup(vchip("section", SEC, 22).move_to([SX2, y, 0]), vchip("shelf", SHF, 22).move_to([HX2, y, 0]))
                           for y in RY2])
@@ -533,12 +533,10 @@ class Dop01Records(Narrated):
 
         a1 = form("SHELFMARK", [("section", "FIC"), ("shelf", "12")], w=2.6, size=18, vsize=20)
         a2 = a1.copy()
-        two = VGroup(a1, a2).arrange(RIGHT, buff=0.8).move_to([-2.6, 0.2, 0])
-        two_l = T("same boxes, two sheets of paper", 24, GREY_A).next_to(two, DOWN, buff=0.25)
-        bad_src = M("private int cache;", 24, WHITE).move_to([3.4, 0.9, 0])
-        bad_err = err_line("field declaration must be static", 22).next_to(bad_src, DOWN, buff=0.35)
-        fit(bad_err, 6.6)
-        bad_err.next_to(bad_src, DOWN, buff=0.35)
+        two = VGroup(a1, a2).arrange(RIGHT, buff=0.8).move_to([-2.2, 0.75, 0])
+        two_l = T("same boxes, two sheets of paper", 24, GREY_A).next_to(two, RIGHT, buff=0.5)
+        bad_src = M("record Shelfmark(...) { private int cache; }", 24, WHITE).move_to([0, -1.35, 0])
+        bad_err = err_line("field declaration must be static", 24).next_to(bad_src, DOWN, buff=0.35)
         nb = T("no notes on the back", 24, GREY_A).next_to(bad_err, DOWN, buff=0.3)
         self.say("ident")
         self.play(FadeOut(out2), run_time=0.5)
@@ -609,7 +607,7 @@ class Dop01Records(Narrated):
         cb = code_block(src, 22)
         cbt = titled(cb, "Java: the compact canonical constructor").move_to([-6.3, 1.3, 0], aligned_edge=LEFT)
         note = T("javac assigns the fields here", 22, STAMP).next_to(cb[6], RIGHT, buff=0.4)
-        hl = lambda i, j=None: SurroundingRectangle(VGroup(*cb[i:(j or i) + 1]), color=STAMP, buff=0.07, stroke_width=2)
+        hl = lambda i, j=None: SurroundingRectangle(VGroup(*cb[i:(j or i) + 1]), color=STAMP, buff=0.12, stroke_width=2)
         self.say("compact")
         self.play(FadeIn(cbt), run_time=0.7)
         box_ = hl(2)
@@ -656,7 +654,7 @@ class Dop01Records(Narrated):
         # ================= where the picture breaks: the stapled list =================
         cr = form("CRATE", [("branch", "NORTH"), ("titles", "see attached")], w=3.2).move_to([-4.3, 1.05, 0])
         crsl = sleeve(cr)
-        att = attached(["Dune", "Emma"], extra=0.4).move_to([-3.2, -0.35, 0])
+        att = attached(["Dune", "Emma"], extra=0.4).move_to([-2.9, -0.6, 0])
         att.set_z_index(-1)
         cab = cabinet().move_to([3.6, 0.55, 0])
         cab_l = M("HashSet sent", 24, GREY_A).next_to(cab, UP, buff=0.2)
@@ -673,7 +671,7 @@ class Dop01Records(Narrated):
         self.play(ic.animate.move_to(cab[1][0].get_center() + RIGHT * 0.25), run_time=1.0)
         self.hold()
 
-        uly = M("Ulysses", 20, PEN).move_to(att[1].get_center() + DOWN * 0.27).align_to(att[1], LEFT)
+        uly = M("Ulysses", 20, PEN).next_to(att[1], DOWN, buff=0.1).align_to(att[1], LEFT)
         self.say("cq")
         pen = Line(ORIGIN, UP * 0.5 + RIGHT * 0.2, stroke_width=5, color=PEN).move_to(uly.get_right() + UP * 0.3 + RIGHT * 0.2)
         self.play(FadeIn(pen), run_time=0.3)
@@ -683,7 +681,7 @@ class Dop01Records(Narrated):
         self.predict(2.4, pos=(-6.4, 3.3))
 
         tag2 = vchip("hashCode: drawer D", BAD, 20).move_to(tag)
-        look = Arrow([1.0, -0.6, 0], cab[3][0].get_left() + RIGHT * 0.05, buff=0.05, stroke_width=3, color=BAD,
+        look = Arrow(tag.get_right(), cab[3][0].get_left() + RIGHT * 0.05, buff=0.05, stroke_width=3, color=BAD,
                      max_tip_length_to_length_ratio=0.12)
         self.say("ca")
         self.at(1)

@@ -1,311 +1,652 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form).
-fg.SAY += [(r"\bnoinline\b", "no-inline")]
+# Spoken forms only (captions keep the written words).
+fg.SAY[:0] = [
+    (r"\bnanoTime\b", "nano time"), (r"\blmul\b", "L mul"), (r"\bldiv\b", "L div"), (r"\binvokedynamic\b", "invoke dynamic"),
+    (r"\binvokestatic\b", "invoke static"), (r"\bcheckcast\b", "check cast"), (r"\blongValue\b", "long value"),
+    (r"\bprintln\b", "print line"), (r"\binkNotInline\b", "ink not inline"), (r"\binkInline\b", "ink inline"),
+    (r"\btimedNotInline\b", "timed not inline"), (r"\bFunction0\b", "Function zero"), (r"\btoSheets\b", "to sheets"),
+    (r"\bforEach\b", "for each"), (r"\b3 ml\b", "3 millilitres"), (r"\b360 ml\b", "360 millilitres"),
+    (r"\(pages \+ 1\) / 2", "pages plus 1, divided by 2"),
+]
 
-# ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
+# every spoken line, in order
+N = {
+    "open": "Picture a small print shop. Behind the counter sits a binder of procedure sheets, like how to time a job. "
+            "A clerk takes a job. She can pass it to a colleague who knows the sheet, with a slip for the one step only "
+            "she can do. Or she can photocopy the sheet into the job's own folder, and do every step herself.",
+    "open2": "The copy is quicker. It costs paper, though. And it never hears about corrections to the master sheet. "
+             "Keep those three in mind: quicker, paper, corrections.",
+    "shyq": "Now a question that's easy to be shy about. Everybody says: mark small helpers inline, it's faster. "
+            "Faster than what? What does it even cost to pass one tiny lambda to a function?",
+    "helper": "Let's find out with a helper the shop's app uses everywhere. It runs one step of a job and "
+              "prints how long it took. Today's step: how much ink does a job need? The shop's rule of thumb is "
+              "3 ml of ink for every 100 pages.",
+    "lambda": "The part in braces is a lambda: a small function, written in place and passed as a value. It uses pages, "
+              "a variable from outside its braces. A lambda that carries outside values like that is called a closure.",
+    "cost_q": "So, besides the multiply and the divide, what extra work does one call do? Pause and guess.",
+    "cost": "Three things. One object: the JVM builds a small object that holds a copy of pages. One call through an "
+            "interface, a type that only names its methods: the helper calls that object's invoke method. And one "
+            "unboxing. The helper works for any result type, so the answer travels back as a plain Object, and has to "
+            "be turned back into a primitive long.",
+    "map": "In the shop, this is the clerk handing the job to a colleague. The helper, timedNotInline, is the colleague. "
+           "The lambda is the slip, with the clerk's own step written on it. And invoke is the colleague calling her "
+           "back to do that step.",
+    "paste": "You could skip all three by hand: paste the helper's body into the caller, with the lambda's body in the "
+             "middle. It works. Now picture doing that in fifty places.",
+    "wish": "Wouldn't it be nice if someone did the pasting for us? Well, the compiler is happy to. It never gets bored, "
+            "and it never gets paper cuts.",
+    "inline": "Write inline in front of fun, and keep the same body. Now, at every call site, each place in the code "
+              "that calls the function, the compiler copies in the function's body and the lambda's body. That's the "
+              "photocopy: the whole procedure lands in the job's own folder, with the clerk's step written in place.",
+    "javap": "Let's see if that's really true. javap, a tool in the JDK, prints the bytecode in a class file: the "
+             "instructions the JVM runs. The lesson's demo has two tiny functions, inkNotInline and inkInline.",
+    "javap_q": "Which one builds an object with invokedynamic, and which one does the multiply itself? Pause and guess.",
+    "bc_not": "inkNotInline is seven instructions. invokedynamic builds a Function0, Kotlin's interface for a function "
+              "with no parameters. That's the slip. invokestatic calls the helper. That's handing it over. Then "
+              "checkcast and longValue unbox the answer.",
+    "bc_in": "inkInline has none of that. No invokedynamic, no call to the helper. The multiply, lmul, and the divide, "
+             "ldiv, sit right inside, between two calls to nanoTime. Just like our hand-pasted version.",
+    "run": "Run them, and they agree: 12,000 pages need 360 ml of ink.",
+    "twice": "So, should we inline everything? Look further down inkInline. The finally block is there twice: once for "
+             "the normal exit, and once for the exit by exception. Every caller carries its own copy of the whole body.",
+    "goodbad": "The good news: no slip, no call, no box. The bad news: every folder gets thicker. A 40-line helper "
+               "called from 200 places becomes 200 copies.",
+    "rule": "So here's the rule. inline is for small functions that take lambdas. The standard library is full of them: "
+            "forEach, map, filter, let, apply, use, repeat and require are all inline.",
+    "frozen": "And remember the corrections? A photocopy never hears about them, and neither does an inlined copy. A "
+              "caller gets its copy when it is compiled. In the lesson's test, an app built against version 1 of a "
+              "library ran with version 2, and printed this. The plain function ran the new code. The inline one "
+              "still ran its old copy.",
+    "java": "And here's where the picture breaks. Java can't photocopy anything, because javac can't inline Kotlin "
+            "code. To Java, timed is an ordinary static method that takes a Function0, and a Java lambda becomes an "
+            "object like any other. Java always hands over the slip.",
+    "loop": "One more thing changes once the step sits in the clerk's own folder. If it says stop here, she stops the "
+            "whole job, not just her step. So a return inside an inlined lambda leaves more than you'd expect. "
+            "That's the next section.",
+    "moral": "So, faster than what? Faster than a slip, a call and a box on every use. inline copies the helper and its "
+             "lambda into each caller. Keep it for small helpers that take lambdas.",
+    "check": "Quick check. The shop also has toSheets, which turns a page count into sheets with (pages + 1) / 2. "
+             "No lambda in sight. Should it be inline?",
+    "check_a": "No. There's no slip to remove, so there's nothing to gain. The compiler even says so, with this warning.",
+}
 
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-class Beat(VoiceScene):
-    """VoiceScene plus: say= (the voice reads a different spelling than the caption shows), captions split
-    only where a new sentence starts, and seq() to start animations at a given sentence of the line."""
-
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
-
-    def _speak(self, text, say):
-        path, dur = voice(say or text)
+    def say(self, key):
+        text = N[key]
+        path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        return dur
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
 
-    def beat(self, text, *anims, run_time=None, after=0.25, say=None):
-        dur = self._speak(text, say)
-        if anims:
-            rt = min(run_time if run_time else max(0.8, dur * 0.55), max(0.5, dur))
-            self.play(*anims, run_time=rt)
-            rest = dur - rt
-        else:
-            rest = dur
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def seq(self, text, plan=(), after=0.25, say=None):
-        """plan: (sentence index, [animations], run_time); each starts no earlier than its sentence."""
-        dur = self._speak(text, say)
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        starts, t = [], 0.0
-        for x in sents:
-            starts.append(t); t += dur * len(x) / total
-        now = 0.0
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now); now = starts[idx]
-            self.play(*anims, run_time=rt); now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
-        if after:
-            self.wait(after)
+    def predict(self, secs=2.4, pos=(6.4, -3.3), edge=RIGHT):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def wipe(self, rt=0.7):
+        self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
 
 
-def cline(text, size=24, color=WHITE):
-    t = Text("|" + text, font=MONO, font_size=size, color=color, disable_ligatures=True)
-    t.src = text
-    return t
-
-
-def code(lines, size=24, color=WHITE):
-    pitch = M("|", size).height * 1.65
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        t = cline(ln, size, color)
-        t.shift(np.array([0, -i * pitch, 0]) - t[0].get_center())
-        g.add(t)
-    for t in g:
-        t.remove(t[0])
-    return g
-
-
-def one(text, size=24, color=WHITE):
-    t = cline(text, size, color)
-    t.remove(t[0])
-    return t
-
-
-def part(t, sub, nth=0):
-    i = -1
-    for _ in range(nth + 1):
-        i = t.src.index(sub, i + 1)
-    return VGroup(*t[i:i + len(sub)])
-
-
-def rest_of(t, sub):
-    """The glyphs of line t that are not inside substring sub."""
-    i = t.src.index(sub)
-    return VGroup(*t[:i], *t[i + len(sub):])
-
-
-def mark(m, color=WHITE, hold=0.6):
-    u = Line(m.get_corner(DL) + DOWN * 0.09, m.get_corner(DR) + DOWN * 0.09, color=color, stroke_width=4)
-    return Succession(Create(u, run_time=0.45), Wait(hold), FadeOut(u, run_time=0.35))
-
-
-def fill_of(color, k=0.12):
+def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def place(g, left, top):
-    """Put a code block so its left edge is at x=left and its first line's top at y=top."""
-    g.shift(np.array([left - g.get_left()[0], top - g[0].get_top()[1], 0]))
-    return g
+PAPER, INK = "#EDE6D6", "#161616"
 
 
-LAM = "amountMinor * 3 / 100"
+def person(color=BLUE_M, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-class Kt01Inline(Beat):
-    """kt-01 section 0 (and section 2 in one closing beat): inline pastes the body and the lambda into the caller."""
+def paper(lines, size=20, pad=0.16, border=GREY_B):
+    """A sheet of paper: one Text with line breaks, so every line sits on an even baseline."""
+    t = M("\n".join(lines), size, INK)
+    r = Rectangle(width=t.width + 2 * pad, height=t.height + 2 * pad).set_stroke(border, 1.5).set_fill(PAPER, 1)
+    t.move_to(r)
+    return VGroup(r, t)
+
+
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def part(t, s):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    i = re.sub(r"\s", "", t.text).index(k)
+    return t[i:i + len(k)]
+
+
+def framed(g, color, buff=0.22, k=0.12):
+    r = SurroundingRectangle(g, buff=buff, color=color, stroke_width=2.5, corner_radius=0.1).set_fill(dim(color, k), 1)
+    return VGroup(r, g)
+
+
+def card(lines, color, size=22, title=None, tsize=22):
+    t = VGroup(*[M(l, size, WHITE) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    g = VGroup(T(title, tsize, color), t).arrange(DOWN, aligned_edge=LEFT, buff=0.14) if title else t
+    return framed(g, color, buff=0.22, k=0.14)
+
+
+def folder(name, color=GOLD_M, w=2.6, h=1.8, size=20):
+    r = RoundedRectangle(corner_radius=0.08, width=w, height=h).set_stroke(color, 2.5).set_fill(dim(color, 0.16), 1)
+    tab = RoundedRectangle(corner_radius=0.05, width=0.9, height=0.24).set_stroke(color, 2).set_fill(dim(color, 0.3), 1)
+    tab.next_to(r, UP, buff=-0.02).align_to(r, LEFT).shift(RIGHT * 0.15)
+    t = T(name, size, color).move_to(tab).shift(UP * 0.28)
+    return VGroup(tab, r, t)
+
+
+def cross(m, s=0.2, buff=0.22):
+    return tick(False, s).next_to(m, RIGHT, buff=buff)
+
+
+def check(m, s=0.2, buff=0.22):
+    return tick(True, s).next_to(m, RIGHT, buff=buff)
+
+
+# one colour per thing, for the whole Kotlin track (the print shop)
+CLERK, MATE, STEP, OBJ, BAD, OK, CODE = BLUE_M, PURPLE_M, YELLOW_M, GOLD_M, RED_M, GREEN_M, GREY_A
+
+
+def binder(s=1.0):
+    r = Rectangle(width=1.3, height=1.7).set_stroke(GREY_A, 2.5).set_fill("#2a2a2a", 1)
+    rings = VGroup(*[Circle(radius=0.07).set_stroke(GREY_B, 2).move_to(r.get_left() + RIGHT * 0.18 + UP * (0.5 - 0.5 * i)) for i in range(3)])
+    lab = T("procedures", 20, GREY_A).rotate(PI / 2).move_to(r.get_center() + RIGHT * 0.12)
+    return VGroup(r, rings, lab).scale(s)
+
+
+def slip(s=1.0):
+    return paper(["ink:", "pages*3/100"], 20, border=STEP).scale(s)
+
+
+def floor_line(y=-1.45, x0=-6.3, x1=6.3):
+    return Line([x0, y, 0], [x1, y, 0], stroke_width=1.5, color=GREY_D)
+
+
+class Kt01Inline(Narrated):
+    """kt-01, section 0: what inline does. The print shop: a clerk hands a job to a colleague with a slip, or
+    photocopies the procedure into the job's folder (quicker, costs paper, never hears corrections). Shy question:
+    faster than what? The timed helper (3 ml of ink per 100 pages), lambda and closure, the three costs (object,
+    interface call, unboxing), the slip mapped; hand pasting; inline = the photocopy; javap of inkNotInline and
+    inkInline (real bytecode), 360 ml; finally copied twice, good news/bad news; the rule and the inline standard
+    library; frozen copies (inline=v1 plain=v2); Java always hands over the slip; loop to non-local return; moral; check
+    with toSheets and the compiler's warning."""
 
     def construct(self):
-        self.title_card("inline pastes the body into the caller", "Kotlin: no Function object, no interface call")
+        self.title_card("Inline functions", "a photocopy instead of a slip")
 
-        helper = code(["fun <T> timedNotInline(label: String, block: () -> T): T {",
-                       "    val start = System.nanoTime()",
-                       "    try {",
-                       "        return block()",
-                       "    } finally {",
-                       '        println("$label took ${(System.nanoTime() - start) / 1_000} us")',
-                       "    }",
-                       "}"], 22)
-        place(helper, -5.9, 2.9)
-        call = one('val fee = timedNotInline("fee") { ' + LAM + ' }', 24)
-        part(call, "{ " + LAM + " }").set_color(GOLD_M)
-        call.next_to(helper, DOWN, buff=0.7).align_to(helper, LEFT)
-        self.beat("Here is a helper that every service has. It runs a block of code, and logs how long it took.",
-                  FadeIn(helper, shift=UP * 0.15), run_time=1.2)
-        self.seq("Here is a call. The lambda uses amountMinor from outside its braces, so it is a closure.",
-                 [(0, [FadeIn(call, shift=UP * 0.15)], 0.8),
-                  (1, [mark(part(call, "amountMinor"), GOLD_M, 1.0)], 1.8)])
+        # ================= the print shop =================
+        fl = floor_line()
+        bd = binder(1.0).move_to([-5.3, 0.9, 0])
+        clerk = person(CLERK, 1.4).move_to([-2.3, -1.45 + 0.42, 0])
+        clerk_l = T("clerk", 22, CLERK).next_to(clerk, DOWN, buff=0.15)
+        mate = person(MATE, 1.4).move_to([3.4, -1.45 + 0.42, 0])
+        mate_l = T("colleague", 22, MATE).next_to(mate, DOWN, buff=0.15)
+        sl = slip().move_to([-1.0, -0.3, 0])
+        sl_l = T("a slip for her one step", 22, STEP).move_to([0.6, 0.75, 0])
+        self.say("open")
+        self.play(Create(fl), FadeIn(bd), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(clerk), FadeIn(clerk_l), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(mate), FadeIn(mate_l), run_time=0.6)
+        self.play(FadeIn(sl, shift=UP * 0.1), run_time=0.4)
+        self.play(sl.animate.move_to([2.2, -0.3, 0]), FadeIn(sl_l), run_time=1.4)
+        fd = folder("job folder", OBJ, 2.5, 1.9).move_to([-2.3, 1.5, 0])
+        sheet = paper(["time a job:", "1. start clock", "2. her step", "3. print time"], 20).move_to(bd.get_center())
+        self.at(3)
+        self.play(VGroup(mate, mate_l, sl, sl_l).animate.set_opacity(0.3), FadeIn(fd), run_time=0.7)
+        self.play(sheet.animate.move_to(fd[1].get_center()), run_time=1.2)
+        self.play(part(sheet[1], "2. her step").animate.set_color("#8A6D00"), run_time=0.4)
+        self.hold()
 
-        # ---- what the ordinary call costs, as Java
-        top_call = call.copy().move_to(UP * 3.0)
-        head = T("the call site, as Java (read back from the bytecode)", 24, GREY_B)
-        jb = code([("Function0<Long> block = () -> " + LAM + ";").ljust(55) + "// invokedynamic",
-                   'Object r = timedNotInline("fee", block);'.ljust(55) + "// invokestatic",
-                   "long fee = ((Number) r).longValue();".ljust(55) + "// checkcast, unbox"], 22)
-        part(jb[0], "() -> " + LAM).set_color(GOLD_M)
-        for ln, c in zip(jb, ("// invokedynamic", "// invokestatic", "// checkcast, unbox")):
-            part(ln, c).set_color(GREY_B)
-        jb.move_to(UP * 1.15)
-        head.next_to(jb, UP, buff=0.35).align_to(jb, LEFT)
-        self.seq("Count what one call costs. Here is the call site, read back from the bytecode and written as Java.",
-                 [(0, [FadeOut(helper), Transform(call, top_call)], 0.9),
-                  (1, [FadeIn(head), FadeIn(jb, shift=UP * 0.15)], 1.0)])
+        l1 = T("quicker", 26, OK)
+        l2 = T("costs paper", 26, OBJ)
+        l3 = T("never hears corrections", 26, BAD)
+        lg = VGroup(l1, l2, l3).arrange(RIGHT, buff=0.9).move_to([0, -2.75, 0])
+        self.say("open2")
+        self.play(FadeIn(l1, shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(l2, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(l3, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(Indicate(lg, color=WHITE, scale_factor=1.06), run_time=0.9)
+        self.hold()
+        self.wipe()
 
-        obj_r = RoundedRectangle(corner_radius=0.14, width=3.7, height=1.25, stroke_color=GOLD_M, stroke_width=3)
-        obj_r.set_fill(fill_of(GOLD_M), opacity=1)
-        obj_t = M("Function0 object", 24, GOLD_M)
-        obj_f = M("amountMinor = 12000", 22, WHITE)
-        VGroup(obj_t, obj_f).arrange(DOWN, buff=0.16).move_to(obj_r)
-        obj = VGroup(obj_r, obj_t, obj_f).move_to([-4.3, -1.45, 0])
-        tn = mbox("timedNotInline", WHITE, w=3.3, h=0.9, size=24).move_to([0.9, -1.45, 0])
-        inv = Arrow(tn.get_left(), obj.get_right(), buff=0.12, stroke_width=4, color=RED_M, max_tip_length_to_length_ratio=0.12)
-        inv_l = M("invoke()", 22, RED_M).next_to(inv, UP, buff=0.15)
-        boxed = chip("Long 360", PURPLE_M, size=24, mono=True).move_to([5.0, -1.45, 0])
-        unboxed = chip("long 360", PURPLE_M, size=24, mono=True).move_to(boxed)
-        ret = Arrow(tn.get_right(), boxed.get_left(), buff=0.12, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.12)
-        ret_l = M("Object", 22, GREY_B).next_to(ret, UP, buff=0.15)
-        hl = SurroundingRectangle(jb[0], buff=0.08, color=GOLD_M, stroke_width=2.5, corner_radius=0.06)
+        # ================= the shy question =================
+        shy = T("a question that's easy to be shy about", 26, GREY_B).move_to([0, 2.5, 0])
+        q1 = T("\"Mark small helpers inline, it's faster.\"", 34)
+        q2 = T("Faster than what?", 34, STEP)
+        q3 = T("What does it cost to pass one tiny lambda?", 34)
+        qg = VGroup(q1, q2, q3).arrange(DOWN, buff=0.4).move_to([0, 0.1, 0])
+        self.say("shyq")
+        self.play(FadeIn(shy), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(q1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(q2, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(q3, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0.5)
+        self.wipe(0.5)
 
-        def hl_to(k, color):
-            return Transform(hl, SurroundingRectangle(jb[k], buff=0.08, color=color, stroke_width=2.5, corner_radius=0.06))
+        # ================= the timed helper =================
+        hl = {"pages": WHITE}
+        jv = code_block(["static <T> T timed(String label, Supplier<T> block) {",
+                         "    long start = System.nanoTime();",
+                         "    try { return block.get(); }",
+                         "    finally { System.out.println(label + \" took ...\"); }",
+                         "}",
+                         "long ink = timed(\"ink\", () -> pages * 3 / 100);"], 22, color=CODE)
+        kt = code_block(["fun <T> timedNotInline(label: String, block: () -> T): T {",
+                         "    val start = System.nanoTime()",
+                         "    try { return block() }",
+                         "    finally { println(\"$label took ...\") }",
+                         "}",
+                         "val ink = timedNotInline(\"ink\") { pages * 3 / 100 }"], 22, color=CODE)
+        jv.move_to([-5.6, 1.55, 0], aligned_edge=LEFT)
+        kt.move_to([-5.6, -1.75, 0], aligned_edge=LEFT)
+        jl = T("Java", 22, GREY_B).next_to(jv, UP, buff=0.2).align_to(jv, LEFT)
+        kl = T("Kotlin", 22, GREY_B).next_to(kt, UP, buff=0.2).align_to(kt, LEFT)
+        rule_t = T("3 ml of ink per 100 pages", 24, STEP).move_to([4.2, 3.35, 0])
+        self.say("helper")
+        self.play(FadeIn(jl), FadeIn(jv, shift=UP * 0.1), run_time=0.8)
+        self.play(FadeIn(kl), FadeIn(kt, shift=UP * 0.1), run_time=0.8)
+        self.at(2)
+        self.play(FadeIn(rule_t), run_time=0.5)
+        self.play(jv[5].animate.set_color(WHITE), kt[5].animate.set_color(WHITE), run_time=0.6)
+        self.hold()
 
-        self.seq("First, invokedynamic builds a small object, a Function0. It holds a copy of amountMinor.",
-                 [(0, [Create(hl)], 0.5), (0, [FadeIn(obj_r), FadeIn(obj_t)], 0.7), (1, [FadeIn(obj_f, shift=UP * 0.1)], 0.6)])
-        self.seq("Then the call goes to timedNotInline. Inside it, block() calls that object's invoke method, a call through an interface.",
-                 [(0, [hl_to(1, WHITE), FadeIn(tn)], 0.8),
-                  (1, [GrowArrow(inv), FadeIn(inv_l)], 0.8)])
-        summary = T("one object, one interface call, one unboxing, on every call", 26, GREY_A).move_to(DOWN * 3.0)
-        self.seq("The helper is generic, so the result comes back as an Object, a boxed Long. "
-                 "It has to be unboxed to a long. That is one object, one interface call and one unboxing, on every call.",
-                 [(0, [hl_to(2, PURPLE_M), GrowArrow(ret), FadeIn(ret_l), FadeIn(boxed)], 1.0),
-                  (1, [Transform(boxed, unboxed)], 0.7),
-                  (2, [FadeIn(summary, shift=UP * 0.1)], 0.7)])
-        self.play(FadeOut(VGroup(call, head, jb, hl, obj, tn, inv, inv_l, boxed, ret, ret_l, summary)), run_time=0.7)
+        lam_k = part(kt[5], "{ pages * 3 / 100 }")
+        lam_j = part(jv[5], "() -> pages * 3 / 100")
+        bk = SurroundingRectangle(lam_k, buff=0.08, color=STEP, stroke_width=2.5)
+        bj = SurroundingRectangle(lam_j, buff=0.08, color=STEP, stroke_width=2.5)
+        lam_l = T("a lambda", 24, STEP).next_to(bk, DOWN, buff=0.2).align_to(bk, LEFT)
+        clo_l = T("uses pages from outside: a closure", 24, STEP).next_to(bk, DOWN, buff=0.2).align_to(bk, LEFT)
+        self.say("lambda")
+        self.play(Create(bk), Create(bj), FadeIn(lam_l), run_time=0.8)
+        self.at(1)
+        self.play(Indicate(part(kt[5], "pages"), color=STEP, scale_factor=1.3),
+                  Indicate(part(jv[5], "pages"), color=STEP, scale_factor=1.3), run_time=0.9)
+        self.at(2)
+        self.play(FadeTransform(lam_l, clo_l), run_time=0.6)
+        self.hold()
 
-        # ---- inline: the compiler pastes the body and the lambda
-        kf = code(["inline fun <T> timed(label: String, block: () -> T): T {",
-                   "    val start = System.nanoTime()",
-                   "    try {",
-                   "        return block()",
-                   "    } finally {",
-                   '        println("$label took ${(System.nanoTime() - start) / 1_000} us")',
-                   "    }",
-                   "}"], 22)
-        part(kf[0], "inline").set_color(BLUE_M)
-        place(kf, -5.9, 2.75)
-        kcall = one('val fee = timed("fee") { ' + LAM + ' }', 24)
-        part(kcall, "{ " + LAM + " }").set_color(GOLD_M)
-        kcall.next_to(kf, DOWN, buff=0.75).align_to(kf, LEFT)
-        self.seq("Now mark the helper inline. The body stays the same, and so does the call.",
-                 [(0, [FadeIn(kf, shift=UP * 0.15)], 1.0), (0, [mark(part(kf[0], "inline"), BLUE_M, 0.6)], 1.3),
-                  (1, [FadeIn(kcall, shift=UP * 0.15)], 0.8)])
+        self.say("cost_q")
+        self.hold(after=0)
+        self.predict(2.6)
+        self.wipe(0.5)
 
-        jv = code(["long start = System.nanoTime();",
-                   "long fee;",
-                   "try {",
-                   "    fee = " + LAM + ";",
-                   "} finally {",
-                   "    long us = (System.nanoTime() - start) / 1_000;",
-                   '    System.out.println("fee took " + us + " us");',
-                   "}"], 22)
-        part(jv[3], LAM).set_color(GOLD_M)
-        place(jv, -5.9, 2.35)
-        jhead = T("the same call site, as Java, with inline", 24, GREY_B).next_to(jv, UP, buff=0.35).align_to(jv, LEFT)
-        kp = code(["val start = System.nanoTime()",
-                   "val fee = try {",
-                   "    " + LAM,
-                   "} finally {",
-                   '    println("fee took ${(System.nanoTime() - start) / 1_000} us")',
-                   "}"], 22)
-        part(kp[2], LAM).set_color(GOLD_M)
-        place(kp, -5.9, 2.35)
-        khead = T("the call site, with the body pasted in", 24, GREY_B).next_to(kp, UP, buff=0.35).align_to(kp, LEFT)
-        self.seq("At every call site, the compiler copies the function's body, and the body of the lambda you passed, instead of making a call.",
-                 [(0, [FadeOut(kf[0]), FadeOut(kf[7]), FadeOut(rest_of(kcall, LAM))], 0.5),
-                  (0, [Transform(VGroup(*kf[1][4:]), kp[0]), FadeTransform(kf[2], kp[1]), FadeOut(kf[3]),
-                       Transform(VGroup(*kf[4][4:]), kp[3]), FadeTransform(kf[5], kp[4]), Transform(VGroup(*kf[6][4:]), kp[5])], 1.4),
-                  (0, [ReplacementTransform(part(kcall, LAM), part(kp[2], LAM).set_z_index(10)), FadeIn(khead),
-                       Succession(kp[4].animate(run_time=0.25).set_opacity(0.15), Wait(0.7), kp[4].animate(run_time=0.25).set_opacity(1))], 1.2)])
-        self.remove(*self.mobjects)
-        self.add(khead, kp)
+        # ================= three costs, and the slip =================
+        def cost_card(title, body, color):
+            t = T(title, 26, color)
+            b = M(body, 22, WHITE)
+            g = VGroup(t, b).arrange(DOWN, buff=0.18)
+            r = RoundedRectangle(corner_radius=0.1, width=3.7, height=1.45).set_stroke(color, 2.5).set_fill(dim(color, 0.14), 1)
+            return VGroup(r, g.move_to(r))
+        c1 = cost_card("one object", "holds a copy of pages", OBJ)
+        c2 = cost_card("one interface call", "block.invoke()", MATE)
+        c3 = cost_card("one unboxing", "Object -> long", BAD)
+        cards = VGroup(c1, c2, c3).arrange(RIGHT, buff=0.4).move_to([0, 2.3, 0])
+        docs = T("the Kotlin docs name the same three costs", 22, GREY_B).next_to(cards, DOWN, buff=0.25)
+        self.say("cost")
+        self.play(FadeIn(c1, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(c2, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(c3, shift=UP * 0.1), run_time=0.6)
+        self.play(FadeIn(docs), run_time=0.5)
+        self.hold()
 
-        gone = VGroup(T("no Function0 object", 26, GREEN_M), T("no invoke()", 26, GREEN_M), T("no unboxing", 26, GREEN_M))
-        gone.arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([4.4, 1.3, 0])
-        self.seq("Here is that call site read back from the bytecode, as Java. There is no Function0, no invoke, and no unboxing. "
-                 "The multiply sits right inside the caller, between two calls to System.nanoTime.",
-                 [(0, [FadeTransform(kp, jv), FadeTransform(khead, jhead)], 1.2),
-                  (1, [LaggedStart(*[FadeIn(g, shift=LEFT * 0.15) for g in gone], lag_ratio=0.35)], 1.4),
-                  (2, [mark(part(jv[3], LAM), GOLD_M, 0.4)], 1.0),
-                  (2, [mark(part(jv[0], "System.nanoTime()"), WHITE, 0.3), mark(part(jv[5], "System.nanoTime()"), WHITE, 0.3)], 1.0)])
-        self.remove(*self.mobjects)
-        self.add(jhead, jv, gone)
+        fl = floor_line(-2.6)
+        clerk = person(CLERK, 1.3).move_to([-4.0, -2.6 + 0.4, 0])
+        clerk_l = T("clerk", 22, CLERK).next_to(clerk, LEFT, buff=0.25)
+        mate = person(MATE, 1.3).move_to([3.0, -2.6 + 0.4, 0])
+        mate_l = VGroup(T("colleague", 22, MATE), M("timedNotInline", 22, MATE)).arrange(DOWN, buff=0.08).next_to(mate, RIGHT, buff=0.25)
+        sl = slip().move_to([-3.0, -1.3, 0])
+        sl_l = T("the lambda object", 22, STEP)
+        back = CurvedArrow([2.6, -1.25, 0], [-3.6, -1.25, 0], angle=PI / 5, color=MATE, stroke_width=3)
+        back_l = M("invoke(): calling her back", 22, MATE).move_to([-0.3, 0.25, 0])
+        self.say("map")
+        self.play(FadeOut(docs), Create(fl), FadeIn(clerk), FadeIn(clerk_l), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(mate), FadeIn(mate_l), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(sl, shift=UP * 0.1), run_time=0.4)
+        self.play(sl.animate.move_to([1.6, -1.3, 0]), run_time=1.1)
+        sl_l.next_to(sl, LEFT, buff=0.3)
+        self.play(FadeIn(sl_l), Indicate(c1[1][0], color=OBJ, scale_factor=1.1), run_time=0.6)
+        self.at(3)
+        self.play(Create(back), FadeIn(back_l), Indicate(c2[1][0], color=MATE, scale_factor=1.1), run_time=1.0)
+        self.hold()
+        self.wipe()
 
-        fin = VGroup(*jv[4:8])
-        br = Brace(fin, RIGHT, buff=0.25, color=GREY_B)
-        br_l = VGroup(T("in the bytecode twice:", 24, GREY_A), T("the normal exit and", 24, GREY_A),
-                      T("the exit by exception", 24, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        br_l.next_to(br, RIGHT, buff=0.25)
-        self.seq("Read a bit further and you see the price. The finally block is in the bytecode twice: "
-                 "once for the normal exit, and once for the exit by exception.",
-                 [(0, [FadeOut(gone)], 0.5),
-                  (1, [GrowFromCenter(br), FadeIn(br_l, shift=LEFT * 0.15)], 1.0)])
+        # ================= paste it by hand =================
+        jp = code_block(["long start = System.nanoTime();",
+                         "long ink;",
+                         "try { ink = pages * 3 / 100; }            // pasted in",
+                         "finally { System.out.println(\"ink took ...\"); }"], 22, color=CODE,
+                        hl={"// pasted in": STEP})
+        kp = code_block(["val start = System.nanoTime()",
+                         "val ink = try { pages * 3 / 100 }         // pasted in",
+                         "finally { println(\"ink took ...\") }"], 22, color=CODE, hl={"// pasted in": STEP})
+        jp.move_to([-5.6, 1.7, 0], aligned_edge=LEFT)
+        kp.move_to([-5.6, -0.9, 0], aligned_edge=LEFT)
+        jl = T("Java", 22, GREY_B).next_to(jp, UP, buff=0.2).align_to(jp, LEFT)
+        kl = T("Kotlin", 22, GREY_B).next_to(kp, UP, buff=0.2).align_to(kp, LEFT)
+        stack = VGroup(*[RoundedRectangle(corner_radius=0.06, width=2.0, height=1.2).set_stroke(GREY_B, 1.5).set_fill("#1c1c1c", 1)
+                         for _ in range(6)])
+        for i, r in enumerate(stack):
+            r.move_to([3.2 + 0.14 * i, -2.0 - 0.1 * i, 0])
+        fifty = T("x 50", 40, BAD).move_to([5.1, -1.2, 0])
+        self.say("paste")
+        self.play(FadeIn(jl), FadeIn(jp, shift=UP * 0.1), FadeIn(kl), FadeIn(kp, shift=UP * 0.1), run_time=1.0)
+        self.at_text("with the lambda", lead=0.2)
+        self.play(Indicate(part(kp[1], "// pasted in"), color=STEP, scale_factor=1.15), run_time=0.8)
+        self.at(2)
+        self.play(LaggedStart(*[FadeIn(r, shift=DOWN * 0.1) for r in stack], lag_ratio=0.2), FadeIn(fifty), run_time=1.4)
+        self.hold()
 
-        names = ["forEach", "map", "filter", "let", "apply", "use", "repeat", "synchronized", "require"]
-        chips = VGroup(*[chip(n, BLUE_M, size=24, mono=True) for n in names])
-        row1 = VGroup(*chips[:5]).arrange(RIGHT, buff=0.3)
-        row2 = VGroup(*chips[5:]).arrange(RIGHT, buff=0.3)
-        rows = VGroup(row1, row2).arrange(DOWN, buff=0.3).move_to(DOWN * 2.2)
-        self.seq("Every caller carries that copy. So inline is for small functions that take lambdas. "
-                 "The standard library is full of them.",
-                 [(0, [Indicate(fin, color=WHITE, scale_factor=1.02)], 0.9),
-                  (2, [LaggedStart(*[FadeIn(c, shift=UP * 0.1) for c in chips], lag_ratio=0.12)], 1.4)])
-        self.play(FadeOut(VGroup(jhead, jv, br, br_l, rows)), run_time=0.6)
+        w1 = T("Wouldn't it be nice if someone did the pasting?", 32).move_to([0, 1.0, 0])
+        w2 = T("the compiler: never bored, never gets paper cuts", 28, OBJ).move_to([0, -0.2, 0])
+        self.say("wish")
+        self.play(FadeOut(VGroup(jp, kp, jl, kl, stack, fifty)), run_time=0.5)
+        self.play(FadeIn(w1, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(w2, shift=UP * 0.1), run_time=0.6)
+        self.hold()
 
-        # ---- Java can't inline Kotlin code
-        jc = code(['long fee = InlineDemoKt.timed("fee",',
-                   "        () -> " + LAM + ");"], 24)
-        kc = code(['val fee = timed("fee") {',
-                   "    " + LAM,
-                   "}"], 24)
-        part(jc[1], "() -> " + LAM).set_color(GOLD_M)
-        part(kc[1], LAM).set_color(GOLD_M)
-        jn = T("a Function0 object, then invoke()", 24, RED_M)
-        kn = T("pasted in: no object", 24, GREEN_M)
-        jcol = VGroup(T("Java", 24, GREY_B), jc, jn).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
-        kcol = VGroup(T("Kotlin", 24, GREY_B), kc, kn).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
-        pair = VGroup(jcol, kcol).arrange(RIGHT, buff=1.0, aligned_edge=UP)
-        jn.align_to(kn, UP)
-        pair.scale(min(1, 12.4 / pair.width)).move_to(UP * 0.2)
-        self.seq("Java gets none of this. javac can't inline Kotlin code. "
-                 "To Java, timed is an ordinary static method that takes a Function0, and the Java lambda becomes an object like any other.",
-                 [(0, [FadeIn(VGroup(jcol[0], jc, kcol[0], kc), shift=UP * 0.15)], 1.0),
-                  (2, [FadeIn(jn, shift=UP * 0.1), FadeIn(kn, shift=UP * 0.1)], 0.8)])
-        self.play(FadeOut(pair), run_time=0.6)
+        sig = M("inline fun <T> timed(label: String, block: () -> T): T", 26, CODE, t2c={"inline": OBJ})
+        sig.move_to([0, 3.0, 0])
+        fit(sig, 12.4)
+        konly = T("Kotlin only: Java has no inline", 20, GREY_B).next_to(sig, DOWN, buff=0.15)
+        cs = M("val ink = timed(\"ink\") { pages * 3 / 100 }", 22, CODE).move_to([-3.3, 1.35, 0])
+        cs_l = T("a call site", 22, GREY_B).next_to(cs, DOWN, buff=0.12)
+        fd = folder("the caller's own code", OBJ, 5.6, 2.6, 20).move_to([2.6, -1.5, 0])
+        body = VGroup(M("start = System.nanoTime()", 22, WHITE), M("pages * 3 / 100", 22, STEP),
+                      M("println(\"ink took ...\")", 22, WHITE)).arrange(DOWN, buff=0.22, aligned_edge=LEFT)
+        body.move_to(fd[1].get_center())
+        cp = Arrow(cs_l.get_bottom() + DOWN * 0.05, fd[1].get_left() + UP * 0.3, buff=0.1, stroke_width=3, color=OBJ,
+                   max_tip_length_to_length_ratio=0.12)
+        cp_l = T("the photocopy", 24, OBJ).move_to([-3.6, -1.7, 0])
+        self.say("inline")
+        self.play(FadeOut(VGroup(w1, w2)), FadeIn(sig, shift=DOWN * 0.1), FadeIn(konly), run_time=0.8)
+        self.play(Indicate(part(sig, "inline"), color=OBJ, scale_factor=1.3), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(cs), FadeIn(cs_l), run_time=0.6)
+        self.at_text("the compiler copies", lead=0.2)
+        self.play(GrowArrow(cp), FadeIn(fd), run_time=0.7)
+        self.play(LaggedStart(*[FadeIn(b, shift=RIGHT * 0.15) for b in body], lag_ratio=0.35), run_time=1.2)
+        self.at(2)
+        self.play(FadeIn(cp_l), Indicate(body[1], color=STEP, scale_factor=1.15), run_time=0.8)
+        self.hold()
+        self.wipe()
 
-        # ---- closing beat: noinline and crossinline
-        mods = code(["inline fun subscribe(log: (String) -> Unit,",
-                     "                     noinline listener: (String) -> Unit) {",
-                     '    log("subscribing listener #${listeners.size + 1}")',
-                     "    listeners += listener          // kept in a list",
-                     "}",
-                     "",
-                     "inline fun runInBackground(executor: Executor,",
-                     "                           crossinline task: () -> Unit) {",
-                     "    executor.execute { task() }    // runs later, on a pool thread",
-                     "}"], 22)
-        part(mods[1], "noinline").set_color(PURPLE_M)
-        part(mods[7], "crossinline").set_color(TEAL_M)
-        part(mods[3], "// kept in a list").set_color(GREY_B)
-        part(mods[8], "// runs later, on a pool thread").set_color(GREY_B)
-        mods.scale(min(1, 12.4 / mods.width)).move_to(DOWN * 0.1)
-        self.seq("One last rule. Pasting only works when the lambda runs right there, inside the inline function.",
-                 [(0, [FadeIn(mods, shift=UP * 0.15)], 1.0)])
-        self.seq("Store the lambda in a list, and the compiler asks for noinline. That one lambda stays a real object.",
-                 [(0, [mark(part(mods[3], "listeners += listener"), WHITE, 0.5)], 1.2),
-                  (0, [mark(part(mods[1], "noinline"), PURPLE_M, 0.8)], 1.4)])
-        self.seq("Call it from inside a Runnable, and it asks for crossinline. "
-                 "The body is still pasted, into a class generated for that call site, and a bare return is not allowed in it.",
-                 [(0, [mark(part(mods[8], "{ task() }"), WHITE, 0.5)], 1.2),
-                  (0, [mark(part(mods[7], "crossinline"), TEAL_M, 0.8)], 1.4)])
-        self.wait(0.8)
+        # ================= the bytecode =================
+        defs = code_block(["fun inkNotInline(pages: Long): Long =",
+                           "    timedNotInline(\"not inline\") { pages * 3 / 100 }",
+                           "fun inkInline(pages: Long): Long =",
+                           "    timed(\"inline\") { pages * 3 / 100 }"], 22, color=CODE)
+        defs.move_to([0, 1.4, 0])
+        jd = VGroup(M("javap -c -p InlineDemoKt.class", 24, GREY_B),
+                    T("prints the bytecode: the instructions the JVM runs", 22, GREY_B)).arrange(DOWN, buff=0.12).move_to([0, -1.2, 0])
+        self.say("javap")
+        self.play(FadeIn(jd[0]), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(jd[1]), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(defs, shift=UP * 0.1), run_time=0.8)
+        self.hold()
+        self.say("javap_q")
+        self.hold(after=0)
+        self.predict(2.6)
+
+        nb = code_block(["ldc            \"not inline\"", "lload_0", "invokedynamic  -> Function0",
+                         "invokestatic   timedNotInline", "checkcast      java/lang/Number",
+                         "invokevirtual  Number.longValue", "lreturn"], 22, color=CODE)
+        ib_src = ["invokestatic   System.nanoTime", "lload_0", "iconst_3", "i2l", "lmul", "bipush         100", "i2l",
+                  "ldiv", "...", "invokestatic   System.nanoTime", "...", "invokevirtual  PrintStream.println", "...",
+                  "invokestatic   System.nanoTime", "...", "invokevirtual  PrintStream.println", "athrow"]
+        ib = VGroup(*[M(l, 22, CODE) for l in ib_src]).arrange(DOWN, aligned_edge=LEFT, buff=0.085)
+        nh = M("inkNotInline", 26, MATE)
+        ih = M("inkInline", 26, OBJ)
+        nb.next_to(nh, DOWN, buff=0.3).align_to(nh, LEFT)
+        nbg = VGroup(nh, nb).move_to([-6.1, 3.25, 0], aligned_edge=UL)
+        ib.next_to(ih, DOWN, buff=0.25).align_to(ih, LEFT)
+        ibg = VGroup(ih, ib).move_to([0.9, 3.35, 0], aligned_edge=UL)
+        src = T("javap, real output (shortened)", 20, GREY_B).move_to([6.3, -3.55, 0], aligned_edge=RIGHT)
+        self.say("bc_not")
+        self.play(FadeOut(VGroup(defs, jd)), run_time=0.4)
+        self.play(FadeIn(nh), FadeIn(src), LaggedStart(*[FadeIn(l, shift=RIGHT * 0.1) for l in nb], lag_ratio=0.12), run_time=1.2)
+        self.at(1)
+        self.play(nb[2].animate.set_color(STEP), run_time=0.5)
+        sl = slip(0.8).next_to(nb[2], DOWN, buff=0.0).shift(RIGHT * 4.0 + UP * 0.25)
+        self.at(2)
+        self.play(FadeIn(sl, shift=LEFT * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(nb[3].animate.set_color(MATE), run_time=0.5)
+        self.at(5)
+        self.play(nb[4].animate.set_color(BAD), nb[5].animate.set_color(BAD), run_time=0.6)
+        self.hold()
+
+        self.say("bc_in")
+        self.play(FadeOut(sl), FadeIn(ih), LaggedStart(*[FadeIn(l, shift=RIGHT * 0.1) for l in ib], lag_ratio=0.05), run_time=1.4)
+        self.at(1)
+        self.play(Indicate(nb[2], color=STEP, scale_factor=1.1), Indicate(nb[3], color=MATE, scale_factor=1.1), run_time=0.8)
+        self.at(2)
+        self.play(ib[4].animate.set_color(OBJ), ib[7].animate.set_color(OBJ), run_time=0.6)
+        self.play(ib[0].animate.set_color(WHITE), ib[9].animate.set_color(WHITE), run_time=0.5)
+        self.hold()
+
+        out = VGroup(M("ink = 360 ml", 26, OK), M("ink = 360 ml", 26, OK)).arrange(DOWN, buff=0.15, aligned_edge=LEFT)
+        out_l = T("12,000 pages, both versions: real output", 20, GREY_B)
+        outg = VGroup(out_l, out).arrange(DOWN, buff=0.2, aligned_edge=LEFT).move_to([-6.1, -1.9, 0], aligned_edge=LEFT)
+        self.say("run")
+        self.play(FadeIn(outg, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0.6)
+
+        # ================= the price =================
+        b1 = Brace(VGroup(ib[9], ib[11]), LEFT, color=OK)
+        b2 = Brace(VGroup(ib[13], ib[16]), LEFT, color=BAD)
+        b1l = T("finally, normal exit", 24, OK).next_to(b1, LEFT, buff=0.15)
+        b2l = T("finally again, exit by exception", 24, BAD).next_to(b2, LEFT, buff=0.15)
+        self.say("twice")
+        self.play(FadeOut(VGroup(nbg, outg)), run_time=0.5)
+        self.at(1)
+        self.play(ib[11].animate.set_color(WHITE), ib[15].animate.set_color(WHITE), run_time=0.5)
+        self.at(2)
+        self.play(GrowFromCenter(b1), FadeIn(b1l), run_time=0.6)
+        self.at_text("and once", lead=0.2)
+        self.play(GrowFromCenter(b2), FadeIn(b2l), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        gn = T("good news", 30, OK)
+        gi = VGroup(*[T(x, 26) for x in ("no slip", "no call", "no box")]).arrange(DOWN, buff=0.2, aligned_edge=LEFT)
+        gg = VGroup(gn, gi).arrange(DOWN, buff=0.3, aligned_edge=LEFT).move_to([-4.0, 1.6, 0])
+        bn = T("bad news", 30, BAD)
+        bi = T("every folder gets thicker", 26)
+        bg = VGroup(bn, bi).arrange(DOWN, buff=0.3, aligned_edge=LEFT).move_to([3.0, 2.0, 0], aligned_edge=LEFT).shift(LEFT * 1.4)
+        fds = VGroup(*[folder("", OBJ, 1.0, 0.75).scale(1) for _ in range(8)]).arrange(RIGHT, buff=0.18)
+        fds.move_to([1.6, -0.75, 0])
+        for i, f in enumerate(fds):
+            f[1].stretch_to_fit_height(0.75 + 0.06 * i, about_edge=DOWN)
+        many = T("a 40-line helper, 200 callers: 200 copies", 26, OBJ).move_to([0, -2.0, 0])
+        docs = T("the docs: inlining pays off only if you avoid inlining large functions", 22, GREY_B).move_to([0, -2.85, 0])
+        self.say("goodbad")
+        self.play(FadeIn(gn), LaggedStart(*[FadeIn(x, shift=RIGHT * 0.1) for x in gi], lag_ratio=0.3), run_time=1.2)
+        self.at(1)
+        self.play(FadeIn(bg, shift=UP * 0.1), LaggedStart(*[FadeIn(f) for f in fds], lag_ratio=0.1), run_time=1.2)
+        self.at(2)
+        self.play(FadeIn(many), run_time=0.6)
+        self.play(FadeIn(docs), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= the rule, and two more limits =================
+        rl = T("inline is for small functions that take lambdas.", 34, OBJ).move_to([0, 2.6, 0])
+        names = ["forEach", "map", "filter", "let", "apply", "use", "repeat", "require"]
+        chips = VGroup(*[framed(M(n, 24, WHITE), OBJ, buff=0.14) for n in names]).arrange(RIGHT, buff=0.22).move_to([0, 1.1, 0])
+        fit(chips, 12.4)
+        chips_l = T("all inline, in the standard library", 22, GREY_B).next_to(chips, DOWN, buff=0.2)
+        mp = VGroup(M("jobs.map { it.pages }", 26, WHITE), T("costs about what a hand-written loop costs", 24, GREY_A)).arrange(RIGHT, buff=0.4)
+        mp.move_to([0, -1.0, 0])
+        fit(mp, 12.4)
+        self.say("rule")
+        self.play(FadeIn(rl, shift=UP * 0.1), run_time=0.8)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(c, shift=UP * 0.1) for c in chips], lag_ratio=0.12), FadeIn(chips_l), run_time=1.6)
+        self.hold()
+        self.play(FadeOut(VGroup(chips, chips_l)), rl.animate.scale(0.75).move_to([0, 3.3, 0]), run_time=0.6)
+
+        app = framed(VGroup(T("an app", 26, CLERK), T("built against version 1", 22, GREY_A)).arrange(DOWN, buff=0.1), CLERK)
+        lib = framed(VGroup(T("the library", 26, MATE), T("now version 2", 22, GREY_A)).arrange(DOWN, buff=0.1), MATE)
+        VGroup(app, lib).arrange(RIGHT, buff=2.4).move_to([0, 1.5, 0])
+        ar = Arrow(app.get_right(), lib.get_left(), buff=0.15, stroke_width=3, color=GREY_B)
+        res = M("inline=v1 plain=v2", 36, WHITE, t2c={"inline=v1": BAD, "plain=v2": OK}).move_to([0, -0.4, 0])
+        res_l = T("printed by the lesson's test", 20, GREY_B).next_to(res, DOWN, buff=0.15)
+        n1 = T("plain function: the new code", 24, OK)
+        n2 = T("inline function: its old copy", 24, BAD)
+        ns = VGroup(n1, n2).arrange(RIGHT, buff=1.2).move_to([0, -2.1, 0])
+        corr = T("never hears corrections", 24, BAD).move_to([0, -3.0, 0])
+        self.say("frozen")
+        self.play(FadeIn(corr), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(app), run_time=0.5)
+        self.at(3)
+        self.play(GrowArrow(ar), FadeIn(lib), run_time=0.7)
+        self.at_text("and printed this", lead=0.1)
+        self.play(FadeIn(res, shift=UP * 0.1), FadeIn(res_l), run_time=0.7)
+        self.at(4)
+        self.play(FadeIn(n1), run_time=0.5)
+        self.at(5)
+        self.play(FadeIn(n2), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= where the picture breaks: Java =================
+        jc = M("long ink = InlineDemoKt.timed(\"from Java\", () -> 12_000L * 3 / 100);", 22, CODE)
+        jc.move_to([0, 1.9, 0])
+        fit(jc, 12.4)
+        jcl = T("Java", 22, GREY_B).next_to(jc, UP, buff=0.2).align_to(jc, LEFT)
+        lam = part(jc, "() -> 12_000L * 3 / 100")
+        lb = SurroundingRectangle(lam, buff=0.08, color=STEP, stroke_width=2.5)
+        j1 = T("javac can't inline Kotlin code", 26, BAD).move_to([0, 0.5, 0])
+        j2 = VGroup(T("to Java,", 26), M("timed", 26, WHITE), T("is an ordinary static method that takes a", 26),
+                    M("Function0", 26, WHITE)).arrange(RIGHT, buff=0.15).move_to([0, -0.4, 0])
+        fit(j2, 12.4)
+        clerk = person(CLERK, 1.2).move_to([-2.2, -2.3, 0])
+        mate = person(MATE, 1.2).move_to([2.6, -2.3, 0])
+        sl = slip(0.85).move_to([-1.2, -2.2, 0])
+        j3 = T("Java always hands over the slip.", 26, STEP).move_to([0, -3.35, 0])
+        self.say("java")
+        self.play(FadeIn(jcl), FadeIn(jc), run_time=0.7)
+        self.at_text("because javac", lead=0.3)
+        self.play(FadeIn(j1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(j2), Create(lb), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(clerk), FadeIn(mate), FadeIn(sl), run_time=0.5)
+        self.play(sl.animate.move_to([1.6, -2.2, 0]), FadeIn(j3), run_time=1.0)
+        self.hold()
+        self.wipe()
+
+        # ================= open loop: "stop here" =================
+        fd = folder("job folder", OBJ, 4.4, 2.6).move_to([-3.2, 0.2, 0])
+        sheet = paper(["1. start clock", "2. her step:", "   stop here!", "3. print time"], 22).move_to(fd[1].get_center())
+        stop = part(sheet[1], "stop here!")
+        r1 = T("stops the whole job,", 26, BAD)
+        r2 = T("not just her step", 26, BAD)
+        r3 = VGroup(M("return", 26, WHITE), T("in an inlined lambda", 26)).arrange(RIGHT, buff=0.15)
+        r4 = T("leaves the whole function", 26, BAD)
+        rg = VGroup(r1, r2, r3, r4).arrange(DOWN, buff=0.25, aligned_edge=LEFT).move_to([3.0, 0.3, 0])
+        nxt = T("next section: non-local returns", 22, GREY_B).move_to([0, -2.6, 0])
+        self.say("loop")
+        self.play(FadeIn(fd), FadeIn(sheet), run_time=0.7)
+        self.at(1)
+        self.play(stop.animate.set_color("#B01E12"), run_time=0.4)
+        self.play(FadeIn(VGroup(r1, r2), shift=UP * 0.1), fd[1].animate.set_stroke(BAD), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(VGroup(r3, r4), shift=UP * 0.1), run_time=0.7)
+        self.at(3)
+        self.play(FadeIn(nxt), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= moral and check =================
+        m0 = T("Faster than what?", 30, GREY_A)
+        m1 = T("Than a slip, a call and a box, on every use.", 30, STEP)
+        m2 = T("inline copies the helper and its lambda into each caller.", 30, OBJ)
+        m3 = T("Keep it for small helpers that take lambdas.", 30, WHITE)
+        mg = VGroup(m0, m1, m2, m3).arrange(DOWN, buff=0.3).move_to([0, 1.7, 0])
+        fit(mg, 12.4)
+        self.say("moral")
+        self.play(FadeIn(m0, shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+
+        qc = M("inline fun toSheets(pages: Int): Int = (pages + 1) / 2", 24, CODE, t2c={"inline": OBJ}).move_to([0, -1.0, 0])
+        fit(qc, 12.4)
+        qq = T("Check: no lambda in sight. Should it be inline?", 26).next_to(qc, UP, buff=0.25)
+        self.say("check")
+        self.play(FadeIn(qq, shift=UP * 0.1), FadeIn(qc, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.6)
+        warn = VGroup(M("expected performance impact from inlining is insignificant.", 22, OBJ),
+                      M("Inlining works best for functions with parameters of function types.", 22, OBJ)
+                      ).arrange(DOWN, buff=0.12, aligned_edge=LEFT).move_to([0, -2.6, 0])
+        fit(warn, 12.4)
+        wl = T("the compiler's warning", 20, GREY_B).next_to(warn, DOWN, buff=0.12)
+        self.say("check_a")
+        self.play(FadeIn(cross(qc, 0.22)), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(warn, shift=UP * 0.1), FadeIn(wl), run_time=0.8)
+        self.hold(after=0)
+        self.wait(2.5)
