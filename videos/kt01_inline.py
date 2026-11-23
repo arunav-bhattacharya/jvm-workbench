@@ -108,7 +108,7 @@ class Narrated(VoiceScene):
         if after:
             self.wait(after)
 
-    def predict(self, secs=2.4, pos=(6.4, -3.3), edge=RIGHT):
+    def predict(self, secs=2.4, pos=(6.4, -3.62), edge=RIGHT):
         """A beat of silence for the viewer to guess, with a small on-screen prompt."""
         tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
         self.play(FadeIn(tag), run_time=0.3)
@@ -222,8 +222,8 @@ class Kt01Inline(Narrated):
         clerk_l = T("clerk", 22, CLERK).next_to(clerk, DOWN, buff=0.15)
         mate = person(MATE, 1.4).move_to([3.4, -1.45 + 0.42, 0])
         mate_l = T("colleague", 22, MATE).next_to(mate, DOWN, buff=0.15)
-        sl = slip().move_to([-1.0, -0.3, 0])
-        sl_l = T("a slip for her one step", 22, STEP).move_to([0.6, 0.75, 0])
+        sl = slip().move_to([-1.0, 0.15, 0])
+        sl_l = T("a slip for her one step", 22, STEP).move_to([1.9, 1.05, 0])
         self.say("open")
         self.play(Create(fl), FadeIn(bd), run_time=0.7)
         self.at(1)
@@ -231,7 +231,7 @@ class Kt01Inline(Narrated):
         self.at(2)
         self.play(FadeIn(mate), FadeIn(mate_l), run_time=0.6)
         self.play(FadeIn(sl, shift=UP * 0.1), run_time=0.4)
-        self.play(sl.animate.move_to([2.2, -0.3, 0]), FadeIn(sl_l), run_time=1.4)
+        self.play(sl.animate.move_to([1.9, 0.15, 0]), FadeIn(sl_l), run_time=1.4)
         fd = folder("job folder", OBJ, 2.5, 1.9).move_to([-2.3, 1.5, 0])
         sheet = paper(["time a job:", "1. start clock", "2. her step", "3. print time"], 20).move_to(bd.get_center())
         self.at(3)
@@ -301,8 +301,8 @@ class Kt01Inline(Narrated):
 
         lam_k = part(kt[5], "{ pages * 3 / 100 }")
         lam_j = part(jv[5], "() -> pages * 3 / 100")
-        bk = SurroundingRectangle(lam_k, buff=0.08, color=STEP, stroke_width=2.5)
-        bj = SurroundingRectangle(lam_j, buff=0.08, color=STEP, stroke_width=2.5)
+        bk = SurroundingRectangle(lam_k, buff=0.05, color=STEP, stroke_width=2.5)
+        bj = SurroundingRectangle(lam_j, buff=0.05, color=STEP, stroke_width=2.5)
         lam_l = T("a lambda", 24, STEP).next_to(bk, DOWN, buff=0.2).align_to(bk, LEFT)
         clo_l = T("uses pages from outside: a closure", 24, STEP).next_to(bk, DOWN, buff=0.2).align_to(bk, LEFT)
         self.say("lambda")
@@ -449,7 +449,11 @@ class Kt01Inline(Narrated):
         ib_src = ["invokestatic   System.nanoTime", "lload_0", "iconst_3", "i2l", "lmul", "bipush         100", "i2l",
                   "ldiv", "...", "invokestatic   System.nanoTime", "...", "invokevirtual  PrintStream.println", "...",
                   "invokestatic   System.nanoTime", "...", "invokevirtual  PrintStream.println", "athrow"]
-        ib = VGroup(*[M(l, 22, CODE) for l in ib_src]).arrange(DOWN, aligned_edge=LEFT, buff=0.085)
+        ib = VGroup(*[M(l, 22, CODE) for l in ib_src])
+        for i, l in enumerate(ib):
+            l.move_to([0, -0.335 * i, 0], aligned_edge=LEFT)
+            if ib_src[i] == "...":
+                l.shift(UP * 0.06)
         nh = M("inkNotInline", 26, MATE)
         ih = M("inkInline", 26, OBJ)
         nb.next_to(nh, DOWN, buff=0.3).align_to(nh, LEFT)
@@ -509,10 +513,8 @@ class Kt01Inline(Narrated):
         bn = T("bad news", 30, BAD)
         bi = T("every folder gets thicker", 26)
         bg = VGroup(bn, bi).arrange(DOWN, buff=0.3, aligned_edge=LEFT).move_to([3.0, 2.0, 0], aligned_edge=LEFT).shift(LEFT * 1.4)
-        fds = VGroup(*[folder("", OBJ, 1.0, 0.75).scale(1) for _ in range(8)]).arrange(RIGHT, buff=0.18)
+        fds = VGroup(*[folder("", OBJ, 1.0, 0.7 + 0.1 * i) for i in range(8)]).arrange(RIGHT, buff=0.18, aligned_edge=DOWN)
         fds.move_to([1.6, -0.75, 0])
-        for i, f in enumerate(fds):
-            f[1].stretch_to_fit_height(0.75 + 0.06 * i, about_edge=DOWN)
         many = T("a 40-line helper, 200 callers: 200 copies", 26, OBJ).move_to([0, -2.0, 0])
         docs = T("the docs: inlining pays off only if you avoid inlining large functions", 22, GREY_B).move_to([0, -2.85, 0])
         self.say("goodbad")
@@ -528,7 +530,7 @@ class Kt01Inline(Narrated):
         # ================= the rule, and two more limits =================
         rl = T("inline is for small functions that take lambdas.", 34, OBJ).move_to([0, 2.6, 0])
         names = ["forEach", "map", "filter", "let", "apply", "use", "repeat", "require"]
-        chips = VGroup(*[framed(M(n, 24, WHITE), OBJ, buff=0.14) for n in names]).arrange(RIGHT, buff=0.22).move_to([0, 1.1, 0])
+        chips = M("   ".join(names), 28, WHITE).move_to([0, 1.1, 0])
         fit(chips, 12.4)
         chips_l = T("all inline, in the standard library", 22, GREY_B).next_to(chips, DOWN, buff=0.2)
         mp = VGroup(M("jobs.map { it.pages }", 26, WHITE), T("costs about what a hand-written loop costs", 24, GREY_A)).arrange(RIGHT, buff=0.4)
@@ -537,7 +539,7 @@ class Kt01Inline(Narrated):
         self.say("rule")
         self.play(FadeIn(rl, shift=UP * 0.1), run_time=0.8)
         self.at(1)
-        self.play(LaggedStart(*[FadeIn(c, shift=UP * 0.1) for c in chips], lag_ratio=0.12), FadeIn(chips_l), run_time=1.6)
+        self.play(LaggedStart(*[FadeIn(part(chips, n), shift=UP * 0.1) for n in names], lag_ratio=0.12), FadeIn(chips_l), run_time=1.6)
         self.hold()
         self.play(FadeOut(VGroup(chips, chips_l)), rl.animate.scale(0.75).move_to([0, 3.3, 0]), run_time=0.6)
 
@@ -572,7 +574,7 @@ class Kt01Inline(Narrated):
         fit(jc, 12.4)
         jcl = T("Java", 22, GREY_B).next_to(jc, UP, buff=0.2).align_to(jc, LEFT)
         lam = part(jc, "() -> 12_000L * 3 / 100")
-        lb = SurroundingRectangle(lam, buff=0.08, color=STEP, stroke_width=2.5)
+        lb = SurroundingRectangle(lam, buff=0.05, color=STEP, stroke_width=2.5)
         j1 = T("javac can't inline Kotlin code", 26, BAD).move_to([0, 0.5, 0])
         j2 = VGroup(T("to Java,", 26), M("timed", 26, WHITE), T("is an ordinary static method that takes a", 26),
                     M("Function0", 26, WHITE)).arrange(RIGHT, buff=0.15).move_to([0, -0.4, 0])

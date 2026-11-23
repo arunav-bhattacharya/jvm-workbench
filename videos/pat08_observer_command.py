@@ -143,11 +143,11 @@ def part_box(name, color, w=3.2):
     return box(name, color, w=w, h=0.8, size=26)
 
 
-def sheet(n=3, s=1.0):
+def sheet(n=3, s=1.0, gap=0.28):
     t = T("ring me when the", 18, INK)
     t2 = T("fresh bread arrives", 18, INK)
     hd = VGroup(t, t2).arrange(DOWN, buff=0.06)
-    lines = VGroup(*[Line(LEFT * 0.75, RIGHT * 0.75, stroke_width=2, color=GREY_D) for _ in range(n)]).arrange(DOWN, buff=0.28)
+    lines = VGroup(*[Line(LEFT * 0.75, RIGHT * 0.75, stroke_width=2, color=GREY_D) for _ in range(n)]).arrange(DOWN, buff=gap)
     body = VGroup(hd, lines).arrange(DOWN, buff=0.25)
     r = Rectangle(width=body.width + 0.4, height=body.height + 0.4).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
     body.move_to(r)
@@ -467,10 +467,10 @@ class Pat08ObserverCommand(Narrated):
         self.wipe()
 
         # ================= light moment: the grumpy chart =================
-        sht = sheet(3, 1.3).move_to([-3.6, 0.5, 0])
-        nm3 = VGroup(*[T(t, 20, c).move_to(l.get_center() + UP * 0.16) for t, c, l in
+        sht = sheet(3, 1.3, gap=0.5).move_to([-3.6, 0.5, 0])
+        nm3 = VGroup(*[T(t, 20, INK).move_to(l.get_center() + UP * 0.17) for t, c, l in
                        zip(["stock view", "sales chart", "email"], [STOCK, CHART, MAILC], sht[2])])
-        phone = T("click.", 30, BAD).next_to(nm3[1], RIGHT, buff=0.5)
+        phone = T("click.", 30, BAD).next_to(sht, RIGHT, buff=0.4).match_y(nm3[1])
         self.say("joke")
         self.play(FadeIn(sht), FadeIn(nm3), run_time=0.6)
         self.at(1)
