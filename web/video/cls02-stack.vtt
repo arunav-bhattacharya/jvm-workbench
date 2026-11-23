@@ -1,149 +1,377 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:09.619
-Here is a card fee in Java and Kotlin: the amount times the rate in basis points, over ten thousand.
+00:00:02.700 --> 00:00:12.869
+Every show in a theatre runs from a prompt book: the stage manager's copy of the script, full of cues in a terse shorthand, like LX 14 GO.
 
 2
-00:00:09.833 --> 00:00:12.909
-javap shows what javac made of the Java one.
+00:00:12.869 --> 00:00:16.037
+Your class files are the JVM's prompt book.
 
 3
-00:00:12.909 --> 00:00:16.124
-Seven instructions, and not one variable name.
+00:00:16.037 --> 00:00:22.816
+The compiler turns each method into bytecode: short instructions the JVM follows one by one.
 
 4
-00:00:16.124 --> 00:00:20.179
-It reads like noise, until you see the machine it runs on.
+00:00:23.733 --> 00:00:26.561
+Here's a question that's easy to be shy about.
 
 5
-00:00:20.367 --> 00:00:21.917
-Each call gets a frame.
+00:00:26.561 --> 00:00:30.742
+When I write one line of arithmetic, does the JVM do it in one step?
 
 6
-00:00:21.917 --> 00:00:24.613
-Numbered slots hold the local variables.
+00:00:30.742 --> 00:00:34.676
+And while it's working, where does it keep the half-done answer?
 
 7
-00:00:24.613 --> 00:00:31.352
-The operand stack is a pile: instructions pop their inputs off the top, and push their results back.
+00:00:35.767 --> 00:00:39.810
+Let's take the lesson's example, from the lighting desk.
 
 8
-00:00:31.533 --> 00:00:35.751
-Call it with 125,000 cents and 290 basis points.
+00:00:39.810 --> 00:00:44.430
+How long does a fade of 12,500 steps, 32 milliseconds each, run?
 
 9
-00:00:35.751 --> 00:00:40.144
-amountMinor is a long, and a long fills two slots.
+00:00:44.430 --> 00:00:47.318
+Here's the method in Java and in Kotlin.
 
 10
-00:00:40.333 --> 00:00:42.661
-So which slot does bps get?
+00:00:47.318 --> 00:00:49.340
+The milliseconds are a long.
 
 11
-00:00:42.661 --> 00:00:43.696
-Pause on it.
+00:00:50.267 --> 00:00:56.184
+javap, a tool that comes with every JDK, prints the bytecode inside a class file.
 
 12
-00:00:45.667 --> 00:00:46.235
-Slot 2.
+00:00:56.184 --> 00:00:59.837
+For this one line, javac wrote seven instructions.
 
 13
-00:00:46.235 --> 00:00:49.157
-That's why the listing says iload_2.
+00:01:00.067 --> 00:01:00.500
+Seven.
 
 14
-00:00:49.367 --> 00:00:50.239
-Now run it.
+00:01:00.500 --> 00:01:04.035
+And not one of them names a place for the answer.
 
 15
-00:00:50.239 --> 00:00:55.788
-lload_0 copies the long from slot 0 onto the stack: the l is for long.
+00:01:04.035 --> 00:01:05.623
+lload_0, iload_2, i2l.
 
 16
-00:00:55.788 --> 00:00:59.989
-iload_2 copies the int from slot 2: the i is for int.
+00:01:05.623 --> 00:01:09.952
+It reads like a prompt book in a shorthand nobody taught us.
 
 17
-00:01:00.200 --> 00:01:03.691
-Next is a multiply, and lmul only takes two longs.
+00:01:09.952 --> 00:01:11.684
+Wouldn't a picture help?
 
 18
-00:01:03.691 --> 00:01:05.856
-The top of the stack is an int.
+00:01:13.000 --> 00:01:13.751
+Here's one.
 
 19
-00:01:05.856 --> 00:01:07.601
-What has to happen first?
+00:01:13.751 --> 00:01:16.209
+Picture a stagehand at a small desk.
 
 20
-00:01:09.567 --> 00:01:11.034
-i2l, int to long.
+00:01:16.209 --> 00:01:18.326
+On the wall are numbered hooks.
 
 21
-00:01:11.034 --> 00:01:16.300
-It pops the 290 and pushes it back as a long, two slots tall.
+00:01:18.326 --> 00:01:20.716
+On the desk is a pile of cue cards.
 
 22
-00:01:16.500 --> 00:01:19.600
-lmul pops both longs and pushes the product.
+00:01:20.716 --> 00:01:30.548
+Every instruction tells the stagehand to take the top card or two off the pile, do one small job, and put the result back on top, as a new card.
 
 23
-00:01:19.833 --> 00:01:25.419
-ldc2_w pushes the long 10,000 from the constant pool.
+00:01:30.767 --> 00:01:33.652
+Every method call gets a frame with two areas.
 
 24
-00:01:25.419 --> 00:01:29.319
-ldiv pops two longs and pushes 3,625.
+00:01:33.652 --> 00:01:39.986
+The hooks are the local variable slots: numbered places that hold the parameters and local variables.
 
 25
-00:01:29.500 --> 00:01:34.563
-lreturn pops it and returns it: 36 euros and 25 cents.
+00:01:39.986 --> 00:01:41.867
+The pile is the operand stack.
 
 26
-00:01:34.767 --> 00:01:39.255
-At its fullest, the stack held two longs, four slots.
+00:01:41.867 --> 00:01:46.132
+Instructions take their inputs from it, and put their results on it.
 
 27
-00:01:39.255 --> 00:01:44.252
-javap -v prints that as stack=4, and the slots as locals=3.
+00:01:46.733 --> 00:01:49.450
+Our call is seconds(32, 12500).
 
 28
-00:01:45.033 --> 00:01:52.421
-kotlinc's version is almost the same: a public static final method, on a class named StackDemoKt.
+00:01:49.450 --> 00:01:56.111
+stepMillis is a long, and a long takes two slots, so it fills hooks 0 and 1.
 
 29
-00:01:52.633 --> 00:01:54.530
-Only the constant differs.
+00:01:56.111 --> 00:01:58.039
+steps hangs on hook 2.
 
 30
-00:01:54.530 --> 00:01:58.395
-javac loads a ready-made long from the constant pool.
+00:01:58.567 --> 00:02:00.743
+Now one card at a time.
 
 31
-00:01:58.395 --> 00:02:04.230
-kotlinc writes 10,000 into the instruction with sipush, then widens it with i2l.
+00:02:00.743 --> 00:02:05.380
+lload_0: copy the long from hook 0 onto the pile.
 
 32
-00:02:04.230 --> 00:02:05.908
-Same long on the stack.
+00:02:05.380 --> 00:02:05.664
+32.
 
 33
-00:02:06.667 --> 00:02:14.268
-The rule: every instruction pops typed inputs off the stack and pushes its result, and its first letter names the type.
+00:02:05.664 --> 00:02:08.882
+iload_2: copy the int from hook 2.
 
 34
-00:02:15.000 --> 00:02:16.015
-A quick check.
+00:02:08.882 --> 00:02:11.059
+Now 12,500 sits on top.
 
 35
-00:02:16.015 --> 00:02:19.134
-Add plus 30 at the end of the Java version.
+00:02:11.267 --> 00:02:14.512
+Next comes lmul, which multiplies two longs.
 
 36
-00:02:19.134 --> 00:02:21.889
-What appears between ldiv and lreturn?
+00:02:14.512 --> 00:02:16.504
+But the top card is an int.
 
 37
-00:02:23.833 --> 00:02:28.896
-ldc2_w pushes the long 30, then ladd adds the two longs.
+00:02:16.504 --> 00:02:18.348
+What has to happen first?
+
+38
+00:02:18.348 --> 00:02:19.528
+Pause and guess.
+
+39
+00:02:22.500 --> 00:02:23.700
+i2l: int to long.
+
+40
+00:02:23.700 --> 00:02:29.276
+The stagehand takes the int card, and puts back the same number on a long card.
+
+41
+00:02:29.500 --> 00:02:31.016
+Because lmul is fussy.
+
+42
+00:02:31.016 --> 00:02:33.359
+It won't even look at an int card.
+
+43
+00:02:33.359 --> 00:02:34.875
+Two longs, or nothing.
+
+44
+00:02:35.100 --> 00:02:40.355
+So the point is: every instruction says the type it works on, in its first letter.
+
+45
+00:02:40.355 --> 00:02:45.801
+i for int, l for long, f for float, d for double, and a for a reference to an object.
+
+46
+00:02:46.433 --> 00:02:50.368
+lmul takes both cards, and puts back 400,000.
+
+47
+00:02:50.368 --> 00:02:59.373
+ldc2_w #7 puts the long 1000 on the pile, from entry 7 of the constant pool, a table in the class file.
+
+48
+00:02:59.373 --> 00:03:02.870
+ldiv takes two longs, and puts back 400.
+
+49
+00:03:02.870 --> 00:03:06.368
+And lreturn hands the 400 to the caller.
+
+50
+00:03:06.368 --> 00:03:09.165
+The program prints: 400 seconds.
+
+51
+00:03:09.767 --> 00:03:11.657
+Now a question about size.
+
+52
+00:03:11.657 --> 00:03:14.564
+At its busiest, the pile held two cards.
+
+53
+00:03:14.564 --> 00:03:17.471
+So how big a pile does this method need?
+
+54
+00:03:17.471 --> 00:03:18.344
+Two, surely?
+
+55
+00:03:18.344 --> 00:03:19.507
+Pause and guess.
+
+56
+00:03:22.500 --> 00:03:25.859
+javap -v says: stack equals 4, locals equals 3.
+
+57
+00:03:25.859 --> 00:03:31.863
+Four, because a long takes two slots on the stack too, just as it does on the hooks.
+
+58
+00:03:31.863 --> 00:03:34.007
+Two longs at once, four slots.
+
+59
+00:03:34.007 --> 00:03:37.652
+And three hooks: two for stepMillis, one for steps.
+
+60
+00:03:37.867 --> 00:03:40.164
+And that's where the picture breaks.
+
+61
+00:03:40.164 --> 00:03:43.482
+A real stagehand can glance at any card in the pile.
+
+62
+00:03:43.482 --> 00:03:45.907
+An instruction sees only the top ones.
+
+63
+00:03:45.907 --> 00:03:50.373
+And no real cue card takes two places because it carries a big number.
+
+64
+00:03:51.300 --> 00:03:58.602
+The verifier, the JVM's type check from the last lesson, follows the card types through every instruction.
+
+65
+00:03:58.602 --> 00:04:07.420
+A class that put a String on the pile and then ran ireturn loaded fine, then failed with VerifyError: Bad type on operand stack.
+
+66
+00:04:08.333 --> 00:04:09.156
+And Kotlin?
+
+67
+00:04:09.156 --> 00:04:11.849
+kotlinc wrote almost the same cards.
+
+68
+00:04:11.849 --> 00:04:17.311
+It pushes the 1,000 as a small int, with sipush, then widens it with i2l.
+
+69
+00:04:17.311 --> 00:04:22.248
+A difference of style: both leave the same long 1,000 on the pile.
+
+70
+00:04:23.167 --> 00:04:24.124
+Now the names.
+
+71
+00:04:24.124 --> 00:04:26.175
+The pile is the operand stack.
+
+72
+00:04:26.175 --> 00:04:28.841
+The hooks are the local variable slots.
+
+73
+00:04:28.841 --> 00:04:33.012
+A machine that works off a pile like this is a stack machine.
+
+74
+00:04:33.012 --> 00:04:34.037
+That's the JVM.
+
+75
+00:04:34.967 --> 00:04:37.520
+Remember count++ from the first track?
+
+76
+00:04:37.520 --> 00:04:43.097
+On a static field, it compiled to four cards: getstatic, iconst_1, iadd, putstatic.
+
+77
+00:04:43.097 --> 00:04:46.792
+getstatic copies the field onto this thread's own pile.
+
+78
+00:04:46.792 --> 00:04:50.353
+Another thread can run between any two of those four.
+
+79
+00:04:50.567 --> 00:04:52.349
+count++ looks like one move.
+
+80
+00:04:52.349 --> 00:04:55.786
+It's four, with room for an interruption between each.
+
+81
+00:04:55.786 --> 00:04:58.587
+Like a quick costume change, which never is.
+
+82
+00:04:59.500 --> 00:05:00.731
+So here's the rule.
+
+83
+00:05:00.731 --> 00:05:03.580
+One line of source can be many instructions.
+
+84
+00:05:03.580 --> 00:05:06.236
+Read the bytecode before you count on it.
+
+85
+00:05:06.236 --> 00:05:16.145
+And when you read it, check three things: the first letter for the type, two slots for every long and double, and the stack and locals sizes in javap -v.
+
+86
+00:05:17.067 --> 00:05:19.254
+So, is one line one step?
+
+87
+00:05:19.254 --> 00:05:19.516
+No.
+
+88
+00:05:19.516 --> 00:05:27.127
+It's a stagehand with a row of hooks and a pile of typed cards, one small job per card.
+
+89
+00:05:27.127 --> 00:05:35.525
+Read our line as cues: load 32, load 12,500, widen it, multiply, push 1,000, divide, return 400.
+
+90
+00:05:35.733 --> 00:05:36.610
+Quick check.
+
+91
+00:05:36.610 --> 00:05:39.460
+Change the method to add 30 at the end.
+
+92
+00:05:39.460 --> 00:05:44.137
+Which two instructions does javac add, between ldiv and lreturn?
+
+93
+00:05:47.133 --> 00:05:52.157
+ldc2_w, to push the long 30, and ladd, to add two longs.
+
+94
+00:05:52.157 --> 00:05:55.296
+The program now prints 430 seconds.
