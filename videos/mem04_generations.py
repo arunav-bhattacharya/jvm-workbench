@@ -385,11 +385,11 @@ class Mem04Generations(Narrated):
         self.hold()
         self.play(FadeOut(nl), FadeIn(old), run_time=0.6)
         mp = VGroup(
-            T("new-arrivals shelves = eden", 24, EDEN_C), T("short-stay shelf = survivor space", 24, SURV_C),
-            T("long-term storage = old generation", 24, OLD_C), T("one quick round by the door = a young collection", 24, CREW),
+            T("new-arrivals shelves = eden", 26, EDEN_C), T("short-stay shelf = survivor space", 26, SURV_C),
+            T("long-term storage = old generation", 26, OLD_C), T("one quick round by the door = a young collection", 26, CREW),
         ).arrange(DOWN, buff=0.25, aligned_edge=LEFT).move_to([-3.2, -1.95, 0])
-        fit(mp, 6.0)
-        mp.move_to([-3.4, -2.0, 0])
+        fit(mp, 6.3)
+        mp.move_to([-3.3, -2.0, 0])
         self.say("map")
         for i in range(4):
             self.at(i + 1)
@@ -416,7 +416,7 @@ class Mem04Generations(Narrated):
         self.play(FadeIn(bits), run_time=0.5)
         self.hold()
         flow = VGroup(area(2.4, 1.0, EDEN_C, "eden", 22), area(2.4, 1.0, SURV_C, "survivor", 22),
-                      area(2.4, 1.0, OLD_C, "old generation", 22)).arrange(RIGHT, buff=1.4).move_to([0, -1.0, 0])
+                      area(2.4, 1.0, OLD_C, "old generation", 22)).arrange(RIGHT, buff=1.9).move_to([0, -1.0, 0])
         fa = VGroup(arrow(flow[0][0].get_right(), flow[1][0].get_left(), color=WHITE),
                     arrow(flow[1][0].get_right(), flow[2][0].get_left(), color=WHITE))
         fa_t = VGroup(T("survives", 22, GREY_B).next_to(fa[0], UP, buff=0.1), T("promoted", 22, OLD_C).next_to(fa[1], UP, buff=0.1))
@@ -486,6 +486,7 @@ class Mem04Generations(Narrated):
         self.at(3)
         dest = area(3.0, 1.0, SURV_C, "survivor space", 22).move_to([3.3, -1.7, 0])
         self.play(FadeIn(dest), run_time=0.4)
+        self.bring_to_front(*[rb[i] for i in keepL])
         self.play(*[rb[i].animate.move_to(dest[0].get_center() + [(-0.4 + 0.8 * k), 0, 0]) for k, i in enumerate(keepL)], run_time=1.0)
         self.at_text("and then declares", lead=0.2)
         self.play(FadeOut(VGroup(*[b for i, b in enumerate(rb) if i not in keepL])), run_time=0.6)
@@ -544,7 +545,7 @@ class Mem04Generations(Narrated):
 
         # ================= medium-lived objects =================
         flow = VGroup(area(2.2, 1.0, EDEN_C, "eden", 22), area(2.2, 1.0, SURV_C, "survivor", 22),
-                      area(2.6, 1.0, OLD_C, "old generation", 22)).arrange(RIGHT, buff=1.3).move_to([0, 1.2, 0])
+                      area(2.6, 1.0, OLD_C, "old generation", 22)).arrange(RIGHT, buff=1.9).move_to([0, 1.2, 0])
         fa = VGroup(arrow(flow[0][0].get_right(), flow[1][0].get_left(), color=WHITE),
                     arrow(flow[1][0].get_right(), flow[2][0].get_left(), color=WHITE))
         costs = VGroup(T("copied", 22, YELLOW_M).next_to(fa[0], DOWN, buff=0.1), T("copied again", 22, YELLOW_M).next_to(fa[1], DOWN, buff=0.1))
@@ -574,8 +575,8 @@ class Mem04Generations(Narrated):
         self.play(FadeIn(rl[1], shift=UP * 0.1), run_time=0.6)
         self.hold()
         steps = VGroup(T("their own shelves", 26, EDEN_C), T("copy out the few survivors", 26, SURV_C),
-                       T("birthdays on the label", 26, YELLOW_M), T("old-timers to long-term storage", 26, OLD_C)).arrange(RIGHT, buff=0.5)
-        fit(steps, 12.6).move_to([0, -0.8, 0])
+                       T("birthdays on the label", 26, YELLOW_M), T("old-timers to long-term storage", 26, OLD_C)).arrange_in_grid(rows=2, cols=2, buff=(0.8, 0.35))
+        fit(steps, 12.4).move_to([0, -1.2, 0])
         mo = T("Most boxes are thrown out young.", 30, GREY_A).move_to([0, 0.3, 0])
         self.say("moral")
         self.play(FadeIn(mo), run_time=0.5)

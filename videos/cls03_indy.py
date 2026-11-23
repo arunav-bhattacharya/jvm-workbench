@@ -233,8 +233,8 @@ class Cls03Indy(Narrated):
         ask = page[3][2]
         sm = who(SMC, "stage manager", 1.1, 20).move_to([2.2, -1.6, 0])
         dr = who(DIRC, "director", 1.1, 20).move_to([5.2, -1.6, 0])
-        note = Text("LX 15 + SND 2", font=FONT, font_size=24, color=PEN, slant=ITALIC)
-        note.move_to([page[1].get_x() + 0.95, ask.get_y(), 0])
+        note = Text("LX 15 GO", font=FONT, font_size=26, color=PEN, slant=ITALIC)
+        note.move_to([(page[1].get_x() + page[0].get_right()[0]) / 2, ask.get_y(), 0])
         self.say("open")
         self.play(FadeIn(page[0]), Create(page[1]), FadeIn(page[2]), run_time=0.7)
         self.play(FadeIn(page[3][0]), FadeIn(page[3][1]), run_time=0.6)
@@ -477,9 +477,9 @@ class Cls03Indy(Narrated):
 
         # ================= where the picture breaks: MutableCallSite =================
         pencil = VGroup(T("a real margin note: pencil", 28, WHITE), T("a director can change their mind", 26, GREY_A)
-                        ).arrange(DOWN, buff=0.12, aligned_edge=LEFT).move_to([-3.0, 2.4, 0])
+                        ).arrange(DOWN, buff=0.12).move_to([0, 2.75, 0])
         mut = VGroup(T("for that, the JDK has", 26, GREY_A), M("MutableCallSite", 28, ASK)).arrange(RIGHT, buff=0.2)
-        mut.move_to([3.0, 2.4, 0])
+        mut.move_to([0, 1.75, 0])
         self.say("breaks")
         self.play(FadeIn(pencil), run_time=0.6)
         self.at(2)

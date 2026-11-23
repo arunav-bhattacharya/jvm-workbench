@@ -1,93 +1,337 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.839
-G1, the default collector, keeps eden, survivor and old, but not as three big spaces.
+00:00:02.733 --> 00:00:11.784
+In the last video, the warehouse floor had fixed parts: new-arrivals shelves, a short-stay shelf, and one big room of long-term storage.
 
 2
-00:00:08.839 --> 00:00:11.439
-It cuts the heap into equal regions.
+00:00:11.784 --> 00:00:14.779
+G1, the default collector, changes one thing.
 
 3
-00:00:11.633 --> 00:00:21.364
-A region is the max heap divided by 2048, kept between 1 and 32 MB, and rounded up to a power of two.
+00:00:15.667 --> 00:00:19.329
+But first, a question that's easy to be shy about.
 
 4
-00:00:21.364 --> 00:00:24.255
-A 1 GB heap gets 1 MB regions.
+00:00:19.329 --> 00:00:22.990
+G1 aims to keep each pause under 200 milliseconds.
 
 5
-00:00:24.833 --> 00:00:30.515
-Each region has a role for a while: eden, survivor, old, humongous, or free.
+00:00:22.990 --> 00:00:24.968
+A heap can be 40 gigabytes.
 
 6
-00:00:30.733 --> 00:00:33.044
-New objects fill the eden regions.
+00:00:24.968 --> 00:00:26.872
+How can one goal fit both?
 
 7
-00:00:33.267 --> 00:00:41.039
-A young pause copies the live objects out of every eden and survivor region, into free regions that become survivors.
+00:00:28.000 --> 00:00:29.499
+Picture the fixed rooms.
 
 8
-00:00:41.267 --> 00:00:46.244
-The evacuated regions are free again, and next time any of them can become anything.
+00:00:29.499 --> 00:00:31.623
+Long-term storage is one big room.
 
 9
-00:00:46.467 --> 00:00:49.865
-An object larger than half a region is humongous.
+00:00:31.623 --> 00:00:36.121
+To clean any of it, the crew cleans all of it, while every worker waits.
 
 10
-00:00:49.865 --> 00:00:56.869
-It skips eden and gets its own run of whole regions, side by side, which count as old from the start.
+00:00:36.121 --> 00:00:38.245
+A bigger room means a longer wait.
 
 11
-00:00:57.067 --> 00:01:05.223
-A 3 MiB array plus its 16-byte header needs four 1 MB regions, and nearly all of the fourth is wasted.
+00:00:39.133 --> 00:00:42.728
+That's repainting the whole house because one wall has a scratch.
 
 12
-00:01:05.833 --> 00:01:08.939
-Old regions fill up slowly with promoted objects.
+00:00:42.728 --> 00:00:47.595
+What we'd like is to clean just the messiest corner, and leave the rest for another day.
 
 13
-00:01:08.939 --> 00:01:17.876
-When they pass a threshold, 45 percent of the heap to begin with, G1 marks the live objects in the background, while your code keeps running.
+00:00:48.467 --> 00:00:51.119
+So G1's crew paints lines on the floor.
 
 14
-00:01:17.876 --> 00:01:21.363
-Now it knows how much of each old region is still live.
+00:00:51.119 --> 00:00:58.396
+It cuts the heap into equal bays, called regions, and hangs a card on each one that says its use right now.
 
 15
-00:01:21.567 --> 00:01:22.966
-Then come mixed pauses.
+00:00:58.396 --> 00:01:01.116
+Eden, survivor, old, humongous, or free.
 
 16
-00:01:22.966 --> 00:01:28.139
-They take all the young regions, plus a few old ones: the ones with the most garbage.
+00:01:01.267 --> 00:01:02.227
+Let's map it.
 
 17
-00:01:28.139 --> 00:01:31.485
-That choice is where the name Garbage First comes from.
+00:01:02.227 --> 00:01:03.851
+The floor is the heap.
 
 18
-00:01:31.667 --> 00:01:38.464
-Copying costs what is live, so a mostly garbage region gives back the most space for the least work.
+00:01:03.851 --> 00:01:05.401
+Each bay is a region.
 
 19
-00:01:38.464 --> 00:01:42.475
-A region more than 85 percent live is not even a candidate.
+00:01:05.401 --> 00:01:08.281
+The card is the region's role, for now.
 
 20
-00:01:43.067 --> 00:01:43.996
-So, a check.
+00:01:08.281 --> 00:01:09.684
+And the cards move.
 
 21
-00:01:43.996 --> 00:01:51.507
-Which old region does G1 take first: one that is 70 percent live, or one that is 20 percent live?
+00:01:09.867 --> 00:01:11.223
+Watch a young pause.
 
 22
-00:01:52.300 --> 00:01:53.719
-The 20 percent one.
+00:01:11.223 --> 00:01:16.786
+The crew copies the live boxes out of every eden and survivor bay, into free bays.
 
 23
-00:01:53.719 --> 00:01:58.351
+00:01:16.786 --> 00:01:19.499
+The emptied bays get a fresh card: free.
+
+24
+00:01:19.499 --> 00:01:22.416
+Next time, any of them can become anything.
+
+25
+00:01:23.333 --> 00:01:26.184
+G1 is short for Garbage-First.
+
+26
+00:01:26.184 --> 00:01:33.501
+On JDK 25 it's the default on most machines, and from JDK 27, on all of them.
+
+27
+00:01:34.400 --> 00:01:36.072
+How big is one bay?
+
+28
+00:01:36.072 --> 00:01:45.400
+G1 divides the max heap by 2048, keeps the answer between 1 and 32 MB, and rounds it up to a power of two.
+
+29
+00:01:45.600 --> 00:01:47.056
+So, a 1 GB heap.
+
+30
+00:01:47.056 --> 00:01:49.241
+How big are its regions?
+
+31
+00:01:49.241 --> 00:01:50.697
+Pause and guess.
+
+32
+00:01:53.800 --> 00:01:54.245
+1 MB.
+
+33
+00:01:54.245 --> 00:01:59.229
+Half a megabyte is below the floor, so it's raised to 1.
+
+34
+00:01:59.229 --> 00:02:08.753
+The 3.4 GB default heap on the lesson's machine got 2 MB regions, and a 40 GB heap gets the biggest, 32 MB.
+
+35
+00:02:09.667 --> 00:02:10.978
+Now the sharp edge.
+
+36
+00:02:10.978 --> 00:02:14.843
+An object larger than half a region is called humongous.
+
+37
+00:02:14.843 --> 00:02:21.676
+It skips eden, and gets its own run of whole bays, side by side, which count as old from the start.
+
+38
+00:02:21.867 --> 00:02:27.013
+Here's the lesson's photo: a 3 MiB byte array, with 1 MB regions.
+
+39
+00:02:27.013 --> 00:02:29.388
+How many regions does it take?
+
+40
+00:02:29.388 --> 00:02:30.655
+Pause and guess.
+
+41
+00:02:33.733 --> 00:02:34.099
+Four.
+
+42
+00:02:34.099 --> 00:02:41.714
+Every array carries a 16-byte header, so this one is 3 MiB plus 16 bytes, and that doesn't fit in three.
+
+43
+00:02:41.714 --> 00:02:44.569
+Nearly all of the fourth bay is wasted.
+
+44
+00:02:45.467 --> 00:02:50.695
+It's the suitcase that's one sock over the limit, so you pay for a second suitcase.
+
+45
+00:02:50.695 --> 00:02:53.404
+Sixteen bytes just bought a whole megabyte.
+
+46
+00:02:53.404 --> 00:02:58.884
+So the point is: an object just over a region boundary can waste almost a whole region.
+
+47
+00:02:59.800 --> 00:03:03.460
+Each humongous object also needs free bays in a row.
+
+48
+00:03:03.460 --> 00:03:08.036
+And a burst of them can start G1's background marking on its own.
+
+49
+00:03:08.036 --> 00:03:11.063
+The log calls that G1 Humongous Allocation.
+
+50
+00:03:11.933 --> 00:03:16.569
+The good news: G1 reclaims dead humongous objects early.
+
+51
+00:03:16.569 --> 00:03:23.853
+In the lesson's demo on JDK 25, the first young pause logged humongous regions, 28 to 0.
+
+52
+00:03:23.853 --> 00:03:27.164
+Seven dead photos, at four regions each.
+
+53
+00:03:28.067 --> 00:03:35.208
+So if your log is full of G1 Humongous Allocation, stream those uploads instead of holding them whole.
+
+54
+00:03:35.208 --> 00:03:39.408
+Or raise G1HeapRegionSize until they're under half a region.
+
+55
+00:03:39.600 --> 00:03:46.700
+In Java, readAllBytes makes one array as big as the photo, and transferTo copies through a small buffer.
+
+56
+00:03:46.700 --> 00:03:49.704
+In Kotlin, readBytes and copyTo do the same.
+
+57
+00:03:50.600 --> 00:03:52.700
+Now, back to our question.
+
+58
+00:03:52.700 --> 00:03:57.305
+G1's default goal, MaxGCPauseMillis, is 200 milliseconds.
+
+59
+00:03:57.305 --> 00:04:03.121
+So G1 plans how much to clean in each pause, to stay inside that budget.
+
+60
+00:04:03.267 --> 00:04:05.378
+Regions make the plan possible.
+
+61
+00:04:05.378 --> 00:04:12.599
+G1 can clean part of the old generation without cleaning all of it, and it cleans the messiest bays first.
+
+62
+00:04:12.599 --> 00:04:15.937
+Like tidying a garage with only an hour to spare.
+
+63
+00:04:16.133 --> 00:04:19.257
+But first the crew must know how full each bay is.
+
+64
+00:04:19.257 --> 00:04:26.817
+So from time to time, an inspector walks the long-term bays while work goes on, and notes how much of each is still live.
+
+65
+00:04:26.817 --> 00:04:28.441
+That's concurrent marking.
+
+66
+00:04:28.600 --> 00:04:35.335
+Then come mixed pauses: all the young bays, plus a few old ones, the ones with the most garbage.
+
+67
+00:04:35.335 --> 00:04:39.193
+A bay more than 85 percent live isn't even a candidate.
+
+68
+00:04:39.193 --> 00:04:41.298
+That choice gives G1 its name.
+
+69
+00:04:41.298 --> 00:04:42.280
+Garbage-First.
+
+70
+00:04:43.200 --> 00:04:46.763
+Garbage-First would be a terrible motto for a restaurant.
+
+71
+00:04:46.763 --> 00:04:48.888
+For a cleaning crew, it's perfect.
+
+72
+00:04:48.888 --> 00:04:54.889
+Copying costs what's live, so a mostly garbage bay gives back the most space for the least work.
+
+73
+00:04:55.800 --> 00:04:58.019
+Here the warehouse picture breaks.
+
+74
+00:04:58.019 --> 00:05:01.935
+A real crew could carry boxes while people work around them.
+
+75
+00:05:01.935 --> 00:05:07.679
+G1 marks while the program runs, but it stops every thread before it moves a single box.
+
+76
+00:05:07.679 --> 00:05:09.245
+That stop is your pause.
+
+77
+00:05:10.133 --> 00:05:11.111
+So, the moral.
+
+78
+00:05:11.111 --> 00:05:20.749
+G1 cuts the floor into equal bays, gives each one a card for now, and spends each pause's budget on the bays where cleaning pays the most.
+
+79
+00:05:21.667 --> 00:05:22.624
+Quick check.
+
+80
+00:05:22.624 --> 00:05:23.899
+Two old regions.
+
+81
+00:05:23.899 --> 00:05:27.488
+One is 70 percent live, the other 20 percent.
+
+82
+00:05:27.488 --> 00:05:29.800
+Which one does G1 take first?
+
+83
+00:05:33.067 --> 00:05:34.486
+The 20 percent one.
+
+84
+00:05:34.486 --> 00:05:39.117
 G1 copies a fifth of a region, and gets the whole region back.

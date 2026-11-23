@@ -464,7 +464,7 @@ class Mem04G1Regions(Narrated):
 
         # ================= humongous =================
         RS = 2.2                                    # one 1 MB region on screen
-        runr = VGroup(*[region("F", RS) for _ in range(4)]).arrange(RIGHT, buff=0.12).move_to([0, 0.2, 0])
+        runr = VGroup(*[region("F", RS) for _ in range(4)]).arrange(RIGHT, buff=0.12).move_to([0, -0.4, 0])
         rl = VGroup(*[T("1 MB", 22, GREY_B).next_to(r, DOWN, buff=0.12) for r in runr])
         rule = VGroup(T("humongous:", 30, HUM_C), T("larger than half a region", 30)).arrange(RIGHT, buff=0.2).move_to([0, 2.6, 0])
         rule2 = T("skips eden, takes whole bays side by side, counts as old", 26, GREY_A).next_to(rule, DOWN, buff=0.2)
@@ -473,7 +473,7 @@ class Mem04G1Regions(Narrated):
         self.at(1)
         self.play(FadeIn(rule2), FadeIn(runr), FadeIn(rl), run_time=0.8)
         self.hold()
-        photo_t = VGroup(M("byte[]", 26, HUM_C), T("a 3 MiB photo", 26)).arrange(RIGHT, buff=0.2).move_to([0, -2.1, 0])
+        photo_t = VGroup(M("byte[]", 26, HUM_C), T("a 3 MiB photo", 26)).arrange(RIGHT, buff=0.2).move_to([0, -2.4, 0])
         self.say("hugeq")
         self.play(FadeIn(photo_t), run_time=0.5)
         self.hold(after=0)
@@ -481,9 +481,9 @@ class Mem04G1Regions(Narrated):
         x0 = runr[0][0].get_left()[0] + 0.08
         step = RS + 0.12
         body = Rectangle(width=3 * step - 0.16, height=0.9).set_stroke(HUM_C, 3).set_fill(dim(HUM_C, 0.45), 1)
-        body.move_to([x0, 0.0, 0], aligned_edge=LEFT)
+        body.move_to([x0, -0.6, 0], aligned_edge=LEFT)
         hdr = Rectangle(width=0.12, height=0.9).set_stroke(RED_M, 3).set_fill(RED_M, 0.7).next_to(body, RIGHT, buff=0.05)
-        hdr_t = T("+16-byte header", 22, RED_M).next_to(hdr, UP, buff=0.55)
+        hdr_t = T("+16-byte header", 22, RED_M).move_to([hdr.get_center()[0], 1.15, 0])
         hdr_a = Arrow(hdr_t.get_bottom(), hdr.get_top(), buff=0.08, stroke_width=3, color=RED_M, max_tip_length_to_length_ratio=0.3)
         b_t = T("3 MiB of pixels", 26).move_to(body)
         self.say("hugea")
@@ -495,7 +495,7 @@ class Mem04G1Regions(Narrated):
         waste = Rectangle(width=RS - 0.35, height=RS - 0.55).set_stroke(width=0).set_fill(GREY_D, 0.0).move_to(runr[3][0].get_center() + RIGHT * 0.1 + DOWN * 0.15)
         waste_t = T("wasted", 28, BAD).move_to(runr[3][0].get_center() + DOWN * 0.55)
         self.play(FadeIn(waste_t), runr[3][0].animate.set_stroke(BAD), FadeOut(photo_t), run_time=0.6)
-        four = T("4 regions", 34, HUM_C).move_to([0, -2.4, 0])
+        four = T("4 regions", 34, HUM_C).move_to([0, -2.6, 0])
         self.play(FadeIn(four, shift=UP * 0.1), run_time=0.5)
         self.hold()
         self.wipe()
@@ -572,10 +572,10 @@ class Mem04G1Regions(Narrated):
                          "Files.write(target, photo)", "",
                          "// a small buffer at a time", "Files.newOutputStream(target).use {", "    out -> input.copyTo(out)",
                          "}"], 22)
-        fit(java, 6.0)
-        fit(kt, 6.0)
-        jg = titled(java, "Java").move_to([-3.3, -0.9, 0])
-        kg = titled(kt, "Kotlin").move_to([3.3, -0.9, 0])
+        fit(java, 6.5)
+        fit(kt, 5.9)
+        jg = titled(java, "Java").move_to([-6.4, -0.9, 0], aligned_edge=LEFT)
+        kg = titled(kt, "Kotlin").move_to([0.6, -0.9, 0], aligned_edge=LEFT)
         kg.align_to(jg, UP)
         self.say("code")
         self.play(FadeIn(jg, shift=UP * 0.1), FadeIn(kg, shift=UP * 0.1), run_time=0.8)
@@ -641,7 +641,8 @@ class Mem04G1Regions(Narrated):
         self.play(FadeIn(rule85), run_time=0.4)
         self.at(2)
         gf = T("Garbage-First", 40, YELLOW_M).move_to([-3.6, 2.8, 0])
-        self.play(FadeOut(swg), Write(gf), run_time=0.8)
+        self.play(FadeOut(swg), run_time=0.3)
+        self.play(Write(gf), run_time=0.7)
         self.hold()
         self.wipe()
 
