@@ -385,7 +385,7 @@ class Mem07DominatorTree(Narrated):
         # ================= the graph =================
         bT = board(1.5, 0.9, "THUMBNAILS").move_to([-5.6, 1.5, 0])
         bF = board(1.5, 0.9, "FORMATS").move_to([-5.6, -2.3, 0])
-        gr_t = T("GC roots: static fields", 20, ROOT).next_to(bT, UP, buff=0.12)
+        gr_t = T("GC roots: static fields", 20, ROOT).next_to(bT, UP, buff=0.12).align_to(bT, LEFT)
         mapo = obj("map", MAPC, 1.2).move_to([-3.6, 1.5, 0])
         tabo = obj("table", MAPC, 1.2).move_to([-1.7, 1.5, 0])
         ys = [2.6, 1.5, 0.4]
@@ -409,7 +409,7 @@ class Mem07DominatorTree(Narrated):
         e_bl = ref(bF, lst, ROOT)
         e_lj = Arrow(lst.get_right(), jpg.get_left(), buff=0.08, stroke_width=2.5, color=GREY_B, max_tip_length_to_length_ratio=0.12)
         e_tj = Arrow(thumbs[2].get_bottom(), jpg.get_top(), buff=0.08, stroke_width=2.5, color=GREY_B, max_tip_length_to_length_ratio=0.25)
-        every = T("(every thumbnail)", 18, GREY_B).next_to(e_tj, RIGHT, buff=0.1)
+        every = T("(every thumbnail)", 20, GREY_B).next_to(jpg, RIGHT, buff=0.15)
         self.say("graph")
         self.play(FadeIn(bT), FadeIn(gr_t), run_time=0.5)
         self.at(1)
@@ -454,7 +454,7 @@ class Mem07DominatorTree(Narrated):
         stays = T("stays: FORMATS still reaches it", 22, STR).next_to(jpg, DOWN, buff=0.15)
         ret = DashedVMobject(SurroundingRectangle(VGroup(mapo, tabo, nodes, keys, thumbs, pix), buff=0.18, corner_radius=0.12),
                              num_dashes=90).set_stroke(BAD, 2.5)
-        ret_t = T("the map's retained set", 22, BAD).next_to(ret, DOWN, buff=0.08).align_to(ret, LEFT)
+        ret_t = T("the map's retained set", 24, BAD).move_to([-2.7, 0.1, 0])
         self.say("preda")
         self.play(Indicate(e_lj, color=STR), FadeIn(stays), run_time=0.8)
         self.at(1)
@@ -589,13 +589,13 @@ class Mem07DominatorTree(Narrated):
                            "static void handle(String uploadId) {",
                            "    THUMBNAILS.computeIfAbsent(uploadId,",
                            "            id -> new CachedThumbnail(id, ..., new byte[2_048]));",
-                           "}"], 22)
+                           "}"], 24)
         kt = code_block(["private val THUMBNAILS =",
                          "    ConcurrentHashMap<String, KCachedThumbnail>()   // never evicted",
                          "private fun handle(uploadId: String) {",
                          "    THUMBNAILS.computeIfAbsent(uploadId) { id ->",
                          "        KCachedThumbnail(id, ..., ByteArray(2_048)) }",
-                         "}"], 22)
+                         "}"], 24)
         fit(java, 12.4)
         fit(kt, 12.4)
         jg = titled(java, "Java")

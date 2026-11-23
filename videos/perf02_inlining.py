@@ -257,10 +257,14 @@ class Perf02Inlining(Narrated):
         self.at(2)
         merged = wcard("main recipe", ["slice the bread", "chop an onion", "simmer with tomato", "add the cheese"], CARD,
                        hl={1: NOTE, 2: NOTE}).move_to([-3.2, 0.6, 0])
-        self.play(TransformFromCopy(sauce[2], merged[2][1:3]), FadeOut(main), FadeIn(merged[0]), FadeIn(merged[1]),
+        cp = sauce[2].copy()
+        self.add(cp)
+        self.play(cp.animate.move_to(merged[2][1:3]).set_color(NOTE), FadeOut(main), FadeIn(merged[0]), FadeIn(merged[1]),
                   FadeIn(merged[2][0]), FadeIn(merged[2][3]), sauce.animate.set_opacity(0.3), run_time=1.3)
+        self.add(merged[2][1:3])
+        self.remove(cp)
         self.at(3)
-        ons = VGroup(onion(), onion()).arrange(RIGHT, buff=0.15).next_to(merged, RIGHT, buff=0.6).shift(DOWN * 0.1)
+        ons = VGroup(onion(), onion()).arrange(RIGHT, buff=0.15).next_to(merged, DOWN, buff=0.35)
         once = T("chopped at once", 24, NOTE).next_to(ons, DOWN, buff=0.15)
         self.play(FadeIn(ons, scale=0.6), FadeIn(once), run_time=0.7)
         self.hold()
@@ -367,7 +371,7 @@ class Perf02Inlining(Narrated):
         self.play(FadeIn(site), run_time=0.6)
         self.hold()
 
-        X0, KB = -4.4, 10.0 / 325
+        X0, KB = -2.8, 9.0 / 325
         sc_hot = Rectangle(width=325 * KB, height=0.5).set_stroke(C2C, 2).set_fill(dim(C2C, 0.35), 1).move_to([X0, -0.6, 0], aligned_edge=LEFT)
         sc_cold = Rectangle(width=35 * KB, height=0.5).set_stroke(CARD, 2).set_fill(dim(CARD, 0.45), 1).move_to([X0, -1.9, 0], aligned_edge=LEFT)
         hot_l = VGroup(T("hot site", 24, C2C), T("25% or more of the caller's runs", 18, GREY_B)).arrange(DOWN, aligned_edge=RIGHT, buff=0.05)
@@ -400,7 +404,7 @@ class Perf02Inlining(Narrated):
         self.at(3)
         self.play(Indicate(cold_l, color=CARD), run_time=0.8)
         self.hold(after=0)
-        self.predict()
+        self.predict(pos=(6.4, 1.2))
         log1 = M("@ 15  InliningDemo::requireWordCountInline (49 bytes)  failed to inline: too big", 22)
         fit(log1, 12.4).move_to([0, 0.75, 0])
         lp = panel(log1, buff=0.2)
@@ -414,7 +418,8 @@ class Perf02Inlining(Narrated):
         code = code_block(CHECK_J, 24)
         fit(code, 12.0).move_to([0, 1.2, 0])
         pnl = panel(code)
-        test_box = SurroundingRectangle(VGroup(code[1], code[6]), buff=0.06).set_stroke(C1C, 2.5)
+        test_box = VGroup(SurroundingRectangle(code[1], buff=0.06).set_stroke(C1C, 2.5),
+                          SurroundingRectangle(code[6], buff=0.06).set_stroke(C1C, 2.5))
         msg_box = SurroundingRectangle(code[2:5], buff=0.06).set_stroke(RED_M, 2.5)
         test_t = T("the test: short", 24, C1C)
         msg_t = VGroup(T("most of the bytes:", 24, RED_M),

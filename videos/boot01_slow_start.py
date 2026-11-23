@@ -148,7 +148,7 @@ def rule_row(text, size=28, color=WHITE):
 
 
 def stage(title, shop, color, w=2.38):
-    b = box(title, color, w=w, h=0.95, size=24)
+    b = box(title, color, w=w, h=0.95, size=22)
     s = T(shop, 20, GREY_A, slant=ITALIC).next_to(b, DOWN, buff=0.18)
     return VGroup(b, s)
 
@@ -159,42 +159,23 @@ N = {
             "Every morning, she unlocks the door, switches on the lights, unpacks each box, checks every item against its "
             "delivery note, and fills the shelves.",
     "open2": "Only then can she serve the first customer. And even then she's slow, because she still looks up where the tea is.",
-    "shyq": "Here's a question that's easy to be shy about. My main method is three lines long. So why does the JVM, the "
-            "program that runs my compiled Java and Kotlin, take so long to start? And doesn't it remember anything from "
-            "the last time it ran?",
-    "service": "Our running example is a small parcel tracking service. Ask it where parcel PX-1042 is, and it tells you. "
-               "One run on JDK 25 printed: started in 0.151 seconds. Yet the first answer reached the outside 429 "
-               "milliseconds after launch.",
-    "service2": "Both numbers are true. They time different things. Let's find out what fills that wait, and we'll start "
-                "by counting boxes.",
+    "shyq": "Here's a question that's easy to be shy about. My main method is three lines long. Why does the JVM, the program that runs my Java and Kotlin, take so long to start? And doesn't it remember anything from last time?",
+    "service": "Our running example is a small parcel tracking service. One run on JDK 25 printed: started in 0.151 seconds. Yet the first answer reached the outside 429 milliseconds after launch.",
+    "service2": "Both are true. They time different things. Let's see what fills that wait.",
     "count_q": "Here's a tiny demo. It has exactly one class of its own. It reads three lines of settings, formats a date, "
                "and joins a few strings. How many classes does the JVM load to run it? Ten? A hundred? Eight hundred? "
                "Pause and guess.",
     "count_a": "On JDK 25, it loaded 818 classes. Here they are, one square each. Exactly one came from the demo. It's the "
                "green one.",
-    "count_b": "793 came ready made, from an archive the JDK ships. 19 were read from the JDK's own modules file and "
-               "unpacked on the spot. And 5 were made in memory, for things like lambdas.",
+    "count_b": "793 came ready made, from the JDK's archive. 19 were unpacked on the spot, from its modules file. And 5 were made in memory, for lambdas and such.",
     "joke1": "So we asked the shop for one box, and it unpacked 818. Ours is in there somewhere. Bring a magnifying glass.",
-    "joke1b": "Jokes aside, that's the point. Most of the work is the JDK, not your code. A generated app with 300 classes "
-              "of its own loaded 1,537 classes on JDK 21, with the archive turned off. Its own classes were only a fifth.",
-    "r0": "So what does the JVM do with all those boxes? Let's walk through the morning, one step at a time, and match each "
-          "step to the shop.",
-    "r1": "When you type java, a small native program called the launcher starts first. Native means compiled for your "
-          "machine, the way C programs are. The launcher loads the JVM and asks it to create a VM, a virtual machine. "
-          "That's unlocking the door and switching on the lights.",
-    "r2": "Creating the VM is real work. The JVM reserves memory for the heap, the area where your objects will live. It "
-          "builds its interpreter, starts its own helper threads, and sets up the core classes and the module system. "
-          "Only then does it look for your main class.",
-    "r3": "Then the boxes. The first time something needs a class, the JVM finds its class file and parses it into its own "
-          "form, in metaspace, memory it keeps for class data. That's unpacking a box.",
-    "r4": "Next it verifies the bytecode, the instructions javac and kotlinc write into class files. It checks that every "
-          "instruction is type safe before any of them runs. That's the delivery note, checked item by item.",
-    "r5": "Then your code runs in the interpreter, one instruction at a time, like a shopkeeper looking up every price in "
-          "the catalogue. The JIT compilers turn hot methods, the ones that run often, into machine code. But first they "
-          "wait for profiles: counts of what the code really does. That's learning the popular items by heart, and it "
-          "takes a while.",
-    "r6": "And a framework, a library that starts and wires your program for you, adds chores of its own. It scans classes "
-          "for annotations, creates objects by name, and reads its configuration.",
+    "joke1b": "Jokes aside, that's the point. Most of the work is the JDK, not your code. Even an app with 300 classes of its own loaded 1,537 on JDK 21, with the archive off. Its own were only a fifth.",
+    "r1": "When you type java, a small native program, the launcher, starts first. Native means compiled for your machine, like a C program. It loads the JVM and asks it to create a VM, a virtual machine. That's unlocking the door and switching on the lights.",
+    "r2": "That's real work. The JVM reserves the heap, the memory where your objects will live. It builds its interpreter, starts its helper threads, and sets up the core classes and modules. Only then does it look for your main class.",
+    "r3": "Then the boxes. The first time a class is needed, the JVM finds its class file and parses it into metaspace, the memory it keeps for class data. That's unpacking a box.",
+    "r4": "Next it verifies the bytecode, the instructions in the class file, checking that each one is type safe before any of them runs. That's the delivery note, checked item by item.",
+    "r5": "Then your code runs in the interpreter, one instruction at a time, like looking up every price in the catalogue. The JIT compilers turn hot methods into machine code, but only after gathering profiles: counts of what the code really does. That's learning the popular items by heart, and it takes a while.",
+    "r6": "A framework, a library that starts and wires your program, adds chores of its own: scanning for annotations, creating objects by name, and reading configuration.",
     "restart_q": "Now the second shy question. Stop the JVM and start it again. How much of this morning does it skip? "
                  "Pause and guess.",
     "restart_a": "Almost none. Nothing of this survives the process. The next launch unpacks, checks and learns it all "
@@ -202,25 +183,13 @@ N = {
     "joke2": "You have to admire the dedication. The same tins of tea, checked against the same delivery note, every single "
              "morning. Thorough, yes. Quick, no.",
     "joke2b": "So the point really is this. Start-up is work the JVM repeats on every launch.",
-    "archive": "There is one exception, and we already saw it. A JDK build ships an archive of about 1,300 of its own "
-               "classes, already parsed. The JVM maps them from disk instead of unpacking them. Those were the 793 blue "
-               "squares. The next lesson is about that archive, and the bigger ones you can build.",
-    "log": "You can watch the unpacking yourself. Run java with -Xlog:class+load, and it prints one line per class. The end "
-           "of each line says where the class came from.",
-    "log2": "shared objects file means ready made, from the archive. jrt means the JDK's modules file, parsed on the spot. "
-            "file is your own class path, the folders and JAR files where the JVM looks for your code. And a class name "
-            "as the source marks a hidden class, made in memory while the program runs. Each lambda gets one.",
-    "breaks": "Here the shop picture breaks, and the break matters. Our shopkeeper unpacks everything before she opens. "
-              "The JVM doesn't. It opens first, and unpacks a box only when someone asks for something inside it.",
+    "archive": "There's one exception. The JDK ships an archive of about 1,300 of its own classes, already parsed, and the JVM maps them from disk instead of unpacking them. Those were the 793 blue squares. The next lesson builds bigger archives.",
+    "log": "You can watch this yourself. -Xlog:class+load prints one line per class, and the end of each line says where it came from.",
+    "log2": "shared objects file: ready made, from the archive. jrt: the JDK's modules file, parsed now. file: your class path, the folders and JAR files that hold your code. And a class name marks a hidden class, made in memory. Each lambda gets one.",
+    "breaks": "Here the shop picture breaks, and the break matters. Our shopkeeper unpacks everything before she opens. The JVM opens first, and unpacks a box only when someone asks for something inside it.",
     "breaks2": "That's called lazy loading. It's why a one class demo loads 818 classes, and not every class the JDK has.",
-    "guard": "Three things to keep in mind. One: the line your program prints isn't the whole story. The wait starts at "
-             "launch. Two: count before you cut. The class load log shows whose classes they are, and most will be the "
-             "JDK's. Three: the archive covers only the JDK's own classes. Your classes, the interpreter and the JIT "
-             "start cold every time.",
-    "moral": "So, why does a three line main start slowly? Because every launch runs the whole morning routine. Open the "
-             "shop. Unpack and check each box the first time it's needed. Look up prices until the JIT learns them. "
-             "Let the framework do its chores. And no, the JVM remembers almost nothing, apart from the JDK's ready made "
-             "shelves.",
+    "guard": "Three rules of thumb. The line your program prints isn't the whole story: the wait starts at launch. Count before you cut: most loaded classes are the JDK's. And the archive covers only the JDK's classes: your classes and the JIT start cold every time.",
+    "moral": "So, why does a three line main start slowly? Because every launch runs the whole morning routine: open the shop, unpack and check each box when it's first needed, look up prices until the JIT learns, and let the framework do its chores. And the JVM remembers almost nothing, apart from the JDK's ready made shelves.",
     "check": "Quick check. A hidden class has no class file. Why can its source never start with file?",
     "check_a": "Because file names the place a class's bytes were read from. A hidden class's bytes were made in memory. "
                "There was never a file to name.",
@@ -312,9 +281,9 @@ class Boot01SlowStart(Narrated):
         self.say("service")
         self.play(FadeIn(parcel, shift=DOWN * 0.2), run_time=0.6)
         self.play(FadeIn(ask), run_time=0.5)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(inside, shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(outside, shift=UP * 0.1), run_time=0.6)
         self.hold()
         both = T("both true: they time different things", 28, WHITE).move_to([0, -2.9, 0])
@@ -339,7 +308,7 @@ class Boot01SlowStart(Narrated):
         self.at_text("Eight hundred?", lead=0.1)
         self.play(FadeIn(opts[2]), run_time=0.3)
         self.hold(after=0)
-        self.predict(2.6)
+        self.predict(2.2)
         self.play(FadeOut(opts), FadeOut(dq), run_time=0.5)
 
         COLS, ROWS, P = 41, 20, 0.19
@@ -406,17 +375,16 @@ class Boot01SlowStart(Narrated):
 
         # ================= the morning routine, mapped =================
         st = VGroup(stage("create the VM", "door and lights", KEEP), stage("load and parse", "unpack a box", BOX),
-                    stage("verify", "the delivery note", BOX), stage("interpret, then JIT", "prices, then by heart", TEAL_M),
+                    stage("verify", "the delivery note", BOX), stage("interpret + JIT", "prices, then by heart", TEAL_M),
                     stage("framework", "its own chores", GREY_B))
         st.arrange(RIGHT, buff=0.22).move_to([0, 2.35, 0])
         fit(st, 12.8)
         arrows = VGroup(*[Arrow(st[i][0].get_right(), st[i + 1][0].get_left(), buff=0.03, stroke_width=3, color=GREY_B,
                                 max_tip_length_to_length_ratio=0.5) for i in range(4)])
         AREA = [0, -1.0, 0]
-        self.say("r0")
-        self.play(LaggedStart(*[FadeIn(s[0], shift=DOWN * 0.1) for s in st], lag_ratio=0.15), run_time=1.3)
-        self.play(Create(arrows), run_time=0.5)
-        self.hold()
+        self.say("r1")
+        self.play(LaggedStart(*[FadeIn(s[0], shift=DOWN * 0.1) for s in st], lag_ratio=0.15), run_time=1.0)
+        self.play(Create(arrows), run_time=0.4)
 
         chain = VGroup(M("java", 26, WHITE), T("launcher (native)", 24, KEEP), T("the JVM", 24, KEEP),
                        T("create a VM", 24, KEEP)).arrange(RIGHT, buff=0.9)
@@ -424,7 +392,6 @@ class Boot01SlowStart(Narrated):
                                max_tip_length_to_length_ratio=0.25) for i in range(3)])
         cg = VGroup(chain, ch_ar).move_to(AREA + np.array([0, 0.6, 0]))
         nat = T("native: compiled for your machine, like a C program", 22, GREY_B).move_to(AREA + np.array([0, -0.4, 0]))
-        self.say("r1")
         self.play(Indicate(st[0][0][0], color=KEEP, scale_factor=1.06), run_time=0.6)
         self.play(FadeIn(chain[0]), run_time=0.3)
         self.play(GrowArrow(ch_ar[0]), FadeIn(chain[1]), run_time=0.5)
@@ -447,7 +414,7 @@ class Boot01SlowStart(Narrated):
         self.play(FadeIn(jobs[0], shift=RIGHT * 0.1), run_time=0.4)
         self.at(2)
         self.play(FadeIn(jobs[1], shift=RIGHT * 0.1), run_time=0.4)
-        self.at_text("starts its own", lead=0.1)
+        self.at_text("starts its helper", lead=0.1)
         self.play(FadeIn(jobs[2], shift=RIGHT * 0.1), run_time=0.4)
         self.at_text("sets up the core", lead=0.1)
         self.play(FadeIn(jobs[3], shift=RIGHT * 0.1), run_time=0.4)
@@ -482,9 +449,9 @@ class Boot01SlowStart(Narrated):
         chk.arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to(AREA + np.array([-0.4, -0.05, 0]))
         self.say("r4")
         self.play(FadeOut(mv), FadeOut(mv_l), Indicate(st[2][0][0], color=BOX, scale_factor=1.06), run_time=0.6)
-        self.at(1)
+        self.at_text("checking", lead=0.3)
         self.play(LaggedStart(*[FadeIn(c, shift=RIGHT * 0.1) for c in chk], lag_ratio=0.4), run_time=1.4)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(st[2][1], shift=UP * 0.1), run_time=0.5)
         self.play(*[FadeIn(s) for s in shaped[1:]], run_time=0.5)
         self.hold()
@@ -504,9 +471,9 @@ class Boot01SlowStart(Narrated):
         self.at(1)
         self.play(GrowArrow(jit_ar := Arrow(steps.get_right(), hotm.get_left(), buff=0.2, stroke_width=3, color=TEAL_M)),
                   FadeIn(hotm), FadeIn(hotm_t), run_time=0.7)
-        self.at(2)
+        self.at_text("gathering profiles", lead=0.3)
         self.play(FadeIn(prof, shift=UP * 0.1), run_time=0.5)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(st[3][1], shift=UP * 0.1), run_time=0.5)
         self.hold()
 
@@ -516,7 +483,7 @@ class Boot01SlowStart(Narrated):
         self.say("r6")
         self.play(FadeOut(steps), FadeOut(steps_l), FadeOut(jit_ar), FadeOut(hotm), FadeOut(hotm_t), FadeOut(prof),
                   Indicate(st[4][0][0], color=GREY_B, scale_factor=1.06), run_time=0.6)
-        self.at(1)
+        self.at_text("scanning", lead=0.3)
         self.play(LaggedStart(*[FadeIn(f, shift=RIGHT * 0.1) for f in fw], lag_ratio=0.5), run_time=1.6)
         self.play(FadeIn(st[4][1], shift=UP * 0.1), run_time=0.5)
         self.hold()
@@ -528,7 +495,7 @@ class Boot01SlowStart(Narrated):
         self.at(1)
         self.play(FadeIn(stop, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
-        self.predict(2.6)
+        self.predict(2.2)
 
         again = VGroup(*[T("again", 22, BAD).next_to(s[0], DOWN, buff=0.18) for s in st])
         loop = CurvedArrow(st[4][0].get_bottom() + DOWN * 0.95, st[0][0].get_bottom() + DOWN * 0.95, angle=-PI / 5,
@@ -578,9 +545,8 @@ class Boot01SlowStart(Narrated):
         self.play(FadeOut(rule1), run_time=0.4)
         self.at(1)
         self.play(FadeIn(shelf, shift=UP * 0.1), run_time=0.6)
-        self.at(2)
         self.play(GrowArrow(brace), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(sq2), FadeIn(sq_l), run_time=0.6)
         self.hold()
         self.wipe()
@@ -598,7 +564,7 @@ class Boot01SlowStart(Narrated):
         self.play(FadeIn(lg[0]), FadeIn(lg[2]), run_time=0.5)
         self.at(1)
         self.play(LaggedStart(*[FadeIn(l, shift=RIGHT * 0.1) for l in tl], lag_ratio=0.3), run_time=1.5)
-        self.at(2)
+        self.at_text("the end of each", lead=0.3)
         self.play(part(tl[0], "shared objects file").animate.set_color(ARCH), part(tl[1], "jrt:/java.base").animate.set_color(MODS),
                   part(tl[2], "file:.../classes/java/demo/").animate.set_color(APP),
                   part(tl[4], "...l01.demo.ClassSourcesDemo").animate.set_color(HID), run_time=0.8)
@@ -645,7 +611,7 @@ class Boot01SlowStart(Narrated):
         self.play(d1.animate.set_stroke(OK), run_time=0.4)
         self.at(2)
         self.play(FadeIn(t2), FadeIn(b2), FadeIn(d2), run_time=0.6)
-        self.at(3)
+        self.at_text("unpacks a box only", lead=0.3)
         self.play(d2.animate.set_stroke(OK), FadeIn(cust, shift=LEFT * 0.2), FadeIn(ask), run_time=0.6)
         self.play(FadeOut(b2[1], scale=0.6), FadeIn(st2), run_time=0.6)
         self.hold()
@@ -667,16 +633,16 @@ class Boot01SlowStart(Narrated):
         self.say("guard")
         self.at(1)
         self.play(FadeIn(g[0], shift=RIGHT * 0.1), run_time=0.5)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(g[1], shift=RIGHT * 0.1), run_time=0.5)
-        self.at(5)
+        self.at(3)
         self.play(FadeIn(g[2], shift=RIGHT * 0.1), run_time=0.5)
         self.hold()
         self.wipe()
 
         # ================= moral =================
         st = VGroup(stage("create the VM", "door and lights", KEEP), stage("load and parse", "unpack a box", BOX),
-                    stage("verify", "the delivery note", BOX), stage("interpret, then JIT", "prices, then by heart", TEAL_M),
+                    stage("verify", "the delivery note", BOX), stage("interpret + JIT", "prices, then by heart", TEAL_M),
                     stage("framework", "its own chores", GREY_B))
         st.arrange(RIGHT, buff=0.22).move_to([0, 1.6, 0])
         fit(st, 12.8)
@@ -685,15 +651,15 @@ class Boot01SlowStart(Narrated):
         keep.move_to([0, -0.3, 0])
         self.say("moral")
         self.play(FadeIn(mq), run_time=0.5)
-        self.at(2)
+        self.at_text("open the shop", lead=0.2)
         self.play(FadeIn(st[0]), run_time=0.4)
-        self.at(3)
+        self.at_text("unpack and check", lead=0.2)
         self.play(FadeIn(st[1]), FadeIn(st[2]), run_time=0.5)
-        self.at(4)
+        self.at_text("look up prices", lead=0.2)
         self.play(FadeIn(st[3]), run_time=0.4)
-        self.at(5)
+        self.at_text("let the framework", lead=0.2)
         self.play(FadeIn(st[4]), run_time=0.4)
-        self.at(6)
+        self.at(2)
         self.play(FadeIn(keep, shift=UP * 0.1), run_time=0.5)
         self.hold()
 
@@ -703,7 +669,7 @@ class Boot01SlowStart(Narrated):
         self.say("check")
         self.play(FadeOut(keep), FadeIn(qg2, shift=UP * 0.1), run_time=0.7)
         self.hold(after=0)
-        self.predict(2.6)
+        self.predict(2.2)
         ans = T("file: names where the bytes were read from; a hidden class's bytes were made in memory", 24, OK)
         fit(ans, 12.4).move_to([0, -2.9, 0])
         self.say("check_a")
