@@ -432,6 +432,9 @@ class Mem03References(Narrated):
                 ("get() always returns null", "only says, afterwards, that it's gone")]
         dl = VGroup(*[VGroup(T(a, 24), T(b, 22, GREY_B)).arrange(DOWN, buff=0.08, aligned_edge=LEFT).move_to([-1.0, y, 0], aligned_edge=LEFT)
                       for y, (a, b) in zip(ys, desc)])
+        for row, y in zip(dl, ys):
+            fit(row, 7.0)
+            row.move_to([-1.0, y, 0], aligned_edge=LEFT)
         pk = M("java.lang.ref", 28, GREY_A).move_to([1.5, 3.1, 0])
         self.say("ladder")
         self.play(FadeIn(pk), run_time=0.5)

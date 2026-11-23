@@ -12,76 +12,37 @@ fg.SAY[:0] = [
 
 # every spoken line, in order
 N = {
-    "open": "One last visit to the theatre. A touring show uses the same prompt book every night. Say the stage "
-            "manager wants every lighting cue timed. Nobody rewrites the script, and nobody hires a stand-in for "
-            "each actor.",
-    "open2": "Instead, the stage manager slips a note into the prompt book before rehearsal: start a stopwatch here. "
-             "And in an emergency, they can walk in mid-performance and paste a correction over one page.",
-    "shyq": "Here's a question that's easy to be shy about. Can you really change the code of a program that's "
-            "already running, without a restart? And if you can, can you change anything you like?",
-    "fam": "Lessons 4 and 5 added work by wrapping objects. That needs an interface, or a class that isn't final. It "
-           "misses self calls when the proxy forwards. And it only works on objects created through the proxy. "
-           "Timing a method inside a library jar? Out of reach.",
-    "agent": "A Java agent works on the class instead of the object. It's an ordinary class with a special entry "
-             "point. The JVM hands it an Instrumentation, the JDK's handle for watching and changing classes. That's "
-             "the stage manager's key.",
-    "start": "The simplest way in is a flag: java -javaagent, then the agent's jar and its arguments. The JVM calls "
-             "the agent's premain before your main. The jar's manifest, a small text file inside it, names the class "
-             "with Premain-Class.",
-    "tf": "The first thing most agents do is register a ClassFileTransformer. From then on, the JVM calls its "
-          "transform method with the bytes of every class it is about to define: the class files of the last "
-          "lesson. transform returns new bytes, or null, which means no change. The demo's agent only watches: it "
-          "prints each class's name and size, and returns null.",
-    "predict": "The demo starts a second JVM with this agent, and the argument opening-night. The program prints main "
-               "started, then uses a Ticket record. When does the agent see the Ticket class? Before main starts, or "
-               "later? Pause and guess.",
-    "show": "Here's what it printed on JDK 25. premain ran first, when 890 JDK classes had already loaded. Then the "
-            "agent saw AgentTarget, before main started. And the Ticket record? Just before its first use.",
-    "joke": "So 890 classes were in their seats before the agent even said hello. The JDK always gets to rehearsal "
-            "early. But nearly every class of your own program loads after premain returns, so a startup agent sees "
-            "almost all of them.",
-    "lazy": "That's lesson 1's props, fetched only when a scene first needs them. And no warning appeared: an agent "
-            "named on the command line is on the guest list.",
-    "rule1": "The rule: a transformer sees each class once, as the JVM defines it. Register it before the classes "
-             "you care about load.",
-    "q2": "But what about a class that loaded an hour ago?",
-    "retrans": "For that, there's retransformClasses. It runs the registered transformers again on classes that are "
-               "already loaded, and installs the result in place. The Class object stays the same, so every existing "
-               "object sees the new code.",
-    "clock": "The second demo has a final class, StageClock, whose now returns tick. It creates a clock. Then it "
-             "attaches an agent to its own JVM, and adds timing code to now.",
-    "predict2": "The clock was created before the agent existed. On its next call, which body runs, the old one or "
-                "the new one? Pause and guess.",
-    "show2": "The new one. Before: tick. Then, from inside now: StageClock.now took 14176 nanoseconds. After: tick. "
-             "The same object, with no restart.",
-    "joke2": "It still says tick. It just has someone holding a stopwatch now. And its class is final, so no "
-             "subclass from lesson 5 could have touched it.",
-    "limits": "The JDK's documentation adds three things. A call that's already running finishes on the old code; "
-              "new calls get the new code. The initializer doesn't run again, so static fields keep their values: "
-              "lesson 1's dress rehearsal is never held twice. And if retransformation throws, no class was changed.",
-    "shape": "There's also a hard limit. Retransformation must not add, remove or rename fields or methods, change "
-             "signatures or modifiers, or change inheritance. You can rewrite what a cue says. You can't add a "
-             "character to the cast list.",
-    "breaks": "And here the prompt book picture breaks. A correction pasted into one prompt book changes one copy. "
-              "A class exists once per class loader. So one retransformation changes the code for every object of "
-              "that class, and every caller, at once.",
-    "rule2": "Retransformation swaps method bodies in place, for every caller at once. It never changes the class's "
-             "shape.",
-    "warn": "One more thing. That demo also printed four lines of warning, because its agent arrived late. Since JDK "
-            "21, the JVM prints a warning for each agent loaded into it while it runs. The flag "
-            "EnableDynamicAgentLoading, with a plus, opts in and hides the warning.",
-    "name": "So, the names. The stage manager is the agent, and the key is the Instrumentation. The note slipped in "
-            "before rehearsal is a ClassFileTransformer. The correction pasted mid-show is retransformation.",
-    "guard": "Rules of thumb. To see a class as it loads, register early, with -javaagent. Change bodies, never the "
-             "shape: a count must live in another class. And if an agent arrives late, expect the warning, and "
-             "decide on the flag.",
-    "moral": "So, can you change a running program? Its method bodies, yes, with no restart, under objects that "
-             "already exist. Its shape, no.",
-    "check": "Quick check. To count calls to StageClock.now, your retransformation adds a field, long calls. What "
-             "happens?",
-    "check_a": "It can't. Retransformation must not add fields. The count must live somewhere else, such as a public "
-               "class that the new code calls.",
+    'open': 'One last visit to the theatre. A touring show uses the same prompt book every night. Say the stage manager wants every lighting cue timed.',
+    'open2': 'Instead, the stage manager slips a note into the prompt book before rehearsal: start a stopwatch here. And in an emergency, they can walk in mid-performance and paste a correction over one page.',
+    'shyq': "Here's a question that's easy to be shy about. Can you really change the code of a program that's already running, without a restart? And if you can, can you change anything you like?",
+    'fam': "Lessons 4 and 5 added work by wrapping objects. That needs an interface, or a class that isn't final. It misses self calls when the proxy forwards. And it only works on objects created through the proxy.",
+    'agent': "A Java agent works on the class instead of the object. It's an ordinary class with a special entry point. The JVM hands it an Instrumentation, the JDK's handle for watching and changing classes. That's the stage manager's key.",
+    'start': "The simplest way in is a flag: java -javaagent, then the agent's jar and its arguments. The JVM calls the agent's premain before your main.",
+    'tf': 'The first thing most agents do is register a ClassFileTransformer. From then on, the JVM calls its transform method with the bytes of every class it is about to define: the class files of the last lesson. transform returns new bytes, or null, which means no change. Our demo agent only watches, and returns null.',
+    'predict': 'The demo runs a small program with this agent, and the argument opening-night. It prints main started, then makes a Ticket record. When does the agent see the Ticket class? Pause and guess.',
+    'show': "Here's what it printed on JDK 25. premain ran first, when 890 JDK classes had already loaded. Then the agent saw AgentTarget, before main started. And the Ticket record? Just before its first use.",
+    'joke': 'So 890 classes were seated before the agent even said hello: the JDK always gets to rehearsal early. But your own classes load after premain returns, so a startup agent sees almost all of them.',
+    'lazy': "That's lesson 1's props, fetched only when a scene first needs them.",
+    'rule1': 'The rule: a transformer sees each class once, as the JVM defines it. Register it before the classes you care about load.',
+    'q2': 'But what about a class that loaded an hour ago?',
+    'retrans': "For that, there's retransformClasses. It runs the registered transformers again on loaded classes, and installs the result in place. The Class object stays the same, so every object sees the new code.",
+    'clock': 'The second demo has a final class, StageClock, whose now returns tick. It creates a clock, attaches an agent to its own JVM, and adds timing code to now.',
+    'predict2': 'The clock was created before the agent existed. On its next call, which body runs, the old one or the new one? Pause and guess.',
+    'show2': 'The new one. Before: tick. Then, from inside now: StageClock.now took 14176 nanoseconds. After: tick. The same object, with no restart.',
+    'joke2': 'It still says tick. It just has someone holding a stopwatch now. And its class is final, so no subclass from lesson 5 could have touched it.',
+    'limits': "The JDK's documentation adds two things. A call that's already running finishes on the old code; new calls get the new code. And the initializer doesn't run again, so static fields keep their values: lesson 1's dress rehearsal is never held twice.",
+    'shape': "There's also a hard limit. Retransformation must not add, remove or rename fields or methods, change signatures or modifiers, or change inheritance. You can rewrite what a cue says. You can't add a character to the cast list.",
+    'breaks': 'Here the prompt book picture breaks. A pasted correction changes one copy of the book. But a class exists once per class loader, so one retransformation changes every object and every caller at once.',
+    'rule2': "Retransformation swaps method bodies in place, for every caller at once. It never changes the class's shape.",
+    'warn': 'One more thing. That demo also printed four warning lines, because its agent arrived late, while the program ran. The flag EnableDynamicAgentLoading, with a plus, opts in and hides them.',
+    'name': 'So, the names. The stage manager is the agent, and the key is the Instrumentation. The note slipped in before rehearsal is a ClassFileTransformer. The correction pasted mid-show is retransformation.',
+    'guard': 'Rules of thumb. To see a class as it loads, register early, with -javaagent. Change bodies, never the shape. And if an agent arrives late, expect the warning, and decide on the flag.',
+    'moral': 'So, can you change a running program? Its method bodies, yes, with no restart, under objects that already exist. Its shape, no.',
+    'check': 'Quick check. To count calls to StageClock.now, your retransformation adds a field, long calls. What happens?',
+    'check_a': "It can't. Retransformation must not add fields. The count must live somewhere else, such as a public class that the new code calls.",
 }
+
+
 
 
 # one colour per thing, for this video
@@ -231,7 +192,7 @@ def rule_row(text, size=28, color=WHITE, ok=True):
 def prompt_book(s=1.0):
     page = Rectangle(width=3.6, height=4.4).set_stroke(GREY_B, 2).set_fill(PAPER, 1)
     title = T("Prompt book", 24, INK).move_to(page.get_top() + DOWN * 0.45)
-    cues = VGroup(*[M(t, 20, INK) for t in ("LX-13  house lights down", "LX-14  lantern up", "LX-15  sunrise",
+    cues = VGroup(*[M(t, 20, INK) for t in ("LX-13  lights down", "LX-14  lantern up", "LX-15  sunrise",
                                              "LX-16  blackout")]).arrange(DOWN, aligned_edge=LEFT, buff=0.32)
     cues.next_to(title, DOWN, buff=0.45)
     return VGroup(page, title, cues).scale(s)
@@ -282,8 +243,6 @@ class Cls07Agents(Narrated):
         self.play(LaggedStart(*[FadeIn(n) for n in nights], lag_ratio=0.2), FadeIn(nl), run_time=1.0)
         self.at(2)
         self.play(FadeIn(sm), *[Indicate(c, color=AGENT, scale_factor=1.05) for c in book[2]], run_time=0.9)
-        self.at(3)
-        self.play(FadeIn(nos), run_time=0.6)
         self.hold()
 
         nt = note("start a stopwatch here").rotate(4 * DEGREES).move_to(book[2][1].get_center() + RIGHT * 1.2 + UP * 0.35)
@@ -291,7 +250,7 @@ class Cls07Agents(Narrated):
         patch = note("LX-15  sunrise, slower", PATCH, 20).move_to(book[2][2]).shift(RIGHT * 0.1)
         mid = T("mid-performance", 22, PATCH).next_to(book, DOWN, buff=0.15)
         self.say("open2")
-        self.play(FadeOut(nos), FadeOut(nights), FadeOut(nl), run_time=0.4)
+        self.play(FadeOut(nights), FadeOut(nl), run_time=0.4)
         self.play(sm.animate.move_to([-4.4, -0.8, 0]), run_time=0.4)
         self.play(FadeIn(nt, shift=LEFT * 0.4), FadeIn(bef), run_time=0.8)
         self.at(1)
@@ -329,10 +288,6 @@ class Cls07Agents(Narrated):
         for i in range(3):
             self.at(i + 1)
             self.play(FadeIn(lims[i], shift=RIGHT * 0.1), run_time=0.5)
-        self.at(4)
-        self.play(FadeIn(jar[0]), FadeIn(jar[1]), run_time=0.5)
-        self.at(5)
-        self.play(FadeIn(jar[2], shift=UP * 0.1), run_time=0.4)
         self.hold()
         self.wipe()
 
@@ -367,8 +322,6 @@ class Cls07Agents(Narrated):
         self.play(GrowArrow(line_), FadeIn(tl), run_time=0.6)
         self.play(FadeIn(pm), run_time=0.4)
         self.play(FadeIn(mn), run_time=0.4)
-        self.at(2)
-        self.play(FadeIn(man, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.wipe()
 
@@ -446,7 +399,7 @@ class Cls07Agents(Narrated):
         self.say("joke")
         self.play(LaggedStart(*[FadeIn(p) for p in seats], lag_ratio=0.03), FadeIn(sl), run_time=1.2)
         self.play(FadeIn(late, shift=LEFT * 0.3), FadeIn(hi), run_time=0.6)
-        self.at(2)
+        self.at(1)
         self.play(FadeOut(hi), Indicate(VGroup(ol[1], ol[3]), color=AGENT, scale_factor=1.03), run_time=0.9)
         self.hold()
         self.play(FadeOut(seats), FadeOut(sl), FadeOut(late), run_time=0.4)
@@ -457,8 +410,6 @@ class Cls07Agents(Narrated):
         fit(nw, 12.4)
         self.say("lazy")
         self.play(FadeIn(lz, shift=UP * 0.1), Indicate(ol[3], color=AGENT, scale_factor=1.03), run_time=0.8)
-        self.at(1)
-        self.play(FadeIn(nw), run_time=0.5)
         self.hold()
         self.wipe()
 
@@ -490,7 +441,7 @@ class Cls07Agents(Narrated):
         self.play(FadeIn(cbox), FadeIn(objs), FadeIn(objl), *[GrowArrow(r) for r in refs], run_time=0.9)
         self.play(FadeIn(call, shift=UP * 0.1), run_time=0.6)
         self.at(1)
-        sw = stopwatch(AGENT, 0.8).next_to(cbox[2], RIGHT, buff=0.3)
+        sw = stopwatch(AGENT, 0.8).next_to(cbox, UP, buff=0.25).align_to(cbox, RIGHT)
         self.play(FadeIn(sw, scale=1.4), Indicate(cbox[2], color=AGENT, scale_factor=1.08), run_time=0.9)
         self.at(2)
         self.play(FadeIn(same), *[Indicate(r, color=AGENT) for r in refs], run_time=0.9)
@@ -503,7 +454,7 @@ class Cls07Agents(Narrated):
         steps.arrange(DOWN, aligned_edge=LEFT, buff=0.35).move_to([0, 1.4, 0])
         self.say("clock")
         self.play(FadeIn(steps[0], shift=RIGHT * 0.1), run_time=0.6)
-        self.at(2)
+        self.at_text("attaches", lead=0.3)
         self.play(FadeIn(steps[1], shift=RIGHT * 0.1), run_time=0.5)
         self.at_text("adds timing", lead=0.3)
         self.play(FadeIn(steps[2], shift=RIGHT * 0.1), run_time=0.5)
@@ -550,8 +501,7 @@ class Cls07Agents(Narrated):
         # ================= what the JDK documentation adds =================
         lh = T("What the Instrumentation documentation adds", 30, GREY_A).move_to([0, 2.6, 0])
         rows = VGroup(T("a call already running finishes on the old code; new calls get the new code", 26),
-                      T("no initializer runs again: static fields keep their values", 26),
-                      T("if retransformation throws, no class was changed", 26))
+                      T("no initializer runs again: static fields keep their values", 26))
         rows = VGroup(*[VGroup(M(str(i + 1), 26, AGENT), r).arrange(RIGHT, buff=0.3) for i, r in enumerate(rows)])
         rows.arrange(DOWN, aligned_edge=LEFT, buff=0.4).move_to([0, 0.6, 0])
         fit(rows, 12.4)
@@ -564,8 +514,6 @@ class Cls07Agents(Narrated):
         self.play(FadeIn(rows[1], shift=RIGHT * 0.1), run_time=0.5)
         self.at_text("dress rehearsal", lead=0.6)
         self.play(FadeIn(reh), run_time=0.5)
-        self.at(3)
-        self.play(FadeIn(rows[2], shift=RIGHT * 0.1), run_time=0.5)
         self.hold()
         self.wipe()
 
@@ -606,9 +554,9 @@ class Cls07Agents(Narrated):
         self.play(FadeIn(bk), run_time=0.5)
         self.at(1)
         self.play(FadeIn(pt, scale=1.3), FadeIn(bkl), run_time=0.6)
-        self.at(2)
+        self.at_text("But a class", lead=0.3)
         self.play(FadeIn(one), FadeIn(many), *[GrowArrow(a) for a in mr], run_time=0.8)
-        self.at(3)
+        self.at_text("so one", lead=0.3)
         sw3 = stopwatch(AGENT, 0.6).next_to(one, RIGHT, buff=0.2)
         self.play(FadeIn(sw3, scale=1.4), *[m.animate.set_stroke(AGENT, 2.5) for m in many], FadeIn(ml), run_time=0.9)
         self.hold()
@@ -637,9 +585,8 @@ class Cls07Agents(Narrated):
         self.say("warn")
         self.at(1)
         self.play(FadeIn(w, shift=UP * 0.1), run_time=0.8)
-        self.at(2)
         self.play(FadeIn(desk), run_time=0.5)
-        self.at(3)
+        self.at_text("The flag", lead=0.3)
         self.play(FadeIn(flag, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.wipe()
@@ -665,7 +612,7 @@ class Cls07Agents(Narrated):
         # ================= rules of thumb =================
         gq = T("Rules of thumb", 34).move_to([0, 2.5, 0])
         rules = VGroup(rule_row("To see a class as it loads, register early, with -javaagent."),
-                       rule_row("Change bodies, never the shape: a count lives in another class."),
+                       rule_row("Change bodies, never the shape."),
                        rule_row("An agent that arrives late prints a warning: decide on the flag."))
         rules.arrange(DOWN, aligned_edge=LEFT, buff=0.45).move_to([0, 0.4, 0])
         fit(rules, 12.6)

@@ -470,7 +470,7 @@ class Cls02Stack(Narrated):
         self.play(FadeOut(VGroup(out, r2)), run_time=0.4)
 
         # ================= break: how big a pile? =================
-        sz = VGroup(T("pile at its busiest:", 26, GREY_A), T("2 cards", 26, WHITE)).arrange(RIGHT, buff=0.2).move_to([3.4, 1.3, 0])
+        sz = VGroup(T("pile at its busiest:", 26, GREY_A), T("2 cards", 26, WHITE)).arrange(RIGHT, buff=0.2).move_to([3.4, 0.75, 0])
         need = VGroup(T("so it needs", 26, GREY_A), M("stack = ?", 28, INSTC)).arrange(RIGHT, buff=0.2).next_to(sz, DOWN, buff=0.3)
         self.say("size_q")
         self.play(FadeIn(sz), run_time=0.5)
@@ -481,7 +481,7 @@ class Cls02Stack(Narrated):
         self.hold(after=0)
         self.predict(2.4)
 
-        real = term(["stack=4, locals=3, args_size=2"], 24, "javap -v, real output").move_to([3.3, -0.4, 0])
+        real = term(["stack=4, locals=3, args_size=2"], 24, "javap -v, real output").move_to([3.3, -0.75, 0])
         fit(real, 6.4)
         ruler = VGroup(*[Rectangle(width=0.35, height=0.27).set_stroke(INSTC, 2).set_fill(dim(INSTC, 0.3), 1) for _ in range(4)])
         ruler.arrange(UP, buff=0.02).next_to(ghost, LEFT, buff=0.2).align_to(ghost, DOWN)

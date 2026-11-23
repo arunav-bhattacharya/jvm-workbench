@@ -1,137 +1,357 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:10.664
-A service caches FX rate tables, each behind a WeakReference, so that the GC can free them if memory runs low.
+00:00:02.700 --> 00:00:06.793
+Back in the warehouse, a cleaning crew keeps the floor from filling up.
 
 2
-00:00:10.867 --> 00:00:13.897
-Under normal load, the cache keeps missing.
+00:00:06.793 --> 00:00:09.676
+And the crew has a rule that sounds a little rude.
 
 3
-00:00:13.897 --> 00:00:16.363
-After each GC, the tables are gone.
+00:00:09.676 --> 00:00:12.789
+It never asks the workers which boxes they still need.
 
 4
-00:00:16.533 --> 00:00:17.897
-Memory wasn't low.
+00:00:13.000 --> 00:00:13.825
+Fair enough.
 
 5
-00:00:17.897 --> 00:00:20.472
-So why did the GC throw them away?
+00:00:13.825 --> 00:00:17.466
+Ask any worker, and you know the answer: all of them.
 
 6
-00:00:23.067 --> 00:00:25.364
-The GC frees what nothing can reach.
+00:00:17.466 --> 00:00:18.634
+Every single box.
 
 7
-00:00:25.364 --> 00:00:30.980
-It starts from the roots: thread stacks, static fields, and references from native code.
+00:00:18.634 --> 00:00:20.695
+I might need that one someday.
 
 8
-00:00:30.980 --> 00:00:34.298
-It follows every reference, and keeps what it finds.
+00:00:20.695 --> 00:00:22.825
+So the crew decides for itself.
 
 9
-00:00:34.298 --> 00:00:36.021
-Everything else is garbage.
+00:00:23.800 --> 00:00:27.548
+Which brings us to a question that's easy to be shy about.
 
 10
-00:00:36.767 --> 00:00:39.001
-Ordinary references are strong.
+00:00:27.548 --> 00:00:31.426
+How does the garbage collector know I'm done with an object?
 
 11
-00:00:39.001 --> 00:00:41.452
-The GC leaves their objects alone.
+00:00:31.426 --> 00:00:32.460
+I never told it.
 
 12
-00:00:41.667 --> 00:00:47.860
-A SoftReference may be cleared when memory gets tight, and must be cleared before an OutOfMemoryError.
+00:00:33.533 --> 00:00:35.255
+Here's how the crew decides.
 
 13
-00:00:48.067 --> 00:00:50.248
-A WeakReference holds nothing up.
+00:00:35.255 --> 00:00:39.435
+It starts at the workers' desks, and at the noticeboard by the door.
 
 14
-00:00:50.248 --> 00:00:53.157
-The next GC that finds the object clears it.
+00:00:39.435 --> 00:00:42.386
+It follows every shelf number written on a note.
 
 15
-00:00:53.367 --> 00:00:57.906
-A PhantomReference never gives you the object: get() always returns null.
+00:00:42.386 --> 00:00:45.091
+Then every note it finds inside those boxes.
 
 16
-00:00:57.906 --> 00:01:00.207
-It only tells you the object is gone.
+00:00:45.091 --> 00:00:46.874
+It keeps whatever it reaches.
 
 17
-00:01:00.433 --> 00:01:05.260
-Some time after clearing a reference, the GC can put it on a ReferenceQueue.
+00:00:46.874 --> 00:00:48.165
+Everything else goes.
 
 18
-00:01:05.260 --> 00:01:06.975
-The spec gives no deadline.
+00:00:48.367 --> 00:00:49.181
+Let's map it.
 
 19
-00:01:07.167 --> 00:01:12.656
-So the weak cache forgets at every GC, which on a busy service is milliseconds away.
+00:00:49.181 --> 00:00:53.442
+The desks are the threads' stacks, where their local variables live.
 
 20
-00:01:13.467 --> 00:01:16.281
-A soft cache fails the other way.
+00:00:53.442 --> 00:00:55.761
+The noticeboard is the static fields.
 
 21
-00:01:16.281 --> 00:01:24.467
-A 64 MB heap holds a 40 MB rate table behind a soft reference, and the code asks for 40 MB more.
+00:00:55.761 --> 00:01:00.460
+Together, with references held by native code, they're called the GC roots.
 
 22
-00:01:24.667 --> 00:01:26.337
-What does the GC do?
+00:01:00.460 --> 00:01:03.092
+A note with a shelf number is a reference.
 
 23
-00:01:28.133 --> 00:01:31.548
-A full GC keeps the table, and still finds no room.
+00:01:03.092 --> 00:01:05.473
+And the crew is the garbage collector.
 
 24
-00:01:31.548 --> 00:01:36.637
-A second full GC clears the soft reference, and the allocation goes through.
+00:01:06.400 --> 00:01:07.249
+Now a puzzle.
 
 25
-00:01:36.833 --> 00:01:41.555
-Now every request reloads the table at once, while the heap is under pressure.
+00:01:07.249 --> 00:01:10.123
+Three boxes point at each other in a circle.
 
 26
-00:01:42.367 --> 00:01:47.643
-So give your cache a maximum size and an expiry time, and size the heap for it.
+00:01:10.123 --> 00:01:12.801
+Each one is still referred to by another.
 
 27
-00:01:48.367 --> 00:01:52.832
-In Java and in Kotlin, a weak reference with its queue looks like this.
+00:01:12.801 --> 00:01:16.982
+But no note from a desk or the noticeboard leads to any of them.
 
 28
-00:01:53.533 --> 00:01:56.769
-The rule: the GC keeps what the roots can reach.
+00:01:16.982 --> 00:01:17.896
+Are they kept?
 
 29
-00:01:56.769 --> 00:02:02.229
-Soft holds until memory is tight, weak until the next GC, and phantom not at all.
+00:01:17.896 --> 00:01:18.941
+Pause and guess.
 
 30
-00:02:02.433 --> 00:02:03.251
-Quick check.
+00:01:21.933 --> 00:01:22.482
+They go.
 
 31
-00:02:03.251 --> 00:02:06.520
-A listener is held only through a WeakReference.
+00:01:22.482 --> 00:01:25.086
+The collector never counts references.
 
 32
-00:02:06.520 --> 00:02:08.427
-Does it survive the next GC?
+00:01:25.086 --> 00:01:28.170
+It only asks one thing: can a root reach you?
 
 33
-00:02:10.800 --> 00:02:11.086
-No.
+00:01:28.170 --> 00:01:35.229
+A box that no root's chain of notes leads to is garbage, even if a hundred forgotten boxes point at it.
 
 34
-00:02:11.086 --> 00:02:13.373
-Nothing strong holds it.
+00:01:35.433 --> 00:01:39.468
+So the garbage collector doesn't free the objects you stopped using.
+
+35
+00:01:39.468 --> 00:01:41.783
+It frees the objects nothing can reach.
+
+36
+00:01:42.867 --> 00:01:47.886
+Java also lets you hold an object more loosely than a plain reference does.
+
+37
+00:01:47.886 --> 00:01:52.035
+The package java.lang.ref has three kinds of reference object.
+
+38
+00:01:52.035 --> 00:01:58.794
+Each one points at another object, its referent, and get returns the referent while it's still there.
+
+39
+00:01:58.794 --> 00:02:01.069
+Picture them as rungs on a ladder.
+
+40
+00:02:01.300 --> 00:02:04.874
+At the top, strong: a chain of ordinary references.
+
+41
+00:02:04.874 --> 00:02:06.625
+The crew leaves it alone.
+
+42
+00:02:06.733 --> 00:02:09.779
+Soft: the only way in goes through a SoftReference.
+
+43
+00:02:09.779 --> 00:02:11.810
+It means: keep it if there's room.
+
+44
+00:02:11.810 --> 00:02:14.796
+The collector may clear it when memory gets tight.
+
+45
+00:02:14.900 --> 00:02:17.595
+Weak: keep it only while someone else holds it.
+
+46
+00:02:17.595 --> 00:02:20.119
+The next collection that finds it clears it.
+
+47
+00:02:20.233 --> 00:02:21.052
+And phantom.
+
+48
+00:02:21.052 --> 00:02:22.963
+Its get always returns null.
+
+49
+00:02:22.963 --> 00:02:26.717
+It only tells you, afterwards, that the object is gone.
+
+50
+00:02:27.833 --> 00:02:36.272
+The lesson's ReferenceLadderDemo puts one 1,000-byte array on each rung, then asks for a collection with System.gc.
+
+51
+00:02:36.272 --> 00:02:37.666
+Which ones survive?
+
+52
+00:02:37.666 --> 00:02:38.840
+Pause and guess.
+
+53
+00:02:41.833 --> 00:02:43.109
+Here's the output.
+
+54
+00:02:43.109 --> 00:02:47.218
+Before: soft true, weak true, and phantom null, as always.
+
+55
+00:02:47.218 --> 00:02:51.044
+After: soft is still true, because memory isn't tight.
+
+56
+00:02:51.044 --> 00:02:52.036
+Weak is false.
+
+57
+00:02:52.267 --> 00:02:59.561
+And the queue, a tray where the collector drops a slip for each reference it cleared, gets the weak one and the phantom one.
+
+58
+00:02:59.561 --> 00:03:01.325
+The strong array is untouched.
+
+59
+00:03:02.233 --> 00:03:05.831
+Here the warehouse picture breaks, and the break matters.
+
+60
+00:03:05.831 --> 00:03:08.419
+A real cleaning crew comes on a schedule.
+
+61
+00:03:08.419 --> 00:03:16.560
+The JVM's crew comes when the heap needs room: many times a second on a busy service, and perhaps not for an hour on a quiet one.
+
+62
+00:03:16.560 --> 00:03:18.580
+Nothing on the ladder says when.
+
+63
+00:03:19.500 --> 00:03:23.155
+That missing when is what hurts soft references.
+
+64
+00:03:23.155 --> 00:03:25.288
+Here's the lesson's squeeze.
+
+65
+00:03:25.288 --> 00:03:30.695
+A 64 MB heap keeps a 40 MB decoded beach photo behind a soft reference.
+
+66
+00:03:30.695 --> 00:03:33.969
+Then the service decodes a 40 MB dog photo.
+
+67
+00:03:34.200 --> 00:03:40.802
+G1, the default collector, runs a full collection, with every thread stopped, and keeps the soft photo.
+
+68
+00:03:40.802 --> 00:03:42.213
+There's still no room.
+
+69
+00:03:42.213 --> 00:03:47.789
+So it runs a second full collection, clears the soft reference, and the dog photo fits.
+
+70
+00:03:47.789 --> 00:03:51.187
+The cache is gone, right when the machine is busiest.
+
+71
+00:03:52.100 --> 00:03:56.462
+A soft cache is a friend who holds your umbrella until it starts to rain.
+
+72
+00:03:56.462 --> 00:04:03.633
+So the point is this: it keeps your things until the moment you need them most, and then lets go of all of them at once.
+
+73
+00:04:04.633 --> 00:04:07.348
+Weak references have the opposite problem.
+
+74
+00:04:07.348 --> 00:04:13.166
+A weak cache forgets at the next collection, which on a busy service is milliseconds away.
+
+75
+00:04:13.166 --> 00:04:20.471
+Weak references do a different job well: attaching data to an object someone else owns, without keeping it alive.
+
+76
+00:04:20.471 --> 00:04:22.345
+That's what WeakHashMap does.
+
+77
+00:04:23.267 --> 00:04:24.361
+So three rules.
+
+78
+00:04:24.361 --> 00:04:30.123
+For a cache, use one with a size limit and an expiry time, not soft references.
+
+79
+00:04:30.123 --> 00:04:36.031
+Use weak references for data attached to objects you don't own, never for caches.
+
+80
+00:04:36.031 --> 00:04:41.939
+And System.gc is a request, not a command: fine in a demo, never in service code.
+
+81
+00:04:42.867 --> 00:04:45.976
+So, how does the garbage collector know you're done?
+
+82
+00:04:45.976 --> 00:04:46.633
+It doesn't.
+
+83
+00:04:46.633 --> 00:04:52.014
+It knows what it can still reach from the roots, and frees the rest, at a time it chooses.
+
+84
+00:04:52.014 --> 00:04:53.688
+Never plan around that time.
+
+85
+00:04:54.600 --> 00:04:55.368
+Quick check.
+
+86
+00:04:55.368 --> 00:05:01.511
+A cache is a Map of String to WeakReference of Picture, and nothing else refers to the pictures.
+
+87
+00:05:01.511 --> 00:05:03.815
+How long does a cached picture last?
+
+88
+00:05:07.000 --> 00:05:09.459
+Until the next collection that finds it.
+
+89
+00:05:09.459 --> 00:05:12.411
+The map entry stays, but its reference is empty.
