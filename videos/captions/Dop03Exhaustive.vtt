@@ -1,97 +1,341 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.498
-Here is a sealed interface for payment methods.
+00:00:02.733 --> 00:00:09.772
+At the lending desk, a clerk picks up each item a member wants to borrow, looks at it once, and stamps a due date.
 
 2
-00:00:05.498 --> 00:00:08.236
-Sealed means it lists every subtype it allows.
+00:00:09.772 --> 00:00:11.871
+A large-print book gets six weeks.
 
 3
-00:00:08.236 --> 00:00:10.379
-Right now that is Card and Transfer.
+00:00:11.871 --> 00:00:16.131
+A new release gets one week, because other people are waiting for it.
 
 4
-00:00:10.600 --> 00:00:14.233
-Two pieces of code turn a method into a receipt label.
+00:00:16.131 --> 00:00:17.799
+A box set of DVDs gets two.
 
 5
-00:00:14.467 --> 00:00:17.887
-Both compile, and both give the same answers today.
+00:00:17.799 --> 00:00:22.244
+The clerk works down a printed sheet, and the first line that fits wins.
 
 6
-00:00:18.100 --> 00:00:20.637
-Now a new payment method ships: Wallet.
+00:00:23.133 --> 00:00:26.017
+Here's a question that's easy to be shy about.
 
 7
-00:00:20.637 --> 00:00:22.913
-You add it to the sealed interface.
+00:00:26.017 --> 00:00:29.089
+An instanceof chain and a switch do the same job.
 
 8
-00:00:23.133 --> 00:00:24.378
-Then you recompile.
+00:00:29.089 --> 00:00:31.345
+Why should I care which one I write?
 
 9
-00:00:24.378 --> 00:00:28.833
-javac reads the permits list, so it knows every Method there can be.
+00:00:32.467 --> 00:00:33.891
+Here's the old way.
 
 10
-00:00:28.833 --> 00:00:32.305
-It checks the switch against that list, case by case.
+00:00:33.891 --> 00:00:34.865
+Is it a Book?
 
 11
-00:00:32.533 --> 00:00:36.529
-There is no case for Wallet, so the switch is now a compile error.
+00:00:34.865 --> 00:00:36.589
+Then describe the book.
 
 12
-00:00:36.733 --> 00:00:38.839
-The chain compiles without a word.
+00:00:36.589 --> 00:00:38.013
+Else, is it a Disc?
 
 13
-00:00:38.839 --> 00:00:44.661
-To the compiler it is just a few if statements, and nothing says they must cover every Method.
+00:00:38.013 --> 00:00:39.288
+Else, a Magazine?
 
 14
-00:00:44.867 --> 00:00:47.689
-At run time, a Wallet payment walks through it.
+00:00:39.288 --> 00:00:40.187
+Else, throw.
 
 15
-00:00:47.900 --> 00:00:48.980
-Not a Card.
+00:00:40.187 --> 00:00:44.609
+And here's the same sorting as a switch, one case per kind.
 
 16
-00:00:48.980 --> 00:00:50.452
-Not a Transfer.
+00:00:44.800 --> 00:00:48.427
+Each line uses a pattern: a test with a name attached.
 
 17
-00:00:50.667 --> 00:00:54.556
-So it lands in the else, and every wallet receipt says unknown.
+00:00:48.427 --> 00:00:50.307
+Book b asks: is this a Book?
 
 18
-00:00:55.467 --> 00:01:02.535
-Kotlin's when over a sealed interface gets the same check, whether you use it as an expression or as a statement.
+00:00:50.307 --> 00:00:53.666
+If it is, you get b, already a Book, with no cast.
 
 19
-00:01:02.767 --> 00:01:05.207
-Add Wallet, and both compilers stop.
+00:00:53.666 --> 00:00:56.688
+And both versions print the same three lines.
 
 20
-00:01:05.207 --> 00:01:07.985
-kotlinc even names the branch you forgot.
+00:00:57.800 --> 00:00:59.553
+So they look like twins.
 
 21
-00:01:09.600 --> 00:01:15.623
-Every switch over Method gets this check, so the build stays red until each one handles Wallet.
+00:00:59.553 --> 00:01:00.794
+Let's break them.
 
 22
-00:01:16.433 --> 00:01:17.525
-One rule follows.
+00:01:00.794 --> 00:01:03.350
+Delete the Magazine line from both.
 
 23
-00:01:17.525 --> 00:01:20.799
-Don't put a default on a switch over a sealed type.
+00:01:03.350 --> 00:01:04.665
+Which one notices?
 
 24
-00:01:21.000 --> 00:01:27.641
-A default catches Wallet quietly, the same way the else did, and the compiler has nothing left to check.
+00:01:04.665 --> 00:01:05.833
+Pause and guess.
+
+25
+00:01:08.867 --> 00:01:10.576
+The chain still compiles.
+
+26
+00:01:10.576 --> 00:01:17.074
+The run reaches the magazine, falls into the last else, and dies with an IllegalStateException.
+
+27
+00:01:17.074 --> 00:01:19.399
+The switch doesn't compile at all.
+
+28
+00:01:19.399 --> 00:01:25.896
+javac, the Java compiler, says: the switch expression does not cover all possible input values.
+
+29
+00:01:26.067 --> 00:01:27.925
+Look at the chain's last line.
+
+30
+00:01:27.925 --> 00:01:30.526
+It says unreachable, with a question mark.
+
+31
+00:01:30.526 --> 00:01:34.119
+Code that asks itself questions is usually right to worry.
+
+32
+00:01:34.119 --> 00:01:39.384
+So the switch is checked against the sealed list, and the chain is checked by nobody.
+
+33
+00:01:40.267 --> 00:01:46.906
+In the desk picture, the switch is a clerk whose printed sheet lists every kind of item the library has.
+
+34
+00:01:46.906 --> 00:01:49.778
+The chain is a clerk who remembers the kinds.
+
+35
+00:01:49.778 --> 00:01:50.225
+Mostly.
+
+36
+00:01:50.225 --> 00:01:54.885
+Kotlin's when, over a sealed type, is checked the same way as the switch.
+
+37
+00:01:55.800 --> 00:01:58.286
+A switch can do more than check the kind.
+
+38
+00:01:58.286 --> 00:02:01.258
+A record pattern reads several boxes in one look.
+
+39
+00:02:01.258 --> 00:02:04.229
+Book, then in brackets, var format and var isNew.
+
+40
+00:02:04.229 --> 00:02:10.717
+If it's a Book, the case takes out its format and whether it's a new release, right there in the case line.
+
+41
+00:02:11.600 --> 00:02:14.740
+Now the clerk's rules, from the GuardsDemo.
+
+42
+00:02:14.740 --> 00:02:17.515
+Line one: a large-print book, 42 days.
+
+43
+00:02:17.515 --> 00:02:19.852
+Line two: a new release, 7 days.
+
+44
+00:02:19.852 --> 00:02:22.116
+Line three: any other book, 21.
+
+45
+00:02:22.116 --> 00:02:27.228
+The part after when is a guard, an extra condition the case must pass.
+
+46
+00:02:27.400 --> 00:02:30.122
+Here comes a new book, in large print.
+
+47
+00:02:30.122 --> 00:02:32.915
+It fits line one, and it fits line two.
+
+48
+00:02:32.915 --> 00:02:33.918
+How many days?
+
+49
+00:02:33.918 --> 00:02:35.064
+Pause and guess.
+
+50
+00:02:38.067 --> 00:02:38.676
+42 days.
+
+51
+00:02:38.676 --> 00:02:42.868
+Cases are tried from the top, and the first match wins.
+
+52
+00:02:42.868 --> 00:02:46.907
+Now swap lines one and two, and the same book gets 7.
+
+53
+00:02:46.907 --> 00:02:48.888
+javac accepts both orders.
+
+54
+00:02:49.067 --> 00:02:52.531
+javac can't read your mind about which rule matters more.
+
+55
+00:02:52.531 --> 00:02:58.608
+Only a test that sends a new large-print book through the switch can tell you which order you meant.
+
+56
+00:02:58.608 --> 00:03:02.740
+The sheet is read from the top, so put the most specific rule first.
+
+57
+00:03:02.933 --> 00:03:10.779
+Guards don't count toward covering every case, so each family of guarded lines ends with a plain one, like line three.
+
+58
+00:03:10.779 --> 00:03:19.289
+And if you move line three to the top, javac refuses the lines below it: this case label is dominated by a preceding case label.
+
+59
+00:03:19.289 --> 00:03:21.151
+They could never be reached.
+
+60
+00:03:21.333 --> 00:03:23.395
+Kotlin writes guards with if.
+
+61
+00:03:23.395 --> 00:03:25.884
+But kotlinc has no dominance check.
+
+62
+00:03:25.884 --> 00:03:30.150
+Put the plain Book first, and it compiles without a warning.
+
+63
+00:03:30.150 --> 00:03:31.856
+Every book gets 21 days.
+
+64
+00:03:31.856 --> 00:03:34.700
+Here kotlinc shrugs where javac objects.
+
+65
+00:03:35.600 --> 00:03:37.599
+Here's where the picture breaks.
+
+66
+00:03:37.599 --> 00:03:43.285
+The lesson's experiment compiles a switch over a member's account status: active or closed.
+
+67
+00:03:43.285 --> 00:03:48.783
+Then only the list is rebuilt, with a third status, frozen, and the old switch meets it.
+
+68
+00:03:48.933 --> 00:03:51.249
+A real clerk would ask a colleague.
+
+69
+00:03:51.249 --> 00:03:53.102
+The switch can't ask anyone.
+
+70
+00:03:53.102 --> 00:03:57.204
+javac added a hidden last arm, and it throws a MatchException.
+
+71
+00:03:57.204 --> 00:03:59.520
+Loud, which beats guessing quietly.
+
+72
+00:04:00.400 --> 00:04:01.833
+So, three guardrails.
+
+73
+00:04:01.833 --> 00:04:07.771
+Exhaustive means exhaustive for the list javac saw, so recompile when the list changes.
+
+74
+00:04:07.771 --> 00:04:10.023
+Put the most specific rule first.
+
+75
+00:04:10.023 --> 00:04:13.163
+And end each guarded family with a plain case.
+
+76
+00:04:14.067 --> 00:04:16.035
+So why care which one you write?
+
+77
+00:04:16.035 --> 00:04:18.494
+The chain is a clerk with a good memory.
+
+78
+00:04:18.494 --> 00:04:26.673
+The switch is a clerk with a printed sheet, checked by the compiler: every kind covered, every line reachable, and read from the top.
+
+79
+00:04:26.867 --> 00:04:27.637
+Quick check.
+
+80
+00:04:27.637 --> 00:04:32.063
+The order is now: new release first, then large print, then any book.
+
+81
+00:04:32.063 --> 00:04:35.015
+How many days does a new large-print book get?
+
+82
+00:04:38.267 --> 00:04:38.409
+7.
+
+83
+00:04:38.409 --> 00:04:41.613
+The new-release line comes first, so it wins.
+
+84
+00:04:41.613 --> 00:04:46.811
+javac won't warn you that the large-print line is shadowed for new books.
+
+85
+00:04:46.811 --> 00:04:48.021
+Only a test will.

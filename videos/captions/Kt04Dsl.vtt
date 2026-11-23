@@ -1,149 +1,361 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.133
-When you fill in a paper form, you don't write the form's name in every box.
+00:00:02.700 --> 00:00:05.856
+Every order at the print shop starts on a paper form.
 
 2
-00:00:07.133 --> 00:00:08.708
-You are already holding it.
+00:00:05.856 --> 00:00:12.229
+There's a section for the customer, a section for the delivery address, and a box for the number of copies.
 
 3
-00:00:08.933 --> 00:00:14.679
-A Java builder lambda gets the builder as a parameter, b, and names it on every line.
+00:00:12.229 --> 00:00:14.552
+Each section offers only its own boxes.
 
 4
-00:00:14.900 --> 00:00:18.453
-Kotlin can hand the builder to the lambda as its receiver.
+00:00:14.552 --> 00:00:18.065
+So nobody writes a phone number where the copies should go.
 
 5
-00:00:18.453 --> 00:00:20.843
-Inside the braces, the builder is this.
+00:00:18.567 --> 00:00:21.944
+In Kotlin, we can write that form as code.
 
 6
-00:00:20.843 --> 00:00:25.928
-So the calls need no prefix, as if you were writing a method of the builder itself.
+00:00:21.944 --> 00:00:25.079
+Each section becomes a block in braces.
 
 7
-00:00:26.700 --> 00:00:29.208
-One level down, nothing magic happens.
+00:00:25.079 --> 00:00:32.477
+Inside a block, you fill in boxes by name: name equals Corner Bakery, phone equals 555-0142.
 
 8
-00:00:29.208 --> 00:00:35.675
-A lambda with receiver has the same type as a lambda that takes the builder as its first argument.
+00:00:32.477 --> 00:00:34.487
+No form named, no prefix.
 
 9
-00:00:35.675 --> 00:00:37.522
-Both compile to a Function1.
+00:00:35.400 --> 00:00:38.975
+That works because each block is a lambda with a receiver.
 
 10
-00:00:37.522 --> 00:00:41.020
-Only the compiler treats that first argument as this.
+00:00:38.975 --> 00:00:41.810
+A lambda is a small function written in place.
 
 11
-00:00:41.833 --> 00:00:42.761
-Builders nest.
+00:00:41.810 --> 00:00:45.016
+Its receiver is the object it runs inside: its this.
 
 12
-00:00:42.761 --> 00:00:48.196
-Inside paymentRequest, the payer block hands you a second builder, a PartyBuilder.
+00:00:45.016 --> 00:00:48.775
+Picture a clerk handed a form already clipped to a clipboard.
 
 13
-00:00:48.196 --> 00:00:51.709
-Now two receivers are in scope, one inside the other.
+00:00:48.775 --> 00:00:53.460
+She writes in the boxes without saying which form, because she's holding it.
 
 14
-00:00:51.900 --> 00:00:55.389
-A bare call goes to the nearest receiver that has it.
+00:00:54.367 --> 00:00:57.017
+Behind each section sits a builder class.
 
 15
-00:00:55.389 --> 00:00:56.969
-Name lands on the party.
+00:00:57.017 --> 00:00:59.408
+ContactBuilder offers name and phone.
 
 16
-00:00:57.167 --> 00:01:00.545
-Now someone types payee inside payer, by mistake.
+00:00:59.408 --> 00:01:04.709
+The customer and the delivery address both use it, since they need the same boxes.
 
 17
-00:01:00.545 --> 00:01:02.613
-The PartyBuilder has no payee.
+00:01:04.709 --> 00:01:10.073
+Around them, OrderFormBuilder offers copies, and the customer and deliverTo blocks.
 
 18
-00:01:02.613 --> 00:01:03.992
-What does Kotlin do?
+00:01:10.900 --> 00:01:13.454
+Now picture a tired Friday afternoon.
 
 19
-00:01:05.967 --> 00:01:07.606
-It keeps looking, outward.
+00:01:13.454 --> 00:01:18.287
+Inside the customer block, someone types: deliverTo, name equals oops.
 
 20
-00:01:07.606 --> 00:01:10.758
-The outer builder has payee, so the line compiles.
+00:01:18.287 --> 00:01:22.015
+That line belongs outside, in the order's own section.
 
 21
-00:01:10.758 --> 00:01:13.091
-And it quietly builds a second party.
+00:01:22.015 --> 00:01:23.119
+Does it compile?
 
 22
-00:01:13.300 --> 00:01:17.926
-In the lesson's demo it fails only when it runs: iban required for oops.
+00:01:23.119 --> 00:01:24.224
+Pause and guess.
 
 23
-00:01:17.926 --> 00:01:22.167
-Without a required field, you would simply send the wrong request.
+00:01:27.400 --> 00:01:28.384
+It compiles.
 
 24
-00:01:22.400 --> 00:01:24.201
-The fix is one annotation.
+00:01:28.384 --> 00:01:28.958
+Well...
 
 25
-00:01:24.201 --> 00:01:31.267
-Mark an annotation class with @DslMarker, and put it on every builder class: the receivers themselves.
+00:01:28.958 --> 00:01:31.665
+that's not what anybody expected.
 
 26
-00:01:31.467 --> 00:01:34.648
-Now only the nearest marked receiver is implicit.
+00:01:31.867 --> 00:01:35.205
+So here's the question that's easy to be shy about.
 
 27
-00:01:34.648 --> 00:01:37.504
-The misplaced payee stops at the inner wall.
+00:01:35.205 --> 00:01:37.693
+The customer section has no deliverTo.
 
 28
-00:01:37.504 --> 00:01:38.932
-It no longer compiles.
+00:01:37.693 --> 00:01:40.377
+Where on earth did the compiler find one?
 
 29
-00:01:39.100 --> 00:01:45.498
-You can still reach the outer builder on purpose, with a label: this@paymentRequest.currency.
+00:01:41.467 --> 00:01:44.970
+Inside the customer block, two receivers are in scope.
 
 30
-00:01:45.498 --> 00:01:47.561
-Nobody types that by accident.
+00:01:44.970 --> 00:01:48.538
+The nearest one is the ContactBuilder for the customer.
 
 31
-00:01:48.467 --> 00:01:54.229
-In Kotlin that is the whole fix: one marker annotation, placed on each builder class.
+00:01:48.538 --> 00:01:50.874
+Around it sits the OrderFormBuilder.
 
 32
-00:01:54.229 --> 00:01:55.720
-Java needs none of it.
+00:01:50.874 --> 00:01:56.064
+For a call that names no receiver, Kotlin tries each one in turn, nearest first.
 
 33
-00:01:55.720 --> 00:02:01.415
-Its lambdas name every builder, so reaching the outer one means typing r on purpose.
+00:01:56.267 --> 00:01:56.961
+deliverTo?
 
 34
-00:02:02.167 --> 00:02:09.939
-The rule: a bare call goes to the nearest receiver that has it, and @DslMarker on the builder classes stops it there.
+00:01:56.961 --> 00:01:58.906
+The ContactBuilder has none.
 
 35
-00:02:10.167 --> 00:02:11.207
-A quick check.
+00:01:58.906 --> 00:02:06.548
+So the compiler, always eager to help, looks one level out, finds deliverTo on the order form, and calls that.
 
 36
-00:02:11.207 --> 00:02:15.961
-Inside payer, someone writes currency equals GBP, with no label.
+00:02:07.067 --> 00:02:13.407
+On paper, that's a form where any box missing from your section gets written into the section around it.
 
 37
-00:02:15.961 --> 00:02:18.635
-With the marker on, does it compile?
+00:02:13.407 --> 00:02:15.358
+Picture the clerk who does that.
+
+38
+00:02:15.358 --> 00:02:16.150
+Very helpful.
+
+39
+00:02:16.150 --> 00:02:18.040
+Never to be trusted with a pen.
+
+40
+00:02:18.040 --> 00:02:22.673
+So the point is: a name your block lacks falls through to the outer builder.
+
+41
+00:02:23.867 --> 00:02:26.999
+The lesson's demo runs exactly this wrong move.
+
+42
+00:02:26.999 --> 00:02:36.595
+The misplaced line builds a second, half filled delivery address, and the program stops with: IllegalArgumentException, phone required for oops.
+
+43
+00:02:37.400 --> 00:02:39.033
+And that exception is luck.
+
+44
+00:02:39.033 --> 00:02:42.845
+On a form with no required phone number, nothing would stop it.
+
+45
+00:02:42.845 --> 00:02:44.720
+The shop would deliver to oops.
+
+46
+00:02:44.720 --> 00:02:47.624
+The van driver is still looking for that street.
+
+47
+00:02:48.700 --> 00:02:51.522
+What we really want is the paper rule back.
+
+48
+00:02:51.522 --> 00:02:54.409
+Inside a section, only that section's boxes.
+
+49
+00:02:54.633 --> 00:02:58.294
+Kotlin has a tool for exactly that, called DslMarker.
+
+50
+00:02:58.294 --> 00:03:02.575
+It's an annotation, a label in the source that tools can read.
+
+51
+00:03:02.575 --> 00:03:05.752
+You put it on an annotation class of your own.
+
+52
+00:03:05.752 --> 00:03:07.479
+Here it's called FormDsl.
+
+53
+00:03:07.479 --> 00:03:10.517
+Then you put FormDsl on every builder class.
+
+54
+00:03:10.733 --> 00:03:17.832
+From then on, inside a block, only the nearest marked receiver is implicit, which means usable without naming it.
+
+55
+00:03:17.832 --> 00:03:19.905
+The outer builder is still there.
+
+56
+00:03:19.905 --> 00:03:22.167
+You just can't reach it by accident.
+
+57
+00:03:23.267 --> 00:03:26.356
+Same wrong move, with both builders marked.
+
+58
+00:03:26.356 --> 00:03:27.577
+What happens now?
+
+59
+00:03:27.577 --> 00:03:28.727
+Pause and guess.
+
+60
+00:03:31.900 --> 00:03:33.147
+It doesn't compile.
+
+61
+00:03:33.147 --> 00:03:39.709
+The compiler says the deliverTo function cannot be called in this context with an implicit receiver.
+
+62
+00:03:39.709 --> 00:03:42.203
+Use an explicit receiver if necessary.
+
+63
+00:03:42.433 --> 00:03:45.509
+A box from the outer section fails the same way.
+
+64
+00:03:45.509 --> 00:03:53.903
+Write copies equals 5 inside the customer block, and the compiler says the copies property cannot be called in this context either.
+
+65
+00:03:54.133 --> 00:03:57.948
+You can still reach the order on purpose, by naming it.
+
+66
+00:03:57.948 --> 00:04:00.237
+this@orderForm is a labeled this.
+
+67
+00:04:00.237 --> 00:04:04.121
+It names the receiver of the lambda passed to orderForm.
+
+68
+00:04:04.121 --> 00:04:09.046
+On the paper form, that's writing: order section, copies, 250, in full.
+
+69
+00:04:09.046 --> 00:04:11.127
+Nobody types that by accident.
+
+70
+00:04:12.200 --> 00:04:14.060
+Java never had this problem.
+
+71
+00:04:14.060 --> 00:04:18.444
+A Java lambda gets the builder as a parameter with a name, c or f.
+
+72
+00:04:18.444 --> 00:04:24.423
+So reaching the outer builder means typing f dot, on purpose, where a reviewer can see it.
+
+73
+00:04:25.500 --> 00:04:27.832
+Now the rules, because they're narrow.
+
+74
+00:04:27.832 --> 00:04:29.674
+One: mark every builder class.
+
+75
+00:04:29.674 --> 00:04:34.523
+For a language with twenty builders, marking their common superclass is enough.
+
+76
+00:04:34.733 --> 00:04:38.427
+Two: the marker counts only where it marks a type.
+
+77
+00:04:38.427 --> 00:04:44.411
+On a function it does nothing, and Kotlin 2.4.21 warns you that it has no effect.
+
+78
+00:04:45.500 --> 00:04:48.519
+And here the paper picture breaks, in our favor.
+
+79
+00:04:48.519 --> 00:04:52.104
+A clerk finds a misfiled box after the form is handed in.
+
+80
+00:04:52.104 --> 00:04:55.312
+The compiler finds it before the program ever runs.
+
+81
+00:04:56.400 --> 00:04:58.686
+So, where did deliverTo come from?
+
+82
+00:04:58.686 --> 00:05:03.795
+From the outer builder, because a missing name falls through, nearest first.
+
+83
+00:05:03.795 --> 00:05:08.165
+DslMarker stops the fall: each section offers only its own boxes.
+
+84
+00:05:08.165 --> 00:05:09.845
+Mark every builder class.
+
+85
+00:05:10.067 --> 00:05:10.944
+Quick check.
+
+86
+00:05:10.944 --> 00:05:15.986
+You take FormDsl off ContactBuilder, but keep it on OrderFormBuilder.
+
+87
+00:05:15.986 --> 00:05:17.959
+Does the oops line compile?
+
+88
+00:05:21.133 --> 00:05:25.221
+It compiles again, and the shop is back to delivering to oops.
+
+89
+00:05:25.221 --> 00:05:27.990
+The nearest receiver needs the marker too.
+
+90
+00:05:27.990 --> 00:05:29.111
+So mark them all.

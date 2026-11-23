@@ -1,318 +1,727 @@
 from fg import *
 import fg
 
-# Local spoken forms (this process only; captions keep the written form). Applied in order, before fg's own.
+# Spoken forms only (captions keep the written words). fg.py is shared, so these live here.
 fg.SAY[:0] = [
-    (r"\bAuthResult\b", "Auth Result"), (r"\bGoetz\b", "Getts"), (r"\bre-validates\b", "re validates"),
+    (r"\bDTO\b", "D T O"), (r"\bK7P2QX\b", "K 7 P 2 Q X"), (r"\bHoldResult\b", "hold result"),
+    (r"\bpickupCode\b", "pickup code"), (r"\bREADY\b", "ready"),
 ]
 
-# ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
+# every spoken line, in order (the script; beats in comments)
+N = {
+    # FAMILIAR
+    "open": "When a member reserves a book this library doesn't own, the request goes to the regional catalogue: a "
+            "program, run by someone else, that knows what every library nearby holds. Its answer comes back as text "
+            "fields. A status, and a few boxes that should be filled in only for some statuses.",
+    "open2": "A ready book has a pickup code and a hold shelf. An unavailable one has a reason. A place on the waiting "
+             "list has an expected wait.",
+    # QUESTION
+    "shyq": "Here's a question that's easy to be shy about. The comments say which fields go together, and everyone "
+            "reads the comments. So what's the harm in one class with optional fields?",
+    # PAIN, PREDICT
+    "form": "Picture the answer as one paper form with every box printed on it. Nothing stops someone from ticking "
+            "Ready and also writing: reason, lost.",
+    "cq": "So how many ways can this form be filled in? Pause and guess.",
+    "ca": "Three statuses. Then four optional boxes, each filled or empty: two, times two, times two, times two, "
+          "sixteen. Three times sixteen is 48. And how many make sense? Three.",
+    "dto": "In code, this form is a DTO, a data transfer object: a class that only holds a message's fields as they "
+           "arrived. Only the comments say which ones go together, so every reader has to check again. And one of "
+           "them won't.",
+    "demo": "The lesson's demo hands a ready reply with no pickup code to the code that prints pickup slips. It "
+            "prints: shelf 12, code null.",
+    # JOKE:release, cashed back
+    "joke": "So a member walks up with a slip that says: your book is on shelf 12, and your code is... nothing. The "
+            "book is right there, and nobody can hand it over. The trouble isn't that someone forgot a box. It's "
+            "that the form let them.",
+    # WISH, ANALOGY, MAP
+    "fix": "So let's print three forms instead, each with only its own boxes. Ready has a code and a shelf. "
+           "Unavailable has a reason. Waitlisted has an expected wait. In code, that's a sealed interface, "
+           "HoldResult, with three records.",
+    "map": "Now, ready with a reason can't even be written down. There's no box for it. Three shapes, and all three "
+           "make sense. The checks that are left move into the constructors: a pickup code is six letters or "
+           "digits, and hold shelves start at 1.",
+    "demo2": "Run the demo with the sealed model. The broken reply is refused: pickupCode is required. The good one "
+             "prints: shelf 12, code K7P2QX.",
+    # NAME
+    "name": "This has a name: make illegal states unrepresentable. Brian Goetz, Java's language architect, calls the "
+            "whole style data-oriented programming. Records hold this and that: a code and a shelf. A sealed "
+            "interface says this or that: ready, or unavailable, or waitlisted.",
+    # SHRINK: the edge
+    "edge": "But three clean forms only help if every answer from outside is copied onto one of them. Letters from "
+            "outside arrive in any handwriting. So one clerk stands at the door. Each letter is copied onto the right "
+            "form, or sent back with a polite note saying what was wrong.",
+    "parse": "In code, that clerk is one function, parse. It switches on the status text. A ready reply needs its code "
+             "and its shelf, or it's rejected with a reason. Anything it doesn't know, null included, is rejected. "
+             "And when a constructor refuses a value, parse turns that into a rejection too. It never throws.",
+    "pq": "Here's a sloppy reply: status READY, with a space at the end. What does the door do? Pause and guess.",
+    "pa": "Rejected: unknown status, READY and a space. The pickup desk never sees it. A strict door turns a sloppy "
+          "reply into a visible rejection, not a slip with bad data.",
+    "trust": "Behind the door, nothing checks again. A method that takes a Ready knows it has a real code and a real "
+             "shelf, because no other kind of Ready can exist. Check outside data once, at the door. Behind the door, "
+             "trust the types.",
+    # GUARDRAIL, where the picture breaks
+    "rules": "The rules that read these forms live in one binder at the desk: one function each, with one switch. A "
+             "new rule is one new function. A new kind of form breaks every switch until it's handled, and the "
+             "compiler lists them. The library's kinds of form rarely change, so that's a good trade.",
+    "breaks": "Here's where the picture breaks. A real door can't be walked around. Code can. Data that skips parse, "
+              "or a nullable status field sneaked back into the records, brings the 48 shapes right back. The model "
+              "is only as good as its edge.",
+    # MORAL
+    "moral": "So what's the harm in one class with optional fields? It allows 48 shapes when 3 make sense. Give each "
+             "valid shape its own record, check outside data once at the door, and keep the rules in functions.",
+    "check": "Quick check. A class has a status with two values, and three optional fields beside it. How many shapes "
+             "can it take?",
+    "check_a": "Two, times two, times two, times two: 16. That's a lot of shapes for one comment to guard.",
+}
 
-APP_C, DEC_C, RET_C = GREEN_M, PURPLE_M, BLUE_M    # the three outcomes
-REJ_C, BAD_C, OK_C = RED_M, RED_M, GREEN_M          # refused at the edge, an impossible shape, a valid shape
-RAW_C, OPT_C = GREY_A, GOLD_M                       # raw input, an optional field
-SEAL_C, CHK_C = YELLOW_M, GOLD_M                    # the sealed model and the edge, a constructor check
 
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-class Beat(VoiceScene):
-    """VoiceScene plus captions split only where a new sentence starts, and seq() to start animations
-    at a given sentence of the line."""
-
-    def _cue(self, text, dur):
-        t0 = self.renderer.time
-        sents = [x for x in _SENT.split(text.strip()) if x]
-        total = sum(len(x) for x in sents) or 1
-        for x in sents:
-            d = dur * len(x) / total
-            self._cues.append((t0, t0 + d, x)); t0 += d
-
-    def seq(self, text, plan=(), after=0.25):
-        """plan: (sentence index, [animations] or a function returning them, run_time)."""
+    def say(self, key):
+        text = N[key]
         path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
-        sents = [x for x in _SENT.split(text.strip()) if x]
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
         total = sum(len(x) for x in sents) or 1
-        starts, t = [], 0.0
+        self._st = []
         for x in sents:
-            starts.append(t); t += dur * len(x) / total
-        assert all(i < len(starts) for i, _, _ in plan), f"plan index past the last sentence: {text[:40]}"
-        now = 0.0
-        for idx, anims, rt in plan:
-            if starts[idx] > now + 0.02:
-                self.wait(starts[idx] - now); now = starts[idx]
-            if callable(anims):
-                anims = anims()
-            self.play(*anims, run_time=rt); now += rt
-        if dur - now > 0.02:
-            self.wait(dur - now)
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
         if after:
             self.wait(after)
 
+    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
 
-class Pulse(Transform):
-    """Indicate for outlined shapes: grows and recolours outlines only, so fills and text stay readable."""
+    def wipe(self, rt=0.7):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=rt)
 
-    def __init__(self, mobject, color=WHITE, scale_factor=1.08, **kwargs):
-        self.pulse_color, self.pulse_scale = color, scale_factor
-        kwargs.setdefault("rate_func", there_and_back)
-        super().__init__(mobject, **kwargs)
-
-    def create_target(self):
-        t = self.mobject.copy().scale(self.pulse_scale)
-        for sm in t.family_members_with_points():
-            if sm.get_stroke_width() > 0:
-                sm.set_stroke(color=self.pulse_color)
-        return t
-
-
-def one(text, size=24, color=WHITE):
-    """One mono line; glyph i is character i (spaces kept, ligatures off)."""
-    t = Text("|" + text, font=MONO, font_size=size, color=color, disable_ligatures=True)
-    t.remove(t[0])
-    t.src = text
-    return t
-
-
-def part(t, sub, nth=0):
-    i = -1
-    for _ in range(nth + 1):
-        i = t.src.index(sub, i + 1)
-    return VGroup(*t[i:i + len(sub)])
+    def shy(self, key, lines, big=0):
+        """The question a learner is shy to ask: a small grey header, then each line at its sentence."""
+        hd = T("a question that's easy to be shy about", 26, GREY_B).move_to([0, 2.5, 0])
+        qs = VGroup(*[T(l, 38 if i == big else 32, WHITE if i == big else GREY_A) for i, (l, _) in enumerate(lines)])
+        qs.arrange(DOWN, buff=0.4).move_to([0, 0.1, 0])
+        for q in qs:
+            fit(q, 12.4)
+        self.say(key)
+        self.play(FadeIn(hd), run_time=0.5)
+        for q, (_, i) in zip(qs, lines):
+            self.at(i)
+            self.play(FadeIn(q, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0.4)
+        self.wipe()
 
 
-def paint(t, sub, color):
-    i = t.src.find(sub)
-    while i >= 0:
-        VGroup(*t[i:i + len(sub)]).set_color(color)
-        i = t.src.find(sub, i + 1)
-    return t
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def code(lines, size=24):
-    """Mono lines, left aligned, leading spaces kept. lines: str or (str, {substring: colour})."""
-    pitch = M("|", size).height * 1.6
-    g = VGroup()
-    for i, ln in enumerate(lines):
-        txt, cols = ln if isinstance(ln, tuple) else (ln, {})
-        t = Text("|" + txt, font=MONO, font_size=size, disable_ligatures=True)
-        t.shift(np.array([0, -i * pitch, 0]) - t[0].get_center())
-        t.src = "|" + txt
-        for sub, c in cols.items():
-            paint(t, sub, c)
-        g.add(t)
-    for t in g:
-        t.remove(t[0])
-        t.src = t.src[1:]
-    return g
+# one colour per thing, for the whole data modeling track (the town library and its forms)
+CLERK, JAVAC, STAMP, ATTACH, BAD, OK, KT = BLUE_M, TEAL_M, GOLD_M, PURPLE_M, RED_M, GREEN_M, PURPLE_M
+PAPER, INK, PEN = "#EDE6D6", "#161616", "#1E4F9C"   # forms: paper, printed ink, handwriting
 
 
-def at_left(m, x, y):
-    return m.move_to([x + m.width / 2, y, 0])
+def person(color, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def rbox(name, fields, color, w=3.7, h=1.75):
-    r = RoundedRectangle(corner_radius=0.12, width=w, height=h, stroke_color=color, stroke_width=3)
-    r.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(color), 0.10), 1)
-    t = VGroup(T(name, 28, color), *[one(f, 22) for f in fields]).arrange(DOWN, buff=0.14)
-    fit(t, w - 0.3).move_to(r)
+def who(color, name, s=1.1, size=22):
+    p = person(color, s)
+    return VGroup(p, T(name, size, color).next_to(p, DOWN, buff=0.12))
+
+
+def stamp(s=1.0, color=STAMP):
+    pad = RoundedRectangle(corner_radius=0.04, width=0.5, height=0.14).set_stroke(color, 2.5).set_fill(dim(color, 0.6), 1)
+    stem = Rectangle(width=0.1, height=0.22).set_stroke(color, 2).set_fill(dim(color, 0.4), 1).next_to(pad, UP, buff=0)
+    knob = Circle(radius=0.1).set_stroke(color, 2).set_fill(dim(color, 0.6), 1).next_to(stem, UP, buff=0)
+    return VGroup(pad, stem, knob).scale(s)
+
+
+def clerk(name="clerk", s=1.1, size=22):
+    p = person(CLERK, s)
+    st = stamp(0.8 * s).next_to(p[0], RIGHT, buff=0.05).align_to(p[0], DOWN)
+    return VGroup(VGroup(p, st), T(name, size, CLERK).next_to(p, DOWN, buff=0.12))
+
+
+def form(title, fields, w=3.4, size=20, vsize=22, gap=0.16):
+    """A paper form: [0] sheet, [1] title, [2] rows; each row is (label, box, value-or-empty VGroup)."""
+    ttl = T(title, size + 2, INK, weight=BOLD)
+    rows = VGroup()
+    for f in fields:
+        lab, val = (f if isinstance(f, tuple) else (f, None))
+        lt = T(lab, size, INK)
+        bw = w - 0.5
+        bx = Rectangle(width=bw, height=0.5).set_stroke(INK, 1.5).set_fill(WHITE, 0.55)
+        v = M(val, vsize, PEN) if val else VGroup()
+        col = VGroup(lt, bx).arrange(DOWN, aligned_edge=LEFT, buff=0.06)
+        if val:
+            v.move_to(bx).align_to(bx, LEFT).shift(RIGHT * 0.15)
+        rows.add(VGroup(lt, bx, v))
+    stack = VGroup(ttl, *[VGroup(r[0], r[1]) for r in rows]).arrange(DOWN, aligned_edge=LEFT, buff=gap)
+    for r in rows:
+        if len(r[2]):
+            r[2].move_to(r[1]).align_to(r[1], LEFT).shift(RIGHT * 0.15)
+    sheet = Rectangle(width=w, height=stack.height + 0.5).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    sheet.move_to(stack)
+    return VGroup(sheet, ttl, rows)
+
+
+def write_in(row, text, size=22, color=PEN):
+    v = M(text, size, color)
+    v.move_to(row[1]).align_to(row[1], LEFT).shift(RIGHT * 0.15)
+    return v
+
+
+def sleeve(m, pad=0.14):
+    r = RoundedRectangle(corner_radius=0.1, width=m.width + 2 * pad, height=m.height + 2 * pad)
+    return r.set_stroke("#BFE3F0", 2.5).set_fill("#BFE3F0", 0.10).move_to(m)
+
+
+def paper(lines, size=20, pad=0.16, color=INK):
+    t = M("\n".join(lines), size, color)
+    r = Rectangle(width=t.width + 2 * pad, height=t.height + 2 * pad).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
+    t.move_to(r)
     return VGroup(r, t)
 
 
-# ---- layout
-DX0, DX1 = -6.4, -3.0                    # the DTO box
-DROW = [2.05, 1.5, 0.95, 0.4, -0.15]
-GX0, CELL, GAP = -0.55, 0.36, 0.06       # the grid of shapes
-GROW = [1.9, 1.25, 0.6]
-STAT = ["APPROVED", "DECLINED", "SOFT_DECLINE"]
-VALID = [12, 2, 1]                       # bits: authCode, amountMinor, declineCode, retryAfterSeconds
-KX = [-4.2, 0.0, 4.2]
-KIND = ["Approved", "Declined", "RetryLater"]
-KC = [APP_C, DEC_C, RET_C]
-KF = [["code: AuthCode", "amountMinor: Long"], ["reason: DeclineReason"], ["after: Duration"]]
-WALL_X = -1.7
+def vchip(text, color, size=24, h=0.52):
+    t = M(text, size, WHITE)
+    r = RoundedRectangle(corner_radius=0.1, width=t.width + 0.36, height=h).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    return VGroup(r, t.move_to(r))
 
 
-class Dop04Parse(Beat):
-    """dop-04 s0-2: a type that can't hold a bad combination; parse untrusted input into it once, at the edge,
-    then trust the types; operations are functions over the data."""
+def code_block(src, size=22, hl=None, color=WHITE):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def titled(code, title, color=GREY_B):
+    h = T(title, 22, color).next_to(code, UP, buff=0.22).align_to(code, LEFT)
+    return VGroup(h, code)
+
+
+def part(t, s, nth=0):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = re.sub(r"\s", "", s)
+    flat = re.sub(r"\s", "", t.text)
+    i = -1
+    for _ in range(nth + 1):
+        i = flat.index(k, i + 1)
+    return t[i:i + len(k)]
+
+
+def term(lines, size=20, title="output", color=GREY_A):
+    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.5, height=t.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
+    t.move_to(r)
+    h = T(title, 20, GREY_B).next_to(r, UP, buff=0.1).align_to(r, LEFT)
+    return VGroup(r, t, h)
+
+
+def err_line(text, size=22, who_="javac"):
+    """A compiler message: who, red 'error:' then the message in light grey."""
+    return VGroup(M(who_, size, GREY_B), M("error:", size, BAD), M(text, size, GREY_A)).arrange(RIGHT, buff=0.15)
+
+
+def cross_by(m, s=0.2, buff=0.22):
+    return tick(False, s).next_to(m, RIGHT, buff=buff)
+
+
+def check_by(m, s=0.2, buff=0.22):
+    return tick(True, s).next_to(m, RIGHT, buff=buff)
+
+
+def rule_card(text, size=30, color=GOLD_M):
+    t = T(text, size, WHITE)
+    fit(t, 11.6)
+    r = RoundedRectangle(corner_radius=0.12, width=t.width + 0.7, height=t.height + 0.5).set_stroke(color, 2.5).set_fill(dim(color, 0.12), 1)
+    return VGroup(r, t.move_to(r))
+
+
+
+RDY, UNA, WAI = GREEN_M, RED_M, BLUE_M      # the three outcomes: ready, unavailable, waitlisted
+OUT = PURPLE_M                               # the outside world: the regional catalogue and its letters
+
+
+def building(label, color, w=2.4, h=1.5, size=22):
+    body = Rectangle(width=w, height=h).set_stroke(color, 3).set_fill(dim(color, 0.2), 1)
+    roof = Polygon(body.get_corner(UL), body.get_corner(UR), body.get_top() + UP * 0.6).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    door_ = Rectangle(width=0.4, height=0.6).set_stroke(color, 2).set_fill(BLACK, 1).align_to(body, DOWN)
+    lab = T(label, size, color).next_to(body, DOWN, buff=0.15)
+    return VGroup(body, roof, door_, lab)
+
+
+def letter(lines, size=20, color=PEN, rot=0):
+    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
+    r = Rectangle(width=t.width + 0.4, height=t.height + 0.36).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1).move_to(t)
+    return VGroup(r, t).rotate(rot * DEGREES)
+
+
+def grid(n_rows, n_cols, good, s=0.36, gap=0.08):
+    g = VGroup()
+    for i in range(n_rows):
+        for j in range(n_cols):
+            ok = (i, j) in good
+            sq = Square(side_length=s).set_stroke(OK if ok else GREY_D, 2).set_fill(OK if ok else BAD, 0.75 if ok else 0.25)
+            sq.move_to([j * (s + gap), -i * (s + gap), 0])
+            g.add(sq)
+    return g
+
+
+def small_form(title, fields, color, w=2.7):
+    f = form(title, fields, w=w, size=18, vsize=20, gap=0.12)
+    f[0].set_stroke(color, 3)
+    return f
+
+
+def three_forms():
+    return VGroup(small_form("READY", ["pickup code", "hold shelf"], RDY), small_form("UNAVAILABLE", ["reason"], UNA),
+                  small_form("WAITLISTED", ["expected wait"], WAI))
+
+
+def make_binder():
+    bind = RoundedRectangle(corner_radius=0.1, width=4.6, height=3.4).set_stroke(STAMP, 3).set_fill(dim(STAMP, 0.1), 1)
+    rings = VGroup(*[Circle(radius=0.1).set_stroke(GREY_A, 2) for _ in range(3)]).arrange(DOWN, buff=0.8).move_to(bind.get_left() + RIGHT * 0.3)
+    p0 = M("screenMessage(r)", 22, WHITE).move_to(bind).shift(RIGHT * 0.2 + UP * 0.5)
+    bl = T("the rules: one function each", 22, STAMP).next_to(bind, UP, buff=0.15)
+    return VGroup(bind, rings, p0, bl)
+
+
+class Dop04Parse(Narrated):
+    """dop-04, sections 0 to 2 (the lesson's arc): the regional catalogue's reply; the shy question (one class with
+    optional fields, what's the harm?); one form with every box, 48 shapes and 3 that make sense (IllegalStates'
+    real output: print slip: shelf 12, code null); three forms, HoldResult with three records, the constructor
+    checks and the real refusal; the name; one clerk at the door: parse returns Ok or Rejected and never throws; the
+    sloppy READY reply; trust the types behind the door; rules in one binder; where the picture breaks; moral; check."""
 
     def construct(self):
-        self.title_card("Data-oriented programming", "types that can't hold a bad state")
+        self.title_card("Data-oriented programming", "forms that can't be filled in wrong")
 
-        # ---------------- the problem: one class, every field optional
-        dto = RoundedRectangle(corner_radius=0.12, width=DX1 - DX0, height=3.05, stroke_color=RAW_C, stroke_width=2.5)
-        dto.move_to([(DX0 + DX1) / 2, (DROW[0] + DROW[-1]) / 2, 0])
-        dto_t = one("IssuerReplyDto", 24, RAW_C).next_to(dto, UP, buff=0.15)
-        names = ["status", "authCode?", "amountMinor?", "declineCode?", "retryAfterSeconds?"]
-        rows = [at_left(one(n, 22), DX0 + 0.25, y) for n, y in zip(names, DROW)]
-        for r in rows[1:]:
-            paint(r, "?", OPT_C)
-        self.seq("A card issuer's reply arrives as one class: a status, and four optional fields.",
-                 [(0, [Create(dto), FadeIn(dto_t)], 0.8), (0, [LaggedStart(*[FadeIn(r) for r in rows], lag_ratio=0.25)], 1.4)])
+        # ================= the catalogue's reply =================
+        lib = building("our library", CLERK).move_to([-4.6, 0.9, 0])
+        cat = building("regional catalogue", OUT, w=3.0, h=1.9).move_to([4.4, 0.9, 0])
+        go = Arrow(lib[0].get_right() + UP * 0.3, cat[0].get_left() + UP * 0.3, buff=0.2, stroke_width=3, color=GREY_B,
+                   max_tip_length_to_length_ratio=0.06)
+        back = Arrow(cat[0].get_left() + DOWN * 0.4, lib[0].get_right() + DOWN * 0.4, buff=0.2, stroke_width=3, color=OUT,
+                     max_tip_length_to_length_ratio=0.06)
+        req = T("reserve a book", 22, GREY_A).next_to(go, UP, buff=0.1)
+        rep = letter(['status:     "READY"', "pickupCode: ...", "holdShelf:  ...", "reasonCode: ...", "waitDays:   ..."], 20)
+        rep.move_to([0, -1.9, 0])
+        self.say("open")
+        self.play(FadeIn(lib), run_time=0.6)
+        self.play(GrowArrow(go), FadeIn(req), run_time=0.7)
+        self.at_text("a program")
+        self.play(FadeIn(cat), run_time=0.6)
+        self.at(1)
+        self.play(GrowArrow(back), run_time=0.6)
+        self.play(FadeIn(rep, shift=UP * 0.2), run_time=0.7)
+        self.at(2)
+        self.play(Indicate(rep[1][1:], color=OUT, scale_factor=1.04), run_time=0.9)
+        self.hold()
 
-        labels = [one(s, 22, GREY_A) for s in STAT]
-        for l, y in zip(labels, GROW):
-            l.move_to([GX0 - 0.2 - l.width / 2, y, 0])
-        cells = [[Square(CELL, stroke_color=GREY_B, stroke_width=2).move_to([GX0 + CELL / 2 + c * (CELL + GAP), y, 0])
-                  for c in range(16)] for y in GROW]
-        cnt = T("3 statuses, 4 fields set or null: 3 × 16 = 48 shapes", 26).move_to([2.0, -0.3, 0])
-        fit(cnt, 8.0)
-        self.seq("Count the shapes it allows. Three statuses, and four fields that are each set or null. That's 48 shapes.",
-                 [(1, [LaggedStart(*[FadeIn(l) for l in labels], lag_ratio=0.3)], 0.8),
-                  (1, [LaggedStart(*[Create(c) for row in cells for c in row], lag_ratio=0.02)], 1.6),
-                  (2, [FadeIn(cnt)], 0.6)])
-        self.seq("How many of them make sense?", [], after=1.6)
+        rows = VGroup(
+            VGroup(vchip("READY", RDY, 22), T("a pickup code and a hold shelf", 24)),
+            VGroup(vchip("UNAVAILABLE", UNA, 22), T("a reason", 24)),
+            VGroup(vchip("WAITLISTED", WAI, 22), T("an expected wait", 24)))
+        for r in rows:
+            r.arrange(RIGHT, buff=0.35)
+        rows.arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([0, 0.3, 0])
+        self.say("open2")
+        self.play(FadeOut(VGroup(lib, cat, go, back, req)), rep.animate.move_to([-4.6, -2.0, 0]).scale(0.8), run_time=0.7)
+        rows.move_to([1.0, 0.6, 0])
+        for i in range(3):
+            self.at(i)
+            self.play(FadeIn(rows[i], shift=RIGHT * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        good = [cells[r][VALID[r]] for r in range(3)]
-        bad = [c for r in range(3) for i, c in enumerate(cells[r]) if i != VALID[r]]
-        ex = cells[0][4]                         # approved, amount set, no auth code
-        sense = T("3 make sense", 26, OK_C).move_to([2.0, -0.85, 0])
-        ex_t = T("approved, with no auth code: still builds and travels", 24, BAD_C).move_to([1.0, -1.75, 0])
-        cap = T("the capture job sends null as the auth code", 24, BAD_C).move_to([1.0, -2.3, 0])
-        self.seq("Three. The other 45 can still be built and passed around, like approved with no auth code. "
-                 "Every consumer has to re-check, and one won't: the capture job sends null as the auth code.",
-                 [(0, [*[c.animate.set_fill(OK_C, 0.85).set_stroke(OK_C) for c in good], FadeIn(sense)], 0.8),
-                  (1, [*[c.animate.set_fill(BAD_C, 0.35).set_stroke(BAD_C) for c in bad]], 0.9),
-                  (1, [Indicate(ex, color=BAD_C, scale_factor=1.6), Indicate(part(rows[1], "authCode"), color=BAD_C)], 0.8),
-                  (1, [FadeIn(ex_t)], 0.6), (2, [FadeIn(cap)], 0.7)])
+        # ================= the shy question =================
+        self.shy("shyq", [("The comments say which fields go together.", 1),
+                          ("So what's the harm in one class with optional fields?", 2)], big=1)
 
-        # ---------------- the model: three records under a sealed interface
-        hdr = one("sealed interface AuthResult", 26, SEAL_C).move_to([0, 2.85, 0])
-        boxes = [rbox(k, f, c).move_to([x, 1.15, 0]) for k, f, c, x in zip(KIND, KF, KC, KX)]
-        ties = [Line(hdr.get_bottom() + DOWN * 0.08, b.get_top() + UP * 0.05, stroke_color=GREY_B, stroke_width=2) for b in boxes]
-        self.seq("Model the three outcomes instead, each with only its own fields: a sealed AuthResult with three records.",
-                 [(0, [FadeOut(VGroup(dto, dto_t, *rows, *labels, cnt, sense, ex_t, cap, *bad))], 0.7),
-                  (0, [*[ReplacementTransform(g, b[0]) for g, b in zip(good, boxes)]], 1.0),
-                  (0, [*[FadeIn(b[1]) for b in boxes]], 0.6),
-                  (0, [FadeIn(hdr), *[Create(t) for t in ties]], 0.8)])
+        # ================= one form, every box =================
+        stat = VGroup(*[VGroup(Square(0.3).set_stroke(INK, 2).set_fill(WHITE, 0.6), T(l, 22, INK)).arrange(RIGHT, buff=0.15)
+                        for l in ("Ready", "Unavailable", "Waitlisted")]).arrange(RIGHT, buff=0.4)
+        big = form("HOLD REPLY", ["pickup code", "hold shelf", "reason", "expected wait"], w=6.6, size=20)
+        st_l = T("status", 20, INK)
+        sgrp = VGroup(st_l, stat).arrange(DOWN, aligned_edge=LEFT, buff=0.08)
+        # put the status row between the title and the first box
+        sgrp.next_to(big[1], DOWN, buff=0.15).align_to(big[1], LEFT)
+        big[2].shift(DOWN * (sgrp.height + 0.15))
+        big[0].stretch_to_fit_height(big[0].height + sgrp.height + 0.15).align_to(big[1], UP).shift(UP * 0.25)
+        bform = VGroup(big, sgrp).move_to([-3.0, 0.1, 0])
+        self.say("form")
+        self.play(FadeIn(bform, shift=UP * 0.1), run_time=0.8)
+        self.at(1)
+        tk = tick(True, 0.13).set_stroke(PEN, 4).move_to(stat[0][0])
+        self.play(Create(tk), run_time=0.5)
+        lost = write_in(big[2][2], "lost", 24, BAD)
+        self.play(Write(lost), run_time=0.7)
+        self.play(Indicate(big[2][2][1], color=BAD, scale_factor=1.05), run_time=0.7)
+        self.hold()
 
-        dc = chip("declineCode", OPT_C, 22, mono=True).move_to([KX[0], -1.3, 0])
-        no = tick(False, 0.22).next_to(dc, RIGHT, buff=0.2)
-        no_t = T("no field for it", 24, BAD_C).next_to(no, RIGHT, buff=0.2)
-        three = T("3 shapes", 28, OK_C).move_to([KX[2], -0.6, 0])
-        self.seq("Now there are three shapes. Approved with a decline code can't even be written down.",
-                 [(0, [FadeIn(three)], 0.6),
-                  (1, [FadeIn(dc, shift=UP * 0.2)], 0.5), (1, [dc.animate.move_to([KX[0], 0.0, 0])], 0.6),
-                  (1, [dc.animate.move_to([KX[0], -1.3, 0]), Create(no), FadeIn(no_t)], 0.7)])
+        self.say("cq")
+        self.hold(after=0)
+        self.predict(2.4, pos=(6.4, 3.3), edge=RIGHT)
 
-        chk = VGroup(one("AuthCode: 6 letters or digits", 22, CHK_C), one("amountMinor > 0", 22, CHK_C)).arrange(DOWN, buff=0.12)
-        chk.move_to([KX[0], -1.0, 0])
-        ctor = T("checked in the constructors", 24, CHK_C).next_to(chk, DOWN, buff=0.2)
-        rule0 = T("make illegal states unrepresentable", 30, SEAL_C).move_to([1.6, -2.95, 0])
-        self.seq("The checks that are left move into the constructors: an auth code is six letters or digits, "
-                 "and an approved amount is positive. That's what make illegal states unrepresentable means.",
-                 [(0, [FadeOut(VGroup(dc, no, no_t)), FadeIn(ctor)], 0.6),
-                  (0, [FadeIn(chk, shift=UP * 0.1), Pulse(boxes[0][0], CHK_C, 1.04)], 0.8),
-                  (1, [FadeIn(rule0, shift=UP * 0.1)], 0.7)], after=0.4)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+        good = {(0, 3), (1, 4), (2, 8)}
+        g = grid(3, 16, good, s=0.3, gap=0.06).move_to([3.3, 0.6, 0])
+        fit(g, 5.6).move_to([3.4, 0.6, 0])
+        maths = T("3 × 2 × 2 × 2 × 2 = 48", 34, WHITE).next_to(g, UP, buff=0.45)
+        sense = VGroup(M("3", 34, OK), T("make sense", 28, OK)).arrange(RIGHT, buff=0.2).next_to(g, DOWN, buff=0.4)
+        self.say("ca")
+        self.play(FadeIn(maths[0:1]), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(maths[1:]), run_time=0.9)
+        self.at(2)
+        self.play(LaggedStart(*[FadeIn(sq) for sq in g], lag_ratio=0.02), run_time=1.6)
+        self.at(3)
+        self.play(LaggedStart(*[Indicate(g[i * 16 + j], color=OK, scale_factor=1.5) for (i, j) in sorted(good)], lag_ratio=0.3),
+                  FadeIn(sense), run_time=1.2)
+        self.hold()
+        self.wipe()
 
-        # ---------------- parse at the edge, then trust the types
-        wall_a = Line([WALL_X, 2.5, 0], [WALL_X, 0.45, 0], stroke_color=SEAL_C, stroke_width=8)
-        wall_b = Line([WALL_X, -0.45, 0], [WALL_X, -2.6, 0], stroke_color=SEAL_C, stroke_width=8)
-        gate = one("parse", 26, SEAL_C).move_to([WALL_X, 0.0, 0])
-        gate_bg = BackgroundRectangle(gate, color=BLACK, fill_opacity=1, buff=0.08)
-        out_t = T("outside: raw replies", 24, GREY_B).move_to([-4.3, 2.9, 0])
-        in_t = T("inside: only the model", 24, GREY_B).move_to([2.4, 2.9, 0])
-        edge_t = T("the edge", 24, SEAL_C).move_to([WALL_X, -2.95, 0])
-        raws = [one('APPROVED "A1B2C3" 1250', 22, RAW_C), one('DECLINED "51"', 22, RAW_C), one("APPROVED, no code", 22, RAW_C)]
-        for r, y in zip(raws, [0.0, 1.4, -1.4]):
-            r.move_to([-4.3, y, 0])
-        self.seq("The model only helps if raw data can't get in around it. So the service parses input into the model "
-                 "in one place, at its edge.",
-                 [(0, [FadeIn(out_t), FadeIn(in_t), *[FadeIn(r, shift=RIGHT * 0.2) for r in raws]], 0.9),
-                  (1, [Create(wall_a), Create(wall_b), FadeIn(gate_bg), FadeIn(gate), FadeIn(edge_t)], 1.0)])
+        # ================= the DTO, and a slip with no code =================
+        jsrc = ["public class HoldReplyDto {",
+                "    String status;",
+                "    String pickupCode;   // only when ready",
+                "    Integer holdShelf;   // only when ready",
+                "    String reasonCode;   // only when unavailable",
+                "    Integer waitDays;    // only when waitlisted",
+                "}"]
+        ksrc = ["data class HoldReplyDto(",
+                "    val status: String?,",
+                "    val pickupCode: String?,",
+                "    val holdShelf: Int?,",
+                "    val reasonCode: String?,",
+                "    val waitDays: Int?,",
+                ")"]
+        jb = titled(code_block(jsrc, 22, hl={"// only when ready": GREY_B, "// only when unavailable": GREY_B,
+                                             "// only when waitlisted": GREY_B}), "Java")
+        kb = titled(code_block(ksrc, 22), "Kotlin")
+        codes = VGroup(jb, kb).arrange(RIGHT, buff=0.6, aligned_edge=UP)
+        fit(codes, 12.4).move_to([0, 1.0, 0])
+        self.say("dto")
+        self.play(FadeIn(jb, shift=UP * 0.1), run_time=0.7)
+        self.play(FadeIn(kb, shift=UP * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(LaggedStart(*[Indicate(part(jb[1][i], "//onlywhen"), color=STAMP, scale_factor=1.1) for i in (2, 3, 4, 5)],
+                              lag_ratio=0.2), run_time=1.4)
+        self.hold()
 
-        outs = [chip("Approved", APP_C, 26).move_to([0.6, 0.0, 0]), chip("Declined", DEC_C, 26).move_to([0.6, 1.4, 0])]
-        rej = chip("Rejected: approved without a code", REJ_C, 24).move_to([2.35, -1.55, 0])
+        out = term(["shapes the DTO allows: 48, shapes that make sense: 3",
+                    "DTO consumer:    print slip: shelf 12, code null"], 22, "IllegalStates, real output").move_to([0, -2.3, 0])
+        self.say("demo")
+        self.play(FadeIn(out, shift=UP * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(Indicate(part(out[1][1], "codenull"), color=BAD, scale_factor=1.2), run_time=0.9)
+        self.hold()
+        self.wipe()
 
-        def steps(i, r, out):
-            mid = [WALL_X - 0.2 - r.width / 2, 0, 0]
-            return [(i, [r.animate.move_to(mid)], 0.55), (i, [FadeOut(r), Pulse(gate, WHITE, 1.2)], 0.3),
-                    (i, [FadeIn(out, shift=RIGHT * 0.3)], 0.45)]
-        self.seq("parse never throws. A good reply comes out as a model value. One the model refuses comes back as Rejected, "
-                 "with a reason.",
-                 steps(1, raws[0], outs[0]) + steps(1, raws[1], outs[1]) + steps(2, raws[2], rej))
+        FL = -1.8
+        floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
+        mem = who(GREY_A, "member").move_to([-2.4, FL + 0.7, 0])
+        slip = form("PICKUP SLIP", [("shelf", "12"), ("code", "null")], w=3.0).move_to([-2.0, 1.4, 0])
+        slip[2][1][2].set_color(BAD)
+        ck = clerk("clerk").move_to([3.4, FL + 0.62, 0])
+        shelf = VGroup(Rectangle(width=1.6, height=1.2).set_stroke(GREY_B, 2), T("hold shelf 12", 20, GREY_A))
+        shelf[1].next_to(shelf[0], UP, buff=0.1)
+        shelf.move_to([5.3, 0.9, 0])
+        bk = Rectangle(width=0.3, height=0.9).set_stroke("#8B5A2B", 2).set_fill("#3A2614", 1).move_to(shelf[0])
+        self.say("joke")
+        self.play(Create(floor), FadeIn(mem), FadeIn(slip, shift=DOWN * 0.1), FadeIn(ck), FadeIn(shelf), FadeIn(bk), run_time=0.8)
+        self.at_text("nothing")
+        self.play(Indicate(slip[2][1][2], color=BAD, scale_factor=1.4), run_time=0.8)
+        self.at(2)
+        self.play(VGroup(mem, slip).animate.shift(RIGHT * 2.6), run_time=1.0)
+        self.play(Indicate(bk, color=WHITE, scale_factor=1.2), run_time=0.7)
+        self.at(4)
+        let = T("the form let them", 30, STAMP).move_to([0, -2.6, 0])
+        self.play(FadeIn(let, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        fn = RoundedRectangle(corner_radius=0.12, width=3.6, height=1.0, stroke_color=APP_C, stroke_width=2.5).move_to([4.3, 0.0, 0])
-        fn_t = one("capture(a: Approved)", 22).move_to(fn)
-        trust = T("no checks needed", 24, APP_C).next_to(fn, DOWN, buff=0.2)
-        self.seq("Behind the edge, nothing re-validates. A method that takes an Approved knows its code is valid, "
-                 "because no other kind of Approved can exist.",
-                 [(0, [Create(fn), FadeIn(fn_t)], 0.7), (1, [outs[0].animate.move_to(fn.get_left() + LEFT * (outs[0].width / 2 + 0.15))], 0.8),
-                  (1, [FadeIn(trust)], 0.6)], after=0.4)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+        # ================= three forms =================
+        forms3 = three_forms()
+        fr, fu, fw = forms3
+        forms3.arrange(RIGHT, buff=0.6, aligned_edge=UP).move_to([0, 1.3, 0])
+        self.say("fix")
+        self.at(1)
+        self.play(FadeIn(fr, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(fu, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(fw, shift=UP * 0.1), run_time=0.6)
+        self.at(4)
+        jsrc2 = ["sealed interface HoldResult permits Ready, Unavailable, Waitlisted {}",
+                 "record Ready(PickupCode code, int shelf) implements HoldResult {}",
+                 "record Unavailable(Reason reason) implements HoldResult {}",
+                 "record Waitlisted(Duration expectedWait) implements HoldResult {}"]
+        jb2 = titled(code_block(jsrc2, 22, hl={"sealed": STAMP, "permits": STAMP}), "Java")
+        ksrc2 = ["sealed interface HoldResult {",
+                 "    data class Ready(val code: PickupCode, val shelf: Int) : HoldResult",
+                 "    data class Unavailable(val reason: Reason) : HoldResult",
+                 "    data class Waitlisted(val expectedWait: Duration) : HoldResult",
+                 "}"]
+        kb2 = titled(code_block(ksrc2, 22, hl={"sealed": STAMP}), "Kotlin")
+        cds = VGroup(jb2, kb2).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
+        fit(cds, 12.4).move_to([0, -0.2, 0])
+        self.play(forms3.animate.scale(0.62).move_to([0, 2.65, 0]), run_time=0.7)
+        cds.next_to(forms3, DOWN, buff=0.3)
+        self.play(FadeIn(cds, shift=UP * 0.1), run_time=0.8)
+        self.hold()
 
-        # ---------------- operations live outside the data
-        data = [chip(k, c, 26).move_to([-4.9, y, 0]) for k, c, y in zip(KIND, KC, [1.3, 0.2, -0.9])]
-        data_t = T("plain data", 24, GREY_B).move_to([-4.9, 2.2, 0])
+        self.say("map")
+        self.play(FadeOut(cds), forms3.animate.scale(1 / 0.62).move_to([0, 1.3, 0]), run_time=0.8)
+        rr = VGroup(T("ready + reason?", 26, WHITE), T("no box for it", 26, BAD)).arrange(RIGHT, buff=0.3)
+        rr.next_to(fr, DOWN, buff=0.4)
+        rr.move_to([0, -0.9, 0])
+        self.play(FadeIn(rr, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        three = VGroup(*[Square(0.4).set_stroke(OK, 2).set_fill(OK, 0.75) for _ in range(3)]).arrange(RIGHT, buff=0.12)
+        tl = T("3 shapes, all 3 make sense", 26, OK)
+        tg = VGroup(three, tl).arrange(RIGHT, buff=0.3).move_to([0, -1.6, 0])
+        self.play(FadeIn(tg), run_time=0.6)
+        self.at(3)
+        chks = VGroup(T("constructors check:", 24, GREY_A), M("code: six letters or digits", 22, STAMP),
+                      M("shelf: 1 or more", 22, STAMP)).arrange(RIGHT, buff=0.4)
+        fit(chks, 12.4).move_to([0, -2.5, 0])
+        self.play(FadeIn(chks, shift=UP * 0.1), run_time=0.7)
+        self.hold()
 
-        def op(name, outs_, y):
-            b = RoundedRectangle(corner_radius=0.12, width=6.4, height=2.0, stroke_color=WHITE, stroke_width=2.5).move_to([2.6, y, 0])
-            t = one(name, 24).next_to(b.get_corner(UL), DR, buff=0.2)
-            ls = VGroup(*[one(f"{k} -> {o}", 22, c) for k, o, c in zip(KIND, outs_, KC)]).arrange(DOWN, buff=0.12, aligned_edge=LEFT)
-            ls.next_to(t, DOWN, buff=0.18, aligned_edge=LEFT).shift(RIGHT * 0.3)
-            return VGroup(b, t, ls)
-        op1 = op("customerMessage(r)", ['"Payment approved."', '"Payment declined."', '"Your bank is busy."'], 1.3)
-        op2 = op("metricTag(r)", ['"approved"', '"declined"', '"retry"'], -1.2)
-        dop = T("data-oriented programming", 28, SEAL_C).move_to([0, -3.1, 0])
-        self.seq("And the logic? The records stay plain. Each operation is one function with a switch over the three kinds. "
-                 "Brian Goetz calls this style data-oriented programming.",
-                 [(1, [FadeIn(data_t), *[FadeIn(d) for d in data]], 0.8),
-                  (2, [Create(op1[0]), FadeIn(op1[1])], 0.7), (2, [LaggedStart(*[FadeIn(l) for l in op1[2]], lag_ratio=0.3)], 1.0),
-                  (3, [FadeIn(dop)], 0.6)])
-        new_k = DashedVMobject(RoundedRectangle(corner_radius=0.08, width=2.2, height=0.62, stroke_color=BAD_C, stroke_width=2.5),
-                               num_dashes=24).move_to([-4.9, -2.0, 0])
-        new_t = T("a new kind", 24, BAD_C).move_to(new_k)
-        self.seq("A new operation is a new function that touches nothing else. The price: a new kind breaks every switch, "
-                 "and the compiler lists them.",
-                 [(0, [Create(op2[0]), FadeIn(op2[1]), FadeIn(op2[2])], 0.9), (0, [*[Pulse(d, WHITE, 1.06) for d in data]], 0.6),
-                  (1, [Create(new_k), FadeIn(new_t)], 0.6),
-                  (1, [Pulse(op1[0], BAD_C, 1.03), Pulse(op2[0], BAD_C, 1.03)], 0.8)], after=0.4)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+        out2 = term(["sealed model:    refused, pickupCode is required",
+                     "sealed consumer: print slip: shelf 12, code K7P2QX"], 22, "IllegalStates, real output").move_to([0, -1.9, 0])
+        self.say("demo2")
+        self.play(FadeOut(VGroup(rr, tg, chks)), run_time=0.4)
+        self.play(FadeIn(out2[0]), FadeIn(out2[2]), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(out2[1][0]), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(out2[1][1]), Indicate(fr[0], color=RDY, scale_factor=1.03), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------------- the code
-        jt = T("Java", 24, GREY_B)
-        jc = code([("sealed interface AuthResult permits Approved, Declined, RetryLater {}", {"sealed interface AuthResult": SEAL_C}),
-                   ("record Approved(AuthCode code, long amountMinor) implements AuthResult {}", {"Approved": APP_C}),
-                   ("record Declined(DeclineReason reason) implements AuthResult {}", {"Declined": DEC_C}),
-                   ("record RetryLater(Duration after) implements AuthResult {}", {"RetryLater": RET_C}),
-                   ("static Parsed parse(IssuerReplyDto raw)     // the edge", {"parse": SEAL_C})], 22)
-        kt = T("Kotlin", 24, GREY_B)
-        kc = code([("sealed interface AuthResult", {"sealed interface AuthResult": SEAL_C}),
-                   ("data class Approved(val code: AuthCode, val amountMinor: Long) : AuthResult", {"Approved": APP_C}),
-                   ("data class Declined(val reason: DeclineReason) : AuthResult", {"Declined": DEC_C}),
-                   ("data class RetryLater(val after: Duration) : AuthResult", {"RetryLater": RET_C}),
-                   ("fun parse(raw: IssuerReplyDto): Parsed      // the edge", {"parse": SEAL_C})], 22)
-        jg = VGroup(jt, jc).arrange(DOWN, buff=0.16, aligned_edge=LEFT)
-        kg = VGroup(kt, kc).arrange(DOWN, buff=0.16, aligned_edge=LEFT)
-        stack = VGroup(jg, kg).arrange(DOWN, buff=0.45, aligned_edge=LEFT)
-        fit(stack, 12.4).move_to([0, 0, 0])
-        self.seq("In Java, that's a sealed interface and three records. In Kotlin, a sealed interface and three data classes. "
-                 "And one parse function at the edge.",
-                 [(0, [FadeIn(jg[0]), FadeIn(VGroup(*jc[:4]), shift=UP * 0.1)], 0.9),
-                  (1, [FadeIn(kg[0]), FadeIn(VGroup(*kc[:4]), shift=UP * 0.1)], 0.9),
-                  (2, [FadeIn(jc[4]), FadeIn(kc[4])], 0.7)], after=0.5)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+        # ================= the name =================
+        n1 = T("make illegal states unrepresentable", 40, WHITE)
+        n2 = T("data-oriented programming", 32, STAMP)
+        n2s = T("Brian Goetz, Java's language architect", 22, GREY_B)
+        n3 = VGroup(M("record", 28, WHITE), T("this and that:", 28, GREY_A), T("a code and a shelf", 28, RDY)).arrange(RIGHT, buff=0.25)
+        n4 = VGroup(M("sealed interface", 28, STAMP), T("this or that:", 28, GREY_A), T("ready, unavailable or waitlisted", 28, WHITE)).arrange(RIGHT, buff=0.25)
+        ng = VGroup(n1, n2, n2s, n3, n4).arrange(DOWN, buff=0.35)
+        ng[2].shift(UP * 0.2)
+        for x in ng:
+            fit(x, 12.4)
+        ng.move_to([0, 0.2, 0])
+        self.say("name")
+        self.play(FadeIn(n1, shift=UP * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(n2), FadeIn(n2s), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(n3, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(n4, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
 
-        # ---------------- rule and check
-        rule = VGroup(T("Make bad combinations impossible to build.", 32),
-                      T("Parse raw input into them once, at the edge.", 32, SEAL_C),
-                      T("Keep the logic in functions over the data.", 32)).arrange(DOWN, buff=0.22).move_to([0, 1.8, 0])
-        fit(rule, 12.4)
-        self.seq("The rule: make bad combinations impossible to build. Parse raw input into them once, at the edge. "
-                 "And keep the logic in functions over the data.",
-                 [(0, [FadeIn(rule[0], shift=UP * 0.1)], 0.7), (1, [FadeIn(rule[1], shift=UP * 0.1)], 0.7),
-                  (2, [FadeIn(rule[2], shift=UP * 0.1)], 0.7)])
-        chk2 = VGroup(T("Check: behind the edge, a method takes an Approved.", 28),
-                      T("Must it check the auth code for null?", 28)).arrange(DOWN, buff=0.12)
-        fit(chk2, 12.4).move_to([0, -0.75, 0])
-        self.seq("Quick check. Behind the edge, a method takes an Approved. Does it need to check the auth code for null?",
-                 [(1, [FadeIn(chk2, shift=UP * 0.1)], 0.8)], after=2.0)
-        ans = VGroup(T("No. Every Approved went through its constructor,", 28, APP_C),
-                     T("so no other kind of Approved can exist.", 28, APP_C)).arrange(DOWN, buff=0.12).move_to([0, -2.3, 0])
-        fit(ans, 12.4)
-        self.seq("No. Every Approved went through its constructor, so no other kind of Approved can exist.",
-                 [(0, [FadeIn(ans, shift=UP * 0.1)], 0.8)])
-        self.wait(0.8)
+        # ================= one clerk at the door =================
+        WX = -0.6
+        wall = VGroup(Line([WX, 3.2, 0], [WX, 0.5, 0]), Line([WX, -0.5, 0], [WX, -3.0, 0])).set_stroke(GREY_B, 4)
+        out_l = T("outside", 24, OUT).move_to([-4.6, 3.0, 0])
+        in_l = T("inside: only the three forms", 24, GREY_A).move_to([3.4, 3.0, 0])
+        lets = VGroup(letter(['"READY"', "code: K7P2QX"], 18, rot=6), letter(['"WAITLISTED"', "days: 9"], 18, rot=-8),
+                      letter(['"READY "'], 18, rot=4)).arrange(DOWN, buff=0.35).move_to([-4.3, 0.0, 0])
+        dc = clerk("parse", 1.1, 24)
+        dc[0].move_to([WX, 0.05, 0])
+        dc[1].next_to(dc[0], RIGHT, buff=0.2).shift(DOWN * 0.15)
+        fsm = three_forms().scale(0.75).arrange(DOWN, buff=0.2).move_to([3.6, 0.4, 0])
+        self.say("edge")
+        self.play(Create(wall), FadeIn(out_l), FadeIn(in_l), FadeIn(fsm), run_time=0.8)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(l, shift=RIGHT * 0.2) for l in lets], lag_ratio=0.3), run_time=1.2)
+        self.at(2)
+        self.play(FadeIn(dc, shift=DOWN * 0.1), run_time=0.6)
+        self.at(3)
+        a1 = lets[0].copy()
+        self.play(a1.animate.scale(0.6).move_to(dc[0].get_center()), run_time=0.7)
+        self.play(FadeOut(a1), Indicate(fsm[0], color=RDY, scale_factor=1.06), run_time=0.7)
+        a3 = lets[2].copy()
+        self.play(a3.animate.scale(0.6).move_to(dc[0].get_center() + LEFT * 0.5), run_time=0.6)
+        note = letter(["rejected:", "with a reason"], 20, color=BAD).move_to([-2.6, -2.3, 0])
+        self.play(Transform(a3, note), run_time=0.8)
+        self.hold()
+        self.wipe()
+
+        psrc = ["static Parsed parse(HoldReplyDto raw) {",
+                "  try {",
+                "    return switch (raw.status) {",
+                '      case "READY" -> raw.pickupCode == null || raw.holdShelf == null',
+                '          ? new Rejected("ready without a code or a shelf")',
+                "          : new Ok(new Ready(new PickupCode(raw.pickupCode), raw.holdShelf));",
+                '      case "UNAVAILABLE" -> new Ok(new Unavailable(...));',
+                '      case "WAITLISTED" -> ...',
+                '      case null, default -> new Rejected("unknown status: " + raw.status);',
+                "    };",
+                "  } catch (IllegalArgumentException e) {",
+                "    return new Rejected(e.getMessage());",
+                "  }",
+                "}"]
+        pb = code_block(psrc, 22, hl={"Rejected": BAD, "Ok": RDY})
+        pbt = titled(pb, "Java: the door  (Kotlin: the same shape, with when)")
+        fit(pbt, 12.6).move_to([0, 0.05, 0])
+        hl = lambda i, j=None: SurroundingRectangle(VGroup(*pb[i:(j or i) + 1]), color=STAMP, buff=0.06, stroke_width=2)
+        self.say("parse")
+        self.play(FadeIn(pbt), run_time=0.8)
+        self.at(1)
+        bx = hl(2)
+        self.play(Create(bx), run_time=0.5)
+        self.at(2)
+        self.play(Transform(bx, hl(3, 5)), run_time=0.5)
+        self.at(3)
+        self.play(Transform(bx, hl(8)), run_time=0.5)
+        self.at(4)
+        self.play(Transform(bx, hl(10, 11)), run_time=0.5)
+        self.at(5)
+        nt = T("never throws", 26, OK).next_to(pb[12], RIGHT, buff=0.8)
+        self.play(FadeOut(bx), FadeIn(nt), run_time=0.5)
+        self.hold()
+
+        sl = vchip('status: "READY "', OUT, 26).move_to([0, -0.4, 0])
+        spc = Rectangle(width=0.16, height=0.06).set_stroke(width=0).set_fill(BAD, 1)
+        keep = pb[8]
+        self.say("pq")
+        self.play(FadeOut(nt), FadeOut(VGroup(pbt[0], *[x for i, x in enumerate(pb) if i != 8])),
+                  keep.animate.move_to([0, 1.2, 0]), run_time=0.7)
+        self.play(FadeIn(sl, shift=UP * 0.1), run_time=0.5)
+        q_ = part(sl[1], '"READY"')
+        spc.move_to(q_[-1].get_bottom() + LEFT * 0.17 + DOWN * 0.05)
+        self.play(FadeIn(spc), Indicate(spc, color=BAD, scale_factor=2), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.4, pos=(-6.4, -3.3))
+        ans = vchip('Rejected("unknown status: READY ")', BAD, 26).move_to([0, -1.9, 0])
+        self.say("pa")
+        self.play(Indicate(keep, color=STAMP, scale_factor=1.04), run_time=0.8)
+        self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= behind the door =================
+        wall2 = VGroup(Line([WX, 3.0, 0], [WX, 0.5, 0]), Line([WX, -0.5, 0], [WX, -2.6, 0])).set_stroke(GREY_B, 4)
+        dc2 = person(CLERK, 1.1).move_to([WX, 0.05, 0])
+        m = VGroup(M("void printSlip(Ready r)", 26, WHITE), T("no checks needed: a Ready is always valid", 24, OK)).arrange(DOWN, buff=0.25)
+        m.move_to([3.2, 0.9, 0])
+        fit(m, 6.8).move_to([3.2, 0.9, 0])
+        rc = VGroup(rule_card("Check outside data once, at the door.", 30), T("Behind the door, trust the types.", 30, STAMP)).arrange(DOWN, buff=0.3)
+        rc.move_to([0, -2.0, 0])
+        self.say("trust")
+        self.play(Create(wall2), FadeIn(dc2), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(m, shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(FadeOut(wall2), FadeOut(dc2), m.animate.move_to([0, 1.8, 0]), run_time=0.6)
+        self.play(FadeIn(rc[0], shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(rc[1], shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= rules in one binder =================
+        binder = make_binder().move_to([-3.4, 0.6, 0])
+        bind = binder[0]
+        pages = VGroup(binder[2], M("phoneMessage(r)", 22, OK))
+        pages[1].next_to(pages[0], DOWN, buff=0.5).align_to(pages[0], LEFT)
+        plus = T("a new rule: one new function", 24, OK).next_to(bind, DOWN, buff=0.3)
+        fk = small_form("A NEW KIND", ["..."], BAD, w=2.4).move_to([3.4, 1.4, 0])
+        brk = VGroup(*[VGroup(M(f, 22, GREY_A), tick(False, 0.12)).arrange(RIGHT, buff=0.2)
+                       for f in ("screenMessage", "phoneMessage")]).arrange(DOWN, aligned_edge=LEFT, buff=0.2).next_to(fk, DOWN, buff=0.35)
+        brl = VGroup(T("a new kind of form:", 24, BAD), T("the compiler lists every switch", 24, BAD)).arrange(DOWN, buff=0.08)
+        brl.next_to(brk, DOWN, buff=0.25)
+        self.say("rules")
+        self.play(FadeIn(binder, shift=UP * 0.1), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(pages[1], shift=DOWN * 0.1), FadeIn(plus), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(fk, shift=LEFT * 0.1), run_time=0.6)
+        self.play(FadeIn(brk), FadeIn(brl), run_time=0.7)
+        self.at(3)
+        trade = T("rarely new forms, often new rules: a good trade", 26, GREY_A).move_to([0, -2.9, 0])
+        self.play(FadeIn(trade), run_time=0.6)
+        self.hold()
+        self.wipe()
+
+        # ================= where the picture breaks =================
+        wall3 = VGroup(Line([WX, 3.0, 0], [WX, 0.5, 0]), Line([WX, -0.5, 0], [WX, -1.2, 0])).set_stroke(GREY_B, 4)
+        dc3 = person(CLERK, 1.1).move_to([WX, 0.05, 0])
+        sneak = DashedVMobject(ArcBetweenPoints([-4.5, -1.0, 0], [3.0, -1.0, 0], angle=0.9), num_dashes=30).set_stroke(BAD, 3)
+        sneak_l = T("data that skips parse", 24, BAD).move_to([-0.6, -2.9, 0])
+        g48 = grid(3, 16, {(0, 3), (1, 4), (2, 8)}, s=0.22, gap=0.05).move_to([3.4, 1.6, 0])
+        self.say("breaks")
+        self.play(Create(wall3), FadeIn(dc3), run_time=0.6)
+        self.at(2)
+        self.play(Create(sneak), FadeIn(sneak_l), run_time=1.2)
+        self.at(3)
+        self.play(LaggedStart(*[FadeIn(sq) for sq in g48], lag_ratio=0.02), run_time=1.4)
+        self.at(4)
+        edge_ = T("only as good as its edge", 28, STAMP).move_to([-3.6, 2.2, 0])
+        self.play(FadeIn(edge_), run_time=0.5)
+        self.hold()
+        self.wipe()
+
+        # ================= moral and a check =================
+        mi1 = VGroup(grid(3, 16, {(0, 3), (1, 4), (2, 8)}, s=0.16, gap=0.04), T("48 shapes, 3 make sense", 22, GREY_A)).arrange(DOWN, buff=0.2)
+        mi2 = VGroup(three_forms().scale(0.42).arrange(RIGHT, buff=0.15), T("one record per shape", 22, GREY_A)).arrange(DOWN, buff=0.2)
+        mi3 = VGroup(clerk("one door", 1.0, 22), T("check once", 22, GREY_A)).arrange(DOWN, buff=0.15)
+        mi4 = VGroup(make_binder().scale(0.45), T("rules in functions", 22, GREY_A)).arrange(DOWN, buff=0.15)
+        icons = VGroup(mi1, mi2, mi3, mi4).arrange(RIGHT, buff=0.6, aligned_edge=DOWN)
+        fit(icons, 12.4).move_to([0, 1.4, 0])
+        self.say("moral")
+        self.at(1)
+        self.play(FadeIn(mi1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(mi2, shift=UP * 0.1), run_time=0.5)
+        self.play(FadeIn(mi3, shift=UP * 0.1), run_time=0.5)
+        self.play(FadeIn(mi4, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+
+        q = VGroup(T("Check:", 28, STAMP), T("a status with 2 values, and 3 optional fields. How many shapes?", 28)).arrange(RIGHT, buff=0.25)
+        fit(q, 12.4).move_to([0, -0.9, 0])
+        self.say("check")
+        self.play(FadeIn(q, shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.predict(2.6, pos=(6.4, -3.3), edge=RIGHT)
+        a = VGroup(M("2 × 2 × 2 × 2 = 16", 30, WHITE), grid(2, 8, set(), s=0.24, gap=0.05)).arrange(RIGHT, buff=0.5).move_to([0, -2.2, 0])
+        self.say("check_a")
+        self.play(FadeIn(a, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
+        self.wait(2.5)

@@ -329,7 +329,7 @@ class Kt04Dsl(Narrated):
 
         # ================= the builders =================
         S = scopes()
-        two = T("used twice: customer, delivery address", 20, INNER).next_to(S["i_l"], RIGHT, buff=0.5).align_to(S["i_l"], DOWN)
+        two = T("used twice: customer, delivery address", 22, INNER).next_to(S["i_l"], DOWN, buff=0.3).align_to(S["i_l"], LEFT)
         self.say("builders")
         self.play(Create(S["outer"]), FadeIn(S["o_l"]), run_time=0.8)
         self.at(1)
@@ -503,10 +503,11 @@ class Kt04Dsl(Narrated):
         # ================= the same wrong move, marked =================
         S = scopes()
         tags = VGroup(
-            framed(M("@FormDsl", 20, INK), MARK, buff=0.08, k=1.0).rotate(6 * DEGREES).move_to(S["inner"].get_corner(DL) + RIGHT * 0.9 + DOWN * 0.02),
-            framed(M("@FormDsl", 20, INK), MARK, buff=0.08, k=1.0).rotate(-5 * DEGREES).move_to(S["outer"].get_corner(DL) + RIGHT * 0.9 + DOWN * 0.02))
+            framed(M("@FormDsl", 20, INK), MARK, buff=0.08, k=1.0).rotate(6 * DEGREES).move_to(S["inner"].get_corner(DR) + LEFT * 0.9 + DOWN * 0.02),
+            framed(M("@FormDsl", 20, INK), MARK, buff=0.08, k=1.0).rotate(-5 * DEGREES).move_to(S["outer"].get_corner(DR) + LEFT * 0.9 + DOWN * 0.02))
         for tg in tags:
             tg[0].set_fill(MARK, 1)
+            tg.set_z_index(9)
         chip = call_chip("deliverTo { name = \"oops\" }").move_to([-2.6, -2.05, 0])
         self.say("predict2")
         self.play(FadeIn(S["all"]), run_time=0.8)
@@ -526,15 +527,15 @@ class Kt04Dsl(Narrated):
         em = msg_box(["'fun deliverTo(block: ContactBuilder.() -> Unit): Unit'",
                       "cannot be called in this context with an implicit receiver.",
                       "Use an explicit receiver if necessary."], BAD, 22, title="compile error")
-        em.move_to([0, 1.55, 0]).set_z_index(8)
         fit(em, 12.4)
+        em.move_to([0, 1.25, 0]).set_z_index(8)
         self.at(1)
-        self.play(FadeIn(em, shift=DOWN * 0.1), run_time=0.7)
+        self.play(FadeOut(S["o_l"]), FadeOut(S["o_m"]), FadeIn(em, shift=DOWN * 0.1), run_time=0.7)
         self.hold()
 
         chip2 = call_chip("copies = 5").move_to(chip.get_center())
         em2 = msg_box(["'var copies: Int' cannot be called in this context", "with an implicit receiver."], BAD, 22,
-                      title="compile error").move_to([0, 1.55, 0]).set_z_index(8)
+                      title="compile error").move_to([0, 1.25, 0]).set_z_index(8)
         self.say("copies")
         self.play(FadeTransform(chip, chip2), FadeOut(em), run_time=0.6)
         self.play(chip2.animate.shift(UP * 0.3), rate_func=there_and_back, run_time=0.6)
@@ -546,7 +547,7 @@ class Kt04Dsl(Narrated):
         # ================= on purpose: this@orderForm =================
         chip3 = call_chip("this@orderForm.copies = 250", OK).move_to(chip2.get_center())
         self.say("label")
-        self.play(FadeOut(em2), FadeTransform(chip2, chip3), run_time=0.7)
+        self.play(FadeOut(em2), FadeTransform(chip2, chip3), FadeIn(S["o_l"]), FadeIn(S["o_m"]), run_time=0.7)
         self.at(1)
         self.play(Indicate(part(chip3[1], "this@orderForm"), color=OK, scale_factor=1.15), run_time=0.8)
         self.at(2)

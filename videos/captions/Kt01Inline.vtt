@@ -1,23 +1,23 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:04.440
+00:00:02.700 --> 00:00:04.406
 Picture a small print shop.
 
 2
-00:00:04.440 --> 00:00:09.306
+00:00:04.406 --> 00:00:09.273
 Behind the counter sits a binder of procedure sheets, like how to time a job.
 
 3
-00:00:09.306 --> 00:00:10.570
+00:00:09.273 --> 00:00:10.537
 A clerk takes a job.
 
 4
-00:00:10.570 --> 00:00:16.701
+00:00:10.537 --> 00:00:16.667
 She can pass it to a colleague who knows the sheet, with a slip for the one step only she can do.
 
 5
-00:00:16.701 --> 00:00:22.009
+00:00:16.667 --> 00:00:21.976
 Or she can photocopy the sheet into the job's own folder, and do every step herself.
 
 6
@@ -37,329 +37,329 @@ And it never hears about corrections to the master sheet.
 Keep those three in mind: quicker, paper, corrections.
 
 10
-00:00:32.733 --> 00:00:35.554
+00:00:32.767 --> 00:00:35.588
 Now a question that's easy to be shy about.
 
 11
-00:00:35.554 --> 00:00:39.163
+00:00:35.588 --> 00:00:39.196
 Everybody says: mark small helpers inline, it's faster.
 
 12
-00:00:39.163 --> 00:00:40.278
+00:00:39.196 --> 00:00:40.311
 Faster than what?
 
 13
-00:00:40.278 --> 00:00:44.280
+00:00:40.311 --> 00:00:44.313
 What does it even cost to pass one tiny lambda to a function?
 
 14
-00:00:45.267 --> 00:00:49.409
+00:00:45.300 --> 00:00:49.442
 Let's find out with a helper the shop's app uses everywhere.
 
 15
-00:00:49.409 --> 00:00:53.137
+00:00:49.442 --> 00:00:53.170
 It runs one step of a job and prints how long it took.
 
 16
-00:00:53.137 --> 00:00:56.106
+00:00:53.170 --> 00:00:56.139
 Today's step: how much ink does a job need?
 
 17
-00:00:56.106 --> 00:01:00.248
+00:00:56.139 --> 00:01:00.281
 The shop's rule of thumb is 3 ml of ink for every 100 pages.
 
 18
-00:01:00.400 --> 00:01:06.344
+00:01:00.500 --> 00:01:06.444
 The part in braces is a lambda: a small function, written in place and passed as a value.
 
 19
-00:01:06.344 --> 00:01:09.684
+00:01:06.444 --> 00:01:09.784
 It uses pages, a variable from outside its braces.
 
 20
-00:01:09.684 --> 00:01:14.159
+00:01:09.784 --> 00:01:14.259
 A lambda that carries outside values like that is called a closure.
 
 21
-00:01:14.333 --> 00:01:19.536
+00:01:14.467 --> 00:01:19.670
 So, besides the multiply and the divide, what extra work does one call do?
 
 22
-00:01:19.536 --> 00:01:20.661
+00:01:19.670 --> 00:01:20.795
 Pause and guess.
 
 23
-00:01:24.400 --> 00:01:25.299
+00:01:24.467 --> 00:01:25.365
 Three things.
 
 24
-00:01:25.299 --> 00:01:30.069
+00:01:25.365 --> 00:01:30.136
 One object: the JVM builds a small object that holds a copy of pages.
 
 25
-00:01:30.069 --> 00:01:37.812
+00:01:30.136 --> 00:01:37.879
 One call through an interface, a type that only names its methods: the helper calls that object's invoke method.
 
 26
-00:01:37.812 --> 00:01:38.988
+00:01:37.879 --> 00:01:39.054
 And one unboxing.
 
 27
-00:01:38.988 --> 00:01:48.113
+00:01:39.054 --> 00:01:48.180
 The helper works for any result type, so the answer travels back as a plain Object, and has to be turned back into a primitive long.
 
 28
-00:01:48.267 --> 00:01:51.917
+00:01:48.400 --> 00:01:52.050
 In the shop, this is the clerk handing the job to a colleague.
 
 29
-00:01:51.917 --> 00:01:54.566
+00:01:52.050 --> 00:01:54.699
 The helper, timedNotInline, is the colleague.
 
 30
-00:01:54.566 --> 00:01:58.334
+00:01:54.699 --> 00:01:58.467
 The lambda is the slip, with the clerk's own step written on it.
 
 31
-00:01:58.334 --> 00:02:01.925
+00:01:58.467 --> 00:02:02.059
 And invoke is the colleague calling her back to do that step.
 
 32
-00:02:02.800 --> 00:02:09.833
+00:02:02.967 --> 00:02:09.999
 You could skip all three by hand: paste the helper's body into the caller, with the lambda's body in the middle.
 
 33
-00:02:09.833 --> 00:02:10.398
+00:02:09.999 --> 00:02:10.564
 It works.
 
 34
-00:02:10.398 --> 00:02:12.847
+00:02:10.564 --> 00:02:13.013
 Now picture doing that in fifty places.
 
 35
-00:02:13.000 --> 00:02:16.327
+00:02:13.233 --> 00:02:16.561
 Wouldn't it be nice if someone did the pasting for us?
 
 36
-00:02:16.327 --> 00:02:18.238
+00:02:16.561 --> 00:02:18.471
 Well, the compiler is happy to.
 
 37
-00:02:18.238 --> 00:02:21.319
+00:02:18.471 --> 00:02:21.552
 It never gets bored, and it never gets paper cuts.
 
 38
-00:02:21.467 --> 00:02:24.784
+00:02:21.767 --> 00:02:25.084
 Write inline in front of fun, and keep the same body.
 
 39
-00:02:24.784 --> 00:02:33.421
+00:02:25.084 --> 00:02:33.721
 Now, at every call site, each place in the code that calls the function, the compiler copies in the function's body and the lambda's body.
 
 40
-00:02:33.421 --> 00:02:40.431
+00:02:33.721 --> 00:02:40.731
 That's the photocopy: the whole procedure lands in the job's own folder, with the clerk's step written in place.
 
 41
-00:02:41.333 --> 00:02:43.722
+00:02:41.633 --> 00:02:44.022
 Let's see if that's really true.
 
 42
-00:02:43.722 --> 00:02:50.666
+00:02:44.022 --> 00:02:50.966
 javap, a tool in the JDK, prints the bytecode in a class file: the instructions the JVM runs.
 
 43
-00:02:50.666 --> 00:02:55.817
+00:02:50.966 --> 00:02:56.117
 The lesson's demo has two tiny functions, inkNotInline and inkInline.
 
 44
-00:02:56.000 --> 00:03:01.731
+00:02:56.333 --> 00:03:02.064
 Which one builds an object with invokedynamic, and which one does the multiply itself?
 
 45
-00:03:01.731 --> 00:03:02.797
+00:03:02.064 --> 00:03:03.131
 Pause and guess.
 
 46
-00:03:06.000 --> 00:03:08.501
+00:03:06.300 --> 00:03:08.801
 inkNotInline is seven instructions.
 
 47
-00:03:08.501 --> 00:03:14.718
+00:03:08.801 --> 00:03:15.018
 invokedynamic builds a Function0, Kotlin's interface for a function with no parameters.
 
 48
-00:03:14.718 --> 00:03:15.861
+00:03:15.018 --> 00:03:16.161
 That's the slip.
 
 49
-00:03:15.861 --> 00:03:18.005
+00:03:16.161 --> 00:03:18.305
 invokestatic calls the helper.
 
 50
-00:03:18.005 --> 00:03:19.649
+00:03:18.305 --> 00:03:19.949
 That's handing it over.
 
 51
-00:03:19.649 --> 00:03:22.936
+00:03:19.949 --> 00:03:23.236
 Then checkcast and longValue unbox the answer.
 
 52
-00:03:23.133 --> 00:03:25.106
+00:03:23.467 --> 00:03:25.440
 inkInline has none of that.
 
 53
-00:03:25.106 --> 00:03:28.029
+00:03:25.440 --> 00:03:28.363
 No invokedynamic, no call to the helper.
 
 54
-00:03:28.029 --> 00:03:34.606
+00:03:28.363 --> 00:03:34.939
 The multiply, lmul, and the divide, ldiv, sit right inside, between two calls to nanoTime.
 
 55
-00:03:34.606 --> 00:03:37.091
+00:03:34.939 --> 00:03:37.424
 Just like our hand-pasted version.
 
 56
-00:03:37.267 --> 00:03:43.332
+00:03:37.633 --> 00:03:43.699
 Run them, and they agree: 12,000 pages need 360 ml of ink.
 
 57
-00:03:43.867 --> 00:03:45.942
+00:03:44.267 --> 00:03:46.342
 So, should we inline everything?
 
 58
-00:03:45.942 --> 00:03:47.758
+00:03:46.342 --> 00:03:48.158
 Look further down inkInline.
 
 59
-00:03:47.758 --> 00:03:53.918
+00:03:48.158 --> 00:03:54.318
 The finally block is there twice: once for the normal exit, and once for the exit by exception.
 
 60
-00:03:53.918 --> 00:03:57.291
+00:03:54.318 --> 00:03:57.691
 Every caller carries its own copy of the whole body.
 
 61
-00:03:58.200 --> 00:04:01.355
+00:03:58.600 --> 00:04:01.755
 The good news: no slip, no call, no box.
 
 62
-00:04:01.355 --> 00:04:04.510
+00:04:01.755 --> 00:04:04.910
 The bad news: every folder gets thicker.
 
 63
-00:04:04.510 --> 00:04:09.164
+00:04:04.910 --> 00:04:09.564
 A 40-line helper called from 200 places becomes 200 copies.
 
 64
-00:04:10.067 --> 00:04:11.405
+00:04:10.467 --> 00:04:11.805
 So here's the rule.
 
 65
-00:04:11.405 --> 00:04:14.788
+00:04:11.805 --> 00:04:15.188
 inline is for small functions that take lambdas.
 
 66
-00:04:14.788 --> 00:04:22.609
+00:04:15.188 --> 00:04:23.009
 The standard library is full of them: forEach, map, filter, let, apply, use, repeat and require are all inline.
 
 67
-00:04:23.400 --> 00:04:25.293
+00:04:23.833 --> 00:04:25.726
 And remember the corrections?
 
 68
-00:04:25.293 --> 00:04:29.796
+00:04:25.726 --> 00:04:30.229
 A photocopy never hears about them, and neither does an inlined copy.
 
 69
-00:04:29.796 --> 00:04:32.603
+00:04:30.229 --> 00:04:33.036
 A caller gets its copy when it is compiled.
 
 70
-00:04:32.603 --> 00:04:39.325
+00:04:33.036 --> 00:04:39.758
 In the lesson's test, an app built against version 1 of a library ran with version 2, and printed this.
 
 71
-00:04:39.325 --> 00:04:41.675
+00:04:39.758 --> 00:04:42.108
 The plain function ran the new code.
 
 72
-00:04:41.675 --> 00:04:44.155
+00:04:42.108 --> 00:04:44.588
 The inline one still ran its old copy.
 
 73
-00:04:45.067 --> 00:04:47.610
+00:04:45.500 --> 00:04:48.044
 And here's where the picture breaks.
 
 74
-00:04:47.610 --> 00:04:52.557
+00:04:48.044 --> 00:04:52.990
 Java can't photocopy anything, because javac can't inline Kotlin code.
 
 75
-00:04:52.557 --> 00:05:00.965
+00:04:52.990 --> 00:05:01.399
 To Java, timed is an ordinary static method that takes a Function0, and a Java lambda becomes an object like any other.
 
 76
-00:05:00.965 --> 00:05:03.227
+00:05:01.399 --> 00:05:03.660
 Java always hands over the slip.
 
 77
-00:05:04.133 --> 00:05:08.487
+00:05:04.567 --> 00:05:08.920
 One more thing changes once the step sits in the clerk's own folder.
 
 78
-00:05:08.487 --> 00:05:12.648
+00:05:08.920 --> 00:05:13.082
 If it says stop here, she stops the whole job, not just her step.
 
 79
-00:05:12.648 --> 00:05:16.938
+00:05:13.082 --> 00:05:17.371
 So a return inside an inlined lambda leaves more than you'd expect.
 
 80
-00:05:16.938 --> 00:05:18.475
+00:05:17.371 --> 00:05:18.908
 That's the next section.
 
 81
-00:05:19.400 --> 00:05:20.784
+00:05:19.833 --> 00:05:21.217
 So, faster than what?
 
 82
-00:05:20.784 --> 00:05:24.078
+00:05:21.217 --> 00:05:24.512
 Faster than a slip, a call and a box on every use.
 
 83
-00:05:24.078 --> 00:05:27.834
+00:05:24.512 --> 00:05:28.267
 inline copies the helper and its lambda into each caller.
 
 84
-00:05:27.834 --> 00:05:30.733
+00:05:28.267 --> 00:05:31.167
 Keep it for small helpers that take lambdas.
 
 85
-00:05:30.933 --> 00:05:31.892
+00:05:31.367 --> 00:05:32.326
 Quick check.
 
 86
-00:05:31.892 --> 00:05:38.766
+00:05:32.326 --> 00:05:39.199
 The shop also has toSheets, which turns a page count into sheets with (pages + 1) / 2.
 
 87
-00:05:38.766 --> 00:05:40.284
+00:05:39.199 --> 00:05:40.718
 No lambda in sight.
 
 88
-00:05:40.284 --> 00:05:41.883
+00:05:40.718 --> 00:05:42.316
 Should it be inline?
 
 89
-00:05:45.133 --> 00:05:45.335
+00:05:45.500 --> 00:05:45.701
 No.
 
 90
-00:05:45.335 --> 00:05:48.959
+00:05:45.701 --> 00:05:49.326
 There's no slip to remove, so there's nothing to gain.
 
 91
-00:05:48.959 --> 00:05:51.980
+00:05:49.326 --> 00:05:52.347
 The compiler even says so, with this warning.

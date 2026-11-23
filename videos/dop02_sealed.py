@@ -293,7 +293,8 @@ def req_form(kind="boxes", w=4.6):
     if kind == "boxes":
         body = VGroup(*[tickbox(l) for l in ("Book", "Disc", "Magazine", "From another library")]).arrange(DOWN, aligned_edge=LEFT, buff=0.16)
     else:
-        body = VGroup(Line(LEFT * 1.6, RIGHT * 1.6, stroke_width=2, color=INK))
+        sp = Rectangle(width=3.2, height=0.6).set_opacity(0)
+        body = VGroup(sp, Line(LEFT * 1.6, RIGHT * 1.6, stroke_width=2, color=INK)).arrange(DOWN, buff=0)
     stack = VGroup(ttl, it, body).arrange(DOWN, aligned_edge=LEFT, buff=0.22)
     sheet = Rectangle(width=w, height=stack.height + 0.55).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1).move_to(stack)
     stack.align_to(sheet, LEFT).shift(RIGHT * 0.3)
@@ -362,7 +363,7 @@ class Dop02Sealed(Narrated):
         self.hold()
 
         f2 = req_form("blank").move_to(f1).align_to(f1, UP)
-        bg = M("board game", 24, PEN).move_to(f2[3].get_center() + UP * 0.2)
+        bg = M("board game", 24, PEN).next_to(f2[3][1], UP, buff=0.08).align_to(f2[3][1], LEFT).shift(RIGHT * 0.2)
         nol = VGroup(tick(False, 0.14), T("no line for it", 22, BAD)).arrange(RIGHT, buff=0.12).next_to(sh, DOWN, buff=0.2)
         game = VGroup(Rectangle(width=1.0, height=0.6).set_stroke(PURPLE_M, 2.5).set_fill(dim(PURPLE_M, 0.35), 1),
                       Circle(radius=0.08).set_fill(WHITE, 1).set_stroke(width=0)).move_to([-6.0, FL + 0.32, 0])
