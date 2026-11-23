@@ -119,7 +119,7 @@ def part(t, s, nth=0):
 
 
 def term(lines, size=20, title="output", color=GREY_A, buff=0.12):
-    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=buff)
+    t = code_block(lines, size, color=color)
     r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.5, height=t.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
     t.move_to(r)
     h = T(title, 20, GREY_B).next_to(r, UP, buff=0.1).align_to(r, LEFT)
@@ -142,21 +142,19 @@ def rule_row(text, size=26, color=WHITE, ok=True):
 N = {
     "open": "Picture a small theatre company putting on a play. A new prop, say a crown, doesn't just appear on stage. "
             "Someone fetches it. The crew checks it, and gives it a labelled spot on the props table. "
-            "And only at the dress rehearsal does an actor pick it up.",
+            "Only at the dress rehearsal does an actor pick it up.",
     "shyq": "Here's a question that's easy to be shy about. When my code mentions a class, its start-up code runs "
-            "right then, doesn't it? Mention a class, and it wakes up?",
-    "code": "Let's start from code you know. A class can have start-up code. In Java, that's a static block, and "
-            "static fields with values. In Kotlin, an object with an init block. The JVM, the program that runs "
-            "your compiled code, runs it once per class.",
-    "code2": "Here's a tiny class, Limits. MAX_CAST is a static final int, 12. CAP is a static final Integer, also 12. "
+            "right then, doesn't it?",
+    "code": "Let's start from code you know. A class can have start-up code. In Java, a static block. In Kotlin, "
+            "an object with an init block. The JVM, the program that runs your compiled code, runs it once per class.",
+    "code2": "Here's a tiny class, Limits. MAX_CAST is an int, 12. CAP is an Integer, also 12. "
              "And the static block prints init.",
     "predict": "Now another class prints Limits.MAX_CAST, and then Limits.CAP. When does init appear? Before the first "
                "value, between the two, or never? Pause and guess.",
-    "loop": "Hold on to that guess. To check it, we need one fact first. Bringing in a class sounds like one event. "
-            "Inside the JVM, it's three.",
+    "loop": "Hold on to that guess. Bringing in a class sounds like one event. Inside the JVM, it's three.",
     "fetch": "Back to the theatre. A new prop goes through three steps. First, someone fetches it. That's loading. "
-             "The JVM finds the class file's bytes, in a folder or a jar, and turns them into a Class object, with a "
-             "method called defineClass.",
+             "The JVM finds the class's bytes, in a folder or a jar, and turns them into a Class object, "
+             "with defineClass.",
     "ready": "Second, before any scene uses it, the crew gets it ready. They check it's safe. They give it an empty, "
              "labelled spot on the props table. And they fill in the cue sheet that says where it's needed. That's "
              "linking, and it has the same three parts.",
@@ -165,48 +163,44 @@ N = {
            "and set to their defaults: zero, false or null. And the cue sheet is resolution. Names, like method fire "
            "in class Lights, become direct links.",
     "init": "Third comes the dress rehearsal, the only step that puts actors on stage. That's initialization. The JVM "
-            "runs the class's static start-up code, top to bottom. javac, the Java compiler, collects all of it into "
-            "one method, named <clinit>, short for class init.",
+            "runs the class's static start-up code, top to bottom. javac collects it all into one method, "
+            "named <clinit>, short for class init.",
     "crew": "So two of the three steps are crew work. Nobody claps for the crew, and none of your code runs while "
             "they work. Only the rehearsal runs your code.",
-    "crew2": "So the point is this. Loading a class, and running its start-up code, are separate events. They can "
-             "happen far apart. HotSpot, the JVM inside your JDK, runs each step as late as it's allowed to.",
+    "crew2": "So loading a class and running its start-up code are separate events. HotSpot, the JVM inside your "
+             "JDK, does each step as late as it's allowed to.",
     "breaks": "And here's where the theatre picture breaks. A real crew checks the whole prop before the show. The JVM "
               "may fill in the cue sheet lazily, one name at a time, and never at all for code that never runs.",
     "breaks2": "The lesson tried it. A class that used a deleted Helper class loaded and ran fine. It failed with "
-               "NoClassDefFoundError only when the branch that used Helper ran. And a class with broken bytecode was "
-               "accepted by defineClass. The VerifyError came only when code first asked for its methods.",
-    "trig": "So which uses start the rehearsal? The Java Language Specification lists them exactly. Creating an "
+               "NoClassDefFoundError only when the branch that used Helper ran.",
+    "trig": "So which uses start the rehearsal? Creating an "
             "object with new. Calling a static method. Assigning a static field. Reading a static field that isn't a "
             "constant. Reflection, such as Class.forName with a name. And a subclass always initializes its "
             "superclass first.",
     "trig2": "And these don't. Reading a constant. Writing Limits.class. Making an empty array of Limits. Or "
              "Class.forName, with false as its second argument.",
-    "puzzle": "Now, back to your guess. The lesson's InitPuzzle runs eight steps, and prints an indented line "
-              "whenever a <clinit> runs. Here's its real output.",
+    "puzzle": "Now, back to your guess. The lesson's InitPuzzle prints a line whenever a <clinit> runs. "
+              "Here's its real output.",
     "puzzle2": "Step 3 reads Limits.MAX_CAST, and nothing prints. Step 4 reads Limits.CAP, and there it is: "
                "Limits.<clinit>. So init appears between the two values.",
-    "puzzle3": "The rest of the list agrees. Step 1 reads parentValue through Child, and only Parent wakes up, "
-               "because Parent declares that field. new Child wakes Child. The array, Lazy.class, and forName with "
-               "false print nothing. Only Lazy.touch, a static call, wakes Lazy.",
+    "puzzle3": "The rest agrees with the list. Step 1 wakes only Parent, the class that declares the field. "
+               "new Child wakes Child. The array, Lazy.class and forName print nothing. Only Lazy.touch wakes Lazy.",
     "why": "So why is MAX_CAST different? It's a constant variable: a static final primitive or String whose value "
            "the compiler can work out. javac copied the 12 straight into the caller's class file. At run time, the "
            "caller never touches Limits at all.",
     "why2": "CAP is an Integer. To store 12 in it, the code calls Integer.valueOf. A method call isn't a constant, so "
             "reading CAP is a real use.",
     "joke": "A constant is like a line the director photocopied into everyone's script. Nobody phones the props "
-            "table to find out it's 12. They just read their own copy.",
+            "table to find out it's 12.",
     "joke2": "So reading a constant isn't a use of its class at all. It's a copy.",
-    "kotlin": "Kotlin draws the same line. const val MAX_CAST is copied into callers. A plain val CAP becomes a "
-              "private field and a getter on the object, so reading it runs the object's init block.",
-    "name": "Now the names, for things you've already seen. Loading fetches the bytes. Linking verifies, prepares "
-            "and resolves. And initialization runs <clinit>, once, on the first real use.",
-    "guard": "Three rules to take with you. One: mentioning a class is not using it. If you need its start-up code to "
+    "kotlin": "Kotlin draws the same line. const val is copied into callers. A plain val is read through the "
+              "object, so it runs the init block.",
+    "name": "Now the names fit things you've seen. Loading fetches. Linking verifies, prepares and resolves. "
+            "Initialization runs <clinit>, once, on the first real use.",
+    "guard": "Two rules to take with you. One: mentioning a class is not using it. If you need its start-up code to "
              "have run, check that your use is on the list.",
     "guard2": "Two: turn a constant into a computed value, like a number read from a setting, and you change when "
               "the class starts up. That's the day the rehearsal quietly moves.",
-    "guard3": "Three: a missing class shows up as NoClassDefFoundError when the code that needs it first runs, not "
-              "when the program starts.",
     "moral": "So, does mentioning a class wake it up? No. Fetch, then check and label, then rehearse. Only the "
              "rehearsal runs your code, and only a real use calls it.",
     "check": "Quick check. Some code runs new Limits[3]. Does init print?",
@@ -232,13 +226,13 @@ class Cls01Loading(Narrated):
             g["store"] = VGroup(st, T("store", 22, GREY_B).move_to(st.get_top() + DOWN * 0.3))
             g["cr"] = crown(0.8).move_to([-5.3, FL + 0.9, 0])
             g["fetcher"] = who(CREW, "crew", 1.0, 20).move_to([-3.6, FL + 0.62, 0])
-            g["top"] = Line([-1.6, FL + 1.1, 0], [1.6, FL + 1.1, 0], stroke_width=5, color=GREY_B)
-            g["legs"] = VGroup(*[Line([x, FL + 1.1, 0], [x, FL, 0], stroke_width=4, color=GREY_B) for x in (-1.4, 1.4)])
+            g["top"] = Line([-2.0, FL + 1.1, 0], [2.0, FL + 1.1, 0], stroke_width=5, color=GREY_B)
+            g["legs"] = VGroup(*[Line([x, FL + 1.1, 0], [x, FL, 0], stroke_width=4, color=GREY_B) for x in (-1.8, 1.8)])
             g["tlabel"] = T("props table", 20, GREY_B).next_to(g["top"], DOWN, buff=0.15)
             sp = DashedVMobject(Rectangle(width=1.1, height=0.6).set_stroke(GREY_A, 2), num_dashes=24)
-            sp.move_to([-0.7, FL + 1.43, 0])
+            sp.move_to([-1.15, FL + 1.43, 0])
             g["spot"] = VGroup(sp, paper(["crown"], 20).next_to(sp, UP, buff=0.08))
-            g["cue"] = paper(["cue sheet", "crown: scene 2"], 20).next_to([0.75, FL + 1.12, 0], UP, buff=0.02)
+            g["cue"] = paper(["cue sheet", "crown: scene 2"], 20).next_to([0.95, FL + 1.12, 0], UP, buff=0.02)
             g["stage"] = Line([3.2, FL + 0.35, 0], [6.4, FL + 0.35, 0], stroke_width=6, color=GOLD_M)
             g["stage_l"] = T("stage", 20, GOLD_M).next_to(g["stage"], DOWN, buff=0.12).shift(LEFT * 0.9)
             g["cone"] = Polygon([4.8, 0.2, 0], [3.8, FL + 0.38, 0], [5.8, FL + 0.38, 0]).set_stroke(width=0).set_fill(YELLOW_M, 0.13)
@@ -288,11 +282,11 @@ class Cls01Loading(Narrated):
         kg = titled(kt, "Kotlin").move_to([3.45, 1.45, 0]).align_to(jg, UP)
         self.say("code")
         self.play(FadeIn(jg, shift=UP * 0.1), FadeIn(kg, shift=UP * 0.1), run_time=0.9)
-        self.at(1)
-        self.play(java[3].animate.set_color(INITC), run_time=0.5)
         self.at(2)
-        self.play(kt[3].animate.set_color(INITC), run_time=0.5)
+        self.play(java[3].animate.set_color(INITC), run_time=0.5)
         self.at(3)
+        self.play(kt[3].animate.set_color(INITC), run_time=0.5)
+        self.at(4)
         once = T("runs once per class", 26, INITC).move_to([0, -0.45, 0])
         self.play(FadeIn(once, shift=UP * 0.1), run_time=0.5)
         self.hold()
@@ -320,15 +314,15 @@ class Cls01Loading(Narrated):
         self.at_text("or never", lead=0.1)
         self.play(FadeIn(opts[2]), run_time=0.4)
         self.hold(after=0)
-        self.predict(2.6)
+        self.predict(2.4)
 
         self.say("loop")
         guess = VGroup(T("your guess:", 22, GREY_B), T("?", 26, PROP)).arrange(RIGHT, buff=0.15).move_to([5.3, 3.2, 0])
         self.play(FadeOut(VGroup(jg, kg, caller, opts)), FadeIn(guess), run_time=0.8)
-        self.at(2)
+        self.at(1)
         one = T("one event?", 40, GREY_A).move_to([0, 0.6, 0])
         self.play(FadeIn(one), run_time=0.5)
-        self.at(3)
+        self.at(2)
         three = T("three", 52, WHITE).move_to([0, -0.4, 0])
         self.play(one.animate.set_opacity(0.35), Write(three), run_time=0.8)
         self.hold()
@@ -426,9 +420,8 @@ class Cls01Loading(Narrated):
         self.say("crew2")
         self.play(FadeOut(crew_l), FadeOut(yours), bl.animate.set_opacity(1), bk.animate.set_opacity(1),
                   a1.animate.set_opacity(1), run_time=0.5)
-        self.at(1)
         self.play(FadeIn(far[0]), run_time=0.5)
-        self.at(3)
+        self.at(1)
         self.play(FadeIn(far[1]), run_time=0.5)
         self.hold()
         self.wipe()
@@ -455,10 +448,7 @@ class Cls01Loading(Narrated):
 
         e1 = VGroup(T("uses a deleted", 24, GREY_A), M("Helper", 24, WHITE), T(": loads and runs fine,", 24, GREY_A)).arrange(RIGHT, buff=0.12)
         e1b = VGroup(M("NoClassDefFoundError", 24, BAD), T("only when that branch runs", 24, GREY_A)).arrange(RIGHT, buff=0.2)
-        e2 = VGroup(T("broken bytecode: accepted by", 24, GREY_A), M("defineClass", 24, WHITE)).arrange(RIGHT, buff=0.15)
-        e2b = VGroup(M("VerifyError", 24, BAD), T("only when code first asks for its methods", 24, GREY_A)).arrange(RIGHT, buff=0.2)
-        eg = VGroup(VGroup(e1, e1b).arrange(DOWN, aligned_edge=LEFT, buff=0.12),
-                    VGroup(e2, e2b).arrange(DOWN, aligned_edge=LEFT, buff=0.12)).arrange(DOWN, aligned_edge=LEFT, buff=0.4)
+        eg = VGroup(e1, e1b).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
         eb = SurroundingRectangle(eg, buff=0.3, color=GREY_D, stroke_width=1.5, corner_radius=0.1)
         egg = VGroup(eb, eg).move_to([0, -2.0, 0])
         fit(egg, 12.4)
@@ -468,10 +458,6 @@ class Cls01Loading(Narrated):
         self.play(FadeIn(e1, shift=UP * 0.1), run_time=0.5)
         self.at(2)
         self.play(FadeIn(e1b, shift=UP * 0.1), run_time=0.5)
-        self.at(3)
-        self.play(FadeIn(e2, shift=UP * 0.1), run_time=0.5)
-        self.at(4)
-        self.play(FadeIn(e2b, shift=UP * 0.1), run_time=0.5)
         self.hold()
         self.play(FadeOut(VGroup(hd, real, jvm, jvm2, egg)), run_time=0.6)
 
@@ -491,9 +477,8 @@ class Cls01Loading(Narrated):
         fit(cols, 12.6)
         self.say("trig")
         self.play(FadeIn(yh), run_time=0.5)
-        self.at(1)
         for k in range(6):
-            self.at(2 + k)
+            self.at(1 + k)
             self.play(FadeIn(ys[k], shift=RIGHT * 0.1), run_time=0.45)
         self.hold()
         self.say("trig2")
@@ -614,7 +599,6 @@ class Cls01Loading(Narrated):
         self.play(FadeIn(readers), run_time=0.5)
         self.at(1)
         self.play(FadeIn(phone), run_time=0.5)
-        self.at(2)
         self.play(LaggedStart(*[Indicate(part(s[1], "12"), color=RED_M, scale_factor=1.4) for s in scripts], lag_ratio=0.15),
                   run_time=1.0)
         self.hold()
@@ -669,12 +653,9 @@ class Cls01Loading(Narrated):
         r1b = T("check that your use is on the list", 24, GREY_A)
         r2 = VGroup(T("2.", 28, GREY_B), T("Make a constant computed, and the class starts at another time.", 28)).arrange(RIGHT, buff=0.25)
         r2b = VGroup(M("= 12", 24, PROP), M("->", 24, GREY_B), M("= read from a setting", 24, INITC)).arrange(RIGHT, buff=0.2)
-        r3 = VGroup(T("3.", 28, GREY_B), T("A missing class fails when its code first runs.", 28)).arrange(RIGHT, buff=0.25)
-        r3b = VGroup(M("NoClassDefFoundError", 24, BAD), T("not at program start", 24, GREY_A)).arrange(RIGHT, buff=0.2)
         rows = VGroup(VGroup(r1, r1b).arrange(DOWN, aligned_edge=LEFT, buff=0.12),
-                      VGroup(r2, r2b).arrange(DOWN, aligned_edge=LEFT, buff=0.12),
-                      VGroup(r3, r3b).arrange(DOWN, aligned_edge=LEFT, buff=0.12)).arrange(DOWN, aligned_edge=LEFT, buff=0.45)
-        for r, rb in ((r1, r1b), (r2, r2b), (r3, r3b)):
+                      VGroup(r2, r2b).arrange(DOWN, aligned_edge=LEFT, buff=0.12)).arrange(DOWN, aligned_edge=LEFT, buff=0.5)
+        for r, rb in ((r1, r1b), (r2, r2b)):
             rb.align_to(r[1], LEFT)
         fit(rows, 12.4).move_to([0, 0.2, 0])
         self.say("guard")
@@ -686,11 +667,6 @@ class Cls01Loading(Narrated):
         self.play(FadeIn(r2, shift=UP * 0.1), run_time=0.6)
         self.at_text("like a number", lead=0.3)
         self.play(FadeIn(r2b), run_time=0.6)
-        self.hold()
-        self.say("guard3")
-        self.play(FadeIn(r3, shift=UP * 0.1), run_time=0.6)
-        self.at_text("NoClassDefFoundError", lead=0.2)
-        self.play(FadeIn(r3b), run_time=0.6)
         self.hold()
         self.wipe()
 
@@ -720,4 +696,4 @@ class Cls01Loading(Narrated):
         self.say("check_a")
         self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
-        self.wait(2.5)
+        self.wait(2.0)

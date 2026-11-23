@@ -425,7 +425,8 @@ class Cap3Bus(Narrated):
         self.wipe()
 
         # ================= the dispatch keys, walked =================
-        tr = tree(24, 1.1).move_to([-3.2, 1.3, 0])
+        tr = tree(24, 1.1)
+        fit(tr, 6.6).move_to([-3.0, 1.3, 0])
         kdef = VGroup(T("dispatch keys:", 26, CLERK), T("the class itself, then each", 24), T("supertype that is an event,", 24),
                       T("nearest first", 24)).arrange(DOWN, aligned_edge=LEFT, buff=0.1).move_to([3.9, 1.6, 0])
         self.say("keys")

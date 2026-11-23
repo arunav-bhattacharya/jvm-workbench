@@ -1,121 +1,365 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.808
-Here is a payment class with six fields, in Java and in Kotlin.
+00:00:02.733 --> 00:00:04.760
+Picture a big storage warehouse.
 
 2
-00:00:06.808 --> 00:00:09.220
-How many bytes does one Payment take?
+00:00:04.760 --> 00:00:08.876
+Out on the shared floor, rows of shelves hold thousands of boxes.
 
 3
-00:00:09.433 --> 00:00:18.400
-JOL, OpenJDK's object layout tool, prints the real answer on JDK 21: 40 bytes, for both.
+00:00:08.876 --> 00:00:12.865
+And every box carries a label that says what kind of box it is.
 
 4
-00:00:19.233 --> 00:00:21.559
-Every object starts with a header.
+00:00:13.000 --> 00:00:15.597
+A running Java program is that warehouse.
 
 5
-00:00:21.559 --> 00:00:23.269
-The mark word is 8 bytes.
+00:00:15.597 --> 00:00:19.904
+The floor is the heap, where every object you create with new lives.
 
 6
-00:00:23.269 --> 00:00:29.152
-It holds the identity hash code, the GC age, and the lock bits that synchronized uses.
+00:00:20.800 --> 00:00:23.795
+Here's a question that's easy to be shy about.
 
 7
-00:00:29.333 --> 00:00:33.680
-Then a class pointer, compressed to 4 bytes, says which class this is.
+00:00:23.795 --> 00:00:27.375
+A Long holds one number, and that number takes 8 bytes.
 
 8
-00:00:33.680 --> 00:00:35.171
-That's a 12-byte header.
+00:00:27.375 --> 00:00:30.174
+So one Long takes 8 bytes of memory, right?
 
 9
-00:00:35.500 --> 00:00:38.835
-The fields come next, but not in the order you wrote them.
+00:00:30.174 --> 00:00:31.216
+Pause and guess.
 
 10
-00:00:39.067 --> 00:00:44.296
-The long can't start at 12, because a long must start at a multiple of 8.
+00:00:35.000 --> 00:00:38.378
+Let's find out with a box that holds nothing at all.
 
 11
-00:00:44.296 --> 00:00:48.595
-So it goes to 16, and the JVM puts the int in the gap at 12.
+00:00:38.378 --> 00:00:40.002
+new Object has no fields.
 
 12
-00:00:48.767 --> 00:00:51.598
-The boolean and the byte take one byte each.
+00:00:40.002 --> 00:00:42.340
+And it still takes 16 bytes of heap.
 
 13
-00:00:51.598 --> 00:00:55.009
-After a 2-byte gap come the references, 4 bytes each.
+00:00:42.340 --> 00:00:44.029
+Those bytes are the label.
 
 14
-00:00:55.200 --> 00:00:56.409
-That's 36 bytes.
+00:00:44.200 --> 00:00:47.255
+Every object starts with a header of two parts.
 
 15
-00:00:56.409 --> 00:01:01.016
-Objects start at multiples of 8, so the size rounds up to 40.
+00:00:47.255 --> 00:00:49.205
+First, the mark word, 8 bytes.
 
 16
-00:01:01.233 --> 00:01:05.330
-The rule: header, plus the fields, rounded up to 8.
+00:00:49.205 --> 00:00:51.025
+It's the housekeeping strip.
 
 17
-00:01:05.330 --> 00:01:08.543
-12 plus 22 is 34, which rounds up to 40.
+00:00:51.200 --> 00:00:54.266
+It holds the hash code, once someone asks for it.
 
 18
-00:01:08.733 --> 00:01:12.425
-A reference on a 64-bit machine should take 8 bytes.
+00:00:54.266 --> 00:01:00.772
+The GC age: how many times the object has survived the garbage collector, the warehouse's cleaning crew.
 
 19
-00:01:12.425 --> 00:01:18.603
-Here each one takes 4, thanks to compressed oops: an oop is an ordinary object pointer.
+00:01:00.772 --> 00:01:03.337
+And the lock bits that synchronized uses.
 
 20
-00:01:19.500 --> 00:01:25.267
-Every object starts at a multiple of 8, so the last 3 bits of its address are always zero.
+00:01:03.533 --> 00:01:05.903
+Second, the class pointer, 4 bytes.
 
 21
-00:01:25.500 --> 00:01:27.076
-So the JVM drops them.
+00:01:05.903 --> 00:01:12.606
+It says what kind of box this is, by pointing to the class's plan, in a back room called metaspace.
 
 22
-00:01:27.076 --> 00:01:33.236
-It stores a 32-bit number, and shifts it left by 3 bits when it follows the reference.
+00:01:12.606 --> 00:01:15.991
+8 plus 4: that's 12 bytes, before the first field.
 
 23
-00:01:33.433 --> 00:01:38.005
-2 to the 32 slots, times 8 bytes, is 32 GB.
+00:01:16.133 --> 00:01:17.530
+Then one more rule.
 
 24
-00:01:39.633 --> 00:01:45.234
-Give the JVM a heap of 32 GB or more, and it turns compressed oops off.
+00:01:17.530 --> 00:01:24.437
+Every object starts at a multiple of 8 bytes, so its size rounds up to the next multiple of 8.
 
 25
-00:01:45.234 --> 00:01:48.863
-References grow to 8 bytes, and Payment to 48.
+00:01:24.437 --> 00:01:28.185
+new Object is 12 bytes of label, plus 4 of padding.
 
 26
-00:01:49.067 --> 00:01:52.988
-An ArrayList of 1,000 Integers grows by 24%.
+00:01:28.185 --> 00:01:28.405
+16.
 
 27
-00:01:52.988 --> 00:01:57.891
-So a 40 GB heap holds less data than its size suggests.
+00:01:29.333 --> 00:01:30.230
+Let's map it.
 
 28
-00:01:59.800 --> 00:02:08.724
-On JDK 25, the flag UseCompactObjectHeaders moves the class pointer into the mark word, so the header is 8 bytes.
+00:01:30.230 --> 00:01:31.747
+The box is the object.
 
 29
-00:02:08.967 --> 00:02:11.684
-JOL's simulation puts Payment at 32.
+00:01:31.747 --> 00:01:33.401
+The label is the header.
 
 30
-00:02:11.684 --> 00:02:16.063
-Each object saves 8 bytes, or nothing, because of padding.
+00:01:33.401 --> 00:01:36.159
+The housekeeping strip is the mark word.
+
+31
+00:01:36.159 --> 00:01:38.711
+The kind of box is the class pointer.
+
+32
+00:01:38.711 --> 00:01:43.261
+And the shelf slots, 8 bytes wide, are why everything rounds to 8.
+
+33
+00:01:44.133 --> 00:01:45.534
+Now the warm-up.
+
+34
+00:01:45.534 --> 00:01:50.610
+An Integer puts its 4-byte int where the padding would go.
+
+35
+00:01:50.610 --> 00:01:51.398
+16 bytes.
+
+36
+00:01:51.398 --> 00:01:54.549
+A Long needs 8 bytes for its number.
+
+37
+00:01:54.549 --> 00:01:57.963
+12 plus 8 is 20, which rounds up to 24.
+
+38
+00:01:57.963 --> 00:01:58.488
+Not 8.
+
+39
+00:01:58.488 --> 00:01:58.751
+24.
+
+40
+00:01:59.667 --> 00:02:04.165
+Here the warehouse picture breaks, and it's worth saying out loud.
+
+41
+00:02:04.165 --> 00:02:06.551
+A paper label costs no shelf space.
+
+42
+00:02:06.551 --> 00:02:13.980
+A Java header sits inside the box, and takes 12 of its bytes, whether the box holds 4 bytes of data or 4,000.
+
+43
+00:02:14.133 --> 00:02:19.056
+So a Long is a sweet in a shop where the price tag costs more than the sweet.
+
+44
+00:02:19.056 --> 00:02:22.125
+For small objects, the label is most of the box.
+
+45
+00:02:23.200 --> 00:02:33.397
+Now a real box, from the lesson's running example: a thumbnail service that makes small previews of uploaded photos, and keeps recent ones in memory.
+
+46
+00:02:33.397 --> 00:02:35.245
+A Thumbnail has six fields.
+
+47
+00:02:35.267 --> 00:02:40.466
+A boolean, a long, a byte, a String, an int, and a byte array for its pixels.
+
+48
+00:02:40.466 --> 00:02:45.328
+Kotlin compiles each var to the same field, so both get the same layout.
+
+49
+00:02:45.467 --> 00:02:49.115
+So will the fields sit in memory in the order we wrote them?
+
+50
+00:02:49.115 --> 00:02:50.088
+Pause and guess.
+
+51
+00:02:53.867 --> 00:02:59.382
+Here's what JOL, a small OpenJDK tool, prints on JDK 25.
+
+52
+00:02:59.382 --> 00:03:02.435
+The header fills bytes 0 to 11.
+
+53
+00:03:02.600 --> 00:03:06.240
+Then the JVM did something the source never asked for.
+
+54
+00:03:06.240 --> 00:03:08.869
+It moved width, the int, up to byte 12.
+
+55
+00:03:08.869 --> 00:03:12.980
+A long must start at a multiple of 8, and wouldn't fit there.
+
+56
+00:03:12.980 --> 00:03:14.531
+So the long goes at 16.
+
+57
+00:03:14.667 --> 00:03:19.887
+Then the two 1-byte fields, a 2-byte gap, and the two references, 4 bytes each.
+
+58
+00:03:19.887 --> 00:03:22.531
+Four bytes of padding end the box at 40.
+
+59
+00:03:22.667 --> 00:03:28.330
+The JVM is a tidy packer, the kind who repacks your suitcase while you're not looking.
+
+60
+00:03:28.330 --> 00:03:30.701
+Your code can't tell the difference.
+
+61
+00:03:30.701 --> 00:03:32.479
+6 of the 40 bytes are gaps.
+
+62
+00:03:33.200 --> 00:03:34.565
+So here's the rule.
+
+63
+00:03:34.565 --> 00:03:38.877
+An object costs its header plus its fields, rounded up to 8.
+
+64
+00:03:38.877 --> 00:03:40.601
+Count objects, not data.
+
+65
+00:03:41.733 --> 00:03:45.305
+Counting objects is where the surprises live.
+
+66
+00:03:45.305 --> 00:03:55.464
+The file extension jpg, as a String, costs 48 bytes: a 24-byte String object, plus a 24-byte array that holds the three letters.
+
+67
+00:03:55.600 --> 00:04:09.289
+And the numbers 0 to 999 in an ArrayList of Integer cost 20,976 bytes, because every number is its own 16-byte box, plus a 4-byte reference in the list.
+
+68
+00:04:09.289 --> 00:04:13.341
+An int array holds the same numbers in 4,016.
+
+69
+00:04:14.867 --> 00:04:15.983
+Did you notice?
+
+70
+00:04:15.983 --> 00:04:20.747
+Every reference took 4 bytes, but a full 64-bit address takes 8.
+
+71
+00:04:21.533 --> 00:04:23.788
+The trick follows from the padding.
+
+72
+00:04:23.788 --> 00:04:29.649
+Every box starts at a multiple of 8, so the lowest 3 bits of every address are always zero.
+
+73
+00:04:29.649 --> 00:04:31.388
+The JVM doesn't store them.
+
+74
+00:04:31.533 --> 00:04:36.805
+It stores a short shelf number instead, and multiplies it by 8 when it follows it.
+
+75
+00:04:36.805 --> 00:04:38.733
+That's called compressed oops.
+
+76
+00:04:38.733 --> 00:04:40.919
+Oop means ordinary object pointer.
+
+77
+00:04:41.800 --> 00:04:47.871
+A 32-bit number counts about 4 billion slots of 8 bytes: that's 32 GB.
+
+78
+00:04:47.871 --> 00:04:52.121
+So under a 32 GB heap, a reference takes 4 bytes.
+
+79
+00:04:52.121 --> 00:04:56.284
+Give the JVM 40 GB, and references go back to 8.
+
+80
+00:04:56.467 --> 00:05:01.238
+The Thumbnail grows to 48 bytes, and the list grows by 24 percent.
+
+81
+00:05:01.238 --> 00:05:03.840
+A bigger heap, full of bigger boxes.
+
+82
+00:05:04.733 --> 00:05:06.909
+So, does a Long take 8 bytes?
+
+83
+00:05:06.909 --> 00:05:07.134
+No.
+
+84
+00:05:07.134 --> 00:05:12.535
+It takes 24: a 12-byte label, the 8-byte number, and 4 bytes of padding.
+
+85
+00:05:12.535 --> 00:05:17.261
+When memory matters, count the boxes, not the data inside them.
+
+86
+00:05:18.133 --> 00:05:19.019
+Quick check.
+
+87
+00:05:19.019 --> 00:05:22.711
+A subclass of Thumbnail adds a String and a short.
+
+88
+00:05:22.711 --> 00:05:24.040
+How big is it now?
+
+89
+00:05:24.040 --> 00:05:25.221
+Pause and guess.
+
+90
+00:05:28.467 --> 00:05:29.076
+Still 40.
+
+91
+00:05:29.076 --> 00:05:35.307
+The String's 4 bytes and the short's 2 slide into the gaps the padding had already paid for.

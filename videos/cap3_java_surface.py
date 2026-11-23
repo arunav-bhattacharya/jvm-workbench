@@ -15,66 +15,37 @@ fg.SAY[:0] = [
 
 # every spoken line, in order
 N = {
-    "open": "Pedal Post's depot has two doors. Riders who work there every day come in at the front, and speak the "
-            "house shorthand: PP-7781, collected, two and a half.",
-    "open2": "Drivers from a partner courier use the side door, where a clerk hands them the standard printed form. "
-             "Both doors lead to the same sorting room, under the same rules.",
+    "open": "Pedal Post's depot has two doors. Riders who work there every day come in at the front, speaking the house shorthand: PP-7781, collected, two and a half.",
+    "open2": "Partner drivers use the side door, where a clerk hands them the standard printed form. Both doors lead to the same sorting room, under the same rules.",
     "doors": "Our library needs both doors. The front door is for Kotlin callers. The side door is for the support "
              "team, who write Java.",
     "shyq": "Now, a question that's easy to be shy about. Kotlin and Java both run on the JVM. They compile to the "
             "same class files. So why can't Java just call my Kotlin, as it is?",
-    "literal": "Here's the catch. javac, the Java compiler, never reads our Kotlin source. It reads the class files "
-               "that kotlinc wrote, and it reads them very literally.",
-    "map": "Let's map that. The house shorthand is everything that lives only in Kotlin source: reified functions, "
-           "default arguments, objects, value classes. The printed form is the class file. And the partner driver, "
-           "who only reads what's printed, is javac.",
-    "setup": "The lesson's demo has a small Kotlin API, written the way Kotlin code is usually written, and a Java "
-             "class that calls it. Here are four ordinary lines a Java developer might write. From Kotlin, all four "
-             "work. From Java, how many compile?",
+    "literal": "Here's the catch. javac, the Java compiler, never reads our Kotlin source. It reads the class files kotlinc wrote, very literally.",
+    "map": "Let's map that. The house shorthand is what lives only in Kotlin source: reified functions, default arguments, objects, value classes. The printed form is the class file. And the partner driver, who reads only what's printed, is javac.",
+    "setup": "The lesson's demo has a small Kotlin API and a Java class that calls it. Here are four ordinary lines a Java developer might write. From Kotlin, all four work. From Java, how many compile?",
     "none": "None of them. Let's read javac's complaints, one at a time.",
-    "e1": "First: no suitable constructor found for PlainBus(String). The Kotlin class has default arguments, and "
-          "Java got only two constructors: the one with no arguments, and the full one. Nothing in between.",
-    "e2": "Second: no suitable method found for subscribe. That's the reified subscribe. A reified function is pasted "
-          "into each Kotlin caller, and javac can't paste Kotlin code. So kotlinc marks it synthetic, made by the "
-          "compiler, and javac walks right past it.",
+    "e1": "First: no suitable constructor found for PlainBus(String). The Kotlin class has default arguments, and Java got only two constructors: no arguments, or all of them.",
+    "e2": "Second: no suitable method found for subscribe. That's the reified one. It gets pasted into each Kotlin caller, and javac can't paste Kotlin code. So kotlinc marks it synthetic, made by the compiler, and javac walks right past it.",
     "e3": "Third: cannot find symbol, constructor ParcelId(String). A value class's constructor is private to Java.",
-    "e4": "Fourth: cannot find symbol, method describe(String). describe takes a value class, so its name in the class "
-          "file is mangled: describe, a dash, and some letters. The weight getter on an event comes out the same way, "
-          "as getWeight-RqKWbHU.",
-    "joke": "That's a name only a compiler could love. Nobody on the support team should have to type it. So the point "
-            "is: Java sees the printed form, not the shorthand. If we want Java at our door, we print what it needs.",
-    "fixes": "Each fix asks kotlinc to print one small thing on the form. JvmOverloads asks for one Java constructor "
-             "per default argument. A second subscribe that takes Java's Class, an overload, is something javac can "
-             "call. JvmStatic makes an object's member a real static method. JvmField exposes a constant as a plain "
-             "field, and file JvmName names the class that holds a file's top-level functions.",
-    "run": "With those fixes, the demo's Java side runs. The Class overload delivers the event. The KClass version "
-           "still works, the long way round. And FriendlyBus, with JvmOverloads, takes just a name.",
-    "trap": "That leaves the value classes, and here's the easy trap. The quick fix gives Java a way to pass a raw "
-            "string or a raw long straight in. The value classes lesson warned about exactly this: JvmName on a "
-            "function that takes a value class lets Java pass a raw long straight past init.",
+    "e4": 'Fourth: cannot find symbol, method describe(String). describe takes a value class, so its name in the class file is mangled. The weight getter on an event comes out the same way: getWeight-RqKWbHU.',
+    "joke": "That's a name only a compiler could love. So the point is: Java sees the printed form, not the shorthand. If we want Java at our door, we print what it needs.",
+    "fixes": "Each fix asks kotlinc to print one small thing on the form. JvmOverloads: one Java constructor per default argument. A second subscribe that takes Java's Class: an overload javac can call. JvmStatic makes an object's member a real static method. JvmField gives a plain field, and file JvmName names the class for top-level functions.",
+    "run": "With those fixes, the demo's Java side runs. The Class overload delivers the event. The KClass version works too, the long way round. And FriendlyBus, with JvmOverloads, takes just a name.",
+    "trap": "That leaves the value classes, and here's the easy trap: give Java a way to pass a raw string or a raw long straight in. The value classes lesson warned about exactly this. JvmName on a function that takes a value class lets a raw long walk right past init.",
     "trap2": "In our picture, that's a side door with no clerk. It makes Java happy fast. It also lets in a parcel "
              "numbered 7781, which the front door would never accept.",
-    "facade": "So we put the clerk back. A facade, the hotel reception desk from Adapter and Facade, is one small "
-              "object that gives outsiders a simple way in. Ours takes plain values, a string and a long, and builds "
-              "the value classes itself. So every init block runs.",
+    "facade": 'So we put the clerk back. A facade, the hotel reception desk from Adapter and Facade, is one small object that gives outsiders a simple way in. Ours takes a string and a long, and builds the value classes itself. So every init block runs.',
     "code": "In Kotlin, Events.collected builds a ParcelId and a Weight, and hands back the event. Java calls it with "
             "a string and a number, and reads the grams back as a plain long.",
     "refuse": "Now Java tries the bad id. The demo prints: refused from Java: invalid parcel id: '7781'. The side door "
               "is easy, and it still checks everything.",
-    "breaks": "Our picture breaks in one place. A real side door often has its own, looser rules for strangers. Ours "
-              "has none of its own. It's the same rules, printed on a different form.",
-    "free": "And some of the side door came free, from earlier choices. Handler in E shows up in Java as Handler of "
-            "question mark super E, so one Java handler fits any subscription. The sealed model lets a Java switch "
-            "skip the default. And because handlers are fun interfaces with void methods, no Java lambda ever "
-            "returns Unit.INSTANCE.",
-    "guard": "One guardrail. Kotlin 2.4 has an experimental JvmExposeBoxed that would give Java the value-class "
-             "constructors. In a quick test, the getter on the event interface itself stayed mangled. So keep the "
-             "facade until that changes. And search your own Kotlin for public reified functions: what does a Java "
-             "caller see?",
+    "breaks": "Our picture breaks in one place. A real side door often has looser rules for strangers. Ours has no rules of its own: the same rules, on a different form.",
+    "free": 'And some of the side door came free. Handler in E shows up in Java as Handler of question mark super E, so one Java handler fits any subscription. The sealed model lets a Java switch skip the default. And fun interfaces with void methods mean no Java lambda ever returns Unit.INSTANCE.',
+    "guard": 'One guardrail. Kotlin 2.4 has an experimental JvmExposeBoxed. In a quick test, the getter on the event interface stayed mangled, so keep the facade until that changes. And search your own Kotlin for public reified functions: what does a Java caller see?',
     "moral": "So, why can't Java just call my Kotlin? Because Java reads the printed form, not the shorthand. Print "
              "what it needs: an overload, a static, a facade. Make the side door easy, never loose.",
-    "check": "Quick check. Registry gets a new Kotlin function, weigh, which takes a Weight. What does Java see? And "
-             "how do you let Java weigh a parcel without skipping the check?",
+    "check": "Quick check. Registry gets a Kotlin function, weigh, that takes a Weight. What does Java see? And how can Java weigh a parcel without skipping the check?",
     "check_a": "A mangled name it can't call. Add a facade function that takes a plain long and builds the Weight "
                "itself, so its init still runs.",
 }
@@ -253,7 +224,7 @@ class Cap3JavaSurface(Narrated):
         self.play(FadeIn(dp[:3]), run_time=0.7)
         self.at_text("Riders who", lead=0.3)
         self.play(FadeIn(dp.front), FadeIn(fl), FadeIn(rider, shift=RIGHT * 0.3), run_time=0.7)
-        self.at_text("and speak", lead=0.3)
+        self.at_text("speaking", lead=0.3)
         self.play(FadeIn(say_r, shift=UP * 0.1), run_time=0.6)
         self.hold()
         drv = person(JV, 1.2).next_to(dp.side, RIGHT, buff=0.9).align_to(dp.side, DOWN)
@@ -451,7 +422,7 @@ class Cap3JavaSurface(Narrated):
         fit(warn, 12.4)
         self.say("trap")
         self.play(FadeIn(dp), run_time=0.7)
-        self.at_text("The quick fix", lead=0.3)
+        self.at_text("give Java a way", lead=0.3)
         self.play(FadeIn(raw, shift=LEFT * 0.2), FadeIn(raw_l), run_time=0.6)
         self.at_text("The value classes lesson", lead=0.3)
         self.play(FadeIn(warn, shift=UP * 0.1), run_time=0.6)
@@ -461,8 +432,7 @@ class Cap3JavaSurface(Narrated):
         self.play(FadeIn(noc), Indicate(dp.side, color=BAD), run_time=0.8)
         self.at_text("It also lets", lead=0.3)
         self.play(raw.animate.move_to(dp.room.get_center() + DOWN * 0.6).scale(0.9), FadeOut(raw_l), run_time=1.1)
-        frontx = T("the front door would refuse it", 22, KT).next_to(dp.front, LEFT, buff=0.2).shift(UP * 1.0)
-        frontx.shift(RIGHT * max(0, -6.4 - frontx.get_left()[0]))
+        frontx = T("the front door would refuse it", 24, KT).next_to(dp, DOWN, buff=0.3).align_to(dp, LEFT)
         self.play(FadeIn(frontx), run_time=0.5)
         self.hold()
         self.wipe()
@@ -471,10 +441,10 @@ class Cap3JavaSurface(Narrated):
         dp = depot()
         dp.shift(LEFT * 1.6)
         ck = person(CLERK, 1.2).next_to(dp.side, LEFT, buff=0.25).align_to(dp.side, DOWN)
-        ck_l = T("the facade", 24, CLERK).next_to(ck, UP, buff=0.15)
+        ck_l = T("the facade", 24, CLERK).next_to(ck, DOWN, buff=0.15)
         plain = VGroup(M("\"PP-7781\"", 22, JV), M("2_500", 22, JV)).arrange(DOWN, buff=0.12).move_to([5.3, 0.5, 0])
         built = VGroup(M("ParcelId(\"PP-7781\")", 20, PEDAL), M("Weight(2_500)", 20, PEDAL)).arrange(DOWN, buff=0.12)
-        built.move_to(dp.room.get_center() + DOWN * 0.5)
+        built.move_to(dp.room.get_center() + DOWN * 0.5 + LEFT * 0.7)
         initl = T("every init runs", 22, OK).next_to(built, DOWN, buff=0.15)
         self.say("facade")
         self.play(FadeIn(dp), run_time=0.6)
@@ -539,7 +509,7 @@ class Cap3JavaSurface(Narrated):
         self.play(FadeIn(free[0], shift=UP * 0.1), run_time=0.6)
         self.at_text("The sealed", lead=0.3)
         self.play(FadeIn(free[1], shift=UP * 0.1), run_time=0.6)
-        self.at_text("And because", lead=0.3)
+        self.at_text("And fun interfaces", lead=0.3)
         self.play(FadeIn(free[2], shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.wipe()
@@ -556,7 +526,7 @@ class Cap3JavaSurface(Narrated):
         self.play(FadeIn(g1), run_time=0.6)
         self.at_text("In a quick", lead=0.3)
         self.play(FadeIn(g2), run_time=0.5)
-        self.at_text("So keep", lead=0.3)
+        self.at_text("so keep", lead=0.3)
         self.play(FadeIn(g3, shift=UP * 0.1), run_time=0.5)
         self.at_text("And search", lead=0.3)
         self.play(FadeIn(g4, shift=UP * 0.1), run_time=0.5)

@@ -460,6 +460,7 @@ class Cls05Bytebuddy(Narrated):
         ext_l = T("extends", 20, GREY_B).next_to(ext, UP, buff=0.08)
         self.say("show2")
         self.play(FadeIn(base), FadeIn(gen2[0]), FadeIn(gen2[1]), FadeIn(gen2[3]), GrowArrow(ext), FadeIn(ext_l), run_time=0.8)
+        self.play(FadeIn(ol[1], shift=RIGHT * 0.1), run_time=0.4)
         self.play(FadeIn(gen2[2][0]), FadeIn(gen2[2][2]), part(ol[1], "check").animate.set_color(COSTUME),
                   part(ol[1], "run", 0).animate.set_color(COSTUME), run_time=0.6)
         self.at_text("plus an accessor", lead=0.3)
@@ -469,6 +470,7 @@ class Cls05Bytebuddy(Narrated):
         self.at(2)
         self.play(Indicate(base[2][2], color=BAD, scale_factor=1.15), run_time=0.8)
         self.at(3)
+        self.play(FadeIn(ol[2], shift=RIGHT * 0.1), run_time=0.4)
         self.play(part(ol[2], "main stage").animate.set_color(ACTOR), run_time=0.5)
         self.hold()
 
@@ -518,10 +520,11 @@ class Cls05Bytebuddy(Narrated):
         self.predict(2.4)
 
         err = VGroup(M("Kotlin class without open:", 22, GREY_B),
-                     M("Cannot subclass primitive, array or final types: class workbench.bytecode.l05.KotlinCueRunner", 22, BAD)
+                     M("Cannot subclass primitive, array or final types:", 24, BAD),
+                     M("class workbench.bytecode.l05.KotlinCueRunner", 24, BAD)
                      ).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        fit(err, 12.4).move_to([0, -1.75, 0])
-        joke = T("Byte Buddy doesn't pick locks.", 30, GREY_A).move_to([0, -3.05, 0])
+        fit(err, 12.4).move_to([0, -1.85, 0])
+        joke = T("Byte Buddy doesn't pick locks.", 30, GREY_A).move_to([0, -3.25, 0])
         self.say("ka")
         self.play(FadeIn(err, shift=UP * 0.1), run_time=0.7)
         self.at(1)
