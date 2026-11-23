@@ -1,133 +1,365 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.380
-A merchant's fee is rarely one number.
+00:00:02.700 --> 00:00:07.055
+It's Saturday at the corner shop, and the shop sells a breakfast box.
 
 2
-00:00:05.380 --> 00:00:10.035
-This plan is 30 cents, plus 2.9 percent, plus a bundle of add-ons.
+00:00:07.055 --> 00:00:12.484
+Inside, there's a loaf of bread, a jar of jam, and a smaller box with a packet of tea.
 
 3
-00:00:10.035 --> 00:00:13.984
-And the bundle has rules of its own: here, 5 cents more.
+00:00:12.700 --> 00:00:15.306
+A customer asks: what does the box cost?
 
 4
-00:00:14.167 --> 00:00:17.743
-So some parts are single rules, and some are groups of rules.
+00:00:15.306 --> 00:00:19.476
+And the shop gives one price, as if the box were a single thing.
 
 5
-00:00:17.743 --> 00:00:19.853
-A group can even hold another group.
+00:00:20.400 --> 00:00:23.345
+Here's a question that's easy to be shy about.
 
 6
-00:00:19.853 --> 00:00:23.957
-The code that prices a payment should not have to care which is which.
+00:00:23.345 --> 00:00:26.419
+A box can hold boxes, which can hold more boxes.
 
 7
-00:00:24.167 --> 00:00:25.661
-Draw the plan as a tree.
+00:00:26.419 --> 00:00:29.300
+So how deep does the pricing code have to go?
 
 8
-00:00:25.661 --> 00:00:30.768
-The leaves are single rules: Flat for a fixed amount, and Percent in basis points.
+00:00:29.300 --> 00:00:31.477
+Do we need a loop for every level?
 
 9
-00:00:30.768 --> 00:00:35.003
-Each group is an AllOf, and the whole plan is one AllOf at the root.
+00:00:32.567 --> 00:00:34.947
+Let's start the way most of us would.
 
 10
-00:00:35.233 --> 00:00:39.506
-Now ask the root one question: what is your fee on this payment?
+00:00:34.947 --> 00:00:36.170
+Go through the box.
 
 11
-00:00:39.506 --> 00:00:42.777
-Say the payment is 100.00, which is 10,000 cents.
+00:00:36.170 --> 00:00:38.550
+If a thing is an item, add its price.
 
 12
-00:00:43.000 --> 00:00:45.577
-A group does not know the answer by itself.
+00:00:38.550 --> 00:00:41.059
+If it's a box, go through that one too.
 
 13
-00:00:45.577 --> 00:00:50.672
-It passes the same question on to each child, and the inner group passes it on again.
+00:00:41.059 --> 00:00:42.989
+And if that one holds a box...
 
 14
-00:00:50.867 --> 00:00:52.891
-Leaves answer directly.
+00:00:43.200 --> 00:00:45.046
+Another loop, one level deeper.
 
 15
-00:00:52.891 --> 00:00:54.036
-Flat says 30.
+00:00:45.046 --> 00:00:47.368
+The code starts to look like the boxes.
 
 16
-00:00:54.036 --> 00:00:57.556
-Percent says 2.9 percent of 10,000: 290.
+00:00:47.368 --> 00:00:52.607
+And the day someone packs one box deeper than we planned for, the price comes out wrong.
 
 17
-00:00:57.556 --> 00:01:00.813
-Down in the inner group, Flat says 5.
+00:00:52.833 --> 00:00:57.865
+Wouldn't it be nice if a box could answer the same question as a jar of jam?
 
 18
-00:01:00.967 --> 00:01:02.893
-So what does the root return?
+00:00:57.865 --> 00:00:58.991
+What do you cost?
 
 19
-00:01:04.867 --> 00:01:08.739
-Each group adds up what its children return.
+00:00:59.900 --> 00:01:02.685
+So let's ask the box, as if it could talk.
 
 20
-00:01:08.739 --> 00:01:11.027
-The inner group returns 5.
+00:01:02.685 --> 00:01:04.874
+We ask the big box what it costs.
 
 21
-00:01:11.027 --> 00:01:15.340
-The root returns 30, plus 290, plus 5: 325 cents.
+00:01:04.874 --> 00:01:05.935
+It doesn't know.
 
 22
-00:01:15.533 --> 00:01:17.411
-That is the Composite pattern.
+00:01:05.935 --> 00:01:07.991
+So it asks each thing it holds.
 
 23
-00:01:17.411 --> 00:01:20.604
-A group and a single rule answer the same question.
+00:01:08.200 --> 00:01:09.705
+The bread says 2.50.
 
 24
-00:01:20.604 --> 00:01:26.113
-So the caller asks the root, and never checks whether it holds one rule or a whole tree.
+00:01:09.705 --> 00:01:11.060
+The jam says 3.00.
 
 25
-00:01:27.033 --> 00:01:30.174
-In code, one recursive function prices any plan.
+00:01:11.060 --> 00:01:15.426
+The small box doesn't know either, so it asks its own tea.
 
 26
-00:01:30.174 --> 00:01:32.333
-It has one case per kind of node.
+00:01:15.426 --> 00:01:16.781
+The tea says 4.50.
 
 27
-00:01:32.333 --> 00:01:37.763
-The AllOf case calls fee again on each child: that call is the arrow down the tree.
+00:01:17.000 --> 00:01:18.854
+The small box answers 4.50.
 
 28
-00:01:37.933 --> 00:01:39.959
-The switch has no default branch.
+00:01:18.854 --> 00:01:21.944
+And the big box adds up what it heard: 10.00.
 
 29
-00:01:39.959 --> 00:01:45.115
-Add a new kind of node, and the compiler flags every switch that does not handle it.
+00:01:21.944 --> 00:01:24.828
+One price, from a whole tree of questions.
 
 30
-00:01:45.933 --> 00:01:53.833
-The rule: a group answers by asking its children and adding up, so one recursive function prices a tree of any depth.
+00:01:25.033 --> 00:01:25.887
+Let's map it.
 
 31
-00:01:54.067 --> 00:01:55.019
-A quick check.
+00:01:25.887 --> 00:01:27.921
+Each thing is a node in a tree.
 
 32
-00:01:55.019 --> 00:01:59.302
-The inner group gets a second rule: Percent of 50 basis points.
+00:01:27.921 --> 00:01:31.793
+An item with nothing inside is called a leaf, like the jam.
 
 33
-00:01:59.302 --> 00:02:02.769
-For the same 100.00, what does the root return now?
+00:01:31.793 --> 00:01:33.762
+A box is a node with children.
+
+34
+00:01:33.762 --> 00:01:39.275
+And the question, what do you cost, is one function, price, that every node answers.
+
+35
+00:01:40.200 --> 00:01:44.564
+Now a bigger order: one box that holds two whole breakfast boxes.
+
+36
+00:01:44.564 --> 00:01:47.316
+How much new code do we need to price it?
+
+37
+00:01:47.316 --> 00:01:48.391
+Pause and guess.
+
+38
+00:01:51.567 --> 00:01:52.419
+None at all.
+
+39
+00:01:52.419 --> 00:01:58.601
+The new box asks its two children, and each one runs the very same questions as before.
+
+40
+00:01:58.601 --> 00:01:59.383
+2000 cents.
+
+41
+00:01:59.383 --> 00:02:03.220
+The price function didn't even notice the extra level.
+
+42
+00:02:04.133 --> 00:02:05.217
+Here's the code.
+
+43
+00:02:05.217 --> 00:02:12.397
+Goods is a sealed interface: a sealed type lists all its kinds up front, so the compiler knows every case.
+
+44
+00:02:12.397 --> 00:02:15.106
+An Item has a name and a price in cents.
+
+45
+00:02:15.106 --> 00:02:17.003
+A Box holds a list of goods.
+
+46
+00:02:17.233 --> 00:02:18.768
+And price is one switch.
+
+47
+00:02:18.768 --> 00:02:20.559
+An item gives its own cents.
+
+48
+00:02:20.559 --> 00:02:23.565
+A box adds up the price of each thing it holds.
+
+49
+00:02:23.565 --> 00:02:25.547
+Notice that price calls itself.
+
+50
+00:02:25.547 --> 00:02:30.088
+That's called recursion, and it follows the tree, however deep it goes.
+
+51
+00:02:31.000 --> 00:02:36.168
+The lesson's CompositeDemo prints the box and its price: 1000 cents.
+
+52
+00:02:36.168 --> 00:02:39.056
+Then the box of two boxes: 2000 cents.
+
+53
+00:02:39.967 --> 00:02:40.799
+Now the name.
+
+54
+00:02:40.799 --> 00:02:46.494
+Single items and groups share one interface, and a group answers by asking what it holds.
+
+55
+00:02:46.494 --> 00:02:52.253
+That's the Composite pattern: a group composed of smaller pieces that answer just like it.
+
+56
+00:02:53.167 --> 00:02:55.550
+The sealed type buys one more thing.
+
+57
+00:02:55.550 --> 00:02:58.595
+Say someone adds a third kind of node, a Deal.
+
+58
+00:02:58.595 --> 00:03:03.824
+The switch has no default, so the build stops at every place that prices goods.
+
+59
+00:03:03.824 --> 00:03:08.789
+javac says: the switch expression does not cover all possible input values.
+
+60
+00:03:08.789 --> 00:03:12.165
+kotlinc says: 'when' expression must be exhaustive.
+
+61
+00:03:13.067 --> 00:03:14.861
+Here the box picture breaks.
+
+62
+00:03:14.861 --> 00:03:18.065
+A cardboard box can't change once it's taped shut.
+
+63
+00:03:18.065 --> 00:03:19.090
+A Java list can.
+
+64
+00:03:19.090 --> 00:03:25.754
+So say we build the small box from a list that someone else still holds, and then they add to that list.
+
+65
+00:03:25.754 --> 00:03:27.292
+What happens to our box?
+
+66
+00:03:27.292 --> 00:03:28.317
+Pause and guess.
+
+67
+00:03:31.500 --> 00:03:39.748
+Take out the copy, and the demo's last line shows the same box, with something new inside: tea 4.50, plus champagne, 30.00.
+
+68
+00:03:39.748 --> 00:03:45.380
+A breakfast box already promised to a customer quietly gained a bottle of champagne.
+
+69
+00:03:45.600 --> 00:03:47.107
+Lovely for the customer.
+
+70
+00:03:47.107 --> 00:03:52.568
+Less lovely when its price goes up by 30.00, and nobody at the counter touched the box.
+
+71
+00:03:53.500 --> 00:03:54.900
+The fix is one copy.
+
+72
+00:03:54.900 --> 00:04:04.982
+In Java, the record's compact constructor, the short constructor that can adjust values before they're stored, copies the list with List.copyOf.
+
+73
+00:04:04.982 --> 00:04:07.642
+In Kotlin, the box copies with toList.
+
+74
+00:04:07.642 --> 00:04:09.463
+Now the box is taped shut.
+
+75
+00:04:09.463 --> 00:04:14.013
+Edit the old list all you like: the box stays bread, jam and tea.
+
+76
+00:04:14.233 --> 00:04:16.791
+A tree that can't change has two more gifts.
+
+77
+00:04:16.791 --> 00:04:20.220
+It can't grow a loop, and many threads can share it safely.
+
+78
+00:04:21.133 --> 00:04:22.165
+So, three rules.
+
+79
+00:04:22.165 --> 00:04:26.614
+One: build the tree from copies, so it can't change behind your back.
+
+80
+00:04:26.614 --> 00:04:32.804
+Two: let one function walk the tree, with no default, so the compiler checks every kind of node.
+
+81
+00:04:32.804 --> 00:04:38.995
+Three: if you see checks for an item, a box, and a box in a box, that's a tree asking to be one.
+
+82
+00:04:39.900 --> 00:04:43.067
+So, how deep does the pricing code have to go?
+
+83
+00:04:43.067 --> 00:04:43.755
+One level.
+
+84
+00:04:43.755 --> 00:04:45.339
+An item says its price.
+
+85
+00:04:45.339 --> 00:04:47.817
+A box adds up what its contents say.
+
+86
+00:04:47.817 --> 00:04:50.984
+The recursion takes care of every level below.
+
+87
+00:04:51.200 --> 00:04:51.945
+Quick check.
+
+88
+00:04:51.945 --> 00:04:55.793
+Someone adds a Deal to the sealed type and forgets the switch.
+
+89
+00:04:55.793 --> 00:04:57.407
+When do you hear about it?
+
+90
+00:05:00.600 --> 00:05:04.290
+When you build, at every switch that prices or prints goods.
+
+91
+00:05:04.290 --> 00:05:07.611
+Not on the first Saturday that a customer buys a deal.

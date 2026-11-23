@@ -1,169 +1,413 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.368
-Java's own streams are built in layers.
+00:00:02.700 --> 00:00:06.337
+A customer at the corner shop buys a teapot as a present.
 
 2
-00:00:05.368 --> 00:00:07.214
-Start with the real stream.
+00:00:06.337 --> 00:00:12.079
+The shopkeeper puts it in a box, wraps the box in gift paper, and ties a ribbon around it.
 
 3
-00:00:07.214 --> 00:00:12.960
-Wrap it in a GZIPOutputStream, then a BufferedOutputStream, then a DataOutputStream.
+00:00:12.300 --> 00:00:20.360
+Then the rider from Pedal Post, the town's bike courier, weighs it, scans the label, and rides off, quite unmoved by the bow.
 
 4
-00:00:13.167 --> 00:00:15.374
-Each wrapper is an OutputStream too.
+00:00:20.360 --> 00:00:22.617
+A wrapped parcel is still a parcel.
 
 5
-00:00:15.374 --> 00:00:19.360
-Each one adds one behavior: typed writes, buffering, compression.
+00:00:23.533 --> 00:00:26.323
+Here's a question that's easy to be shy about.
 
 6
-00:00:19.360 --> 00:00:22.488
-Then it passes the bytes on to the stream it wraps.
+00:00:26.323 --> 00:00:32.144
+If each layer of wrapping just passes the parcel on, does it matter what order the layers go in?
 
 7
-00:00:22.667 --> 00:00:24.560
-That is the decorator pattern.
+00:00:32.144 --> 00:00:34.327
+We'll answer that with real numbers.
 
 8
-00:00:24.560 --> 00:00:28.219
-A decorator has the same interface as the object it wraps.
+00:00:35.400 --> 00:00:38.473
+The shop charges for every parcel it sends.
 
 9
-00:00:28.219 --> 00:00:31.185
-It does one extra thing, and forwards the call.
+00:00:38.473 --> 00:00:40.188
+0.50 for each kilometer.
 
 10
-00:00:31.185 --> 00:00:34.213
-The caller can't tell how many layers there are.
+00:00:40.188 --> 00:00:41.189
+2.00 to start.
 
 11
-00:00:34.433 --> 00:00:38.920
-Fees fit the same shape, because a fee is a base rule plus adjustments.
+00:00:41.189 --> 00:00:44.048
+3.00 more for a parcel over 5 kilograms.
 
 12
-00:00:39.133 --> 00:00:42.189
-The base rule is 2.9 percent of the amount.
+00:00:44.048 --> 00:00:46.335
+And never more than 8.00 in all.
 
 13
-00:00:42.189 --> 00:00:44.320
-Then each adjustment wraps it.
+00:00:46.567 --> 00:00:50.281
+The easy way is one big method that knows all four rules.
 
 14
-00:00:44.320 --> 00:00:45.244
-Add 30 cents.
+00:00:50.281 --> 00:00:55.689
+But these rules change often, and every change means opening that one method again.
 
 15
-00:00:45.244 --> 00:00:49.081
-Add 1 percent more for a payment from outside Germany.
+00:00:55.900 --> 00:01:02.051
+Wouldn't it be nice if each rule were a piece we could add, remove, or move, without touching the others?
 
 16
-00:00:49.081 --> 00:00:51.071
-Then cap the fee at 5 euros.
+00:01:02.967 --> 00:01:04.654
+That's the gift wrap again.
 
 17
-00:00:51.233 --> 00:00:54.492
-Each call in the chain wraps everything to its left.
+00:01:04.654 --> 00:01:08.717
+Give each rule its own small layer that wraps the rule before it.
 
 18
-00:00:54.492 --> 00:00:57.625
-So the last one, cappedAt, ends up on the outside.
+00:01:08.717 --> 00:01:12.155
+In the middle sits the parcel: the price per kilometer.
 
 19
-00:00:57.833 --> 00:01:00.567
-Now charge a French payment of 1,000 euros.
+00:01:12.155 --> 00:01:14.842
+Around it, a layer that adds 2.00 to start.
 
 20
-00:01:00.567 --> 00:01:03.173
-The call goes to the outside layer first.
+00:01:14.842 --> 00:01:16.530
+Then one for heavy parcels.
 
 21
-00:01:03.173 --> 00:01:07.432
-Each layer calls the one it wraps, all the way in to the base rule.
+00:01:16.530 --> 00:01:18.217
+And the cap on the outside.
 
 22
-00:01:07.633 --> 00:01:10.191
-The base rule returns 29 euros.
+00:01:18.433 --> 00:01:19.266
+Let's map it.
 
 23
-00:01:10.191 --> 00:01:15.965
-On the way back out, each layer does its one thing: 29.30, then 39.30.
+00:01:19.266 --> 00:01:22.468
+The parcel in the middle is the first rule, perKm.
 
 24
-00:01:15.965 --> 00:01:19.429
-The cap comes last, so the fee is 5 euros.
+00:01:22.468 --> 00:01:24.838
+Each sheet of paper is one more rule.
 
 25
-00:01:19.600 --> 00:01:22.236
-Now move cappedAt in front of crossBorder.
+00:01:24.838 --> 00:01:28.169
+And the courier is the code that asks for the price.
 
 26
-00:01:22.236 --> 00:01:24.371
-Same layers, in a different order.
+00:01:28.169 --> 00:01:34.445
+It only talks to the outside, because every layer answers the same one question: what do you cost?
 
 27
-00:01:24.600 --> 00:01:26.291
-Run the same payment.
+00:01:35.167 --> 00:01:37.414
+Let's watch one question travel.
 
 28
-00:01:26.291 --> 00:01:27.499
-29, then 29.30.
+00:01:37.414 --> 00:01:40.364
+A 12 kilogram parcel, going 20 kilometers.
 
 29
-00:01:27.499 --> 00:01:29.755
-The cap brings it down to 5.
+00:01:40.364 --> 00:01:44.859
+The question goes in, layer by layer, all the way to the middle.
 
 30
-00:01:29.755 --> 00:01:34.909
-Then the surcharge lands after the cap, and the fee is 15 euros.
+00:01:44.859 --> 00:01:47.247
+20 kilometers at 0.50 makes 10.00.
 
 31
-00:01:35.067 --> 00:01:36.458
-Both chains compile.
+00:01:47.467 --> 00:01:50.639
+On the way back out, each layer adds its rule.
 
 32
-00:01:36.458 --> 00:01:40.840
-Only a test with a large cross-border payment tells them apart.
+00:01:50.639 --> 00:01:52.431
+Plus 2.00 to start: 12.00.
 
 33
-00:01:41.767 --> 00:01:44.380
-Behavior decorators have the same issue.
+00:01:52.431 --> 00:01:54.638
+It's heavy, so plus 3.00: 15.00.
 
 34
-00:01:44.380 --> 00:01:47.974
-Put retry outside logging, and every attempt is logged.
+00:01:54.638 --> 00:01:57.120
+And the cap says: no more than 8.00.
 
 35
-00:01:47.974 --> 00:01:52.091
-Swap them, and you log one call, however many attempts it took.
+00:01:57.120 --> 00:01:58.913
+So the courier hears 8.00.
 
 36
-00:01:52.333 --> 00:01:55.049
-Pick the order you want, and pin it in a test.
+00:01:59.533 --> 00:02:00.264
+Your turn.
 
 37
-00:01:55.967 --> 00:02:00.096
-In Java, each decorator is a default method on the interface.
+00:02:00.264 --> 00:02:03.331
+Two more parcels, both going 4 kilometers.
 
 38
-00:02:00.096 --> 00:02:04.428
-It returns a new lambda, and that lambda is a FeeCalculator too.
+00:02:03.331 --> 00:02:06.544
+One weighs 2 kilograms, the other weighs 12.
 
 39
-00:02:04.633 --> 00:02:07.919
-The lambda calls feeMinor on the calculator it wraps.
+00:02:06.544 --> 00:02:08.297
+What does each one cost?
 
 40
-00:02:07.919 --> 00:02:10.833
-Then it does its one extra thing, here the cap.
+00:02:08.297 --> 00:02:09.465
+Pause and guess.
 
 41
-00:02:11.033 --> 00:02:15.551
-In Kotlin, the decorator is an extension function on a fun interface.
+00:02:12.633 --> 00:02:15.868
+The light one: 2.00 plus 4 times 0.50, so 4.00.
 
 42
-00:02:15.551 --> 00:02:21.116
-Either way, each call returns a new calculator, and the one it wraps stays as it was.
+00:02:15.868 --> 00:02:18.552
+The heavy one also pays the 3.00: 7.00.
+
+43
+00:02:18.552 --> 00:02:23.576
+Neither one reaches 8.00, so the cap lets both answers through untouched.
+
+44
+00:02:24.500 --> 00:02:25.767
+Here it is in code.
+
+45
+00:02:25.767 --> 00:02:31.168
+Each rule is a small method that returns a new price, wrapped around the old one.
+
+46
+00:02:31.168 --> 00:02:34.369
+In Java, it's a default method on the interface.
+
+47
+00:02:34.369 --> 00:02:36.569
+In Kotlin, an extension function.
+
+48
+00:02:36.569 --> 00:02:42.304
+Read the chain from the inside out: perKm is the parcel, and each call adds one layer.
+
+49
+00:02:42.533 --> 00:02:46.331
+The tricky part is the bare cents of d, inside the layer.
+
+50
+00:02:46.331 --> 00:02:49.663
+It means: first, ask the price I'm wrapped around.
+
+51
+00:02:49.663 --> 00:02:51.196
+Then apply my one rule.
+
+52
+00:02:51.196 --> 00:02:53.461
+The price inside is never changed.
+
+53
+00:02:55.067 --> 00:02:56.821
+Now, back to our question.
+
+54
+00:02:56.821 --> 00:03:01.745
+Let's move the cap one place in, so it sits inside the heavy parcel rule.
+
+55
+00:03:01.745 --> 00:03:04.713
+Both chains compile, and both read sensibly.
+
+56
+00:03:04.713 --> 00:03:07.951
+Does anything change, for the same heavy parcel?
+
+57
+00:03:07.951 --> 00:03:09.031
+Pause and guess.
+
+58
+00:03:12.200 --> 00:03:13.578
+Watch the way out.
+
+59
+00:03:13.578 --> 00:03:14.037
+10.00.
+
+60
+00:03:14.037 --> 00:03:15.491
+Plus 2.00 is 12.00.
+
+61
+00:03:15.491 --> 00:03:18.399
+Now the cap comes first: down to 8.00.
+
+62
+00:03:18.399 --> 00:03:22.303
+And then the heavy parcel rule lands on top: 11.00.
+
+63
+00:03:23.233 --> 00:03:23.586
+Well.
+
+64
+00:03:23.586 --> 00:03:29.374
+That's 1,100 cents, for a parcel the shop promised would never cost more than 800.
+
+65
+00:03:29.374 --> 00:03:33.963
+The same four pieces, two of them swapped, and a different price.
+
+66
+00:03:34.867 --> 00:03:38.479
+A cap on the inside should really be called capped, for now.
+
+67
+00:03:38.479 --> 00:03:42.453
+It caps what it sees, and every layer outside it still gets a say.
+
+68
+00:03:42.667 --> 00:03:45.485
+Jokes aside, the gift wrap predicted this.
+
+69
+00:03:45.485 --> 00:03:48.170
+A ribbon tied under the paper is hidden.
+
+70
+00:03:48.170 --> 00:03:50.452
+The outer layer has the last word.
+
+71
+00:03:51.367 --> 00:03:53.229
+And here the picture breaks.
+
+72
+00:03:53.229 --> 00:03:54.492
+Paper can only add.
+
+73
+00:03:54.492 --> 00:03:57.950
+A layer of code can also take away, as the cap does.
+
+74
+00:03:57.950 --> 00:04:01.740
+It could even decide not to ask the parcel inside at all.
+
+75
+00:04:02.667 --> 00:04:03.543
+Now the name.
+
+76
+00:04:03.543 --> 00:04:12.376
+An object with the same interface as the object it wraps, which does one extra thing and passes the call on, is called a decorator.
+
+77
+00:04:12.376 --> 00:04:14.399
+Each rule here is a decorator.
+
+78
+00:04:15.300 --> 00:04:18.672
+Decorators wrap behavior too, not just arithmetic.
+
+79
+00:04:18.672 --> 00:04:25.145
+Big Blue Vans has a booking line that's busy twice, and then books, as booking lines tend to be.
+
+80
+00:04:25.145 --> 00:04:28.854
+One decorator, Logging, writes down every call it sees.
+
+81
+00:04:28.854 --> 00:04:31.753
+Another, Retrying, tries up to three times.
+
+82
+00:04:31.967 --> 00:04:34.206
+Put them together, in both orders.
+
+83
+00:04:34.206 --> 00:04:36.906
+How many log lines does each order write?
+
+84
+00:04:36.906 --> 00:04:37.960
+Pause and guess.
+
+85
+00:04:41.133 --> 00:04:46.854
+With Retrying outside, Logging sits inside the loop, and sees every attempt: 3 lines.
+
+86
+00:04:46.854 --> 00:04:51.835
+With Logging outside, it sees only the one booking that came back: 1 line.
+
+87
+00:04:51.835 --> 00:04:52.979
+Neither is wrong.
+
+88
+00:04:52.979 --> 00:04:55.133
+They answer different questions.
+
+89
+00:04:56.033 --> 00:05:06.420
+The JDK has stacked decorators like this for decades: a DataOutputStream, around a BufferedOutputStream, around a GZIPOutputStream, around a file.
+
+90
+00:05:06.420 --> 00:05:10.831
+Each one adds one thing: typed writes, buffering, compression.
+
+91
+00:05:11.733 --> 00:05:12.776
+So, three rules.
+
+92
+00:05:12.776 --> 00:05:16.817
+One: the order of the layers is behavior, so pin it in a test.
+
+93
+00:05:16.817 --> 00:05:20.467
+Two: keep each layer to one extra thing, so it can move.
+
+94
+00:05:20.467 --> 00:05:25.029
+Three: when a layer takes away, like the cap, ask what comes after it.
+
+95
+00:05:25.933 --> 00:05:28.726
+So, does the order of the wrapping matter?
+
+96
+00:05:28.726 --> 00:05:28.992
+Yes.
+
+97
+00:05:28.992 --> 00:05:33.512
+Every layer passes the call on, but the outer one has the last word.
+
+98
+00:05:33.512 --> 00:05:37.501
+The same four pieces gave 8.00 one way, and 11.00 the other.
+
+99
+00:05:37.733 --> 00:05:38.501
+Quick check.
+
+100
+00:05:38.501 --> 00:05:42.468
+Say the log feeds a chart of how many bookings the shop makes.
+
+101
+00:05:42.468 --> 00:05:44.004
+Which order do you want?
+
+102
+00:05:47.200 --> 00:05:49.778
+Logging outside: one line per booking.
+
+103
+00:05:49.778 --> 00:05:55.341
+To see how often the line is busy, put it inside, where both busy signals show up.
