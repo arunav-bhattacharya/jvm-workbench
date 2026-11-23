@@ -1,133 +1,393 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.050
-SettlementService has two methods you want timed: settle and audit.
+00:00:02.700 --> 00:00:03.989
+Back to the theatre.
 
 2
-00:00:07.050 --> 00:00:11.140
-Pasting a timer into each one, in every service, gets old fast.
+00:00:03.989 --> 00:00:07.790
+Last time, the lead actor had a stand-in at the stage door.
 
 3
-00:00:11.333 --> 00:00:13.024
-So you write a subclass.
+00:00:07.790 --> 00:00:11.979
+It worked because the role had a job card: in code, an interface.
 
 4
-00:00:13.024 --> 00:00:18.943
-Its settle starts a clock, calls super.settle, and logs the time in a finally block.
+00:00:12.900 --> 00:00:15.867
+Here's a question that's easy to be shy about.
 
 5
-00:00:18.943 --> 00:00:22.959
-super.settle runs your original body, on the same object.
+00:00:15.867 --> 00:00:18.254
+Most of my classes have no interface.
 
 6
-00:00:23.167 --> 00:00:28.699
-Every method a subclass overrides is a place to run code before and after yours.
+00:00:18.254 --> 00:00:20.899
+So can anything stand in for them at all?
 
 7
-00:00:28.900 --> 00:00:32.168
-A framework does this without you writing the class.
+00:00:21.967 --> 00:00:24.889
+Take the person who runs the lighting cues.
 
 8
-00:00:32.168 --> 00:00:39.708
-Byte Buddy builds the bytes of a new class at run time: a subclass of SettlementService that overrides settle and audit.
+00:00:24.889 --> 00:00:27.674
+In code, that's a class called CueRunner.
 
 9
-00:00:39.933 --> 00:00:44.415
-A class loader defines it, with a random suffix in its name on every run.
+00:00:27.674 --> 00:00:34.469
+Its method run runs one cue, such as LX-14, and first calls this.check, to make sure the cue exists.
 
 10
-00:00:44.415 --> 00:00:49.141
-The framework makes an instance, and your code just sees a SettlementService.
+00:00:34.469 --> 00:00:38.071
+A third method, stage, is final, and names the stage.
 
 11
-00:00:49.833 --> 00:00:51.783
-Now a caller calls settle.
+00:00:38.071 --> 00:00:41.536
+There's no interface anywhere, so Proxy can't help.
 
 12
-00:00:51.783 --> 00:00:52.983
-What runs first?
+00:00:41.536 --> 00:00:43.575
+It only implements interfaces.
 
 13
-00:00:54.767 --> 00:00:56.284
-The generated override.
+00:00:44.500 --> 00:00:46.970
+The costume department has an answer.
 
 14
-00:00:56.284 --> 00:01:02.289
-It calls an interceptor, and hands it the method being called and a handle to the original.
+00:00:46.970 --> 00:00:51.041
+For a role with no card, they sew a full copy of the costume.
 
 15
-00:01:02.500 --> 00:01:06.033
-The interceptor starts the clock, then calls the handle.
+00:00:51.041 --> 00:00:58.451
+In Java, that costume is a subclass: a class that extends yours and may override, that is replace, its methods.
 
 16
-00:01:06.033 --> 00:01:11.900
-That goes through an accessor method Byte Buddy added, into super.settle, and your body runs.
+00:00:59.367 --> 00:01:02.254
+Here's a timing costume, written by hand.
 
 17
-00:01:12.100 --> 00:01:18.016
-When your body returns, the interceptor logs the time and passes your result back to the caller.
+00:01:02.254 --> 00:01:06.408
+Its run starts a clock, calls super.run, and logs the time.
 
 18
-00:01:18.833 --> 00:01:19.799
-Now call region.
+00:01:06.408 --> 00:01:10.070
+super.run is the original body, on this same object.
 
 19
-00:01:19.799 --> 00:01:22.756
-It's final, so the subclass couldn't override it.
+00:01:10.070 --> 00:01:13.239
+check works the same way, and stage is final.
 
 20
-00:01:22.756 --> 00:01:26.256
-The call goes straight to your body, and nothing times it.
+00:01:14.167 --> 00:01:15.042
+Let's map it.
 
 21
-00:01:26.933 --> 00:01:29.767
-A final class can't be subclassed at all.
+00:01:15.042 --> 00:01:16.928
+The costume is the subclass.
 
 22
-00:01:29.767 --> 00:01:37.163
-In Kotlin, classes and methods are final unless you write open, so Byte Buddy refuses a plain Kotlin class.
+00:01:16.928 --> 00:01:20.766
+Each override is a place to add a step, before and after.
 
 23
-00:01:37.163 --> 00:01:41.033
-The all-open compiler plugin opens the classes you mark.
+00:01:20.766 --> 00:01:23.527
+super.run is the role, played as written.
 
 24
-00:01:41.933 --> 00:01:46.586
-In code, you pick the class, the methods to override, and the interceptor.
+00:01:23.527 --> 00:01:28.173
+And every caller still sees a CueRunner, because the subclass is one.
 
 25
-00:01:46.586 --> 00:01:49.730
-make writes the bytes, and load defines the class.
+00:01:29.100 --> 00:01:30.249
+Two methods, fine.
 
 26
-00:01:49.730 --> 00:01:51.553
-Kotlin uses the same builder.
+00:01:30.249 --> 00:01:32.802
+Now say forty classes, ten methods each.
 
 27
-00:01:53.467 --> 00:01:57.694
-The rule: a generated proxy is a subclass written at run time.
+00:01:32.802 --> 00:01:39.823
+That's four hundred overrides, sewn by hand the night before opening, each one a chance to forget the finally.
 
 28
-00:01:57.694 --> 00:02:04.104
-Its overrides run code before and after yours, and what it can't override, it can't intercept.
+00:01:39.823 --> 00:01:42.951
+Wouldn't it be nice if someone sewed them for us?
 
 29
-00:02:04.300 --> 00:02:05.175
-Quick check.
+00:01:43.867 --> 00:01:48.649
+That's Byte Buddy, a library that writes classes while your program runs.
 
 30
-00:02:05.175 --> 00:02:09.039
-A Kotlin class is open, but one of its methods isn't.
+00:01:48.649 --> 00:01:50.221
+You tell it four things.
 
 31
-00:02:09.039 --> 00:02:10.571
-Is that method timed?
+00:01:50.221 --> 00:01:51.531
+The class to extend.
 
 32
-00:02:12.767 --> 00:02:12.995
-No.
+00:01:51.531 --> 00:01:53.235
+Which methods to override.
 
 33
-00:02:12.995 --> 00:02:16.492
-It's final, so the subclass can't override it.
+00:01:53.235 --> 00:01:54.676
+Who handles each call.
+
+34
+00:01:54.676 --> 00:01:59.720
+Then make writes the bytes, and load defines the class in a new class loader.
+
+35
+00:01:59.720 --> 00:02:01.620
+Kotlin uses the same builder.
+
+36
+00:02:02.533 --> 00:02:11.014
+The one who handles each call is an interceptor: an object whose method runs in place of the original, and decides when to call it.
+
+37
+00:02:11.014 --> 00:02:13.797
+Byte Buddy reads its parameter annotations.
+
+38
+00:02:13.797 --> 00:02:16.516
+@Origin Method is the method being called.
+
+39
+00:02:16.516 --> 00:02:20.400
+@SuperCall Callable runs the original body when you call it.
+
+40
+00:02:20.400 --> 00:02:24.284
+Ours writes down the method's name, then calls the original.
+
+41
+00:02:24.500 --> 00:02:29.149
+If SuperCall had an honest name, it would be called: now do the real thing.
+
+42
+00:02:29.149 --> 00:02:31.629
+Everything before it is your extra step.
+
+43
+00:02:31.629 --> 00:02:34.419
+Calling it plays the role exactly as written.
+
+44
+00:02:35.333 --> 00:02:37.412
+So what did Byte Buddy hand back?
+
+45
+00:02:37.412 --> 00:02:39.994
+Which methods does the new class declare?
+
+46
+00:02:39.994 --> 00:02:43.270
+And will stage still answer, even though it's final?
+
+47
+00:02:43.270 --> 00:02:44.277
+Pause and guess.
+
+48
+00:02:47.967 --> 00:02:50.666
+Here's what the lesson's demo printed.
+
+49
+00:02:50.666 --> 00:02:55.639
+The name ends in $ByteBuddy$ and a suffix that is random on every run.
+
+50
+00:02:55.867 --> 00:02:56.522
+YUk6Nqln.
+
+51
+00:02:56.522 --> 00:03:04.963
+Byte Buddy names its costumes the way a cat walks across a keyboard, and when I ran it again, I got a different cat.
+
+52
+00:03:04.963 --> 00:03:08.601
+So the class is real, but never count on its name.
+
+53
+00:03:09.233 --> 00:03:15.981
+It declares run and check, plus an accessor for each, a helper that calls super, as we did by hand.
+
+54
+00:03:15.981 --> 00:03:17.958
+The SuperCall object uses it.
+
+55
+00:03:17.958 --> 00:03:19.935
+And stage isn't there at all.
+
+56
+00:03:19.935 --> 00:03:22.252
+Yet it still answered: main stage.
+
+57
+00:03:22.467 --> 00:03:25.679
+That's because a final method can't be overridden.
+
+58
+00:03:25.679 --> 00:03:31.333
+The subclass simply inherits it, so it runs as written, and no interceptor ever sees it.
+
+59
+00:03:32.267 --> 00:03:35.363
+That's the one rule behind every subclass proxy.
+
+60
+00:03:35.363 --> 00:03:38.137
+It can only intercept what it can override.
+
+61
+00:03:38.137 --> 00:03:40.653
+A final class can't be extended at all.
+
+62
+00:03:40.653 --> 00:03:43.362
+A final or private method runs as written.
+
+63
+00:03:43.362 --> 00:03:47.361
+And every subclass object runs the superclass constructor too.
+
+64
+00:03:48.267 --> 00:03:49.271
+Now the twist.
+
+65
+00:03:49.271 --> 00:03:54.224
+In Kotlin, classes and their members are final unless you write open.
+
+66
+00:03:54.224 --> 00:03:59.893
+The demo's last line asks Byte Buddy to sew a costume for a plain Kotlin class.
+
+67
+00:03:59.893 --> 00:04:00.826
+What happens?
+
+68
+00:04:00.826 --> 00:04:01.975
+Pause and guess.
+
+69
+00:04:04.967 --> 00:04:08.093
+Cannot subclass primitive, array or final types.
+
+70
+00:04:08.093 --> 00:04:11.871
+Kotlin locked the door, and Byte Buddy doesn't pick locks.
+
+71
+00:04:12.800 --> 00:04:15.893
+So write open on the class and on each method.
+
+72
+00:04:15.893 --> 00:04:17.977
+Or let a compiler plugin do it.
+
+73
+00:04:17.977 --> 00:04:25.641
+Kotlin's all-open plugin opens classes and their members at compile time, for classes with annotations you choose.
+
+74
+00:04:26.567 --> 00:04:28.518
+Here the costume picture breaks.
+
+75
+00:04:28.518 --> 00:04:31.993
+A costume only makes you look like the lighting operator.
+
+76
+00:04:31.993 --> 00:04:34.004
+A subclass really is a CueRunner.
+
+77
+00:04:34.004 --> 00:04:38.028
+Every caller treats it as one, so the calling code doesn't change.
+
+78
+00:04:38.933 --> 00:04:39.908
+Now the names.
+
+79
+00:04:39.908 --> 00:04:45.616
+This is a subclass proxy: a generated subclass that overrides methods to add work.
+
+80
+00:04:45.616 --> 00:04:49.306
+The object that handles each call is the interceptor.
+
+81
+00:04:49.306 --> 00:04:52.229
+Its helpers that call super are accessors.
+
+82
+00:04:53.133 --> 00:04:54.534
+Three rules of thumb.
+
+83
+00:04:54.534 --> 00:04:59.334
+Look for final first, on the class and on every method you want wrapped.
+
+84
+00:04:59.334 --> 00:05:03.268
+In Kotlin, open the class and its members, or use all-open.
+
+85
+00:05:03.268 --> 00:05:09.203
+And cglib, an older library for this job, says in its own README that it is unmaintained.
+
+86
+00:05:10.133 --> 00:05:13.707
+So, can anything stand in for a class with no interface?
+
+87
+00:05:13.707 --> 00:05:15.813
+Yes: a costume, sewn on the spot.
+
+88
+00:05:15.813 --> 00:05:21.111
+Extend the class, override what you can, add a step, then play the role as written.
+
+89
+00:05:21.111 --> 00:05:23.472
+Whatever is final stays out of reach.
+
+90
+00:05:24.400 --> 00:05:26.212
+One question is still open.
+
+91
+00:05:26.212 --> 00:05:27.689
+Who wears the costume?
+
+92
+00:05:27.689 --> 00:05:33.260
+Is the costume the actor, or a lookalike who passes each request to the real actor?
+
+93
+00:05:33.260 --> 00:05:37.355
+That decides what happens to this.check, in the next section.
+
+94
+00:05:38.267 --> 00:05:39.073
+Quick check.
+
+95
+00:05:39.073 --> 00:05:40.752
+Make check final as well.
+
+96
+00:05:40.752 --> 00:05:44.111
+What does the interceptor log for one call to run?
+
+97
+00:05:47.300 --> 00:05:48.724
+Only intercepted run.
+
+98
+00:05:48.724 --> 00:05:54.353
+Byte Buddy can't override check, so the self call runs the original check directly.

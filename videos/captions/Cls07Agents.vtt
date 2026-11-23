@@ -1,385 +1,341 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:04.710
+00:00:02.700 --> 00:00:04.709
 One last visit to the theatre.
 
 2
-00:00:04.710 --> 00:00:08.201
+00:00:04.709 --> 00:00:08.259
 A touring show uses the same prompt book every night.
 
 3
-00:00:08.201 --> 00:00:11.693
+00:00:08.259 --> 00:00:11.808
 Say the stage manager wants every lighting cue timed.
 
 4
-00:00:11.693 --> 00:00:16.371
-Nobody rewrites the script, and nobody hires a stand-in for each actor.
-
-5
-00:00:16.533 --> 00:00:22.798
+00:00:12.033 --> 00:00:18.298
 Instead, the stage manager slips a note into the prompt book before rehearsal: start a stopwatch here.
 
-6
-00:00:22.798 --> 00:00:28.387
+5
+00:00:18.298 --> 00:00:23.887
 And in an emergency, they can walk in mid-performance and paste a correction over one page.
 
-7
-00:00:29.267 --> 00:00:31.907
+6
+00:00:24.800 --> 00:00:27.440
 Here's a question that's easy to be shy about.
 
-8
-00:00:31.907 --> 00:00:36.842
+7
+00:00:27.440 --> 00:00:32.376
 Can you really change the code of a program that's already running, without a restart?
 
-9
-00:00:36.842 --> 00:00:39.655
+8
+00:00:32.376 --> 00:00:35.188
 And if you can, can you change anything you like?
 
-10
-00:00:40.733 --> 00:00:43.913
+9
+00:00:36.267 --> 00:00:39.296
 Lessons 4 and 5 added work by wrapping objects.
 
-11
-00:00:43.913 --> 00:00:47.499
+10
+00:00:39.296 --> 00:00:42.712
 That needs an interface, or a class that isn't final.
 
-12
-00:00:47.499 --> 00:00:50.544
+11
+00:00:42.712 --> 00:00:45.612
 It misses self calls when the proxy forwards.
 
-13
-00:00:50.544 --> 00:00:54.265
+12
+00:00:45.612 --> 00:00:49.157
 And it only works on objects created through the proxy.
 
-14
-00:00:54.265 --> 00:00:56.768
-Timing a method inside a library jar?
-
-15
-00:00:56.768 --> 00:00:57.648
-Out of reach.
-
-16
-00:00:58.533 --> 00:01:02.295
+13
+00:00:50.067 --> 00:00:53.829
 A Java agent works on the class instead of the object.
 
-17
-00:01:02.295 --> 00:01:05.779
+14
+00:00:53.829 --> 00:00:57.312
 It's an ordinary class with a special entry point.
 
-18
-00:01:05.779 --> 00:01:11.910
+15
+00:00:57.312 --> 00:01:03.443
 The JVM hands it an Instrumentation, the JDK's handle for watching and changing classes.
 
-19
-00:01:11.910 --> 00:01:14.069
+16
+00:01:03.443 --> 00:01:05.603
 That's the stage manager's key.
 
-20
-00:01:15.000 --> 00:01:21.470
+17
+00:01:06.533 --> 00:01:13.293
 The simplest way in is a flag: java -javaagent, then the agent's jar and its arguments.
 
-21
-00:01:21.470 --> 00:01:25.263
+18
+00:01:13.293 --> 00:01:17.256
 The JVM calls the agent's premain before your main.
 
-22
-00:01:25.263 --> 00:01:31.511
-The jar's manifest, a small text file inside it, names the class with Premain-Class.
-
-23
-00:01:32.400 --> 00:01:37.016
+19
+00:01:18.167 --> 00:01:22.797
 The first thing most agents do is register a ClassFileTransformer.
 
-24
-00:01:37.016 --> 00:01:46.599
+20
+00:01:22.797 --> 00:01:32.410
 From then on, the JVM calls its transform method with the bytes of every class it is about to define: the class files of the last lesson.
 
-25
-00:01:46.599 --> 00:01:50.795
+21
+00:01:32.410 --> 00:01:36.619
 transform returns new bytes, or null, which means no change.
 
-26
-00:01:50.795 --> 00:01:56.811
-The demo's agent only watches: it prints each class's name and size, and returns null.
+22
+00:01:36.619 --> 00:01:39.847
+Our demo agent only watches, and returns null.
 
-27
-00:01:57.733 --> 00:02:02.843
-The demo starts a second JVM with this agent, and the argument opening-night.
+23
+00:01:40.767 --> 00:01:45.564
+The demo runs a small program with this agent, and the argument opening-night.
 
-28
-00:02:02.843 --> 00:02:06.758
-The program prints main started, then uses a Ticket record.
+24
+00:01:45.564 --> 00:01:48.701
+It prints main started, then makes a Ticket record.
 
-29
-00:02:06.758 --> 00:02:09.479
+25
+00:01:48.701 --> 00:01:51.223
 When does the agent see the Ticket class?
 
-30
-00:02:09.479 --> 00:02:11.404
-Before main starts, or later?
-
-31
-00:02:11.404 --> 00:02:12.465
+26
+00:01:51.223 --> 00:01:52.207
 Pause and guess.
 
-32
-00:02:16.000 --> 00:02:18.693
+27
+00:01:55.700 --> 00:01:58.393
 Here's what it printed on JDK 25.
 
-33
-00:02:18.693 --> 00:02:23.509
+28
+00:01:58.393 --> 00:02:03.209
 premain ran first, when 890 JDK classes had already loaded.
 
-34
-00:02:23.509 --> 00:02:27.753
+29
+00:02:03.209 --> 00:02:07.453
 Then the agent saw AgentTarget, before main started.
 
-35
-00:02:27.753 --> 00:02:29.549
+30
+00:02:07.453 --> 00:02:09.249
 And the Ticket record?
 
-36
-00:02:29.549 --> 00:02:31.671
+31
+00:02:09.249 --> 00:02:11.371
 Just before its first use.
 
-37
-00:02:31.867 --> 00:02:36.839
-So 890 classes were in their seats before the agent even said hello.
+32
+00:02:11.600 --> 00:02:19.218
+So 890 classes were seated before the agent even said hello: the JDK always gets to rehearsal early.
 
-38
-00:02:36.839 --> 00:02:39.691
-The JDK always gets to rehearsal early.
+33
+00:02:19.218 --> 00:02:26.227
+But your own classes load after premain returns, so a startup agent sees almost all of them.
 
-39
-00:02:39.691 --> 00:02:48.100
-But nearly every class of your own program loads after premain returns, so a startup agent sees almost all of them.
-
-40
-00:02:48.667 --> 00:02:52.859
+34
+00:02:26.833 --> 00:02:31.000
 That's lesson 1's props, fetched only when a scene first needs them.
 
-41
-00:02:52.859 --> 00:02:57.853
-And no warning appeared: an agent named on the command line is on the guest list.
-
-42
-00:02:58.733 --> 00:03:03.629
+35
+00:02:31.933 --> 00:02:36.829
 The rule: a transformer sees each class once, as the JVM defines it.
 
-43
-00:03:03.629 --> 00:03:07.301
+36
+00:02:36.829 --> 00:02:40.501
 Register it before the classes you care about load.
 
-44
-00:03:07.467 --> 00:03:10.225
+37
+00:02:40.733 --> 00:02:43.492
 But what about a class that loaded an hour ago?
 
-45
-00:03:11.333 --> 00:03:13.733
+38
+00:02:44.567 --> 00:02:46.982
 For that, there's retransformClasses.
 
-46
-00:03:13.733 --> 00:03:20.931
-It runs the registered transformers again on classes that are already loaded, and installs the result in place.
+39
+00:02:46.982 --> 00:02:53.119
+It runs the registered transformers again on loaded classes, and installs the result in place.
 
-47
-00:03:20.931 --> 00:03:25.860
-The Class object stays the same, so every existing object sees the new code.
+40
+00:02:53.119 --> 00:02:57.493
+The Class object stays the same, so every object sees the new code.
 
-48
-00:03:26.733 --> 00:03:31.804
+41
+00:02:58.400 --> 00:03:03.515
 The second demo has a final class, StageClock, whose now returns tick.
 
-49
-00:03:31.804 --> 00:03:33.181
-It creates a clock.
+42
+00:03:03.515 --> 00:03:09.507
+It creates a clock, attaches an agent to its own JVM, and adds timing code to now.
 
-50
-00:03:33.181 --> 00:03:38.252
-Then it attaches an agent to its own JVM, and adds timing code to now.
-
-51
-00:03:38.400 --> 00:03:41.552
+43
+00:03:09.733 --> 00:03:12.885
 The clock was created before the agent existed.
 
-52
-00:03:41.552 --> 00:03:45.710
+44
+00:03:12.885 --> 00:03:17.043
 On its next call, which body runs, the old one or the new one?
 
-53
-00:03:45.710 --> 00:03:46.783
+45
+00:03:17.043 --> 00:03:18.116
 Pause and guess.
 
-54
-00:03:50.333 --> 00:03:51.597
+46
+00:03:21.600 --> 00:03:22.864
 The new one.
 
-55
-00:03:51.597 --> 00:03:52.966
+47
+00:03:22.864 --> 00:03:24.232
 Before: tick.
 
-56
-00:03:52.966 --> 00:03:59.388
+48
+00:03:24.232 --> 00:03:30.655
 Then, from inside now: StageClock.now took 14176 nanoseconds.
 
-57
-00:03:59.388 --> 00:04:00.652
+49
+00:03:30.655 --> 00:03:31.919
 After: tick.
 
-58
-00:04:00.652 --> 00:04:04.127
+50
+00:03:31.919 --> 00:03:35.393
 The same object, with no restart.
 
-59
-00:04:04.267 --> 00:04:05.447
+51
+00:03:35.600 --> 00:03:36.781
 It still says tick.
 
-60
-00:04:05.447 --> 00:04:08.181
+52
+00:03:36.781 --> 00:03:39.515
 It just has someone holding a stopwatch now.
 
-61
-00:04:08.181 --> 00:04:12.841
+53
+00:03:39.515 --> 00:03:44.175
 And its class is final, so no subclass from lesson 5 could have touched it.
 
-62
-00:04:13.733 --> 00:04:16.558
-The JDK's documentation adds three things.
+54
+00:03:45.100 --> 00:03:47.754
+The JDK's documentation adds two things.
 
-63
-00:04:16.558 --> 00:04:22.141
+55
+00:03:47.754 --> 00:03:53.261
 A call that's already running finishes on the old code; new calls get the new code.
 
-64
-00:04:22.141 --> 00:04:30.078
-The initializer doesn't run again, so static fields keep their values: lesson 1's dress rehearsal is never held twice.
+56
+00:03:53.261 --> 00:04:01.355
+And the initializer doesn't run again, so static fields keep their values: lesson 1's dress rehearsal is never held twice.
 
-65
-00:04:30.078 --> 00:04:33.643
-And if retransformation throws, no class was changed.
-
-66
-00:04:34.533 --> 00:04:36.323
+57
+00:04:02.267 --> 00:04:04.056
 There's also a hard limit.
 
-67
-00:04:36.323 --> 00:04:44.651
+58
+00:04:04.056 --> 00:04:12.385
 Retransformation must not add, remove or rename fields or methods, change signatures or modifiers, or change inheritance.
 
-68
-00:04:44.651 --> 00:04:46.854
+59
+00:04:12.385 --> 00:04:14.587
 You can rewrite what a cue says.
 
-69
-00:04:46.854 --> 00:04:49.813
+60
+00:04:14.587 --> 00:04:17.547
 You can't add a character to the cast list.
 
-70
-00:04:50.733 --> 00:04:53.360
-And here the prompt book picture breaks.
+61
+00:04:18.467 --> 00:04:20.876
+Here the prompt book picture breaks.
 
-71
-00:04:53.360 --> 00:04:57.168
-A correction pasted into one prompt book changes one copy.
+62
+00:04:20.876 --> 00:04:24.155
+A pasted correction changes one copy of the book.
 
-72
-00:04:57.168 --> 00:04:59.598
-A class exists once per class loader.
+63
+00:04:24.155 --> 00:04:31.649
+But a class exists once per class loader, so one retransformation changes every object and every caller at once.
 
-73
-00:04:59.598 --> 00:05:06.099
-So one retransformation changes the code for every object of that class, and every caller, at once.
-
-74
-00:05:06.267 --> 00:05:11.070
+64
+00:04:31.867 --> 00:04:36.670
 Retransformation swaps method bodies in place, for every caller at once.
 
-75
-00:05:11.070 --> 00:05:13.405
+65
+00:04:36.670 --> 00:04:39.005
 It never changes the class's shape.
 
-76
-00:05:14.333 --> 00:05:15.444
+66
+00:04:39.933 --> 00:04:40.980
 One more thing.
 
-77
-00:05:15.444 --> 00:05:21.143
-That demo also printed four lines of warning, because its agent arrived late.
+67
+00:04:40.980 --> 00:04:47.750
+That demo also printed four warning lines, because its agent arrived late, while the program ran.
 
-78
-00:05:21.143 --> 00:05:27.286
-Since JDK 21, the JVM prints a warning for each agent loaded into it while it runs.
+68
+00:04:47.750 --> 00:04:52.775
+The flag EnableDynamicAgentLoading, with a plus, opts in and hides them.
 
-79
-00:05:27.286 --> 00:05:33.133
-The flag EnableDynamicAgentLoading, with a plus, opts in and hides the warning.
-
-80
-00:05:34.067 --> 00:05:35.030
+69
+00:04:53.700 --> 00:04:54.664
 So, the names.
 
-81
-00:05:35.030 --> 00:05:39.643
+70
+00:04:54.664 --> 00:04:59.276
 The stage manager is the agent, and the key is the Instrumentation.
 
-82
-00:05:39.643 --> 00:05:43.980
+71
+00:04:59.276 --> 00:05:03.613
 The note slipped in before rehearsal is a ClassFileTransformer.
 
-83
-00:05:43.980 --> 00:05:47.491
+72
+00:05:03.613 --> 00:05:07.124
 The correction pasted mid-show is retransformation.
 
-84
-00:05:48.400 --> 00:05:49.444
+73
+00:05:08.033 --> 00:05:09.103
 Rules of thumb.
 
-85
-00:05:49.444 --> 00:05:53.619
+74
+00:05:09.103 --> 00:05:13.381
 To see a class as it loads, register early, with -javaagent.
 
-86
-00:05:53.619 --> 00:05:58.281
-Change bodies, never the shape: a count must live in another class.
+75
+00:05:13.381 --> 00:05:15.591
+Change bodies, never the shape.
 
-87
-00:05:58.281 --> 00:06:03.360
+76
+00:05:15.591 --> 00:05:20.796
 And if an agent arrives late, expect the warning, and decide on the flag.
 
-88
-00:06:04.267 --> 00:06:06.881
+77
+00:05:21.700 --> 00:05:24.314
 So, can you change a running program?
 
-89
-00:06:06.881 --> 00:06:12.108
+78
+00:05:24.314 --> 00:05:29.542
 Its method bodies, yes, with no restart, under objects that already exist.
 
-90
-00:06:12.108 --> 00:06:13.097
+79
+00:05:29.542 --> 00:05:30.531
 Its shape, no.
 
-91
-00:06:14.000 --> 00:06:14.932
+80
+00:05:31.433 --> 00:05:32.365
 Quick check.
 
-92
-00:06:14.932 --> 00:06:21.224
+81
+00:05:32.365 --> 00:05:38.657
 To count calls to StageClock.now, your retransformation adds a field, long calls.
 
-93
-00:06:21.224 --> 00:06:22.233
+82
+00:05:38.657 --> 00:05:39.667
 What happens?
 
-94
-00:06:25.467 --> 00:06:26.087
+83
+00:05:42.833 --> 00:05:43.454
 It can't.
 
-95
-00:06:26.087 --> 00:06:28.638
+84
+00:05:43.454 --> 00:05:46.005
 Retransformation must not add fields.
 
-96
-00:06:28.638 --> 00:06:34.361
+85
+00:05:46.005 --> 00:05:51.728
 The count must live somewhere else, such as a public class that the new code calls.
