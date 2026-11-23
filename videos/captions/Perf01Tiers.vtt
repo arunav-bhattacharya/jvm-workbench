@@ -1,93 +1,389 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.953
-javac and kotlinc don't produce machine code.
+00:00:02.733 --> 00:00:04.298
+Here's a tiny program.
 
 2
-00:00:05.953 --> 00:00:14.340
-They produce bytecode: small instructions for the JVM, which HotSpot turns into machine code while the program runs.
+00:00:04.298 --> 00:00:09.278
+It works out how long a document takes to read, at 238 words a minute.
 
 3
-00:00:14.533 --> 00:00:19.183
-This is the loop body of settle, which adds up a batch of payments.
+00:00:09.278 --> 00:00:13.190
+It does that for 20,000 documents, and times the batch.
 
 4
-00:00:19.183 --> 00:00:21.682
-Bytecode 20 is the call to feeCents.
+00:00:13.190 --> 00:00:17.102
+Then it runs the same batch again, twelve times in all.
 
 5
-00:00:21.682 --> 00:00:23.833
-Bytecode 31 tests for a refund.
+00:00:17.102 --> 00:00:18.596
+Same code, same data.
 
 6
-00:00:24.000 --> 00:00:26.009
-Nothing is compiled at first.
+00:00:18.733 --> 00:00:23.525
+The first batch takes about a thousand microseconds.
 
 7
-00:00:26.009 --> 00:00:34.808
-Every method starts in the interpreter, a loop inside the JVM that reads one bytecode instruction at a time and carries it out.
+00:00:23.525 --> 00:00:25.276
+Then 713, 682, 482.
 
 8
-00:00:35.000 --> 00:00:40.297
-Meanwhile the JVM counts the calls, and the jumps back to the top of each loop.
+00:00:25.276 --> 00:00:26.843
+A little quicker.
 
 9
-00:00:41.300 --> 00:00:47.054
-At about 200, a compiler thread compiles the method with C1, in the background.
+00:00:26.843 --> 00:00:29.515
+So what will batch five take?
 
 10
-00:00:47.054 --> 00:00:49.676
-C1 is quick, and optimizes a little.
+00:00:29.515 --> 00:00:30.713
+Make a guess.
 
 11
-00:00:49.900 --> 00:00:56.648
-Its code also records a profile: which way each branch went, and which receiver types reached each call.
+00:00:33.733 --> 00:00:34.938
+78 microseconds.
 
 12
-00:00:56.867 --> 00:01:02.830
-About 5,000 calls later, C2 compiles it again, slowly and hard, from that profile.
+00:00:34.938 --> 00:00:38.175
+Thirteen times faster than the first batch.
 
 13
-00:01:02.830 --> 00:01:10.320
-The JVM raises these thresholds when the compile queues are long, so treat them as orders of magnitude.
+00:00:38.175 --> 00:00:40.132
+And nobody changed a line.
 
 14
-00:01:10.833 --> 00:01:12.393
-C2 bets on the profile.
+00:00:40.267 --> 00:00:42.660
+Batch six is an odd one: 2,406.
 
 15
-00:01:12.393 --> 00:01:18.091
-Every receiver was a Card, so it inlines Card's feeCents behind a cheap class check.
+00:00:42.660 --> 00:00:50.997
+It showed up in most runs, even with the compiler switched off, on a machine shared by twenty busy programs.
 
 16
-00:01:18.091 --> 00:01:23.653
-The refund branch never ran, so C2 leaves it out, and puts an uncommon trap there.
+00:00:50.997 --> 00:00:52.309
+Call it a sneeze.
 
 17
-00:01:23.800 --> 00:01:25.343
-Then a refund arrives.
+00:00:52.309 --> 00:00:54.934
+One strange number is not a story.
 
 18
-00:01:25.343 --> 00:01:28.148
-The trap fires, and the JVM deoptimizes.
+00:00:54.934 --> 00:00:55.937
+The shape is.
 
 19
-00:01:28.148 --> 00:01:33.548
-It rebuilds an interpreter frame from the compiled one, and carries on there.
+00:00:56.133 --> 00:00:59.562
+So here's the question that feels too basic to ask.
 
 20
-00:01:33.767 --> 00:01:35.961
-The C2 code is made not entrant.
+00:00:59.562 --> 00:01:01.242
+Java is already compiled.
 
 21
-00:01:35.961 --> 00:01:40.692
-The method profiles again, now with refunds, and gets compiled again.
+00:01:01.242 --> 00:01:05.007
+So how can the same code get faster, just by running it?
 
 22
-00:01:40.867 --> 00:01:43.570
-A burst of this after a deploy is normal.
+00:01:06.933 --> 00:01:09.520
+Picture a new cook in a busy restaurant.
 
 23
-00:01:43.570 --> 00:01:47.131
-A steady stream, hours after startup, is worth a look.
+00:01:09.520 --> 00:01:14.307
+On day one, every dish is cooked from its recipe card, one line at a time.
+
+24
+00:01:14.467 --> 00:01:18.536
+The cook also keeps tally marks: how often each dish gets ordered.
+
+25
+00:01:18.536 --> 00:01:21.372
+Dishes ordered often earn a quick cheat sheet.
+
+26
+00:01:21.372 --> 00:01:27.415
+And next to it, the cook takes notes on the orders: who wants extra sauce, who never wants onions.
+
+27
+00:01:27.600 --> 00:01:35.993
+The house favourites get practised until the cook can make them without looking, with shortcuts based on what customers usually order.
+
+28
+00:01:35.993 --> 00:01:36.807
+Same recipes.
+
+29
+00:01:36.807 --> 00:01:39.375
+Just a lot faster by the end of the week.
+
+30
+00:01:40.267 --> 00:01:47.225
+Now let's map the kitchen onto the JVM, the program that runs your compiled Java and Kotlin.
+
+31
+00:01:47.225 --> 00:01:51.839
+javac and kotlinc don't make machine code for your processor.
+
+32
+00:01:51.839 --> 00:01:55.696
+They make bytecode: small instructions for the JVM.
+
+33
+00:01:55.696 --> 00:01:57.209
+lload pushes a long.
+
+34
+00:01:57.209 --> 00:01:59.175
+lmul multiplies two longs.
+
+35
+00:01:59.175 --> 00:02:00.915
+That's the recipe card.
+
+36
+00:02:01.067 --> 00:02:11.582
+HotSpot, the JVM in every OpenJDK build, starts every method in the interpreter: a loop that reads one bytecode at a time, and carries it out.
+
+37
+00:02:11.582 --> 00:02:13.581
+That's the cook on day one.
+
+38
+00:02:13.733 --> 00:02:21.408
+Meanwhile, the JVM keeps tally marks: how often each method is called, and how often each loop jumps back to its start.
+
+39
+00:02:21.408 --> 00:02:28.180
+When the marks pass a threshold, a compiler thread turns the method into machine code, in the background.
+
+40
+00:02:28.180 --> 00:02:30.244
+The next call runs that instead.
+
+41
+00:02:30.400 --> 00:02:35.363
+Compiling while the program runs is called just in time compiling, or the JIT.
+
+42
+00:02:35.363 --> 00:02:39.181
+Because it waits, it gets to see what your code really does.
+
+43
+00:02:40.067 --> 00:02:42.111
+HotSpot has two JIT compilers.
+
+44
+00:02:42.111 --> 00:02:45.110
+C1 compiles quickly, and optimizes a little.
+
+45
+00:02:45.110 --> 00:02:46.677
+That's the cheat sheet.
+
+46
+00:02:46.677 --> 00:02:54.515
+At tier 3, its code also takes notes, called a profile: which branches ran, and which types turned up at each call.
+
+47
+00:02:54.667 --> 00:02:58.663
+C2 compiles slowly, and optimizes hard, using those notes.
+
+48
+00:02:58.663 --> 00:03:03.555
+That's the practised dish, with shortcuts that bet on the usual orders.
+
+49
+00:03:03.733 --> 00:03:07.474
+So the normal climb is tier 0, the interpreter.
+
+50
+00:03:07.474 --> 00:03:10.259
+Then tier 3, after about 200 calls.
+
+51
+00:03:10.259 --> 00:03:13.443
+Then tier 4, C2, after about 5,000 more.
+
+52
+00:03:13.443 --> 00:03:15.034
+Loop laps count too.
+
+53
+00:03:15.034 --> 00:03:21.879
+When the compile queue is long, the JVM raises the bar, so treat these as rough sizes.
+
+54
+00:03:22.800 --> 00:03:27.509
+Now, you may have read that a method gets compiled after 10,000 calls.
+
+55
+00:03:27.509 --> 00:03:28.854
+That number is real.
+
+56
+00:03:28.854 --> 00:03:34.707
+It's called CompileThreshold, and it only applies with tiered compilation switched off.
+
+57
+00:03:34.707 --> 00:03:37.397
+Tiered has been the default since JDK 8.
+
+58
+00:03:37.533 --> 00:03:41.185
+So those blog posts weren't wrong, just old.
+
+59
+00:03:41.185 --> 00:03:46.497
+The internet remembers everything, even what stopped being true.
+
+60
+00:03:46.497 --> 00:03:51.228
+Today's numbers are 200 and 5,000, from JDK 21 to JDK 27.
+
+61
+00:03:52.133 --> 00:03:55.844
+Let's test the story by taking cooks out of the kitchen.
+
+62
+00:03:55.844 --> 00:03:57.699
+First, the interpreter only.
+
+63
+00:03:57.699 --> 00:04:01.144
+Then C1 only: cheat sheets, but no practised dishes.
+
+64
+00:04:01.144 --> 00:04:03.331
+What happens to the late batches?
+
+65
+00:04:03.331 --> 00:04:04.391
+Pause and guess.
+
+66
+00:04:07.400 --> 00:04:13.106
+Interpreter only: every batch stays between 630 and 920 microseconds.
+
+67
+00:04:13.106 --> 00:04:16.331
+This cook never stops reading the card.
+
+68
+00:04:16.467 --> 00:04:19.879
+C1 only: 69 microseconds from batch six on.
+
+69
+00:04:19.879 --> 00:04:23.925
+That's a touch faster than the full kitchen, at 78.
+
+70
+00:04:24.067 --> 00:04:24.415
+Wait.
+
+71
+00:04:24.415 --> 00:04:26.855
+C2, the expensive one, didn't help?
+
+72
+00:04:26.855 --> 00:04:27.483
+Not here.
+
+73
+00:04:27.483 --> 00:04:30.480
+That's a master chef, hired to boil an egg.
+
+74
+00:04:30.480 --> 00:04:35.639
+On a one line method, the cheat sheet is already about as good as it gets.
+
+75
+00:04:35.639 --> 00:04:40.171
+C2 earns its slow compile on bigger code, and lesson 2 shows how.
+
+76
+00:04:41.067 --> 00:04:43.917
+And here's where the kitchen picture breaks.
+
+77
+00:04:43.917 --> 00:04:45.990
+A real cook remembers yesterday.
+
+78
+00:04:45.990 --> 00:04:49.035
+A JVM forgets everything when its process ends.
+
+79
+00:04:49.035 --> 00:04:52.080
+So every restart is the cook's first day again.
+
+80
+00:04:53.000 --> 00:04:58.955
+So the same code runs at different speeds, depending on how long the JVM has watched it.
+
+81
+00:04:58.955 --> 00:05:00.715
+Never trust the first lap.
+
+82
+00:05:00.867 --> 00:05:02.152
+Three habits follow.
+
+83
+00:05:02.152 --> 00:05:05.237
+Measure after warm-up, or say it's a cold start.
+
+84
+00:05:05.237 --> 00:05:08.386
+On a busy machine, read the shape, not one batch.
+
+85
+00:05:08.386 --> 00:05:12.307
+And one call right after start is not the speed of your code.
+
+86
+00:05:13.200 --> 00:05:16.904
+The moral of the story: your code is compiled twice.
+
+87
+00:05:16.904 --> 00:05:19.753
+Once by javac or kotlinc, into bytecode.
+
+88
+00:05:19.753 --> 00:05:22.317
+And again while it runs, by the JIT.
+
+89
+00:05:22.317 --> 00:05:24.524
+The interpreter reads the card.
+
+90
+00:05:24.524 --> 00:05:27.516
+C1 writes the cheat sheet and takes notes.
+
+91
+00:05:27.516 --> 00:05:29.581
+C2 practises, with shortcuts.
+
+92
+00:05:29.733 --> 00:05:30.535
+Quick check.
+
+93
+00:05:30.535 --> 00:05:34.810
+A test starts the JVM, calls a method once, and times that call.
+
+94
+00:05:34.810 --> 00:05:38.884
+Which tier most likely ran it, and what did the test measure?
+
+95
+00:05:42.133 --> 00:05:43.804
+The interpreter, tier 0.
+
+96
+00:05:43.804 --> 00:05:46.101
+It measured the cook's first day.
+
+97
+00:05:46.101 --> 00:05:49.791
+Next, we'll ask the JVM which compiler ran, and when.

@@ -1,59 +1,59 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:06.124
+00:00:02.700 --> 00:00:06.091
 Most cues in a prompt book are complete: LX 14 GO.
 
 2
-00:00:06.124 --> 00:00:08.362
+00:00:06.091 --> 00:00:08.328
 A few say only: ask the director.
 
 3
-00:00:08.362 --> 00:00:12.770
+00:00:08.328 --> 00:00:12.736
 On the first night, the stage manager reaches that cue, and asks.
 
 4
-00:00:12.770 --> 00:00:16.703
+00:00:12.736 --> 00:00:16.670
 The director decides, and the answer goes into the margin.
 
 5
-00:00:16.703 --> 00:00:21.518
+00:00:16.670 --> 00:00:21.484
 From then on, the stage manager reads the margin, and never asks again.
 
 6
-00:00:21.518 --> 00:00:23.552
+00:00:21.484 --> 00:00:23.519
 Which suits the director fine.
 
 7
-00:00:24.467 --> 00:00:27.318
+00:00:24.433 --> 00:00:27.285
 Here's a question that's easy to be shy about.
 
 8
-00:00:27.318 --> 00:00:30.294
+00:00:27.285 --> 00:00:30.260
 Every call in my code names the method it calls.
 
 9
-00:00:30.294 --> 00:00:32.649
+00:00:30.260 --> 00:00:32.616
 So how can a call not know its target?
 
 10
-00:00:32.649 --> 00:00:36.803
+00:00:32.616 --> 00:00:36.769
 And if it has to work it out, doesn't it do that every single time?
 
 11
-00:00:37.933 --> 00:00:40.322
+00:00:37.867 --> 00:00:40.255
 Let's start from a call you know.
 
 12
-00:00:40.322 --> 00:00:44.519
+00:00:40.255 --> 00:00:44.453
 In the last lesson, main called seconds with invokestatic.
 
 13
-00:00:44.519 --> 00:00:50.743
+00:00:44.453 --> 00:00:50.677
 The instruction names its target exactly: class StackDemo, method seconds, type J I J.
 
 14
-00:00:50.743 --> 00:00:52.915
+00:00:50.677 --> 00:00:52.848
 A complete cue, like LX 14 GO.
 
 15
@@ -65,325 +65,325 @@ Now a line we write all the time.
 A method reference, IndyTour::add, stored as an IntBinaryOperator: a function that takes two ints and gives back an int.
 
 17
-00:01:04.733 --> 00:01:08.293
+00:01:04.833 --> 00:01:08.393
 javap shows what javac wrote for it: invokedynamic.
 
 18
-00:01:08.293 --> 00:01:10.177
+00:01:08.393 --> 00:01:10.277
 And look at what's missing.
 
 19
-00:01:10.177 --> 00:01:13.318
+00:01:10.277 --> 00:01:13.418
 It has a method name, applyAsInt, and a type.
 
 20
-00:01:13.318 --> 00:01:14.504
+00:01:13.418 --> 00:01:14.604
 No class to call.
 
 21
-00:01:14.504 --> 00:01:18.761
+00:01:14.604 --> 00:01:18.861
 Just a number, pointing into a table called BootstrapMethods.
 
 22
-00:01:19.667 --> 00:01:23.275
+00:01:19.767 --> 00:01:23.375
 Read the type from the point of view of the code around it.
 
 23
-00:01:23.275 --> 00:01:27.618
+00:01:23.375 --> 00:01:27.718
 Take nothing off the operand stack, and put an IntBinaryOperator on it.
 
 24
-00:01:27.618 --> 00:01:29.453
+00:01:27.718 --> 00:01:29.553
 Remember the stagehand's pile?
 
 25
-00:01:29.453 --> 00:01:31.838
+00:01:29.553 --> 00:01:31.938
 This cue says: put one new card on top.
 
 26
-00:01:31.838 --> 00:01:35.508
+00:01:31.938 --> 00:01:35.608
 How to make that card is written nowhere in your class file.
 
 27
-00:01:36.400 --> 00:01:39.347
+00:01:36.533 --> 00:01:39.481
 That's the cue that says: ask the director.
 
 28
-00:01:39.347 --> 00:01:45.311
+00:01:39.481 --> 00:01:45.444
 The director is the bootstrap method, here LambdaMetafactory.metafactory, from the JDK.
 
 29
-00:01:45.311 --> 00:01:54.084
+00:01:45.444 --> 00:01:54.217
 Below it are its static arguments: the interface method's type, the method that does the work, IndyTour.add, and the type again.
 
 30
-00:01:54.267 --> 00:01:56.568
+00:01:54.433 --> 00:01:56.734
 So what happens on the first run?
 
 31
-00:01:56.568 --> 00:02:00.263
+00:01:56.734 --> 00:02:00.430
 The JVM calls the bootstrap method, with four things.
 
 32
-00:02:00.263 --> 00:02:03.820
+00:02:00.430 --> 00:02:03.986
 A Lookup, which carries your class's access rights.
 
 33
-00:02:03.820 --> 00:02:04.447
+00:02:03.986 --> 00:02:04.614
 The name.
 
 34
-00:02:04.447 --> 00:02:05.075
+00:02:04.614 --> 00:02:05.241
 The type.
 
 35
-00:02:05.075 --> 00:02:06.957
+00:02:05.241 --> 00:02:07.124
 And those static arguments.
 
 36
-00:02:07.133 --> 00:02:12.028
+00:02:07.333 --> 00:02:12.228
 The bootstrap method returns a CallSite: an object that holds a target.
 
 37
-00:02:12.028 --> 00:02:20.438
+00:02:12.228 --> 00:02:20.638
 The target is a method handle, a typed reference to a method that the JVM can call directly, much like a function pointer.
 
 38
-00:02:20.438 --> 00:02:23.747
+00:02:20.638 --> 00:02:23.947
 The JVM links the instruction to that call site.
 
 39
-00:02:23.747 --> 00:02:25.677
+00:02:23.947 --> 00:02:25.877
 The answer is in the margin.
 
 40
-00:02:25.867 --> 00:02:28.752
+00:02:26.100 --> 00:02:28.986
 Every run after that calls the target directly.
 
 41
-00:02:28.752 --> 00:02:32.375
+00:02:28.986 --> 00:02:32.608
 The bootstrap method never runs again for that instruction.
 
 42
-00:02:32.375 --> 00:02:34.953
+00:02:32.608 --> 00:02:35.187
 The director gets the rest of the run off.
 
 43
-00:02:35.867 --> 00:02:40.777
+00:02:36.100 --> 00:02:41.011
 If invokedynamic had an honest name, it would be called invoke, ask once.
 
 44
-00:02:40.777 --> 00:02:43.603
+00:02:41.011 --> 00:02:43.836
 Dynamic sounds like it changes every time.
 
 45
-00:02:43.800 --> 00:02:46.966
+00:02:44.067 --> 00:02:47.232
 So the point is: it's decided once, at first use.
 
 46
-00:02:46.966 --> 00:02:49.808
+00:02:47.232 --> 00:02:50.075
 After that, it's as plain as any other call.
 
 47
-00:02:50.733 --> 00:02:53.099
+00:02:51.000 --> 00:02:53.366
 Let's see the answer being reused.
 
 48
-00:02:53.099 --> 00:02:56.369
+00:02:53.366 --> 00:02:56.636
 greeter returns a lambda that captures nothing.
 
 49
-00:02:56.369 --> 00:02:57.691
+00:02:56.636 --> 00:02:57.958
 Call greeter twice.
 
 50
-00:02:57.691 --> 00:02:59.083
+00:02:57.958 --> 00:02:59.349
 Same object, or two?
 
 51
-00:02:59.083 --> 00:03:00.196
+00:02:59.349 --> 00:03:00.463
 Pause and guess.
 
 52
-00:03:03.200 --> 00:03:08.303
+00:03:03.433 --> 00:03:08.536
 The lesson's IndyTour printed: captures nothing, same object both times?
 
 53
-00:03:08.303 --> 00:03:08.657
+00:03:08.536 --> 00:03:08.890
 true.
 
 54
-00:03:08.657 --> 00:03:13.972
+00:03:08.890 --> 00:03:14.205
 The call site was linked once, and its target hands back one shared object.
 
 55
-00:03:14.867 --> 00:03:16.710
+00:03:15.133 --> 00:03:16.977
 I know what you're thinking.
 
 56
-00:03:16.710 --> 00:03:19.870
+00:03:16.977 --> 00:03:20.136
 A call that doesn't know its target sounds slow.
 
 57
-00:03:19.870 --> 00:03:25.136
+00:03:20.136 --> 00:03:25.403
 But LambdaMetafactory returns a ConstantCallSite, whose target can never change.
 
 58
-00:03:25.136 --> 00:03:26.124
+00:03:25.403 --> 00:03:26.390
 Written in ink.
 
 59
-00:03:26.124 --> 00:03:34.484
+00:03:26.390 --> 00:03:34.751
 So the JIT, the compiler inside the JVM, can compile straight through it, as if the instruction had named its target all along.
 
 60
-00:03:35.400 --> 00:03:38.283
+00:03:35.667 --> 00:03:38.549
 And here the picture needs one correction.
 
 61
-00:03:38.283 --> 00:03:43.087
+00:03:38.549 --> 00:03:43.354
 A real margin note is in pencil, and a director can change their mind.
 
 62
-00:03:43.087 --> 00:03:47.068
+00:03:43.354 --> 00:03:47.335
 For languages that need that, the JDK has MutableCallSite.
 
 63
-00:03:47.267 --> 00:03:54.027
+00:03:47.567 --> 00:03:54.327
 The lesson's CallSiteDemo links a call site to inSeconds, and calls it with 120: 120 seconds.
 
 64
-00:03:54.027 --> 00:03:59.770
+00:03:54.327 --> 00:04:00.070
 It changes the target to inMinutes, and calls the very same invoker: 2 minutes.
 
 65
-00:03:59.770 --> 00:04:05.949
+00:04:00.070 --> 00:04:06.249
 Then it tries the same on a ConstantCallSite, and gets UnsupportedOperationException.
 
 66
-00:04:05.949 --> 00:04:07.112
+00:04:06.249 --> 00:04:07.412
 Linked for good.
 
 67
-00:04:08.000 --> 00:04:09.970
+00:04:08.333 --> 00:04:10.303
 Why go to all this trouble?
 
 68
-00:04:09.970 --> 00:04:14.639
+00:04:10.303 --> 00:04:14.973
 invokedynamic arrived in Java 7, for other languages on the JVM.
 
 69
-00:04:14.639 --> 00:04:17.704
+00:04:14.973 --> 00:04:18.037
 javac first used it for lambdas in Java 8.
 
 70
-00:04:17.704 --> 00:04:23.030
+00:04:18.037 --> 00:04:23.363
 It moves a decision out of your class files, and into the JDK you run on.
 
 71
-00:04:23.030 --> 00:04:29.815
+00:04:23.363 --> 00:04:30.148
 A newer JDK can do it better, and your old class files pick that up without being recompiled.
 
 72
-00:04:30.733 --> 00:04:35.516
+00:04:31.067 --> 00:04:35.849
 Kotlin compiles lambdas the same way, by default since Kotlin 2.0.
 
 73
-00:04:35.516 --> 00:04:37.907
+00:04:35.849 --> 00:04:38.240
 Here's greeter in both languages.
 
 74
-00:04:37.907 --> 00:04:40.588
+00:04:38.240 --> 00:04:40.921
 Each lambda becomes an invokedynamic.
 
 75
-00:04:41.467 --> 00:04:42.397
+00:04:41.833 --> 00:04:42.763
 Now the names.
 
 76
-00:04:42.397 --> 00:04:46.847
+00:04:42.763 --> 00:04:47.214
 The cue that says ask the director is an invokedynamic instruction.
 
 77
-00:04:46.847 --> 00:04:49.305
+00:04:47.214 --> 00:04:49.672
 The director is its bootstrap method.
 
 78
-00:04:49.305 --> 00:04:51.497
+00:04:49.672 --> 00:04:51.864
 The margin note is the call site.
 
 79
-00:04:51.497 --> 00:04:55.217
+00:04:51.864 --> 00:04:55.584
 And what's written on it is the target, a method handle.
 
 80
-00:04:56.133 --> 00:04:56.962
+00:04:56.500 --> 00:04:57.328
 A few rules.
 
 81
-00:04:56.962 --> 00:05:02.277
+00:04:57.328 --> 00:05:02.643
 One: the director is asked once per call site, that is, once per instruction.
 
 82
-00:05:02.277 --> 00:05:06.073
+00:05:02.643 --> 00:05:06.440
 Two lambdas on two lines are two cues, asked once each.
 
 83
-00:05:06.267 --> 00:05:10.556
+00:05:06.667 --> 00:05:10.956
 Two: don't avoid lambdas because you fear a lookup on every call.
 
 84
-00:05:10.556 --> 00:05:11.612
+00:05:10.956 --> 00:05:12.012
 There isn't one.
 
 85
-00:05:11.612 --> 00:05:16.958
+00:05:12.012 --> 00:05:17.358
 Three: javap shows the bootstrap method and its arguments, but not what it built.
 
 86
-00:05:16.958 --> 00:05:19.136
+00:05:17.358 --> 00:05:19.536
 To see that, you run the program.
 
 87
-00:05:20.067 --> 00:05:22.718
+00:05:20.467 --> 00:05:23.118
 So, how can a call not know its target?
 
 88
-00:05:22.718 --> 00:05:25.642
+00:05:23.118 --> 00:05:26.042
 It carries a question instead of an answer.
 
 89
-00:05:25.642 --> 00:05:30.673
+00:05:26.042 --> 00:05:31.073
 The first time it runs, the JDK answers, and the answer is written in ink.
 
 90
-00:05:30.673 --> 00:05:33.800
+00:05:31.073 --> 00:05:34.200
 An invokedynamic is linked once, at first use.
 
 91
-00:05:33.800 --> 00:05:35.908
+00:05:34.200 --> 00:05:36.308
 After that, it's a direct call.
 
 92
-00:05:36.067 --> 00:05:36.878
+00:05:36.533 --> 00:05:37.345
 Quick check.
 
 93
-00:05:36.878 --> 00:05:40.191
+00:05:37.345 --> 00:05:40.658
 A loop runs the same lambda line a million times.
 
 94
-00:05:40.191 --> 00:05:43.233
+00:05:40.658 --> 00:05:43.700
 How many times does its bootstrap method run?
 
 95
-00:05:46.267 --> 00:05:46.627
+00:05:46.667 --> 00:05:47.027
 Once.
 
 96
-00:05:46.627 --> 00:05:49.080
+00:05:47.027 --> 00:05:49.480
 The first run links the call site.
 
 97
-00:05:49.080 --> 00:05:52.111
+00:05:49.480 --> 00:05:52.511
 Every other run calls the target directly.

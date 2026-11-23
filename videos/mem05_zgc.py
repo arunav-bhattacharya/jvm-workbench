@@ -10,64 +10,32 @@ fg.SAY[:0] = [
 
 # every spoken line, in order
 N = {
-    "open": "Back in the warehouse, the last video's crew, G1, had one habit nobody could miss. Every time it moved "
-            "boxes, it called pens down, and every worker waited until the last box sat on its new shelf.",
-    "open2": "On a small floor, that takes a few milliseconds. But the wait grows with the boxes still in use. Give the "
-             "thumbnail service a cache of many gigabytes, and every pause has more to copy.",
-    "shyq": "So here's a question that's easy to be shy about. Could the crew move boxes while the workers keep "
-            "working? And if it moves my object while my thread is using it, why doesn't my thread walk to the wrong "
-            "shelf?",
-    "joke": "Moving furniture while people are still sitting on it sounds like a prank. Let's see how a crew could do "
-            "it politely.",
-    "note": "Picture a crew that leaves a forwarding note each time it moves a box. This box is now on shelf 812. A "
-            "worker who follows an old shelf number reads the note once, and corrects their own notepad.",
-    "sticker": "But how does a worker know a shelf number might be old? Every number on the notepad wears a small "
-               "colored sticker. The crew announces today's good color. A number with any other color needs a second "
-               "look.",
-    "map": "Let's map it. A box is an object. A shelf number on the notepad is a reference, the object's address. The "
-           "sticker is a few extra bits inside every reference, its color. And the second look is a few instructions "
-           "the JIT adds after every load of a reference: the load barrier.",
-    "code": "Here's the barrier, in spirit. Your line loads cache.latest. The barrier adds one test: is its color "
-            "good? Nearly always it is, and the cost is one test and one branch.",
-    "walk": "Now the crew changes the good color, and starts moving. Your thread loads the same field. Its color is old, "
-            "so the barrier takes the slow path. It finds the new address, moves the object itself if the crew hasn't "
-            "got to it yet, and writes the fixed reference back into the field.",
-    "predq": "So, the next load from that same field. What does it cost? Pause and guess.",
-    "preda": "One test and one branch again, because the color is good now. The worker read the forwarding note once, "
-             "and fixed the shelf number for good.",
-    "bend": "The picture bends in two places. ZGC doesn't leave its notes on the old shelves. It keeps them in a small "
-            "table beside each area it empties, so the old shelves can take new boxes right away.",
-    "bend2": "And a real worker reads a note only after walking to an old shelf. ZGC's check runs on every reference "
-             "load, all day, whether a move is going on or not.",
-    "bits": "The colors need room. So ZGC doesn't use lesson 1's compressed 4-byte references. Each one takes 8 bytes. "
-            "The lesson's Thumbnail takes 40 bytes under G1, and 48 under ZGC. The allocation counter agrees: 10,000 "
-            "thumbnails, 480,000 bytes.",
-    "log": "Now let's read one collection from the log: a JDK 25 run of the demo's load, on a busy 4-core machine. A "
-           "minor collection cleans only the young generation. The last line says 852 MB down to 176, in 0.071s.",
-    "logq": "So how long were your threads stopped? Seventy-one milliseconds? Pause and guess.",
-    "loga": "No. The 0.071s is the whole collection, and it ran beside your program. The stops are the three Pause "
-            "lines: 0.011, 0.015 and 0.020 ms. Together, 0.046.",
-    "joke2": "Seventy-one milliseconds of cleaning, and the workers lost less than a twentieth of one. That's quicker "
-             "than saying pens down. So the point is: in a ZGC log, the collection time is not your pause.",
-    "name": "Now the names. ZGC, the Z Garbage Collector, does concurrent relocation: it moves live objects while your "
-            "threads keep running. The sticker is called a colored pointer. The pauses only switch the crew from one "
-            "step to the next, and the java manual says they don't depend on the heap size.",
-    "versions": "Watch your flags, though. JDK 21 added generational ZGC as an option. JDK 23 made it the default, and "
-                "JDK 24 removed the old mode. So on JDK 25, -XX:+UseZGC means generational ZGC.",
-    "guard": "So the pauses are nearly gone. The work isn't. Somebody still marks and moves every live box, and "
-             "somebody runs that barrier.",
-    "guard2": "The bill has three parts. CPU: the crew's threads run beside yours. Headroom: if the floor fills before "
-              "the crew finishes, threads that want memory must wait. That's an allocation stall. In a 96 MB heap, "
-              "the demo logged 22 of them in one run, and 30 in the next. And memory: those 8-byte references.",
-    "joke3": "So the bill has a forwarding note too. Short pauses move the work. They don't remove it. Check where it "
-             "went.",
-    "moral": "So why doesn't your thread walk to the wrong shelf? Every reference wears a color, and a barrier glances "
-             "at it on every load. A stale one gets fixed once, by the thread that found it. The crew moves boxes, and "
-             "the workers keep working.",
-    "check": "Quick check. Your service runs in a container with 2 CPUs, and it's busiest at lunchtime. Are ZGC's short "
-             "pauses free?",
-    "check_a": "No. ZGC's threads compete with your request threads exactly when the service is busiest. Watch the CPU, "
-               "and the allocation stalls.",
+    'open': "Back in the warehouse, the last video's crew, G1, had one habit nobody could miss. Every time it moved boxes, it called pens down, and every worker waited until the last box sat on its new shelf.",
+    'open2': 'On a small floor, that takes a few milliseconds. But the wait grows with the boxes still in use, and a cache of many gigabytes means a long wait.',
+    'shyq': "Here's a question that's easy to be shy about. Could the crew move boxes while the workers keep working? And if it moves my object while my thread is using it, why doesn't my thread walk to the wrong shelf?",
+    'joke': "Moving furniture while people are still sitting on it sounds like a prank. Let's see how a crew could do it politely.",
+    'note': 'Picture a crew that leaves a forwarding note each time it moves a box. This box is now on shelf 812. A worker who follows an old shelf number reads the note once, and corrects their own notepad.',
+    'sticker': "But how does a worker know a shelf number might be old? Every number on the notepad wears a small colored sticker. The crew announces today's good color. A number with any other color needs a second look.",
+    'map': "Let's map it. A box is an object. A shelf number on the notepad is a reference, the object's address. The sticker is a few extra bits inside every reference, its color. And the second look is a few instructions after every load of a reference: the load barrier.",
+    'code': "Here's the barrier, in spirit. Your line loads cache.latest. The barrier adds one test: is its color good? Nearly always it is, and the cost is one test and one branch.",
+    'walk': "Now the crew changes the good color, and starts moving. Your thread loads the same field. Its color is old, so the barrier takes the slow path. It finds the new address, moves the object itself if the crew hasn't got to it yet, and writes the fixed reference back into the field.",
+    'predq': 'So, the next load from that same field. What does it cost? Pause and guess.',
+    'preda': 'One test and one branch again, because the color is good now. The worker read the forwarding note once, and fixed the shelf number for good.',
+    'bend': "The picture bends in two places. ZGC doesn't leave its notes on the old shelves. It keeps them in a small table beside each area it empties, so the old shelves can take new boxes right away.",
+    'bend2': "And a real worker reads a note only after walking to an old shelf. ZGC's check runs on every reference load, all day, whether a move is going on or not.",
+    'bits': "The colors need room. So ZGC doesn't use lesson 1's compressed 4-byte references. Each one takes 8 bytes. The lesson's Thumbnail takes 40 bytes under G1, and 48 under ZGC. The allocation counter agrees: 10,000 thumbnails, 480,000 bytes.",
+    'log': "Now let's read one collection from the log: a JDK 25 run of the demo's load, on a busy 4-core machine. A minor collection cleans only the young generation. The last line says 852 MB down to 176, in 0.071s.",
+    'logq': 'So how long were your threads stopped? Seventy-one milliseconds? Pause and guess.',
+    'loga': 'No. The 0.071s is the whole collection, and it ran beside your program. The stops are the three Pause lines: 0.011, 0.015 and 0.020 ms. Together, 0.046.',
+    'joke2': "Seventy-one milliseconds of cleaning, and the workers lost less than a twentieth of one. That's quicker than saying pens down. So the point is: in a ZGC log, the collection time is not your pause.",
+    'name': "Now the names. ZGC, the Z Garbage Collector, does concurrent relocation: it moves live objects while your threads keep running. The sticker is called a colored pointer. The pauses only switch the crew from one step to the next, and the java manual says they don't depend on the heap size.",
+    'versions': 'JDK 21 added generational ZGC as an option. JDK 23 made it the default, and JDK 24 removed the old mode. So on JDK 25, -XX:+UseZGC means generational ZGC.',
+    'guard': "So the pauses are nearly gone. The work isn't. Somebody still marks and moves every live box, and somebody runs that barrier.",
+    'guard2': "The bill has three parts. CPU: the crew's threads run beside yours. Headroom: if the floor fills before the crew finishes, threads that want memory must wait. That's an allocation stall. In a 96 MB heap, the demo logged 22 of them in one run, and 30 in the next. And memory: those 8-byte references.",
+    'joke3': "So the bill has a forwarding note too. Short pauses move the work. They don't remove it. Check where it went.",
+    'moral': "So why doesn't your thread walk to the wrong shelf? Every reference wears a color, and a barrier glances at it on every load. A stale one gets fixed once, by the thread that found it. The crew moves boxes, and the workers keep working.",
+    'check': "Quick check. Your service runs in a container with 2 CPUs, and it's busiest at lunchtime. Are ZGC's short pauses free?",
+    'check_a': "No. ZGC's threads compete with your request threads exactly when the service is busiest. Watch the CPU, and the allocation stalls.",
 }
 
 # ---- local helpers (fg.py is shared, so they live here) ----
@@ -371,7 +339,7 @@ class Mem05Zgc(Narrated):
         crew = person(CREW, 1.1).move_to([-1.0, FL + 0.45, 0])
         wkr = person(WORKER, 1.1).move_to([-5.6, FL + 0.45, 0])
         pad = notepad(["box: old shelf"], [C1], 22, 3.0).move_to([-3.4, -3.05, 0])
-        pad_t = T("worker's notepad", 20, WORKER).next_to(pad, LEFT, buff=0.2)
+        pad_t = T("worker's notepad", 20, WORKER).next_to(pad, RIGHT, buff=0.2)
         fwd = paper(["now on", "shelf 812"], 20).next_to(sa, UP, buff=0).shift(RIGHT * 0.9)
         self.say("note")
         self.play(Create(floor), FadeIn(sa), FadeIn(sb), FadeIn(la), FadeIn(lb), FadeIn(box), FadeIn(crew), FadeIn(wkr),
@@ -421,12 +389,12 @@ class Mem05Zgc(Narrated):
         gc_ = good_chip(C1).move_to([4.6, 2.75, 0])
         field = VGroup(Rectangle(width=2.8, height=1.0).set_stroke(GREY_A, 2.5).set_fill("#151515", 1))
         field.add(M("cache.latest", 22, GREY_A).next_to(field[0], UP, buff=0.1))
-        field.move_to([-4.4, -1.4, 0])
+        field.move_to([-3.7, -1.4, 0])
         ref = VGroup(M("ref", 24), sticker_dot(C1)).arrange(RIGHT, buff=0.2).move_to(field[0])
         oldo = VGroup(crate(1.2, 0.9), T("thumbnail", 20, BOX)).arrange(DOWN, buff=0.1).move_to([0.6, -1.0, 0])
         newo = VGroup(crate(1.2, 0.9), T("its new copy", 20, BOX)).arrange(DOWN, buff=0.1).move_to([4.6, -2.0, 0])
         a1 = Arrow(field[0].get_right(), oldo[0].get_left(), buff=0.1, stroke_width=3, color=WORKER, max_tip_length_to_length_ratio=0.12)
-        thr = who(WORKER, "your thread", 1.0, 20).move_to([-6.1, -1.4, 0])
+        thr = who(WORKER, "your thread", 1.0, 20).move_to([-6.0, -1.4, 0])
         self.say("code")
         self.play(FadeIn(ctitle), FadeIn(code[0]), FadeIn(cap), FadeIn(field), FadeIn(ref), FadeIn(oldo), GrowArrow(a1), FadeIn(thr), FadeIn(gc_), run_time=0.9)
         self.at(1)
@@ -531,7 +499,7 @@ class Mem05Zgc(Narrated):
         tl = Rectangle(width=11.0, height=0.5).set_stroke(CREW, 2).set_fill(dim(CREW, 0.35), 1).move_to([0, -2.35, 0])
         tl_t = T("the whole collection, 0.071 s, beside your program", 22, CREW).next_to(tl, DOWN, buff=0.12)
         x0 = tl.get_left()[0]
-        ticks = VGroup(*[Line([x0 + f * 11.0, -2.75, 0], [x0 + f * 11.0, -1.95, 0], stroke_width=4, color=BAD) for f in (0.004, 0.35, 0.36)])
+        ticks = VGroup(*[Line([x0 + f * 11.0, -2.58, 0], [x0 + f * 11.0, -2.12, 0], stroke_width=4, color=BAD) for f in (0.004, 0.35, 0.36)])
         self.say("loga")
         self.play(GrowFromEdge(tl, LEFT), FadeIn(tl_t), run_time=0.8)
         self.at(2)
@@ -580,16 +548,13 @@ class Mem05Zgc(Narrated):
         self.play(FadeIn(g1), run_time=0.6)
         self.hold()
         cards = VGroup()
-        for title, body_, c in (("CPU", "the crew's threads run beside yours", CREW),
-                                ("headroom", "a full floor makes threads wait: an allocation stall", BAD),
-                                ("memory", "8-byte references", YELLOW_M)):
-            r = RoundedRectangle(corner_radius=0.12, width=3.9, height=2.0).set_stroke(c, 3).set_fill(dim(c, 0.14), 1)
+        for title, body_, c in (("CPU", ["the crew's threads", "run beside yours"], CREW),
+                                ("headroom", ["a full floor makes", "threads wait:", "an allocation stall"], BAD),
+                                ("memory", ["8-byte references"], YELLOW_M)):
+            r = RoundedRectangle(corner_radius=0.12, width=3.9, height=2.3).set_stroke(c, 3).set_fill(dim(c, 0.14), 1)
             tt = T(title, 30, c).move_to(r.get_top() + DOWN * 0.4)
-            bb = T(body_, 22, WHITE)
-            if bb.width > 3.5:
-                words = body_.split(": ")
-                bb = VGroup(*[T(w_, 22) for w_ in (words if len(words) > 1 else [body_])]).arrange(DOWN, buff=0.1)
-            fit(bb, 3.5).move_to(r.get_center() + DOWN * 0.25)
+            bb = VGroup(*[T(w_, 24) for w_ in body_]).arrange(DOWN, buff=0.1)
+            fit(bb, 3.6).move_to(r.get_center() + DOWN * 0.3)
             cards.add(VGroup(r, tt, bb))
         cards.arrange(RIGHT, buff=0.3).move_to([0, 0.6, 0])
         stall = term(["[2.162s][info][gc       ] Allocation Stall (main) 0.895ms"], 22, "96 MB heap, JDK 25: 22 stalls in one run, 30 in the next")

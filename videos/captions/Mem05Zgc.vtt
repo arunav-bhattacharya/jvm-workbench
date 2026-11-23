@@ -1,125 +1,357 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.168
-A fraud check loads the reference in a merchant object, and follows it to a risk score.
+00:00:02.733 --> 00:00:08.221
+Back in the warehouse, the last video's crew, G1, had one habit nobody could miss.
 
 2
-00:00:08.400 --> 00:00:12.054
-To empty this region, the collector copies the risk score out.
+00:00:08.221 --> 00:00:15.717
+Every time it moved boxes, it called pens down, and every worker waited until the last box sat on its new shelf.
 
 3
-00:00:12.054 --> 00:00:14.707
-But the merchant still holds the old address.
+00:00:15.867 --> 00:00:18.809
+On a small floor, that takes a few milliseconds.
 
 4
-00:00:14.900 --> 00:00:21.840
-So the usual collector stops every thread, copies, fixes every reference, and only then lets them run.
+00:00:18.809 --> 00:00:21.690
+But the wait grows with the boxes still in use.
 
 5
-00:00:22.667 --> 00:00:28.744
-In lesson 4's G1 log, that pause took 16 ms, almost all of it copying.
+00:00:21.690 --> 00:00:27.023
+Give the thumbnail service a cache of many gigabytes, and every pause has more to copy.
 
 6
-00:00:28.744 --> 00:00:37.165
-On a 32 GB heap, a full GC can stop for seconds: an outage for a fraud check with a 20 ms budget.
+00:00:27.933 --> 00:00:30.801
+So here's a question that's easy to be shy about.
 
 7
-00:00:37.867 --> 00:00:41.457
-How could the collector move objects while the threads keep running?
+00:00:30.801 --> 00:00:34.138
+Could the crew move boxes while the workers keep working?
 
 8
-00:00:44.133 --> 00:00:45.599
-ZGC adds two things.
+00:00:34.138 --> 00:00:40.049
+And if it moves my object while my thread is using it, why doesn't my thread walk to the wrong shelf?
 
 9
-00:00:45.599 --> 00:00:50.291
-Every reference in the heap carries a few extra bits: its color.
+00:00:40.267 --> 00:00:44.467
+Moving furniture while people are still sitting on it sounds like a prank.
 
 10
-00:00:50.467 --> 00:00:54.554
-After every reference load, the JIT adds a check: the load barrier.
+00:00:44.467 --> 00:00:46.851
+Let's see how a crew could do it politely.
 
 11
-00:00:54.554 --> 00:00:58.885
-It compares that color with the one the collector calls good right now.
+00:00:47.733 --> 00:00:52.547
+Picture a crew that leaves a forwarding note each time it moves a box.
 
 12
-00:00:59.067 --> 00:01:02.124
-Nearly always they match: a test and a branch.
+00:00:52.547 --> 00:00:54.542
+This box is now on shelf 812.
 
 13
-00:01:02.333 --> 00:01:08.057
-Now the collector changes the good color, and copies the risk score while the thread runs on.
+00:00:54.542 --> 00:01:00.937
+A worker who follows an old shelf number reads the note once, and corrects their own notepad.
 
 14
-00:01:08.267 --> 00:01:12.125
-The next load sees an old color, so the barrier takes the slow path.
+00:01:01.867 --> 00:01:05.137
+But how does a worker know a shelf number might be old?
 
 15
-00:01:12.125 --> 00:01:16.664
-It finds the new address, and writes the fixed reference back into the merchant.
+00:01:05.137 --> 00:01:08.586
+Every number on the notepad wears a small colored sticker.
 
 16
-00:01:16.867 --> 00:01:19.177
-The load after that is fast again.
+00:01:08.586 --> 00:01:10.846
+The crew announces today's good color.
 
 17
-00:01:20.000 --> 00:01:34.513
-So ZGC stops threads only to handle their roots: three pauses per collection, about 0.02 ms each in the demo, while the 0.052 s collection runs beside them.
+00:01:10.846 --> 00:01:13.819
+A number with any other color needs a second look.
 
 18
-00:01:35.233 --> 00:01:39.827
-The price: 8-byte references, so a 40-byte Payment takes 48.
+00:01:14.000 --> 00:01:14.851
+Let's map it.
 
 19
-00:01:39.827 --> 00:01:42.278
-CPU for GC threads and barriers.
+00:01:14.851 --> 00:01:16.095
+A box is an object.
 
 20
-00:01:42.278 --> 00:01:45.493
-And headroom, or allocating threads stall.
+00:01:16.095 --> 00:01:20.481
+A shelf number on the notepad is a reference, the object's address.
 
 21
-00:01:46.167 --> 00:01:48.153
-Most services stay on G1.
+00:01:20.481 --> 00:01:24.802
+The sticker is a few extra bits inside every reference, its color.
 
 22
-00:01:48.153 --> 00:01:53.714
-Pick ZGC when pauses must stay under about 10 ms, and cores are spare.
+00:01:24.802 --> 00:01:31.676
+And the second look is a few instructions the JIT adds after every load of a reference: the load barrier.
 
 23
-00:01:53.714 --> 00:01:56.256
-Shenandoah makes the same trade.
+00:01:32.600 --> 00:01:34.668
+Here's the barrier, in spirit.
 
 24
-00:01:56.433 --> 00:02:02.840
-Serial fits 1 CPU, Parallel fits batch jobs, and Epsilon is only for tests.
+00:01:34.668 --> 00:01:36.668
+Your line loads cache.latest.
 
 25
-00:02:04.267 --> 00:02:13.092
-The rule: ZGC moves objects while your threads run, because a barrier on every reference load fixes stale references.
+00:01:36.668 --> 00:01:39.770
+The barrier adds one test: is its color good?
 
 26
-00:02:13.092 --> 00:02:15.053
-You pay in CPU and memory.
+00:01:39.770 --> 00:01:43.976
+Nearly always it is, and the cost is one test and one branch.
 
 27
-00:02:15.233 --> 00:02:15.956
-Quick check.
+00:01:44.133 --> 00:01:47.480
+Now the crew changes the good color, and starts moving.
 
 28
-00:02:15.956 --> 00:02:18.606
-The barrier just fixed the merchant's field.
+00:01:47.480 --> 00:01:49.488
+Your thread loads the same field.
 
 29
-00:02:18.606 --> 00:02:20.352
-What does the next load cost?
+00:01:49.488 --> 00:01:52.713
+Its color is old, so the barrier takes the slow path.
 
 30
-00:02:22.733 --> 00:02:24.233
-A test and a branch.
+00:01:52.713 --> 00:02:00.928
+It finds the new address, moves the object itself if the crew hasn't got to it yet, and writes the fixed reference back into the field.
 
 31
-00:02:24.233 --> 00:02:26.032
-Its color is good again.
+00:02:01.067 --> 00:02:03.790
+So, the next load from that same field.
+
+32
+00:02:03.790 --> 00:02:05.047
+What does it cost?
+
+33
+00:02:05.047 --> 00:02:06.164
+Pause and guess.
+
+34
+00:02:09.267 --> 00:02:12.821
+One test and one branch again, because the color is good now.
+
+35
+00:02:12.821 --> 00:02:17.365
+The worker read the forwarding note once, and fixed the shelf number for good.
+
+36
+00:02:18.267 --> 00:02:20.449
+The picture bends in two places.
+
+37
+00:02:20.449 --> 00:02:23.654
+ZGC doesn't leave its notes on the old shelves.
+
+38
+00:02:23.654 --> 00:02:31.087
+It keeps them in a small table beside each area it empties, so the old shelves can take new boxes right away.
+
+39
+00:02:31.267 --> 00:02:35.832
+And a real worker reads a note only after walking to an old shelf.
+
+40
+00:02:35.832 --> 00:02:41.712
+ZGC's check runs on every reference load, all day, whether a move is going on or not.
+
+41
+00:02:42.600 --> 00:02:44.374
+The colors need room.
+
+42
+00:02:44.374 --> 00:02:49.357
+So ZGC doesn't use lesson 1's compressed 4-byte references.
+
+43
+00:02:49.357 --> 00:02:51.300
+Each one takes 8 bytes.
+
+44
+00:02:51.300 --> 00:02:56.790
+The lesson's Thumbnail takes 40 bytes under G1, and 48 under ZGC.
+
+45
+00:02:56.790 --> 00:03:02.196
+The allocation counter agrees: 10,000 thumbnails, 480,000 bytes.
+
+46
+00:03:03.067 --> 00:03:12.724
+Now let's read one collection from the log: a JDK 25 run of the demo's load, on a busy 4-core machine.
+
+47
+00:03:12.724 --> 00:03:17.647
+A minor collection cleans only the young generation.
+
+48
+00:03:17.647 --> 00:03:22.287
+The last line says 852 MB down to 176, in 0.071s.
+
+49
+00:03:22.467 --> 00:03:24.919
+So how long were your threads stopped?
+
+50
+00:03:24.919 --> 00:03:26.532
+Seventy-one milliseconds?
+
+51
+00:03:26.532 --> 00:03:27.564
+Pause and guess.
+
+52
+00:03:30.667 --> 00:03:31.059
+No.
+
+53
+00:03:31.059 --> 00:03:39.820
+The 0.071s is the whole collection, and it ran beside your program.
+
+54
+00:03:39.820 --> 00:03:48.057
+The stops are the three Pause lines: 0.011, 0.015 and 0.020 ms.
+
+55
+00:03:48.057 --> 00:03:50.149
+Together, 0.046.
+
+56
+00:03:50.333 --> 00:03:55.955
+Seventy-one milliseconds of cleaning, and the workers lost less than a twentieth of one.
+
+57
+00:03:55.955 --> 00:03:58.319
+That's quicker than saying pens down.
+
+58
+00:03:58.319 --> 00:04:02.727
+So the point is: in a ZGC log, the collection time is not your pause.
+
+59
+00:04:03.600 --> 00:04:04.504
+Now the names.
+
+60
+00:04:04.504 --> 00:04:11.732
+ZGC, the Z Garbage Collector, does concurrent relocation: it moves live objects while your threads keep running.
+
+61
+00:04:11.732 --> 00:04:14.314
+The sticker is called a colored pointer.
+
+62
+00:04:14.314 --> 00:04:21.995
+The pauses only switch the crew from one step to the next, and the java manual says they don't depend on the heap size.
+
+63
+00:04:22.133 --> 00:04:24.674
+Watch your flags, though.
+
+64
+00:04:24.674 --> 00:04:29.044
+JDK 21 added generational ZGC as an option.
+
+65
+00:04:29.044 --> 00:04:35.143
+JDK 23 made it the default, and JDK 24 removed the old mode.
+
+66
+00:04:35.143 --> 00:04:40.123
+So on JDK 25, -XX:+UseZGC means generational ZGC.
+
+67
+00:04:41.000 --> 00:04:43.013
+So the pauses are nearly gone.
+
+68
+00:04:43.013 --> 00:04:44.020
+The work isn't.
+
+69
+00:04:44.020 --> 00:04:49.255
+Somebody still marks and moves every live box, and somebody runs that barrier.
+
+70
+00:04:49.400 --> 00:04:51.208
+The bill has three parts.
+
+71
+00:04:51.208 --> 00:04:54.174
+CPU: the crew's threads run beside yours.
+
+72
+00:04:54.174 --> 00:05:00.684
+Headroom: if the floor fills before the crew finishes, threads that want memory must wait.
+
+73
+00:05:00.684 --> 00:05:02.637
+That's an allocation stall.
+
+74
+00:05:02.637 --> 00:05:08.063
+In a 96 MB heap, the demo logged 22 of them in one run, and 30 in the next.
+
+75
+00:05:08.063 --> 00:05:10.667
+And memory: those 8-byte references.
+
+76
+00:05:11.600 --> 00:05:14.080
+So the bill has a forwarding note too.
+
+77
+00:05:14.080 --> 00:05:15.842
+Short pauses move the work.
+
+78
+00:05:15.842 --> 00:05:17.212
+They don't remove it.
+
+79
+00:05:17.212 --> 00:05:18.517
+Check where it went.
+
+80
+00:05:19.400 --> 00:05:22.426
+So why doesn't your thread walk to the wrong shelf?
+
+81
+00:05:22.426 --> 00:05:26.757
+Every reference wears a color, and a barrier glances at it on every load.
+
+82
+00:05:26.757 --> 00:05:30.139
+A stale one gets fixed once, by the thread that found it.
+
+83
+00:05:30.139 --> 00:05:33.165
+The crew moves boxes, and the workers keep working.
+
+84
+00:05:34.067 --> 00:05:34.967
+Quick check.
+
+85
+00:05:34.967 --> 00:05:40.669
+Your service runs in a container with 2 CPUs, and it's busiest at lunchtime.
+
+86
+00:05:40.669 --> 00:05:42.769
+Are ZGC's short pauses free?
+
+87
+00:05:46.000 --> 00:05:46.231
+No.
+
+88
+00:05:46.231 --> 00:05:52.698
+ZGC's threads compete with your request threads exactly when the service is busiest.
+
+89
+00:05:52.698 --> 00:05:55.855
+Watch the CPU, and the allocation stalls.
