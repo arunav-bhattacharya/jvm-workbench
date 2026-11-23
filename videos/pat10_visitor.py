@@ -561,7 +561,7 @@ class Pat10Visitor(Narrated):
         self.play(LaggedStart(*[FadeIn(x, shift=RIGHT * 0.1) for x in todo[2:]], lag_ratio=0.3), run_time=1.2)
         self.hold()
         stack = VGroup(*[Rectangle(width=1.4, height=1.8).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1).shift(RIGHT * 0.08 * i + UP * 0.08 * i) for i in range(6)])
-        stack.next_to(peas, LEFT, buff=0.8)
+        stack.scale(0.7).next_to(peas, LEFT, buff=0.8).align_to(peas, UP)
         self.say("joke2")
         self.play(LaggedStart(*[FadeIn(s_, shift=DOWN * 0.3) for s_ in stack], lag_ratio=0.15), run_time=1.0)
         self.hold()

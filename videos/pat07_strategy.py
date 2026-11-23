@@ -215,9 +215,9 @@ N = {
              "shopkeeper still holding a grudge.",
     "break2": "And two threads sorting with it at once will corrupt each other's results. So keep it pure: input in, "
               "answer out.",
-    "jdk": "The JDK hands you strategies in more places than sorting. A thread pool takes a handler that decides what "
-           "happens when its queue is full. groupingBy takes the function that decides which group each element joins. "
-           "Each time, the library owns the loop, and asks you for one decision.",
+    "jdk": "The JDK hands you strategies in more places than sorting. A thread pool takes a handler for a full queue, "
+           "and groupingBy takes the function that picks each element's group. The library owns the loop, and asks you "
+           "for one decision.",
     "guard": "So, three rules. One: keep a strategy pure. Two: when the decision needs more than one method, like book "
              "and track, write a real interface with classes. Three: even for one method, a named one-line interface, "
              "like PriceStrategy, can say more than a bare function type.",
@@ -558,9 +558,9 @@ class Pat07Strategy(Narrated):
         self.play(FadeIn(rows[0], shift=RIGHT * 0.1), run_time=0.5)
         self.at(1)
         self.play(FadeIn(rows[1], shift=RIGHT * 0.1), run_time=0.5)
-        self.at(2)
+        self.at_text("and groupingBy", lead=0.3)
         self.play(FadeIn(rows[2], shift=RIGHT * 0.1), run_time=0.5)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(own, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.wipe()

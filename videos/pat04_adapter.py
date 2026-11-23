@@ -250,7 +250,7 @@ def lbl_box(title, sub, color, w=3.4, h=1.5, mono=True):
 
 def vchip(text, color, size=22):
     t = M(text, size, WHITE)
-    r = RoundedRectangle(corner_radius=0.1, width=t.width + 0.36, height=0.56).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    r = RoundedRectangle(corner_radius=0.1, width=t.width + 0.36, height=max(0.56, t.height + 0.26)).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
     return VGroup(r, t.move_to(r))
 
 
@@ -345,7 +345,7 @@ class Pat04Adapter(Narrated):
         self.at(3)
         self.play(Indicate(so[0], color=THEIRS, scale_factor=1.05), run_time=0.6)
         self.at(4)
-        self.play(Indicate(pl[1], color=OURS, scale_factor=1.1), run_time=0.6)
+        self.play(Indicate(pl_t, color=OURS, scale_factor=1.15), run_time=0.6)
         self.at(5)
         self.play(Indicate(ad[0], color=ADAPT, scale_factor=1.1), run_time=0.7)
         self.hold()
@@ -459,7 +459,7 @@ class Pat04Adapter(Narrated):
         # ================= follow one booking =================
         lane_y = 0.6
         shopc = lbl_box("shop code", "speaks Courier", OURS, w=2.6, h=1.3, mono=False).move_to([-5.0, lane_y, 0])
-        adb = RoundedRectangle(corner_radius=0.14, width=4.0, height=3.0).set_stroke(ADAPT, 3).set_fill(dim(ADAPT, 0.1), 1).move_to([-0.6, lane_y, 0])
+        adb = RoundedRectangle(corner_radius=0.14, width=4.6, height=3.0).set_stroke(ADAPT, 3).set_fill(dim(ADAPT, 0.1), 1).move_to([-0.6, lane_y, 0])
         adb_t = M("OldCourierAdapter", 24, ADAPT).next_to(adb, UP, buff=0.12)
         oldc = lbl_box("OldCourierClient", "XML in, XML out", THEIRS, w=3.0, h=1.3).move_to([4.75, lane_y, 0])
         oldc[1][0].scale(0.85)
@@ -473,8 +473,7 @@ class Pat04Adapter(Narrated):
         self.play(FadeIn(req, shift=DOWN * 0.1), run_time=0.5)
         self.play(req.animate.move_to([-0.6, lane_y + 0.8, 0]), run_time=0.9)
         self.at(2)
-        x1 = vchip("<parcel grams='2500' to='12 Mill Lane'/>", THEIRS, 20).move_to([-0.6, lane_y + 0.8, 0])
-        x1.scale(min(1, 3.8 / x1.width))
+        x1 = vchip("<parcel grams='2500'\n  to='12 Mill Lane'/>", THEIRS, 22).move_to([-0.6, lane_y + 0.65, 0])
         self.play(Transform(req, x1), FadeIn(steps[0], shift=RIGHT * 0.1), run_time=0.9)
         self.hold()
         ans = vchip("<ok ref='R-2500'/>", THEIRS, 22).move_to([4.75, lane_y - 1.3, 0])

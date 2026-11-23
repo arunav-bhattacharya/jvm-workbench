@@ -176,7 +176,7 @@ def state_box(name, sub, color, w=3.0, h=1.4):
 
 
 def vans_box(s=1.0):
-    r = RoundedRectangle(corner_radius=0.14, width=3.0, height=1.6).set_stroke(VANS, 3).set_fill(dim(VANS, 0.16), 1)
+    r = RoundedRectangle(corner_radius=0.14, width=3.5, height=1.6).set_stroke(VANS, 3).set_fill(dim(VANS, 0.16), 1)
     van = VGroup(Rectangle(width=0.9, height=0.45).set_stroke(VANS, 2.5).set_fill(dim(VANS, 0.4), 1),
                  Rectangle(width=0.35, height=0.32).set_stroke(VANS, 2.5).set_fill(dim(VANS, 0.4), 1))
     van[1].next_to(van[0], RIGHT, buff=0).align_to(van[0], DOWN)
@@ -280,18 +280,18 @@ class Pat11CircuitBreaker(Narrated):
         self.title_card("A fuse box for the van company", "The circuit breaker: State, Decorator and compare-and-set")
 
         # ================= hook: the van company goes quiet =================
-        sh = shop(0.95).move_to([-4.7, 0.9, 0])
-        vb = vans_box().move_to([4.4, 0.9, 0])
+        sh = shop(0.95).move_to([-4.7, 0.3, 0])
+        vb = vans_box().move_to([4.35, 0.3, 0])
         wire = Line(sh.get_right() + RIGHT * 0.1, vb.get_left() + LEFT * 0.1, stroke_width=3, color=GREY_B)
-        clock10 = T("10:00, Saturday", 26, GREY_B).move_to([0, 3.0, 0])
-        queue = VGroup(*[person(ASK, 0.9) for _ in range(3)]).arrange(RIGHT, buff=0.25).move_to([-4.7, -1.6, 0])
+        clock10 = T("10:00, Saturday", 26, GREY_B).move_to([0, 2.6, 0])
+        queue = VGroup(*[person(ASK, 0.9) for _ in range(3)]).arrange(RIGHT, buff=0.25).move_to([-4.7, -2.0, 0])
         self.say("open")
         self.play(FadeIn(sh), FadeIn(vb), Create(wire), FadeIn(clock10), run_time=0.9)
         self.at(1)
         self.play(vb[0].animate.set_stroke(GREY_D), vb[1].animate.set_opacity(0.35), run_time=0.7)
         self.at(2)
         dot = Dot(radius=0.11, color=ASK).move_to(wire.get_start())
-        bar = Bar(2.4, OPENC, "2 s").move_to([0, 1.8, 0])
+        bar = Bar(2.4, OPENC, "2 s").move_to([0, 1.3, 0])
         self.play(FadeIn(dot), FadeIn(bar), run_time=0.3)
         self.play(dot.animate.move_to(wire.get_end()), run_time=0.6)
         self.play(bar.to(1.0, run_time=1.6))
@@ -324,7 +324,7 @@ class Pat11CircuitBreaker(Narrated):
         # ================= the pain: dialing and retrying =================
         def call_once(rt=1.0):
             d = Dot(radius=0.11, color=ASK).move_to(wire.get_start())
-            b = Bar(2.4, OPENC, "2 s").move_to([0, 1.8, 0])
+            b = Bar(2.4, OPENC, "2 s").move_to([0, 1.3, 0])
             self.play(FadeIn(d), FadeIn(b), run_time=0.2)
             self.play(d.animate.move_to(wire.get_end()), run_time=0.4 * rt)
             self.play(b.to(1.0, run_time=1.0 * rt))
@@ -342,7 +342,7 @@ class Pat11CircuitBreaker(Narrated):
         more = VGroup(*[person(ASK, 0.9) for _ in range(3)]).arrange(RIGHT, buff=0.25).next_to(queue, RIGHT, buff=0.25)
         self.play(LaggedStart(*[FadeIn(m_, shift=UP * 0.2) for m_ in more], lag_ratio=0.3), run_time=1.0)
         self.hold()
-        x3 = T("retry x3", 28, OPENC).move_to([-2.4, 1.8, 0])
+        x3 = T("retry x3", 28, OPENC).move_to([-2.4, 1.3, 0])
         self.say("retry")
         self.play(FadeIn(x3), run_time=0.4)
         self.at(1)
@@ -381,11 +381,11 @@ class Pat11CircuitBreaker(Narrated):
         self.hold()
 
         # ================= map it: the three states =================
-        cl = state_box("Closed", "calls go through", CLOSEDC).move_to([-1.2, 1.4, 0])
+        cl = state_box("Closed", "calls go through", CLOSEDC).move_to([-1.6, 1.4, 0])
         op = state_box("Open", "turn away at once", OPENC).move_to([3.8, 1.4, 0])
         ho = state_box("HalfOpen", "one probe", HALFC).move_to([3.8, -1.6, 0])
         a1 = Arrow(cl.get_right(), op.get_left(), buff=0.12, stroke_width=3.5, color=OPENC, max_tip_length_to_length_ratio=0.12)
-        a1t = T("a run of failures", 22, OPENC).next_to(a1, UP, buff=0.1)
+        a1t = T("a run of failures", 20, OPENC).next_to(a1, UP, buff=0.1)
         a2 = Arrow(op.get_bottom() + LEFT * 0.6, ho.get_top() + LEFT * 0.6, buff=0.1, stroke_width=3.5, color=GREY_B, max_tip_length_to_length_ratio=0.12)
         a2t = T("cool-down over", 22, GREY_A).next_to(a2, LEFT, buff=0.15)
         a3 = Arrow(ho.get_top() + RIGHT * 0.6, op.get_bottom() + RIGHT * 0.6, buff=0.1, stroke_width=3.5, color=OPENC, max_tip_length_to_length_ratio=0.12)

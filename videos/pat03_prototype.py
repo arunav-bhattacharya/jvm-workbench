@@ -560,8 +560,9 @@ class Pat03Prototype(Narrated):
                    M("constructor of a 'data class'. ... This will become an error in", 20, GREY_A),
                    M("language version 2.5.", 20, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.06)
         wt = T("the Kotlin 2.4 warning", 20, GREY_B).next_to(w, UP, buff=0.08).align_to(w, LEFT)
-        bot = VGroup(o2, VGroup(wt, w)).arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([0, -2.4, 0])
+        bot = VGroup(o2, VGroup(wt, w)).arrange(DOWN, aligned_edge=LEFT, buff=0.4).move_to([0, -0.3, 0])
         self.say("trap2b")
+        self.play(FadeOut(VGroup(ec[0], ec[1][:9])), ec[1][9].animate.move_to([0, 2.6, 0]), run_time=0.7)
         self.play(FadeIn(o2, shift=UP * 0.1), run_time=0.6)
         self.at(1)
         self.play(FadeIn(VGroup(wt, w)), run_time=0.7)

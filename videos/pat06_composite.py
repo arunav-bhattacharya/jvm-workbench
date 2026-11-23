@@ -533,7 +533,7 @@ class Pat06Composite(Narrated):
         tl = Line(tape[0].get_corner(UL), tape[0].get_corner(UR), stroke_width=8, color=dim(BOXC, 0.8))
         taped = T("taped shut: can't change", 22, BOXC).next_to(tape, DOWN, buff=0.2)
         lst = paper(["extras = [tea]"], 24).move_to([2.2, FL + 1.6, 0])
-        holder = who(GREY_A, "someone else", 1.0, 20).next_to(lst, RIGHT, buff=0.5)
+        holder = who(GREY_A, "someone else", 1.0, 20).move_to([-0.6, FL + 1.45, 0])
         smb = crate(2.0, 1.1).move_to([2.2, FL - 0.5, 0])
         smt = T("small box", 22, BOXC).next_to(smb, DOWN, buff=0.15)
         lk = DashedLine(lst.get_bottom(), smb[0].get_top() + UP * 0.25, dash_length=0.08, stroke_width=2, color=GREY_B)

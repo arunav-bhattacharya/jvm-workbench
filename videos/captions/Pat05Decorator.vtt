@@ -1,441 +1,413 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:06.370
+00:00:02.700 --> 00:00:06.337
 A customer at the corner shop buys a teapot as a present.
 
 2
-00:00:06.370 --> 00:00:12.112
+00:00:06.337 --> 00:00:12.079
 The shopkeeper puts it in a box, wraps the box in gift paper, and ties a ribbon around it.
 
 3
-00:00:12.267 --> 00:00:20.452
+00:00:12.300 --> 00:00:20.360
 Then the rider from Pedal Post, the town's bike courier, weighs it, scans the label, and rides off, quite unmoved by the bow.
 
 4
-00:00:20.452 --> 00:00:22.743
+00:00:20.360 --> 00:00:22.617
 A wrapped parcel is still a parcel.
 
 5
-00:00:22.743 --> 00:00:25.428
-The courier handles it exactly as before.
-
-6
-00:00:26.333 --> 00:00:29.248
+00:00:23.533 --> 00:00:26.323
 Here's a question that's easy to be shy about.
 
-7
-00:00:29.248 --> 00:00:35.331
+6
+00:00:26.323 --> 00:00:32.144
 If each layer of wrapping just passes the parcel on, does it matter what order the layers go in?
 
+7
+00:00:32.144 --> 00:00:34.327
+We'll answer that with real numbers.
+
 8
-00:00:35.331 --> 00:00:36.344
-Hold on to that.
-
-9
-00:00:36.344 --> 00:00:38.499
-We'll answer it with real numbers.
-
-10
-00:00:39.600 --> 00:00:42.673
+00:00:35.400 --> 00:00:38.473
 The shop charges for every parcel it sends.
 
-11
-00:00:42.673 --> 00:00:44.388
+9
+00:00:38.473 --> 00:00:40.188
 0.50 for each kilometer.
 
-12
-00:00:44.388 --> 00:00:45.389
+10
+00:00:40.188 --> 00:00:41.189
 2.00 to start.
 
-13
-00:00:45.389 --> 00:00:48.248
+11
+00:00:41.189 --> 00:00:44.048
 3.00 more for a parcel over 5 kilograms.
 
-14
-00:00:48.248 --> 00:00:50.535
+12
+00:00:44.048 --> 00:00:46.335
 And never more than 8.00 in all.
 
-15
-00:00:50.733 --> 00:00:54.439
+13
+00:00:46.567 --> 00:00:50.281
 The easy way is one big method that knows all four rules.
 
-16
-00:00:54.439 --> 00:00:56.324
-But these rules change often.
+14
+00:00:50.281 --> 00:00:55.689
+But these rules change often, and every change means opening that one method again.
 
-17
-00:00:56.324 --> 00:01:01.655
-Every change means opening that one method, and hoping the other three still work.
-
-18
-00:01:01.800 --> 00:01:07.951
+15
+00:00:55.900 --> 00:01:02.051
 Wouldn't it be nice if each rule were a piece we could add, remove, or move, without touching the others?
 
-19
-00:01:08.867 --> 00:01:10.554
+16
+00:01:02.967 --> 00:01:04.654
 That's the gift wrap again.
 
-20
-00:01:10.554 --> 00:01:14.617
+17
+00:01:04.654 --> 00:01:08.717
 Give each rule its own small layer that wraps the rule before it.
 
-21
-00:01:14.617 --> 00:01:18.055
+18
+00:01:08.717 --> 00:01:12.155
 In the middle sits the parcel: the price per kilometer.
 
-22
-00:01:18.055 --> 00:01:20.742
+19
+00:01:12.155 --> 00:01:14.842
 Around it, a layer that adds 2.00 to start.
 
-23
-00:01:20.742 --> 00:01:22.430
+20
+00:01:14.842 --> 00:01:16.530
 Then one for heavy parcels.
 
-24
-00:01:22.430 --> 00:01:24.117
+21
+00:01:16.530 --> 00:01:18.217
 And the cap on the outside.
 
-25
-00:01:24.267 --> 00:01:25.082
+22
+00:01:18.433 --> 00:01:19.266
 Let's map it.
 
-26
-00:01:25.082 --> 00:01:28.219
+23
+00:01:19.266 --> 00:01:22.468
 The parcel in the middle is the first rule, perKm.
 
-27
-00:01:28.219 --> 00:01:30.541
+24
+00:01:22.468 --> 00:01:24.838
 Each sheet of paper is one more rule.
 
-28
-00:01:30.541 --> 00:01:33.803
+25
+00:01:24.838 --> 00:01:28.169
 And the courier is the code that asks for the price.
 
-29
-00:01:33.803 --> 00:01:42.775
-It only talks to the outside, and it can't tell how many layers there are, because every layer answers the same one question: what do you cost?
+26
+00:01:28.169 --> 00:01:34.445
+It only talks to the outside, because every layer answers the same one question: what do you cost?
 
-30
-00:01:43.467 --> 00:01:45.714
+27
+00:01:35.167 --> 00:01:37.414
 Let's watch one question travel.
 
-31
-00:01:45.714 --> 00:01:48.664
+28
+00:01:37.414 --> 00:01:40.364
 A 12 kilogram parcel, going 20 kilometers.
 
-32
-00:01:48.664 --> 00:01:53.159
+29
+00:01:40.364 --> 00:01:44.859
 The question goes in, layer by layer, all the way to the middle.
 
-33
-00:01:53.159 --> 00:01:55.547
+30
+00:01:44.859 --> 00:01:47.247
 20 kilometers at 0.50 makes 10.00.
 
-34
-00:01:55.733 --> 00:01:58.905
+31
+00:01:47.467 --> 00:01:50.639
 On the way back out, each layer adds its rule.
 
-35
-00:01:58.905 --> 00:02:00.698
+32
+00:01:50.639 --> 00:01:52.431
 Plus 2.00 to start: 12.00.
 
-36
-00:02:00.698 --> 00:02:02.905
+33
+00:01:52.431 --> 00:01:54.638
 It's heavy, so plus 3.00: 15.00.
 
-37
-00:02:02.905 --> 00:02:05.387
+34
+00:01:54.638 --> 00:01:57.120
 And the cap says: no more than 8.00.
 
-38
-00:02:05.387 --> 00:02:07.180
+35
+00:01:57.120 --> 00:01:58.913
 So the courier hears 8.00.
 
-39
-00:02:07.733 --> 00:02:08.464
+36
+00:01:59.533 --> 00:02:00.264
 Your turn.
 
-40
-00:02:08.464 --> 00:02:11.531
+37
+00:02:00.264 --> 00:02:03.331
 Two more parcels, both going 4 kilometers.
 
-41
-00:02:11.531 --> 00:02:14.744
+38
+00:02:03.331 --> 00:02:06.544
 One weighs 2 kilograms, the other weighs 12.
 
-42
-00:02:14.744 --> 00:02:16.497
+39
+00:02:06.544 --> 00:02:08.297
 What does each one cost?
 
-43
-00:02:16.497 --> 00:02:17.665
+40
+00:02:08.297 --> 00:02:09.465
 Pause and guess.
 
-44
-00:02:20.867 --> 00:02:24.101
+41
+00:02:12.633 --> 00:02:15.868
 The light one: 2.00 plus 4 times 0.50, so 4.00.
 
-45
-00:02:24.101 --> 00:02:26.785
+42
+00:02:15.868 --> 00:02:18.552
 The heavy one also pays the 3.00: 7.00.
 
-46
-00:02:26.785 --> 00:02:31.809
+43
+00:02:18.552 --> 00:02:23.576
 Neither one reaches 8.00, so the cap lets both answers through untouched.
 
-47
-00:02:32.733 --> 00:02:34.000
+44
+00:02:24.500 --> 00:02:25.767
 Here it is in code.
 
-48
-00:02:34.000 --> 00:02:39.401
+45
+00:02:25.767 --> 00:02:31.168
 Each rule is a small method that returns a new price, wrapped around the old one.
 
-49
-00:02:39.401 --> 00:02:42.602
+46
+00:02:31.168 --> 00:02:34.369
 In Java, it's a default method on the interface.
 
-50
-00:02:42.602 --> 00:02:44.803
+47
+00:02:34.369 --> 00:02:36.569
 In Kotlin, an extension function.
 
-51
-00:02:44.803 --> 00:02:50.537
+48
+00:02:36.569 --> 00:02:42.304
 Read the chain from the inside out: perKm is the parcel, and each call adds one layer.
 
-52
-00:02:50.733 --> 00:02:54.531
+49
+00:02:42.533 --> 00:02:46.331
 The tricky part is the bare cents of d, inside the layer.
 
-53
-00:02:54.531 --> 00:02:57.863
+50
+00:02:46.331 --> 00:02:49.663
 It means: first, ask the price I'm wrapped around.
 
-54
-00:02:57.863 --> 00:02:59.396
+51
+00:02:49.663 --> 00:02:51.196
 Then apply my one rule.
 
-55
-00:02:59.396 --> 00:03:01.661
+52
+00:02:51.196 --> 00:02:53.461
 The price inside is never changed.
 
-56
-00:03:03.267 --> 00:03:05.149
+53
+00:02:55.067 --> 00:02:56.821
 Now, back to our question.
 
-57
-00:03:05.149 --> 00:03:10.433
+54
+00:02:56.821 --> 00:03:01.745
 Let's move the cap one place in, so it sits inside the heavy parcel rule.
 
-58
-00:03:10.433 --> 00:03:13.618
+55
+00:03:01.745 --> 00:03:04.713
 Both chains compile, and both read sensibly.
 
-59
-00:03:13.618 --> 00:03:16.586
-Same parcel: 12 kilograms, 20 kilometers.
+56
+00:03:04.713 --> 00:03:07.951
+Does anything change, for the same heavy parcel?
 
-60
-00:03:16.586 --> 00:03:18.106
-Does anything change?
-
-61
-00:03:18.106 --> 00:03:19.264
+57
+00:03:07.951 --> 00:03:09.031
 Pause and guess.
 
-62
-00:03:22.467 --> 00:03:23.844
+58
+00:03:12.200 --> 00:03:13.578
 Watch the way out.
 
-63
-00:03:23.844 --> 00:03:24.304
+59
+00:03:13.578 --> 00:03:14.037
 10.00.
 
-64
-00:03:24.304 --> 00:03:25.758
+60
+00:03:14.037 --> 00:03:15.491
 Plus 2.00 is 12.00.
 
-65
-00:03:25.758 --> 00:03:28.666
+61
+00:03:15.491 --> 00:03:18.399
 Now the cap comes first: down to 8.00.
 
-66
-00:03:28.666 --> 00:03:32.569
+62
+00:03:18.399 --> 00:03:22.303
 And then the heavy parcel rule lands on top: 11.00.
 
-67
-00:03:33.467 --> 00:03:33.820
+63
+00:03:23.233 --> 00:03:23.586
 Well.
 
-68
-00:03:33.820 --> 00:03:39.608
+64
+00:03:23.586 --> 00:03:29.374
 That's 1,100 cents, for a parcel the shop promised would never cost more than 800.
 
-69
-00:03:39.608 --> 00:03:44.196
+65
+00:03:29.374 --> 00:03:33.963
 The same four pieces, two of them swapped, and a different price.
 
-70
-00:03:45.067 --> 00:03:48.679
+66
+00:03:34.867 --> 00:03:38.479
 A cap on the inside should really be called capped, for now.
 
-71
-00:03:48.679 --> 00:03:52.653
+67
+00:03:38.479 --> 00:03:42.453
 It caps what it sees, and every layer outside it still gets a say.
 
-72
-00:03:52.800 --> 00:03:55.619
+68
+00:03:42.667 --> 00:03:45.485
 Jokes aside, the gift wrap predicted this.
 
-73
-00:03:55.619 --> 00:03:58.303
+69
+00:03:45.485 --> 00:03:48.170
 A ribbon tied under the paper is hidden.
 
-74
-00:03:58.303 --> 00:04:00.585
+70
+00:03:48.170 --> 00:03:50.452
 The outer layer has the last word.
 
-75
-00:04:01.467 --> 00:04:03.329
+71
+00:03:51.367 --> 00:03:53.229
 And here the picture breaks.
 
-76
-00:04:03.329 --> 00:04:04.592
+72
+00:03:53.229 --> 00:03:54.492
 Paper can only add.
 
-77
-00:04:04.592 --> 00:04:08.050
+73
+00:03:54.492 --> 00:03:57.950
 A layer of code can also take away, as the cap does.
 
-78
-00:04:08.050 --> 00:04:11.840
+74
+00:03:57.950 --> 00:04:01.740
 It could even decide not to ask the parcel inside at all.
 
-79
-00:04:12.733 --> 00:04:13.610
+75
+00:04:02.667 --> 00:04:03.543
 Now the name.
 
-80
-00:04:13.610 --> 00:04:22.443
+76
+00:04:03.543 --> 00:04:12.376
 An object with the same interface as the object it wraps, which does one extra thing and passes the call on, is called a decorator.
 
-81
-00:04:22.443 --> 00:04:24.465
+77
+00:04:12.376 --> 00:04:14.399
 Each rule here is a decorator.
 
-82
-00:04:25.333 --> 00:04:28.705
+78
+00:04:15.300 --> 00:04:18.672
 Decorators wrap behavior too, not just arithmetic.
 
-83
-00:04:28.705 --> 00:04:35.178
+79
+00:04:18.672 --> 00:04:25.145
 Big Blue Vans has a booking line that's busy twice, and then books, as booking lines tend to be.
 
-84
-00:04:35.178 --> 00:04:38.887
+80
+00:04:25.145 --> 00:04:28.854
 One decorator, Logging, writes down every call it sees.
 
-85
-00:04:38.887 --> 00:04:41.787
+81
+00:04:28.854 --> 00:04:31.753
 Another, Retrying, tries up to three times.
 
-86
-00:04:41.933 --> 00:04:44.173
+82
+00:04:31.967 --> 00:04:34.206
 Put them together, in both orders.
 
-87
-00:04:44.173 --> 00:04:46.873
+83
+00:04:34.206 --> 00:04:36.906
 How many log lines does each order write?
 
-88
-00:04:46.873 --> 00:04:47.927
+84
+00:04:36.906 --> 00:04:37.960
 Pause and guess.
 
-89
-00:04:51.133 --> 00:04:57.199
+85
+00:04:41.133 --> 00:04:46.854
 With Retrying outside, Logging sits inside the loop, and sees every attempt: 3 lines.
 
-90
-00:04:57.199 --> 00:05:02.479
+86
+00:04:46.854 --> 00:04:51.835
 With Logging outside, it sees only the one booking that came back: 1 line.
 
-91
-00:05:02.479 --> 00:05:05.191
-The same booking, BB-1250, both times.
+87
+00:04:51.835 --> 00:04:52.979
+Neither is wrong.
 
-92
-00:05:05.333 --> 00:05:09.768
-So the inner layer sees every try, and the outer layer sees one answer.
-
-93
-00:05:09.768 --> 00:05:11.205
-Neither order is wrong.
-
-94
-00:05:11.205 --> 00:05:13.204
+88
+00:04:52.979 --> 00:04:55.133
 They answer different questions.
 
-95
-00:05:14.133 --> 00:05:17.755
-The JDK has stacked decorators like this for decades.
+89
+00:04:56.033 --> 00:05:06.420
+The JDK has stacked decorators like this for decades: a DataOutputStream, around a BufferedOutputStream, around a GZIPOutputStream, around a file.
 
-96
-00:05:17.755 --> 00:05:28.075
-A DataOutputStream, around a BufferedOutputStream, around a GZIPOutputStream: three wrappers around one stream, a place where bytes go, such as a file.
+90
+00:05:06.420 --> 00:05:10.831
+Each one adds one thing: typed writes, buffering, compression.
 
-97
-00:05:28.075 --> 00:05:32.585
-Each wrapper adds one thing: typed writes, buffering, compression.
-
-98
-00:05:33.467 --> 00:05:34.516
+91
+00:05:11.733 --> 00:05:12.776
 So, three rules.
 
-99
-00:05:34.516 --> 00:05:42.059
-One: the order of the layers is part of the behavior, so pin it in a test, as the lab's tests pin all three prices.
+92
+00:05:12.776 --> 00:05:16.817
+One: the order of the layers is behavior, so pin it in a test.
 
-100
-00:05:42.059 --> 00:05:45.733
+93
+00:05:16.817 --> 00:05:20.467
 Two: keep each layer to one extra thing, so it can move.
 
-101
-00:05:45.733 --> 00:05:51.243
-Three: when a layer takes away, like the cap, ask which layers should come after it.
+94
+00:05:20.467 --> 00:05:25.029
+Three: when a layer takes away, like the cap, ask what comes after it.
 
-102
-00:05:52.133 --> 00:05:54.926
+95
+00:05:25.933 --> 00:05:28.726
 So, does the order of the wrapping matter?
 
-103
-00:05:54.926 --> 00:05:55.192
+96
+00:05:28.726 --> 00:05:28.992
 Yes.
 
-104
-00:05:55.192 --> 00:05:59.712
+97
+00:05:28.992 --> 00:05:33.512
 Every layer passes the call on, but the outer one has the last word.
 
-105
-00:05:59.712 --> 00:06:03.701
+98
+00:05:33.512 --> 00:05:37.501
 The same four pieces gave 8.00 one way, and 11.00 the other.
 
-106
-00:06:03.867 --> 00:06:04.635
+99
+00:05:37.733 --> 00:05:38.501
 Quick check.
 
-107
-00:06:04.635 --> 00:06:08.602
+100
+00:05:38.501 --> 00:05:42.468
 Say the log feeds a chart of how many bookings the shop makes.
 
-108
-00:06:08.602 --> 00:06:10.137
+101
+00:05:42.468 --> 00:05:44.004
 Which order do you want?
 
-109
-00:06:13.400 --> 00:06:15.978
+102
+00:05:47.200 --> 00:05:49.778
 Logging outside: one line per booking.
 
-110
-00:06:15.978 --> 00:06:21.541
+103
+00:05:49.778 --> 00:05:55.341
 To see how often the line is busy, put it inside, where both busy signals show up.
