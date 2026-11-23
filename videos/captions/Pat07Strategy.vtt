@@ -1,165 +1,377 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.489
-Three payment providers quote for one payment.
+00:00:02.700 --> 00:00:05.762
+Every parcel leaves the corner shop the same way.
 
 2
-00:00:06.489 --> 00:00:09.536
-Northpay: 30 cents, 200 milliseconds.
+00:00:05.762 --> 00:00:09.074
+Weigh it, choose a courier, book it, print the label.
 
 3
-00:00:09.536 --> 00:00:12.583
-Adyx: 25 cents, but 900 milliseconds.
+00:00:09.074 --> 00:00:10.699
+Only the choosing changes.
 
 4
-00:00:12.583 --> 00:00:15.548
-Kestrel: 30 cents, 120 milliseconds.
+00:00:10.900 --> 00:00:14.321
+Most days, the shopkeeper picks the cheapest courier.
 
 5
-00:00:15.700 --> 00:00:18.123
-Which one does the router try first?
+00:00:14.321 --> 00:00:16.452
+For an urgent order, the fastest.
 
 6
-00:00:18.123 --> 00:00:19.604
-Finance says cheapest.
+00:00:16.452 --> 00:00:18.195
+And in heavy rain, the van.
 
 7
-00:00:19.604 --> 00:00:21.893
-The on-call engineer says fastest.
+00:00:19.100 --> 00:00:21.887
+Here's a question that's easy to be shy about.
 
 8
-00:00:21.893 --> 00:00:24.047
-Next month, someone wants a mix.
+00:00:21.887 --> 00:00:26.976
+Pattern books draw Strategy as an interface, with a class for every way of choosing.
 
 9
-00:00:24.200 --> 00:00:28.116
-You could write every opinion into the router, as an if-else chain.
+00:00:26.976 --> 00:00:29.339
+Do we really need a class for each one?
 
 10
-00:00:28.116 --> 00:00:33.728
-Then each new one is another branch, in the same code that loops over the quotes and swaps them.
+00:00:30.433 --> 00:00:33.386
+Let's start with the version most of us write.
 
 11
-00:00:33.933 --> 00:00:39.990
-But ordering only ever asks one question, about two quotes at a time: which goes first?
+00:00:33.386 --> 00:00:37.365
+One method for the whole routine, with the choosing inside it.
 
 12
-00:00:39.990 --> 00:00:41.312
-The answer changes.
+00:00:37.365 --> 00:00:38.713
+If cheapest, do this.
 
 13
-00:00:41.312 --> 00:00:42.913
-The looping never does.
+00:00:38.713 --> 00:00:40.317
+Else if fastest, do that.
 
 14
-00:00:43.100 --> 00:00:44.026
-So split them.
+00:00:40.317 --> 00:00:42.243
+Else if it's raining, the van.
 
 15
-00:00:44.026 --> 00:00:48.788
-One general sort does the looping, and the answer plugs in from outside.
+00:00:42.467 --> 00:00:46.924
+Every new way to choose adds a branch, right in the middle of the routine.
 
 16
-00:00:49.000 --> 00:00:52.135
-Plug in cheapest: Adyx moves to the front.
+00:00:46.924 --> 00:00:53.189
+The weighing and the labels have nothing to do with it, and still, it's their method we edit every time.
 
 17
-00:00:52.135 --> 00:00:54.450
-Swap in fastest: Kestrel leads.
+00:00:53.400 --> 00:00:58.057
+Wouldn't it be nice to hand the shopkeeper today's rule, and leave the routine alone?
 
 18
-00:00:54.450 --> 00:00:56.167
-The sort never changed.
+00:00:58.967 --> 00:01:00.416
+Picture it like this.
 
 19
-00:00:56.367 --> 00:00:57.962
-That plug is a strategy.
+00:01:00.416 --> 00:01:05.594
+The routine hangs on a card behind the counter: weigh, choose, book, label.
 
 20
-00:00:57.962 --> 00:01:03.612
-The sort that uses it is the context, and the caller picks the strategy, at run time.
+00:01:05.594 --> 00:01:07.941
+The choose step has an empty slot.
 
 21
-00:01:03.800 --> 00:01:06.946
-Now plug in cheapest, then fastest for ties.
+00:01:07.941 --> 00:01:12.083
+Each morning, someone drops a small rule card into the slot.
 
 22
-00:01:06.946 --> 00:01:08.519
-What order do you get?
+00:01:12.083 --> 00:01:13.188
+Cheapest, today.
 
 23
-00:01:08.519 --> 00:01:10.092
-Pause and work it out.
+00:01:13.188 --> 00:01:14.431
+Tomorrow, fastest.
 
 24
-00:01:12.467 --> 00:01:13.908
-Adyx first, at 25.
+00:01:14.633 --> 00:01:15.497
+Let's map it.
 
 25
-00:01:13.908 --> 00:01:19.755
-Northpay and Kestrel tie at 30, so speed decides: Kestrel, then Northpay.
+00:01:15.497 --> 00:01:18.751
+The routine card is the code that owns the steps.
 
 26
-00:01:19.967 --> 00:01:25.214
-In the 1994 Design Patterns book, each plug was a class with one method.
+00:01:18.751 --> 00:01:22.736
+The small rule card is one decision, passed in from outside.
 
 27
-00:01:25.214 --> 00:01:29.879
-Since Java 8, a lambda or a method reference is the whole class.
+00:01:22.736 --> 00:01:27.119
+And the routine only ever asks the rule card one kind of question.
 
 28
-00:01:30.567 --> 00:01:34.134
-In code, each plug is one line, in Java and in Kotlin.
+00:01:28.033 --> 00:01:30.303
+Java's sort works exactly like this.
 
 29
-00:01:34.134 --> 00:01:37.833
-The second call chains the tie-breaker behind the first.
+00:01:30.303 --> 00:01:33.328
+It owns the routine for putting a list in order.
 
 30
-00:01:38.533 --> 00:01:43.069
-A fee rule has the same shape: one method, from a payment to a fee.
+00:01:33.328 --> 00:01:37.236
+It leaves one decision to you: of these two, which goes first?
 
 31
-00:01:43.069 --> 00:01:45.777
-Java names it with a one-line interface.
+00:01:37.236 --> 00:01:40.199
+The object that answers is called a comparator.
 
 32
-00:01:45.777 --> 00:01:48.281
-In Kotlin, a function type is enough.
+00:01:41.100 --> 00:01:46.455
+Let's shrink it to three couriers, each with a price and a delivery time.
 
 33
-00:01:49.000 --> 00:01:52.955
-Template Method, the other half of this lesson, has a hole too.
+00:01:46.455 --> 00:01:48.875
+Pedal Post: 4.50, and 30 minutes.
 
 34
-00:01:52.955 --> 00:01:56.596
-A base class fixes the steps, and a subclass fills one in.
+00:01:48.875 --> 00:01:51.516
+Big Blue Vans: 3.50, and 90 minutes.
 
 35
-00:01:56.596 --> 00:01:59.985
-Modern code passes that step in as a function instead.
+00:01:51.516 --> 00:01:55.697
+And Kestrel, a new courier in town: 4.50, and 20 minutes.
 
 36
-00:02:00.767 --> 00:02:07.515
-The rule: keep the steps in one place, and pass in the one decision that varies, usually as a lambda.
+00:01:55.900 --> 00:01:57.858
+Sort them cheapest first.
 
 37
-00:02:08.233 --> 00:02:09.282
-A quick check.
+00:01:57.858 --> 00:01:59.894
+Big Blue Vans leads, easy.
 
 38
-00:02:09.282 --> 00:02:14.151
-A fourth provider, Bluefin, quotes 25 cents and 150 milliseconds.
+00:01:59.894 --> 00:02:03.184
+But Pedal Post and Kestrel both cost 4.50.
 
 39
-00:02:14.151 --> 00:02:17.597
-With cheapest, then fastest, where does it go?
+00:02:03.184 --> 00:02:04.515
+Who comes second?
 
 40
-00:02:19.567 --> 00:02:20.089
-First.
+00:02:04.515 --> 00:02:05.768
+Pause and guess.
 
 41
-00:02:20.089 --> 00:02:23.313
-It ties Adyx on fee, and it's faster.
+00:02:08.967 --> 00:02:12.354
+The demo prints: Big Blue Vans, Pedal Post, Kestrel.
+
+42
+00:02:12.354 --> 00:02:16.915
+If you guessed Kestrel, because K comes before P, that's a fair guess.
+
+43
+00:02:16.915 --> 00:02:17.892
+And it's wrong.
+
+44
+00:02:17.892 --> 00:02:20.172
+The sort never looked at the names.
+
+45
+00:02:20.400 --> 00:02:24.691
+Pedal Post was ahead of Kestrel in the list, so it stays ahead.
+
+46
+00:02:24.691 --> 00:02:29.458
+The JDK's sort is stable: it never swaps two items that compare equal.
+
+47
+00:02:29.458 --> 00:02:31.705
+A tie keeps the order it came in.
+
+48
+00:02:31.933 --> 00:02:33.578
+Now swap the rule card.
+
+49
+00:02:33.578 --> 00:02:37.152
+Fastest first: Kestrel, Pedal Post, Big Blue Vans.
+
+50
+00:02:37.152 --> 00:02:40.155
+And one more card: cheapest, then fastest.
+
+51
+00:02:40.155 --> 00:02:43.087
+Price first, and only on a tie, the time.
+
+52
+00:02:43.087 --> 00:02:46.089
+Kestrel's 20 minutes beat Pedal Post's 30.
+
+53
+00:02:47.000 --> 00:02:53.966
+So the three lines from the lesson's StrategyDemo read: cheapest, fastest, and cheapest then fastest.
+
+54
+00:02:53.966 --> 00:02:56.656
+Same list, same sort, three rule cards.
+
+55
+00:02:57.567 --> 00:02:58.649
+Here's the code.
+
+56
+00:02:58.649 --> 00:03:00.882
+Each rule card is one expression.
+
+57
+00:03:00.882 --> 00:03:05.955
+comparingLong takes a function that pulls out the sort key, here the price.
+
+58
+00:03:05.955 --> 00:03:10.623
+thenComparingLong chains a second rule behind it, used only on a tie.
+
+59
+00:03:10.623 --> 00:03:13.600
+In Kotlin, compareBy and thenBy do the same.
+
+60
+00:03:13.833 --> 00:03:18.547
+And the routine never changes: sort the list with whatever card you're handed.
+
+61
+00:03:18.547 --> 00:03:21.207
+Three ways to choose, and not one new class.
+
+62
+00:03:22.133 --> 00:03:26.605
+Nobody writes a class called PriceThenTimeComparator any more.
+
+63
+00:03:26.605 --> 00:03:28.120
+It had a long career.
+
+64
+00:03:28.120 --> 00:03:29.129
+Let it retire.
+
+65
+00:03:29.333 --> 00:03:32.849
+Jokes aside, that's the real answer to our question.
+
+66
+00:03:32.849 --> 00:03:36.770
+Since Java 8, a lambda or a method reference is the class.
+
+67
+00:03:36.770 --> 00:03:42.111
+In Kotlin, any function from a parcel to a price already is a pricing strategy.
+
+68
+00:03:43.033 --> 00:03:43.975
+Now the names.
+
+69
+00:03:43.975 --> 00:03:50.367
+The swappable decision is called a strategy: one interchangeable rule, passed in by the caller.
+
+70
+00:03:50.367 --> 00:03:54.135
+The code that uses it, sort here, is called the context.
+
+71
+00:03:54.135 --> 00:03:56.692
+Together, that's the Strategy pattern.
+
+72
+00:03:57.600 --> 00:03:59.640
+Here the counter picture breaks.
+
+73
+00:03:59.640 --> 00:04:03.019
+A shopkeeper remembers that yesterday's van was late.
+
+74
+00:04:03.019 --> 00:04:05.506
+A strategy shouldn't remember anything.
+
+75
+00:04:05.506 --> 00:04:13.029
+A lambda that changes a field each time it runs is a strategy with hidden memory: a shopkeeper still holding a grudge.
+
+76
+00:04:13.233 --> 00:04:17.767
+And two threads sorting with it at once will corrupt each other's results.
+
+77
+00:04:17.767 --> 00:04:20.095
+So keep it pure: input in, answer out.
+
+78
+00:04:21.000 --> 00:04:24.589
+The JDK hands you strategies in more places than sorting.
+
+79
+00:04:24.589 --> 00:04:31.767
+A thread pool takes a handler for a full queue, and groupingBy takes the function that picks each element's group.
+
+80
+00:04:31.767 --> 00:04:35.356
+The library owns the loop, and asks you for one decision.
+
+81
+00:04:36.267 --> 00:04:37.353
+So, three rules.
+
+82
+00:04:37.353 --> 00:04:39.118
+One: keep a strategy pure.
+
+83
+00:04:39.118 --> 00:04:46.449
+Two: when the decision needs more than one method, like book and track, write a real interface with classes.
+
+84
+00:04:46.449 --> 00:04:54.256
+Three: even for one method, a named one-line interface, like PriceStrategy, can say more than a bare function type.
+
+85
+00:04:55.167 --> 00:04:58.418
+So, do we need a class for every way of choosing?
+
+86
+00:04:58.418 --> 00:04:58.617
+No.
+
+87
+00:04:58.617 --> 00:05:02.398
+The routine stays put, and the one decision is passed in.
+
+88
+00:05:02.398 --> 00:05:06.777
+Read it out loud: sort the couriers, cheapest first, then fastest.
+
+89
+00:05:07.000 --> 00:05:07.844
+Quick check.
+
+90
+00:05:07.844 --> 00:05:13.819
+A fourth courier is added at the end of the list: Gull Express, 3.50, and 60 minutes.
+
+91
+00:05:13.819 --> 00:05:16.983
+With cheapest, then fastest, who comes first?
+
+92
+00:05:20.167 --> 00:05:21.142
+Gull Express.
+
+93
+00:05:21.142 --> 00:05:25.345
+It ties Big Blue Vans on price, and 60 minutes beats 90.
+
+94
+00:05:25.345 --> 00:05:30.299
+The whole order: Gull Express, Big Blue Vans, Kestrel, Pedal Post.
