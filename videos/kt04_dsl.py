@@ -406,14 +406,14 @@ class Kt04Dsl(Narrated):
 
         # the over-helpful clerk
         self.play(FadeOut(VGroup(n1, n2)), run_time=0.3)
-        hp = person(CLERK, 1.2).move_to([3.4, -2.35, 0])
-        hp_l = T("very helpful", 22, CLERK).next_to(hp, RIGHT, buff=0.25)
+        hp = person(CLERK, 1.2).move_to([4.5, -1.1, 0])
+        hp_l = T("very helpful", 22, CLERK).next_to(hp, DOWN, buff=0.2)
         rule = T("A name your block lacks falls through to the outer builder.", 28, WHITE).move_to([0, -3.1, 0])
         self.say("paper")
         self.at(1)
         self.play(FadeIn(hp), FadeIn(hp_l), run_time=0.6)
         self.at(3)
-        hp_2 = T("never to be trusted with a pen", 22, BAD).next_to(hp, RIGHT, buff=0.25)
+        hp_2 = VGroup(T("never to be trusted", 22, BAD), T("with a pen", 22, BAD)).arrange(DOWN, buff=0.08).next_to(hp, DOWN, buff=0.2)
         self.play(FadeTransform(hp_l, hp_2), run_time=0.6)
         self.at(4)
         self.play(FadeOut(VGroup(hp, hp_2)), S["all"].animate.shift(UP * 0.6), chip.animate.shift(UP * 0.6),

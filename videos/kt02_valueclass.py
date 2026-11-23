@@ -376,7 +376,7 @@ class Kt02ValueClass(Narrated):
         js = paper(["weight: 2,500 g"], 22).move_to([-2.6, 0.4, 0])
         gu = part(js[1], "g")
         m1 = T("the unit = the value class", 24, UNIT).move_to([-2.9, 1.6, 0])
-        m2 = T("the clerk = the compiler", 24, CLERK).next_to(clerk, UP, buff=0.35).shift(RIGHT * 0.9)
+        m2 = T("the clerk = the compiler", 24, CLERK).next_to(counter, DOWN, buff=0.3)
         m3 = T("the machines = the JVM at run time", 24, MACH).move_to([3.6, 1.6, 0])
         n1 = num("2500").move_to([3.75, 0.3, 0])
         self.say("map")

@@ -88,7 +88,7 @@
       "slug": "kt04-dsl",
       "lesson": "kt-04",
       "section": 2,
-      "title": "A lambda with receiver runs inside its builder; a bare call goes to the nearest receiver that has it, and @DslMarker stops it there"
+      "title": "A name your block lacks falls through to the outer builder; @DslMarker on every builder makes each section of the order form offer only its own boxes"
     },
     {
       "slug": "pat06-composite",
@@ -232,13 +232,13 @@
       "slug": "kt05-contracts",
       "lesson": "kt-05",
       "section": 0,
-      "title": "The compiler smart-casts only from what it can see and never opens a function you call; a contract writes the guarantee on the outside, and the compiler believes it without checking"
+      "title": "The compiler smart-casts only from checks it can see; a contract is the stamp on the outside of the envelope, believed and never checked"
     },
     {
       "slug": "kt06-plugins",
       "lesson": "kt-06",
       "section": 0,
-      "title": "A proxy must subclass your class, and Kotlin classes are final; a compiler plugin changes what kotlinc emits: all-open drops final, no-arg adds a hidden empty constructor, serialization writes a serializer class"
+      "title": "An annotation is only a note on the ticket; compiler plugins are the machines that act on it: all-open drops final, no-arg adds a blank constructor, serialization writes a serializer"
     },
     {
       "slug": "dop04-parse",

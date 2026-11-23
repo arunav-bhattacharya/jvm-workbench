@@ -1,153 +1,353 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.620
-A Long parameter named amountMinor will take an order id without complaint.
+00:00:02.700 --> 00:00:09.795
+At the print shop's parcel desk, every number on a job sheet carries a unit: 500 sheets, 2,500 grams.
 
 2
-00:00:07.620 --> 00:00:11.097
-Both are Long, so the compiler can't tell them apart.
+00:00:09.795 --> 00:00:13.378
+The clerk reads the units before a parcel goes out.
 
 3
-00:00:11.300 --> 00:00:13.895
-The classic fix is a small wrapper class.
+00:00:13.378 --> 00:00:17.311
+A sheet that says weight: 500 sheets goes straight back.
 
 4
-00:00:13.895 --> 00:00:17.820
-It works, but every amount is now an extra object on the heap.
+00:00:17.311 --> 00:00:19.911
+In the back room, the units are gone.
 
 5
-00:00:18.600 --> 00:00:24.648
-Kotlin's value class keeps the type safety, and wherever it can, it drops the object.
+00:00:19.911 --> 00:00:23.704
+The scale and the label printer only ever see numbers.
 
 6
-00:00:24.648 --> 00:00:28.917
-You write @JvmInline value class, with exactly one property.
+00:00:24.633 --> 00:00:27.551
+Here's a question that's easy to be shy about.
 
 7
-00:00:29.133 --> 00:00:31.644
-To the compiler, Cents is its own type.
+00:00:27.551 --> 00:00:30.595
+People say a value class disappears at run time.
 
 8
-00:00:31.644 --> 00:00:35.248
-Hand charge a plain Long, and the call does not compile.
+00:00:30.595 --> 00:00:33.639
+But if it disappears, how can it catch anything?
 
 9
-00:00:36.067 --> 00:00:38.304
-At run time, most of it is gone.
+00:00:33.639 --> 00:00:35.668
+And what is actually left of it?
 
 10
-00:00:38.304 --> 00:00:42.779
-Here is the Kotlin, next to what javap shows the compiler built.
+00:00:36.667 --> 00:00:43.211
+Start with two numbers from the shop's app: the weight of a parcel in grams, and the number of sheets in it.
 
 11
-00:00:43.000 --> 00:00:46.868
-charge takes a plain long, under a name with a hash on the end.
+00:00:43.211 --> 00:00:44.059
+Both are Long.
 
 12
-00:00:47.100 --> 00:00:50.818
-Cents(150) calls a static method, constructor-impl.
+00:00:44.059 --> 00:00:46.180
+And ship takes the weight in grams.
 
 13
-00:00:50.818 --> 00:00:54.683
-It runs your init block and hands back the same long.
+00:00:46.400 --> 00:00:48.935
+Now call ship with sheets by mistake.
 
 14
-00:00:54.683 --> 00:00:56.214
-No object is created.
+00:00:48.935 --> 00:00:50.785
+Will the compiler stop you?
 
 15
-00:00:56.214 --> 00:00:59.713
-plus became a static method that adds two longs.
+00:00:50.785 --> 00:00:51.881
+Pause and guess.
 
 16
-00:01:00.467 --> 00:01:03.142
-So this whole call runs on plain longs.
+00:00:55.067 --> 00:00:55.847
+It compiles.
 
 17
-00:01:03.142 --> 00:01:05.131
-No Cents object is ever made.
+00:00:55.847 --> 00:01:02.937
+Both are Long, so the compiler can't tell them apart, and ship happily posts a parcel that weighs 500 sheets.
 
 18
-00:01:05.933 --> 00:01:07.584
-So when is a box needed?
+00:01:02.937 --> 00:01:05.018
+The courier will have questions.
 
 19
-00:01:07.584 --> 00:01:11.643
-A value class is boxed whenever it is used as another type.
+00:01:05.018 --> 00:01:08.725
+The type said Long, and Long says nothing about the unit.
 
 20
-00:01:11.833 --> 00:01:14.357
-Here is a second value class, Amount.
+00:01:09.633 --> 00:01:14.517
+The classic fix is a small wrapper class, Grams, with one number inside.
 
 21
-00:01:14.357 --> 00:01:16.744
-It implements an interface, Priced.
+00:01:14.517 --> 00:01:15.874
+It catches the swap.
 
 22
-00:01:16.744 --> 00:01:18.040
-Take one amount, a.
+00:01:15.874 --> 00:01:22.115
+But now every weight is an extra object on the heap, the memory where the JVM keeps objects.
 
 23
-00:01:18.233 --> 00:01:22.656
-In an Invoice, it is used as an Amount, so the field is a plain long.
+00:01:22.115 --> 00:01:25.575
+One object per number, just to carry a unit around.
 
 24
-00:01:22.867 --> 00:01:25.857
-Pass it to asGeneric, and it is used as a T.
+00:01:25.800 --> 00:01:31.014
+Wouldn't it be nice to keep the unit for the compiler, and drop the object at run time?
 
 25
-00:01:25.857 --> 00:01:31.499
-So the compiler calls box-impl first, and a real Amount object appears on the heap.
+00:01:31.014 --> 00:01:33.771
+That's exactly what Kotlin's value class does.
 
 26
-00:01:31.700 --> 00:01:36.056
-A nullable Amount has to be able to hold null, and a long can't.
+00:01:34.500 --> 00:01:35.270
+Here it is.
 
 27
-00:01:36.056 --> 00:01:37.281
-So that boxes too.
+00:01:35.270 --> 00:01:40.944
+In Java, the closest shape today is a record, a real object created on every new.
 
 28
-00:01:37.467 --> 00:01:40.154
-Used as the interface Priced, it boxes.
+00:01:40.944 --> 00:01:45.917
+In Kotlin, you write @JvmInline value class, with exactly one property.
 
 29
-00:01:40.154 --> 00:01:44.840
-Used as Any, it boxes, and that covers every collection and println.
+00:01:45.917 --> 00:01:51.380
+It can check its value in an init block, and it can have functions, like plus.
 
 30
-00:01:45.633 --> 00:01:49.876
-Here are the same calls as Java, read back from the bytecode.
+00:01:51.600 --> 00:01:52.953
+Now ship takes Grams.
 
 31
-00:01:49.876 --> 00:01:55.161
-Each time, Amount.box-impl runs right before the call that needs the object.
+00:01:52.953 --> 00:01:56.755
+Pass sheets, and the compiler stops you, with this message.
 
 32
-00:01:55.367 --> 00:02:00.162
-It is the same rule Java uses for the primitive long and the boxed Long.
+00:01:57.667 --> 00:01:59.263
+Back to the parcel desk.
 
 33
-00:02:00.162 --> 00:02:03.892
-So a List of Amount holds one Amount object per element.
+00:01:59.263 --> 00:02:02.256
+The unit on the job sheet is the value class.
 
 34
-00:02:04.667 --> 00:02:05.610
-Now that name.
+00:02:02.256 --> 00:02:05.715
+The clerk who checks it at the desk is the compiler.
 
 35
-00:02:05.610 --> 00:02:10.192
-The compiler adds a hash to every function that takes a value class.
+00:02:05.715 --> 00:02:09.306
+The machines in the back room are the JVM at run time.
 
 36
-00:02:10.192 --> 00:02:14.841
-A dash can't appear in a Java method name, so Java can't call charge.
+00:02:09.306 --> 00:02:10.969
+They only see the number.
 
 37
-00:02:15.033 --> 00:02:18.001
-@JvmName gives it a name Java can call.
+00:02:11.900 --> 00:02:13.760
+So here's the real test.
 
 38
-00:02:18.001 --> 00:02:24.775
-But Java passes a raw long, so the init block never runs, and minus 5 cents gets charged.
+00:02:13.760 --> 00:02:18.798
+The demo adds Grams of 150 and Grams of 49, and ships the result.
+
+39
+00:02:18.798 --> 00:02:22.441
+How many Grams objects get created at run time?
+
+40
+00:02:22.441 --> 00:02:23.681
+Pause and guess.
+
+41
+00:02:26.867 --> 00:02:27.258
+None.
+
+42
+00:02:27.258 --> 00:02:34.069
+Let's read the bytecode with javap, the JDK tool that shows what a class file contains.
+
+43
+00:02:34.300 --> 00:02:39.407
+Grams of 150 becomes a plain long, 150, handed to constructor-impl.
+
+44
+00:02:39.407 --> 00:02:43.600
+That runs your init block and hands back the same long.
+
+45
+00:02:43.600 --> 00:02:44.515
+Same for 49.
+
+46
+00:02:44.515 --> 00:02:48.402
+Then plus, now a static method that adds two longs.
+
+47
+00:02:48.402 --> 00:02:50.842
+And ship takes a plain long too.
+
+48
+00:02:50.842 --> 00:02:52.900
+Not one new Grams anywhere.
+
+49
+00:02:53.133 --> 00:02:55.451
+And it prints: shipped 199 g.
+
+50
+00:02:55.451 --> 00:03:02.405
+Try Grams of minus 1, and the init block still does its job: rejected, negative weight.
+
+51
+00:03:03.333 --> 00:03:04.740
+Two things to notice.
+
+52
+00:03:04.740 --> 00:03:08.221
+ship got a strange new name, ship, dash, and a hash.
+
+53
+00:03:08.221 --> 00:03:10.096
+A later section explains it.
+
+54
+00:03:10.096 --> 00:03:16.391
+And the Grams class still exists, with box-impl, for the moments when a real object is needed.
+
+55
+00:03:16.391 --> 00:03:17.596
+Keep that in mind.
+
+56
+00:03:18.500 --> 00:03:21.915
+Now, you might be thinking: why not a type alias?
+
+57
+00:03:21.915 --> 00:03:23.866
+typealias GramsAlias = Long.
+
+58
+00:03:23.866 --> 00:03:26.654
+It's shorter, and it reads just as well.
+
+59
+00:03:26.654 --> 00:03:28.396
+Let's be fair and try it.
+
+60
+00:03:28.396 --> 00:03:30.139
+Pass sheets to shipAlias.
+
+61
+00:03:30.367 --> 00:03:33.702
+It compiles, and prints: shipped 500 g, alias.
+
+62
+00:03:33.702 --> 00:03:35.660
+A type alias is a nickname.
+
+63
+00:03:35.660 --> 00:03:38.923
+Calling sheets grams doesn't make them grams.
+
+64
+00:03:38.923 --> 00:03:40.953
+A value class is a new type.
+
+65
+00:03:41.867 --> 00:03:45.603
+You already use value classes from the standard library.
+
+66
+00:03:45.603 --> 00:03:49.539
+UInt, ULong, Duration and Result are all declared this way.
+
+67
+00:03:50.267 --> 00:03:52.592
+Here's where the picture breaks.
+
+68
+00:03:52.592 --> 00:03:57.097
+Java has no value classes, so it walks in through a side door.
+
+69
+00:03:57.097 --> 00:04:04.436
+With @JvmName, Kotlin can give Java a function it can call, shipFromJava, and Java passes a raw long.
+
+70
+00:04:04.436 --> 00:04:07.560
+Java passed minus 5, and got: shipped -5 g.
+
+71
+00:04:07.560 --> 00:04:11.484
+It never passed the desk, so the init block never ran.
+
+72
+00:04:11.700 --> 00:04:15.952
+So if Java can call it, check the value again inside the function.
+
+73
+00:04:16.867 --> 00:04:18.062
+And one more thing.
+
+74
+00:04:18.062 --> 00:04:21.587
+The number travels loose only while it's used as itself.
+
+75
+00:04:21.587 --> 00:04:25.678
+Some shelves in the shop only take envelopes, like a shared list.
+
+76
+00:04:25.678 --> 00:04:28.510
+Put a Grams there, and it goes back in a box.
+
+77
+00:04:28.510 --> 00:04:30.020
+That's the next section.
+
+78
+00:04:30.933 --> 00:04:32.167
+So here's the rule.
+
+79
+00:04:32.167 --> 00:04:38.008
+When two values share a type but must never be swapped, give each one its own value class.
+
+80
+00:04:38.233 --> 00:04:40.922
+So, what's left of a value class at run time?
+
+81
+00:04:40.922 --> 00:04:41.878
+Just the number.
+
+82
+00:04:41.878 --> 00:04:47.853
+The unit lived at the desk, where the compiler checked it, and that's where the mistake gets caught.
+
+83
+00:04:48.067 --> 00:04:48.833
+Quick check.
+
+84
+00:04:48.833 --> 00:04:53.173
+A function takes a page count and a weight, both Long, side by side.
+
+85
+00:04:53.173 --> 00:04:56.812
+What would you change, and what does it cost at run time?
+
+86
+00:05:00.000 --> 00:05:03.413
+Give each one its own value class, Sheets and Grams.
+
+87
+00:05:03.413 --> 00:05:05.383
+Now a swap is a compile error.
+
+88
+00:05:05.383 --> 00:05:08.468
+And at run time, they're still two plain longs.
