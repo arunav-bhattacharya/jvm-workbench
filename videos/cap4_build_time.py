@@ -278,8 +278,7 @@ def sheet_icon(lines=5, s=1.0):
     r = Rectangle(width=1.3, height=1.7).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
     ls = VGroup(*[Line(LEFT * 0.4, RIGHT * 0.4, stroke_width=3, color=INK) for _ in range(lines)]).arrange(DOWN, buff=0.18)
     ls.move_to(r).shift(DOWN * 0.1)
-    t = T("running order", 16, INK).next_to(ls, UP, buff=0.12)
-    return VGroup(r, ls, t).scale(s)
+    return VGroup(r, ls).scale(s)
 
 
 def hbar(value, vmax, width, color, h=0.5):
@@ -413,14 +412,14 @@ class Cap4BuildTime(Narrated):
 
         # ================= the count, and where it comes from =================
         vt = ValueTracker(0)
-        num = always_redraw(lambda: T(f"{int(round(vt.get_value())):,}", 96, BAD).move_to([0, 2.4, 0]))
+        num = always_redraw(lambda: T(f"{int(round(vt.get_value())):,}", 96, BAD).move_to([0, 2.75, 0]))
         cls_l = T("classes loaded, reflective container", 24, BAD).next_to(num, DOWN, buff=0.1)
-        b1 = hbar(2207, 2207, 9.0, BAD, 0.45).move_to([-4.5, 0.6, 0], aligned_edge=LEFT)
-        b2 = hbar(991, 2207, 9.0, GEN, 0.45).move_to([-4.5, -0.1, 0], aligned_edge=LEFT)
+        b1 = hbar(2207, 2207, 9.0, BAD, 0.45).move_to([-4.5, 0.2, 0], aligned_edge=LEFT)
+        b2 = hbar(991, 2207, 9.0, GEN, 0.45).move_to([-4.5, -0.5, 0], aligned_edge=LEFT)
         b1l = T("2,207", 24, BAD).next_to(b1, RIGHT, buff=0.15)
         b2l = T("991, wired by plain code", 24, GEN).next_to(b2, RIGHT, buff=0.15)
-        extra = Brace(Line(b2.get_right(), [b1.get_right()[0], b2.get_y(), 0]), DOWN, buff=0.12, color=GREY_B)
-        extra_l = T("1,216: machinery", 24, GREY_A).next_to(extra, DOWN, buff=0.08)
+        extra = Brace(Line([b2.get_right()[0], b1.get_y(), 0], b1.get_right()), UP, buff=0.3, color=GREY_B)
+        extra_l = T("1,216: machinery", 24, GREY_A).next_to(extra, UP, buff=0.08)
         self.say("show")
         self.add(num)
         self.play(vt.animate.set_value(2207), FadeIn(cls_l), run_time=1.4)
@@ -447,7 +446,7 @@ class Cap4BuildTime(Narrated):
         it3 = item("30", "JDK proxy classes; one is our booking stand-in", STAND, stands)
         hid = VGroup(*[Circle(radius=0.11).set_stroke(HIDDENC, 2).set_fill(dim(HIDDENC, 0.3), 1) for _ in range(6)]).arrange_in_grid(2, 3, buff=0.06)
         it4 = item("123", "hidden classes: lambdas and method handles", HIDDENC, hid)
-        items = VGroup(it1, it2, it3, it4).arrange(DOWN, buff=0.42, aligned_edge=LEFT).move_to([0.4, -0.25, 0])
+        items = VGroup(it1, it2, it3, it4).arrange(DOWN, buff=0.55, aligned_edge=LEFT).move_to([0.4, -0.25, 0])
         fit(items, 12.0)
         room = T("the whole sewing room, for one costume", 24, COSTUME).next_to(it1, UP, buff=0.3).align_to(it1, LEFT)
         self.say("bb")
@@ -463,7 +462,7 @@ class Cap4BuildTime(Narrated):
         self.at_text("and only one", lead=0.3)
         self.play(Indicate(stands[0], color=STAND, scale_factor=1.3), run_time=0.7)
         self.at_text("Every annotation", lead=0.3)
-        ann = M("@Component", 22, GREY_A).next_to(stands, UP, buff=0.12).align_to(stands, RIGHT)
+        ann = T("each annotation read is one too", 20, GREY_B).next_to(it3[2], DOWN, buff=0.06).align_to(it3[2], LEFT)
         self.play(FadeIn(ann), run_time=0.5)
         self.hold()
         self.say("hidden")
@@ -588,24 +587,24 @@ class Cap4BuildTime(Narrated):
         tbl = term(["setup                       loaded  ready ms",
                     "reflective + Byte Buddy       2207      1029",
                     "    parsed from byte-buddy.jar 814, JDK proxies 30, defined from bytes 3, hidden 123",
-                    "generated registry             991       266",
-                    "    parsed from byte-buddy.jar 0, JDK proxies 0, defined from bytes 0, hidden 51"],
+                    "generated registry             991       266"],
                    20, "StartupLadder, from the lesson's run on JDK 21 (trimmed)")
-        tbl[1][3].set_color(GEN); tbl[1][4].set_color(GEN)
-        fit(tbl, 12.4).move_to([0, 1.4, 0])
+        tbl[1][3].set_color(GEN)
+        fit(tbl, 12.4).move_to([0, 1.5, 0])
+        none_l = T("generated: no JDK proxies, nothing written by Byte Buddy", 24, GEN).next_to(tbl, DOWN, buff=0.25)
         b1 = hbar(2207, 2207, 8.0, BAD, 0.42).move_to([-4.0, -1.3, 0], aligned_edge=LEFT)
         b2 = hbar(991, 2207, 8.0, GEN, 0.42).move_to([-4.0, -2.0, 0], aligned_edge=LEFT)
         b1l = T("1,029 ms", 24, BAD).next_to(b1, RIGHT, buff=0.15)
         b2l = T("266 ms", 24, GEN).next_to(b2, RIGHT, buff=0.15)
         b1n = T("reflective", 22, BAD).next_to(b1, LEFT, buff=0.15)
         b2n = T("generated", 22, GEN).next_to(b2, LEFT, buff=0.15)
-        bars_l = T("bar length: classes loaded", 20, GREY_B).move_to([0, -2.8, 0])
+        bars_l = T("bar length: classes loaded; label: time to the first ticket", 20, GREY_B).move_to([0, -2.8, 0])
         self.say("genres")
         self.play(FadeIn(tbl[0]), FadeIn(tbl[2]), FadeIn(tbl[1][0]), FadeIn(tbl[1][1]), FadeIn(tbl[1][2]), run_time=0.6)
         self.at_text("991 classes", lead=0.3)
         self.play(FadeIn(tbl[1][3]), run_time=0.5)
         self.at_text("Nothing from", lead=0.3)
-        self.play(FadeIn(tbl[1][4]), run_time=0.5)
+        self.play(FadeIn(none_l), run_time=0.5)
         self.at_text("And ready", lead=0.3)
         self.play(GrowFromEdge(b1, LEFT), GrowFromEdge(b2, LEFT), FadeIn(b1n), FadeIn(b2n), FadeIn(bars_l), run_time=0.8)
         self.play(FadeIn(b1l), FadeIn(b2l), run_time=0.5)
@@ -626,14 +625,15 @@ class Cap4BuildTime(Narrated):
 
         # ================= guardrail: what you give up =================
         def gcard(title, body, color):
-            r = RoundedRectangle(corner_radius=0.15, width=5.9, height=2.6).set_stroke(color, 3).set_fill(dim(color, 0.08), 1)
+            r = RoundedRectangle(corner_radius=0.15, width=6.0, height=2.8).set_stroke(color, 3).set_fill(dim(color, 0.08), 1)
             t = T(title, 28, color)
             b = VGroup(*[T(l, 22, GREY_A) for l in body]).arrange(DOWN, buff=0.1)
             VGroup(t, b).arrange(DOWN, buff=0.3).move_to(r)
+            fit(b, 5.6)
             return VGroup(r, t, b)
 
-        g1 = gcard("the parts are fixed at build", ["no picking a part from a setting at start-up,", "unless the generator wrote code for it"], MANAGER)
-        g2 = gcard("a holder fails for good", ["a constructor throws inside it: every later", "request throws NoClassDefFoundError"], BAD)
+        g1 = gcard("the parts are fixed at build", ["no picking a part from a setting", "at start-up, unless the generator", "wrote code for it"], MANAGER)
+        g2 = gcard("a holder fails for good", ["if a constructor throws inside it,", "every later request throws", "NoClassDefFoundError"], BAD)
         gs = VGroup(g1, g2).arrange(RIGHT, buff=0.4).move_to([0, 1.0, 0])
         fit(gs, 12.6)
         brk = VGroup(VGroup(person(MANAGER, 0.9), T("a manager can improvise", 24, MANAGER)).arrange(RIGHT, buff=0.25),
