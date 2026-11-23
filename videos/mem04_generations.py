@@ -497,8 +497,8 @@ class Mem04Generations(Narrated):
 
         house = VGroup(Polygon([-1, 0, 0], [1, 0, 0], [1, 1.2, 0], [0, 2, 0], [-1, 1.2, 0]).set_stroke(GREY_A, 3).set_fill("#1a1a1a", 1))
         house.move_to([-3.2, 0.8, 0])
-        loved = VGroup(*[mini(BOX, 0.55) for _ in range(2)]).arrange(RIGHT, buff=0.2).move_to([-3.2, 0.5, 0])
-        junkh = VGroup(*[mini(GARB, 0.4).move_to([-3.2 + dx, 1.2 + dy, 0]) for dx, dy in ((-0.5, 0), (0.5, 0.05), (0, 0.45), (-0.3, -0.25), (0.35, -0.3))])
+        loved = VGroup(*[mini(BOX, 0.55) for _ in range(2)]).arrange(RIGHT, buff=0.2).move_to(house.get_center() + DOWN * 0.55)
+        junkh = VGroup(*[mini(GARB, 0.34).move_to(house.get_center() + [dx, dy, 0]) for dx, dy in ((-0.5, 0.0), (0.0, 0.0), (0.5, 0.0), (-0.25, 0.45), (0.25, 0.45))])
         van = VGroup(RoundedRectangle(corner_radius=0.15, width=2.6, height=1.2).set_stroke(OK, 3).set_fill(dim(OK, 0.2), 1),
                      T("the new house", 22, OK)).move_to([3.2, 0.6, 0])
         van[1].move_to(van[0])
@@ -506,6 +506,7 @@ class Mem04Generations(Narrated):
         cash = T("the work follows what you keep", 32).move_to([0, -3.1, 0])
         self.say("joke")
         self.play(FadeIn(house), FadeIn(loved), FadeIn(junkh), FadeIn(van), run_time=0.7)
+        self.bring_to_front(*loved)
         self.play(*[b.animate.move_to(van[0].get_center() + [(-0.4 + 0.8 * k), -0.3, 0]) for k, b in enumerate(loved)], FadeIn(jk[0]), run_time=1.0)
         self.at(1)
         self.play(FadeIn(jk[1]), run_time=0.5)
