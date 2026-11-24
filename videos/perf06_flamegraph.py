@@ -533,6 +533,7 @@ class Perf06FlameGraph(Narrated):
             e.move_to([x, -2.3, 0])
         own_b = BraceBetweenPoints([rx(596), RY[0] + BH / 2 + 0.04, 0], [rx(658), RY[0] + BH / 2 + 0.04, 0], UP, color=HOT_C)
         own_t = VGroup(T("own time", 22, HOT_C), T("257", 22, HOT_C)).arrange(DOWN, buff=0.08).next_to(own_b, UP, buff=0.08)
+        own_t.shift(RIGHT * 0.2 + UP * 0.1)
         self.say("real2")
         self.play(Circumscribe(VGroup(real[2], real[8]), color=SPL_C, buff=0.05), FadeIn(leg[0], shift=UP * 0.1), run_time=1.0)
         self.at_text("String.format, with", lead=0.2)

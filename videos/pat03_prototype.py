@@ -556,9 +556,9 @@ class Pat03Prototype(Narrated):
         self.play(Indicate(ec[1][9], color=BAD, scale_factor=1.04), run_time=0.9)
         self.hold()
         o2 = term(["copy() skipped the factory: Email(value=not-an-email)"], 22, "CopyTrap, real output")
-        w = VGroup(M("w: CopyTrap.kt:29:24 This 'copy()' exposes the non-public primary", 20, GREY_A),
-                   M("constructor of a 'data class'. ... This will become an error in", 20, GREY_A),
-                   M("language version 2.5.", 20, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.06)
+        w = M("w: CopyTrap.kt:29:24 This 'copy()' exposes the non-public primary\n"
+              "constructor of a 'data class'. ... This will become an error in\n"
+              "language version 2.5.", 20, GREY_A, line_spacing=0.75)
         wt = T("the Kotlin 2.4 warning", 20, GREY_B).next_to(w, UP, buff=0.08).align_to(w, LEFT)
         bot = VGroup(o2, VGroup(wt, w)).arrange(DOWN, aligned_edge=LEFT, buff=0.4).move_to([0, -0.3, 0])
         self.say("trap2b")

@@ -499,9 +499,9 @@ class Mem04Generations(Narrated):
         house.move_to([-3.2, 0.8, 0])
         loved = VGroup(*[mini(BOX, 0.55) for _ in range(2)]).arrange(RIGHT, buff=0.2).move_to(house.get_center() + DOWN * 0.55)
         junkh = VGroup(*[mini(GARB, 0.34).move_to(house.get_center() + [dx, dy, 0]) for dx, dy in ((-0.5, 0.0), (0.0, 0.0), (0.5, 0.0), (-0.25, 0.45), (0.25, 0.45))])
-        van = VGroup(RoundedRectangle(corner_radius=0.15, width=2.6, height=1.2).set_stroke(OK, 3).set_fill(dim(OK, 0.2), 1),
+        van = VGroup(RoundedRectangle(corner_radius=0.15, width=2.6, height=1.5).set_stroke(OK, 3).set_fill(dim(OK, 0.2), 1),
                      T("the new house", 22, OK)).move_to([3.2, 0.6, 0])
-        van[1].move_to(van[0])
+        van[1].move_to(van[0].get_top() + DOWN * 0.3)
         jk = VGroup(T("carry out only what you love", 28, YELLOW_M), T("the junk is never touched", 26, GREY_A)).arrange(DOWN, buff=0.2).move_to([0, -1.8, 0])
         cash = T("the work follows what you keep", 32).move_to([0, -3.1, 0])
         self.say("joke")

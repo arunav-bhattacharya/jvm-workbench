@@ -459,20 +459,21 @@ class Pat09ChainState(Narrated):
                      "  book: 7781 cracked teapot -> assistant", "assistant: we sorted this one already",
                      "  book: 7782 stale bread -> assistant", "assistant: please bring the receipt",
                      "  book: 7782 stale bread -> assistant", "assistant: sorted", "complaints sorted: 2"]
-        ol = [M(x, 20, GREY_A) for x in out_lines]
-        colL = VGroup(*ol[:4]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        colR = VGroup(*ol[4:8]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        cols = VGroup(colL, colR).arrange(RIGHT, buff=0.6, aligned_edge=UP)
-        ol[8].next_to(cols, DOWN, buff=0.2).align_to(cols, LEFT)
-        cw = M("0000000000", 20).width / 10
+        # one column at size 22 (two columns only fit below 22); lines sit on an even baseline pitch
+        ol = [M(x.strip(), 22, GREY_A) for x in out_lines]
+        cw = M("0000000000", 22).width / 10
+        for k, m in enumerate(ol):
+            m.align_to(ORIGIN, LEFT)
+            m.shift(UP * (-k * 0.37 - (0.1 if k == 8 else 0) - m[0].get_bottom()[1]))
         for k in (0, 2, 4, 6):
             ol[k].shift(RIGHT * 2 * cw)
-        body = VGroup(cols, ol[8])
+        body = VGroup(*ol)
         panel = RoundedRectangle(corner_radius=0.08, width=body.width + 0.5, height=body.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
         body.move_to(panel)
         ttl = T("ComplaintDeskDemo, real output", 20, GREY_B).next_to(panel, UP, buff=0.1).align_to(panel, LEFT)
         out = VGroup(panel, VGroup(*ol), ttl)
-        out.scale(min(1, 12.6 / out.width)).move_to([0, -2.0, 0])
+        out.scale(min(1, 12.6 / out.width))
+        out.move_to([0, -3.35 + out.height / 2, 0])
         for k in (0, 2, 4, 6):
             out[1][k].set_color(BOOKC)
         out[1][8].set_color(YELLOW_M)

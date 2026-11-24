@@ -157,6 +157,17 @@ def part(t, s):
     return t[i:i + len(k)]
 
 
+def lam_box(t, s, color):
+    """A box around part s of Text t whose right edge sits halfway to the next letter, so it never touches it."""
+    k = re.sub(r"\s", "", s)
+    i = re.sub(r"\s", "", t.text).index(k)
+    lam, nxt = t[i:i + len(k)], t[i + len(k)]
+    left = lam.get_left()[0] - 0.06
+    right = (lam.get_right()[0] + nxt.get_left()[0]) / 2
+    r = Rectangle(width=right - left, height=lam.height + 0.1, color=color, stroke_width=2.5)
+    return r.move_to([(left + right) / 2, lam.get_y(), 0])
+
+
 def framed(g, color, buff=0.22, k=0.12):
     r = SurroundingRectangle(g, buff=buff, color=color, stroke_width=2.5, corner_radius=0.1).set_fill(dim(color, k), 1)
     return VGroup(r, g)
@@ -302,7 +313,7 @@ class Kt01Inline(Narrated):
         lam_k = part(kt[5], "{ pages * 3 / 100 }")
         lam_j = part(jv[5], "() -> pages * 3 / 100")
         bk = SurroundingRectangle(lam_k, buff=0.05, color=STEP, stroke_width=2.5)
-        bj = SurroundingRectangle(lam_j, buff=0.05, color=STEP, stroke_width=2.5)
+        bj = lam_box(jv[5], "() -> pages * 3 / 100", STEP)
         lam_l = T("a lambda", 24, STEP).next_to(bk, DOWN, buff=0.2).align_to(bk, LEFT)
         clo_l = T("uses pages from outside: a closure", 24, STEP).next_to(bk, DOWN, buff=0.2).align_to(bk, LEFT)
         self.say("lambda")
@@ -574,7 +585,7 @@ class Kt01Inline(Narrated):
         fit(jc, 12.4)
         jcl = T("Java", 22, GREY_B).next_to(jc, UP, buff=0.2).align_to(jc, LEFT)
         lam = part(jc, "() -> 12_000L * 3 / 100")
-        lb = SurroundingRectangle(lam, buff=0.05, color=STEP, stroke_width=2.5)
+        lb = lam_box(jc, "() -> 12_000L * 3 / 100", STEP)
         j1 = T("javac can't inline Kotlin code", 26, BAD).move_to([0, 0.5, 0])
         j2 = VGroup(T("to Java,", 26), M("timed", 26, WHITE), T("is an ordinary static method that takes a", 26),
                     M("Function0", 26, WHITE)).arrange(RIGHT, buff=0.15).move_to([0, -0.4, 0])

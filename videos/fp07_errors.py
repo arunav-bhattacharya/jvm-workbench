@@ -266,7 +266,7 @@ class Fp07Errors(Narrated):
 
         # ================= the kitchen line with a side door =================
         steps, top, bot = railway(["check", "mix", "bake"], y=1.0)
-        tl = T("success", 22, OK_C).move_to([-6.0, 1.35, 0])
+        tl = T("success", 22, OK_C).move_to([-6.4, 1.8, 0], aligned_edge=LEFT)
         bl = T("side door: errors", 22, ERR_C).move_to([-4.6, -0.95, 0])
         batter = Circle(radius=0.22).set_stroke(GOLD_M, 3).set_fill(dim(GOLD_M, 0.5), 1).move_to([-6.2, 1.0, 0])
         self.say("line")

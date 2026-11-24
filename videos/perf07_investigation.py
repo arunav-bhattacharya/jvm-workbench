@@ -500,8 +500,8 @@ class Perf07Investigation(Narrated):
             self.play(FadeIn(b[0]), GrowFromEdge(b[1], LEFT), FadeIn(b[2]), run_time=0.6)
         self.hold()
         bx = -4.0 + 8.5 * 300 / 2464
-        bline = DashedLine([bx, 2.0, 0], [bx, -0.9, 0], dash_length=0.1, stroke_width=3, color=BUD)
-        bl_t = T("budget: 300 bytes per call", 24, BUD).move_to([bx + 1.9, -1.25, 0])
+        bline = DashedLine([bx, 1.88, 0], [bx, -0.12, 0], dash_length=0.1, stroke_width=3, color=BUD)
+        bl_t = T("budget: 300 bytes per call", 24, BUD).next_to(bline, UP, buff=0.08)
         mt = T("what's left: the Matcher, 56 bytes", 24, OK).move_to([0, -2.1, 0])
         test = T("a test checks the budget on every build", 26, TAIL).move_to([0, -2.85, 0])
         self.say("budget")

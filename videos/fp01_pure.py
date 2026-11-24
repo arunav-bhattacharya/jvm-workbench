@@ -56,7 +56,7 @@ N = {
            "return value, and that's all.",
     "test2": "Now the test is plain values. The 31st of March gives 1000, the first of April gives 2000, two lines "
              "side by side. No fake clock, no reset, no clean up. Run them in any order, even on eight threads at "
-             "once, because nothing is shared.",
+             "once, that's eight jobs running at the same time, because nothing is shared.",
     "joke": "The calendar can turn all it likes. This test brought its own date. So the point really is: a function "
             "that reads only its arguments is tested with plain values.",
     "breaks": "The card picture breaks in one place. A real recipe never gives exactly the same pancakes twice, "

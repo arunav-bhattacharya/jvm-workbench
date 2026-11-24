@@ -695,6 +695,11 @@ class Pat05Decorator(Narrated):
             self.play(FadeOut(res), run_time=0.2)
         cl = T("3 lines", 26, LOGC).move_to(logL.get_left() + RIGHT * 2.75 + DOWN * 0.7)
         self.play(FadeIn(cl), run_time=0.4)
+        # the real output, one line per order, so it stays up while both counts are discussed
+        out = term(["Retrying(Logging(line)): BB-1250, log lines: 3",
+                    "Logging(Retrying(line)): BB-1250, log lines: 1"], 22, "DecoratorStack, real output")
+        fit(out, 12.4).move_to([0, -2.75, 0])
+        self.play(FadeIn(out[0]), FadeIn(out[2]), FadeIn(out[1][0], shift=UP * 0.1), run_time=0.5)
         self.at(1)
         # right: Logging sees one call, Retrying tries three times inside it
         e = entry(logR, 0)
@@ -711,11 +716,7 @@ class Pat05Decorator(Narrated):
             self.play(FadeOut(res), run_time=0.15)
         cr = T("1 line", 26, LOGC).move_to(logR.get_left() + RIGHT * 2.75 + DOWN * 0.35)
         self.play(FadeIn(cr), run_time=0.4)
-        self.at(2)
-        out = term(["Retrying(Logging(line)): BB-1250, log lines: 3",
-                    "Logging(Retrying(line)): BB-1250, log lines: 1"], 22, "DecoratorStack, real output")
-        fit(out, 12.4).move_to([0, -2.75, 0])
-        self.play(FadeIn(out, shift=UP * 0.1), run_time=0.6)
+        self.play(FadeIn(out[1][1], shift=UP * 0.1), run_time=0.5)
         self.hold()
 
         self.wipe()

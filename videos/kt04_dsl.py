@@ -549,7 +549,7 @@ class Kt04Dsl(Narrated):
         self.say("label")
         self.play(FadeOut(em2), FadeTransform(chip2, chip3), FadeIn(S["o_l"]), FadeIn(S["o_m"]), run_time=0.7)
         self.at(1)
-        self.play(Indicate(part(chip3[1], "this@orderForm"), color=OK, scale_factor=1.15), run_time=0.8)
+        self.play(Indicate(part(chip3[1], "this@orderForm"), color=OK, scale_factor=1.0), run_time=0.8)  # no growth: it would cover the dot
         self.at(2)
         tgt = S["o_m"][0]
         cur = CurvedArrow(chip3.get_top() + UP * 0.05, tgt.get_bottom() + DOWN * 0.08, angle=PI / 4, color=OK, stroke_width=3)

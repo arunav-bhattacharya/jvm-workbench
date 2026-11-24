@@ -301,7 +301,7 @@ def stretch_term(disp):
 
 def field_chip(txt, color, size=26):
     t = M(txt, size, color)
-    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.24, height=0.62).set_stroke(color, 2).set_fill("#101010", 1)
+    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.24, height=0.5).set_stroke(color, 2).set_fill("#101010", 1)
     return VGroup(r, t.move_to(r))
 
 

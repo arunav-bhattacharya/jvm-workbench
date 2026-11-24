@@ -224,7 +224,7 @@ class Io05Context(Narrated):
         self.say("open2")
         self.play(FadeIn(bo), run_time=0.8)
         self.play(LaggedStart(*[FadeIn(p) for p in pcs], lag_ratio=0.15), run_time=0.6)
-        self.play(pcs.animate.move_to(bo[0].get_left() + RIGHT * 0.0 + LEFT * 0.55), run_time=0.9)
+        self.play(pcs.animate.next_to(bo[0], LEFT, buff=0.25), run_time=0.9)
         self.at(1)
         self.play(FadeIn(q, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
@@ -498,12 +498,12 @@ class Io05Context(Narrated):
         self.play(FadeIn(ctx), run_time=0.6)
         self.hold()
 
-        fl = M("executeBlocking(slowLookup, false)", 20, WORKER).move_to([0.0, -0.75, 0], aligned_edge=RIGHT)
+        fl = M("executeBlocking(slowLookup, false)", 22, WORKER).move_to([0.4, -0.68, 0], aligned_edge=RIGHT)
         self.say("false")
         self.play(Transform(ebl, fl), run_time=0.6)
         self.play(*[pcs[i].animate.scale(0.62).next_to(bo[1][i], LEFT, buff=0.03) for i in range(4)],
                   FadeOut(blocks), FadeOut(r1), FadeOut(lane), run_time=0.9)
-        four = VGroup(*[bar(TX0 + 0.02, TX0 + 0.5 * TS - 0.02, -1.0 - 0.28 * i, JOB, h=0.22) for i in range(4)])
+        four = VGroup(*[bar(TX0 + 0.02, TX0 + 0.5 * TS - 0.02, -1.1 - 0.28 * i, JOB, h=0.22) for i in range(4)])
         fourl = T("four workers", 20, WORKER).move_to([TX0 - 1.2, -1.6, 0])
         r2 = VGroup(M("511 ms", 26, WORKER), T("on four worker threads", 22)).arrange(RIGHT, buff=0.2).move_to([0.6, -3.1, 0])
         self.at(1)

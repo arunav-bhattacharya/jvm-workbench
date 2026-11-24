@@ -385,7 +385,8 @@ class Mem07DominatorTree(Narrated):
         # ================= the graph =================
         bT = board(1.5, 0.9, "THUMBNAILS").move_to([-5.6, 1.5, 0])
         bF = board(1.5, 0.9, "FORMATS").move_to([-5.6, -2.3, 0])
-        gr_t = T("GC roots: static fields", 20, ROOT).next_to(bT, UP, buff=0.12).align_to(bT, LEFT)
+        gr_t = VGroup(T("GC roots:", 20, ROOT), T("static fields", 20, ROOT)).arrange(DOWN, aligned_edge=LEFT, buff=0.08)
+        gr_t.next_to(bT, UP, buff=0.12).align_to(bT, LEFT)
         mapo = obj("map", MAPC, 1.2).move_to([-3.6, 1.5, 0])
         tabo = obj("table", MAPC, 1.2).move_to([-1.7, 1.5, 0])
         ys = [2.6, 1.5, 0.4]
@@ -452,7 +453,7 @@ class Mem07DominatorTree(Narrated):
         self.hold(after=0)
         self.predict(2.5, pos=(6.4, -3.4), edge=RIGHT)
         stays = T("stays: FORMATS still reaches it", 22, STR).next_to(jpg, DOWN, buff=0.15)
-        ret = DashedVMobject(SurroundingRectangle(VGroup(mapo, tabo, nodes, keys, thumbs, pix), buff=0.18, corner_radius=0.12),
+        ret = DashedVMobject(SurroundingRectangle(VGroup(mapo, tabo, nodes, keys, thumbs, pix, x20), buff=0.18, corner_radius=0.12),
                              num_dashes=90).set_stroke(BAD, 2.5)
         ret_t = T("the map's retained set", 24, BAD).move_to([-2.7, 0.1, 0])
         self.say("preda")

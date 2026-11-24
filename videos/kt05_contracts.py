@@ -390,8 +390,9 @@ class Kt05Contracts(Narrated):
         cc = code_block(cs, 22, color=CODE)
         fit(cc, 12.4)
         cc.move_to([-6.2, 2.0, 0], aligned_edge=LEFT)
-        env2 = envelope(2.4, 1.4, ENV, "requirePaper", 20).move_to([4.6, -1.2, 0])
-        st2 = stamp(("returns()", "implies", "paper != null"), 18, -8).move_to(env2.get_center() + UP * 0.15 + LEFT * 0.4)
+        env2 = envelope(2.8, 2.0, ENV, "requirePaper", 20).move_to([4.6, -1.35, 0])
+        env2[2].move_to(env2[0].get_bottom() + UP * 0.3)   # the label sits low, clear of the stamp
+        st2 = stamp(("returns()", "implies", "paper != null"), 18, -8).move_to(env2.get_center() + UP * 0.28 + LEFT * 0.2)
         self.say("stamp")
         self.play(FadeIn(cc[1]), FadeIn(cc[3]), FadeIn(cc[4]), FadeIn(env2), run_time=0.8)
         self.at_text("a contract block", lead=0.1)

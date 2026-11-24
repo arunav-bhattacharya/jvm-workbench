@@ -279,7 +279,7 @@ class Fp08Core(Narrated):
 
         # sort the loop: decisions belong to the card, errands to the cook
         self.say("map")
-        self.play(FadeOut(frame), FadeOut(ttl), tl.animate.shift(LEFT * 1.6), run_time=0.6)
+        self.play(FadeOut(frame), FadeOut(ttl), tl.animate.shift(LEFT * 1.35), run_time=0.6)
         top_r, dec_r, bot_r = VGroup(tl[0], tl[1]), VGroup(*tl[2:6]), VGroup(*tl[6:])
         br_c = Brace(dec_r, RIGHT, color=DECIDE)
         lb_c = T("the card: decides", 28, DECIDE).next_to(br_c, RIGHT, buff=0.2)

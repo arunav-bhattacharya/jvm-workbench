@@ -430,8 +430,9 @@ class Cap4BuildTime(Narrated):
         self.at_text("So 1,216", lead=0.3)
         self.play(GrowFromCenter(extra), FadeIn(extra_l), run_time=0.7)
         self.hold()
-        self.play(FadeOut(VGroup(b1, b2, b1l, b2l, extra, extra_l)), VGroup(num, cls_l).animate.scale(0.6).move_to([-4.6, 2.8, 0]),
-                  run_time=0.7)
+        hd_t = VGroup(num.copy().scale(0.6), cls_l.copy()).arrange(RIGHT, buff=0.3, aligned_edge=DOWN).move_to([-6.2, 3.0, 0], aligned_edge=LEFT)
+        self.play(FadeOut(VGroup(b1, b2, b1l, b2l, extra, extra_l)), num.animate.scale(0.6).move_to(hd_t[0]),
+                  cls_l.animate.move_to(hd_t[1]), run_time=0.7)
 
         def item(n, text, color, icon):
             nn = T(n, 34, color)

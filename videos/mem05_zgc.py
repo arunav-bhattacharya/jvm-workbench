@@ -568,7 +568,7 @@ class Mem05Zgc(Narrated):
         self.play(FadeIn(stall), run_time=0.6)
         self.at(5)
         self.play(FadeIn(cards[2], shift=UP * 0.1), run_time=0.5)
-        self.hold()
+        self.hold(after=2.75)
         self.wipe()
 
         # light moment: the bill's forwarding note

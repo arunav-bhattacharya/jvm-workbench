@@ -278,7 +278,7 @@ class Cls04Proxy(Narrated):
         stand = who(STANDC, "stand-in", 1.1, 20).move_to([-0.6, FL + 0.7, 0])
         actor = who(ACTC, "actor", 1.2, 20).move_to([4.6, FL + 0.75, 0])
         dr = door(2.6, 1.4).move_to([1.4, FL + 1.3, 0])
-        rule = paper(["for every request:", "write it down,", "then pass it on"], 20).move_to([-0.6, 0.55, 0])
+        rule = paper(["for every request:", "write it down,", "then pass it on"], 20).move_to([-1.25, 0.55, 0])
         nt = paper(["costumes", '["Hamlet"]'], 20).move_to([-4.6, FL + 1.0, 0])
         floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
         lt = T("target", 26, ACTC).next_to(actor, UP, buff=0.3)
@@ -436,10 +436,9 @@ class Cls04Proxy(Narrated):
               "8: iconst_1", "9: anewarray     Object", "12: dup", "13: iconst_0", "14: aload_1", "15: aastore",
               "16: invokeinterface InvocationHandler.invoke", "21: checkcast     Integer", "24: invokevirtual Integer.intValue:()I",
               "27: ireturn"]
-        bc = code_block(bl, 20)
+        bc = code_block(bl, 22)
         bcg = titled(bc, "public final int costumes(java.lang.String), JDK 25, names shortened")
-        bcg.move_to([-2.4, 0.15, 0])
-        fit(bcg, 8.0)
+        bcg.move_to([0, 0.15, 0]).shift(RIGHT * (-6.2 - bcg.get_left()[0]))
         notes = [((0, 1), "the handler", HANDLC), ((2, 2), "the proxy itself", STANDC), ((3, 3), "the Method, m3", NOTEC),
                  ((4, 9), "a one-slot Object[], role in it", NOTEC), ((10, 10), "ask the handler", HANDLC),
                  ((11, 13), "cast and unbox", GENC)]

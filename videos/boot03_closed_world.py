@@ -300,7 +300,7 @@ class Boot03ClosedWorld(Narrated):
         self.play(FadeIn(fb[0][0]), GrowFromEdge(fb[0][1], LEFT), FadeIn(fb[0][2]), run_time=0.8)
         self.at_text("and 1,859", lead=0.3)
         self.play(FadeIn(fb[1][0]), GrowFromEdge(fb[1][1], LEFT), FadeIn(fb[1][2]), run_time=0.8)
-        self.hold()
+        self.hold(after=1.8)
         self.wipe()
 
         # ================= what native image does =================
@@ -377,7 +377,7 @@ class Boot03ClosedWorld(Narrated):
         self.play(FadeOut(stp), nodes[5].animate.set_opacity(0.3), nodes[6].animate.set_opacity(0.3), dead.animate.set_opacity(0.3),
                   FadeIn(out_l), run_time=0.7)
         self.at(1)
-        cw.move_to([-0.8, -2.8, 0])
+        cw.move_to([-1.45, -2.8, 0])
         self.play(FadeIn(cw, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.wipe()

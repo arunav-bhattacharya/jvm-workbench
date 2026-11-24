@@ -574,7 +574,9 @@ class Boot04Crac(Narrated):
         self.wipe()
 
         # ================= guardrails =================
-        gr = VGroup(rule_row("Not in mainline OpenJDK: a vendor build (Azul Zulu, BellSoft Liberica), on Linux", 26),
+        gr0 = rule_row("Not in mainline OpenJDK: a vendor build", 26)
+        gr0.add(T("(Azul Zulu, BellSoft Liberica), on Linux", 26).next_to(gr0[1], DOWN, aligned_edge=LEFT, buff=0.12))
+        gr = VGroup(gr0,
                     rule_row("CRIU needs extra rights from the operating system", 26),
                     rule_row("A different CPU can fail the restore, unless you pin the CPU features", 26),
                     rule_row("The image holds the whole heap, secrets too: guard it like a heap dump", 26))

@@ -13,7 +13,7 @@ fg.SAY[:0] = [
 # every spoken line, in order
 N = {
     'open': 'One last visit to the theatre. A touring show uses the same prompt book every night. Say the stage manager wants every lighting cue timed.',
-    'open2': 'Instead, the stage manager slips a note into the prompt book before rehearsal: start a stopwatch here. And in an emergency, they can walk in mid-performance and paste a correction over one page.',
+    'open2': 'Without rewriting a line, the stage manager slips a note into the prompt book before rehearsal: start a stopwatch here. And in an emergency, they can walk in mid-performance and paste a correction over one page.',
     'shyq': "Here's a question that's easy to be shy about. Can you really change the code of a program that's already running, without a restart? And if you can, can you change anything you like?",
     'fam': "Lessons 4 and 5 added work by wrapping objects. That needs an interface, or a class that isn't final. It misses self calls when the proxy forwards. And it only works on objects created through the proxy.",
     'agent': "A Java agent works on the class instead of the object. It's an ordinary class with a special entry point. The JVM hands it an Instrumentation, the JDK's handle for watching and changing classes. That's the stage manager's key.",
@@ -326,7 +326,11 @@ class Cls07Agents(Narrated):
         self.wipe()
 
         # ================= the transformer =================
-        jvm = box("JVM: about to define a class", GREY_B, size=24).move_to([-4.3, 1.6, 0])
+        jl = VGroup(T("JVM: about to", 24), T("define a class", 24)).arrange(DOWN, buff=0.1)
+        jvm = box("JVM", GREY_B, w=jl.width + 0.6, h=jl.height + 0.36, size=24)
+        jvm.remove(jvm[1])
+        jvm.add(jl.move_to(jvm[0]))
+        jvm.move_to([-4.5, 1.6, 0])
         byt = vchip("class file bytes", CLS, 22, mono=False).move_to([-0.8, 1.6, 0])
         tf = box("transform(...)", AGENT, size=26).move_to([3.0, 1.6, 0])
         a1 = edge_arrow(jvm, byt)
@@ -572,16 +576,19 @@ class Cls07Agents(Narrated):
         self.wipe()
 
         # ================= the warning =================
-        w = term(["WARNING: A Java agent has been loaded dynamically (.../byte-buddy-agent-1.18.17.jar)",
-                  "WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning",
-                  "WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information",
-                  "WARNING: Dynamic loading of agents will be disallowed by default in a future release"], 20,
-                 "the four warning lines (JEP 451, JDK 21)", GOLD_M)
-        fit(w, 12.4).move_to([0, 1.4, 0])
-        desk = T("a security desk that logs anyone who arrives mid-performance with a key", 24, GREY_A).move_to([0, -0.6, 0])
+        w = term(["WARNING: A Java agent has been loaded dynamically", "(.../byte-buddy-agent-1.18.17.jar)",
+                  "WARNING: If a serviceability tool is in use, please run with", "-XX:+EnableDynamicAgentLoading to hide this warning",
+                  "WARNING: If a serviceability tool is not in use, please run with", "-Djdk.instrument.traceUsage for more information",
+                  "WARNING: Dynamic loading of agents will be disallowed by default in a", "future release"], 22,
+                 "the four warning lines (JEP 451, JDK 21), wrapped to fit", GOLD_M)
+        for i in (1, 3, 5, 7):
+            w[1][i].shift(RIGHT * 4 * M("0123456789", 22).width / 10)
+        fit(w, 12.4)
+        w.shift(UP * (3.3 - w.get_top()[1]))
+        desk = T("a security desk that logs anyone who arrives mid-performance with a key", 24, GREY_A).move_to([0, w.get_bottom()[1] - 0.6, 0])
         fit(desk, 12.4)
         flag = VGroup(M("-XX:+EnableDynamicAgentLoading", 28, OK), T("opts in, and hides the warning", 26, GREY_A)).arrange(RIGHT, buff=0.3)
-        fit(flag, 12.4).move_to([0, -1.8, 0])
+        fit(flag, 12.4).move_to([0, desk.get_y() - 1.1, 0])
         self.say("warn")
         self.at(1)
         self.play(FadeIn(w, shift=UP * 0.1), run_time=0.8)

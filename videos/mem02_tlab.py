@@ -463,7 +463,7 @@ class Mem02Tlab(Narrated):
 
         # ================= the quiet manager =================
         FL = -1.0
-        floor = Line([-5, FL, 0], [5, FL, 0], stroke_width=1.5, color=GREY_D)
+        floor = Line([-3.9, FL, 0], [3.9, FL, 0], stroke_width=1.5, color=GREY_D)
         mdesk = desk(1.8).move_to([0.5, FL + 0.6, 0])
         mgr = person(MANAGER, 1.4).next_to(mdesk, RIGHT, buff=0.2).align_to(floor, DOWN)
         zz = VGroup(*[T("z", s, GREY_B) for s in (26, 32, 40)]).arrange(UR, buff=0.08).next_to(mgr, UR, buff=0.05)

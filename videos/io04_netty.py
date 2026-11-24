@@ -489,7 +489,7 @@ class Io04Netty(Narrated):
 
         # ================= the maximum =================
         menv = envelope(LETTER, 4.6).move_to([-3.6, 0.8, 0])
-        mcnt = T("1,000,000 pages", 24, LETTER).move_to(menv[0].get_center() + DOWN * 0.25)
+        mcnt = T("1,000,000 pages", 24, LETTER).move_to(menv[0].get_center() + DOWN * 0.5)
         big = T("length: 2,000,000,000", 26, BAD).move_to([2.6, 1.6, 0])
         self.say("max_q")
         self.at(1)

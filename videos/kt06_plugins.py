@@ -220,7 +220,7 @@ class Kt06Plugins(Narrated):
         ms = VGroup(machine("takes off the shrink-wrap", M1), machine("adds a blank form", M2),
                     machine("clips on a slip", M3)).arrange(RIGHT, buff=0.55).move_to([0.25, 0.75, 0])
         for m in ms:
-            m.shift(DOWN * (m[0].get_bottom()[1] + 0.95) )
+            m.shift(DOWN * (m[0].get_bottom()[1] - 0.02))   # machines sit just above the job, never over it
         fit(ms, 10.6)
         jb = job(wrap=True).move_to([-5.6, -0.68, 0]).set_z_index(3)
         tick_l = T("each acts on a note on the ticket", 24, NOTE).move_to([0, -2.4, 0])

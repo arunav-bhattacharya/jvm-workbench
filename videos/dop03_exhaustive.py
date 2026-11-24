@@ -554,12 +554,12 @@ class Dop03Exhaustive(Narrated):
                 "is LoanItem.Book if i.format == Format.LARGE_PRINT -> 42",
                 "is LoanItem.Book if i.newRelease -> 7"]
         kb = titled(code_block(ksrc, 22, hl={" if ": STAMP}), "Kotlin, plain case first").move_to([-6.3, -2.35, 0], aligned_edge=LEFT)
-        kok = VGroup(T("compiles, no warning:", 24, GREY_A), T("every book gets 21 days", 24, BAD)).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
+        kok = VGroup(T("compiles, no warning:", 24, GREY_A), T("every book gets 21 days", 24, BAD)).arrange(RIGHT, buff=0.2)
         self.say("kt")
         self.play(FadeOut(nev), FadeIn(kb, shift=UP * 0.1), run_time=0.7)
         self.at(2)
-        kok.next_to(kb, RIGHT, buff=0.5)
-        fit(kok, 12.3 - kb.width - 0.5).next_to(kb, RIGHT, buff=0.5)
+        # full size, on the title's row, clear of the long middle line
+        kok.move_to([6.3, kb[0].get_y(), 0], aligned_edge=RIGHT)
         self.play(FadeIn(kok[0]), run_time=0.5)
         self.at(3)
         self.play(FadeIn(kok[1]), run_time=0.5)

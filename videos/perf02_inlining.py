@@ -378,7 +378,7 @@ class Perf02Inlining(Narrated):
         hot_l.next_to(sc_hot, LEFT, buff=0.25)
         cold_l = VGroup(T("any other site", 24, CARD)).next_to(sc_cold, LEFT, buff=0.25).align_to(hot_l, RIGHT)
         hot_n = T("up to 325 bytes", 24, C2C).next_to(sc_hot, UP, buff=0.12).align_to(sc_hot, RIGHT)
-        cold_n = T("up to 35 bytes", 24, CARD).next_to(sc_cold, RIGHT, buff=0.25)
+        cold_n = T("up to 35 bytes", 24, CARD).next_to(sc_cold, RIGHT, buff=14 * KB + 0.35)
         same = T("the same from JDK 21 to JDK 27", 22, GREY_B).move_to([0, -3.2, 0])
         self.play(FadeOut(cake), site.animate.move_to([0, 2.9, 0]), run_time=0.5)
         self.say("budget2")

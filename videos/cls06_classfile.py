@@ -199,7 +199,7 @@ def brace_lab(mobs, text, color, size=22, buff=0.12):
 
 def prompt_book(s=1.0):
     page = Rectangle(width=4.2, height=5.0).set_stroke(GREY_B, 2).set_fill(PAPER, 1)
-    stamp = RoundedRectangle(corner_radius=0.1, width=2.6, height=0.6).set_stroke(STAMP, 3).set_fill("#F3D9A8", 1)
+    stamp = RoundedRectangle(corner_radius=0.1, width=3.2, height=0.6).set_stroke(STAMP, 3).set_fill("#F3D9A8", 1)
     stamp_t = T("house rules, edition 25", 20, INK).move_to(stamp)
     st = VGroup(stamp, stamp_t).move_to(page.get_top() + DOWN * 0.6)
     gh = T("Glossary", 22, "#1F6F60").next_to(st, DOWN, buff=0.3).align_to(page, LEFT).shift(RIGHT * 0.35)
@@ -241,7 +241,7 @@ class Cls06Classfile(Narrated):
         self.title_card("Reading the page", "what a class file looks like, byte by byte")
 
         # ================= the prompt book =================
-        book = prompt_book(1.0).move_to([0, -0.1, 0])
+        book = prompt_book(1.0).move_to([-2.4, -0.1, 0])
         tags = VGroup(T("a stamp: which edition of the house rules", 24, STAMP),
                       T("a glossary: every name, numbered", 24, GLOSS),
                       T("then the cues", 24, CUES))
@@ -251,17 +251,17 @@ class Cls06Classfile(Narrated):
         self.play(FadeIn(book[2][0]), FadeIn(book[3][0]), run_time=0.5)
         self.at(2)
         self.play(FadeIn(book[1], scale=1.2), run_time=0.6)
-        tags[0].next_to(book[1], RIGHT, buff=0.7).set_x(4.3)
-        fit(tags[0], 4.3)
+        tags[0].next_to(book[1], RIGHT, buff=0.7)
+        fit(tags[0], 6.2).set_x(0.2 + tags[0].width / 2)
         self.play(FadeIn(tags[0], shift=LEFT * 0.1), run_time=0.4)
         self.at(3)
         self.play(LaggedStart(*[FadeIn(x, shift=RIGHT * 0.05) for x in book[2][1]], lag_ratio=0.2), run_time=0.9)
-        tags[1].move_to([4.3, book[2].get_y(), 0])
-        fit(tags[1], 4.3)
+        tags[1].move_to([0, book[2].get_y(), 0])
+        fit(tags[1], 6.2).set_x(0.2 + tags[1].width / 2)
         self.play(FadeIn(tags[1], shift=LEFT * 0.1), run_time=0.4)
         self.at(4)
         self.play(FadeIn(book[3][1]), run_time=0.5)
-        tags[2].move_to([4.3, book[3].get_y(), 0])
+        tags[2].move_to([0.2 + tags[2].width / 2, book[3].get_y(), 0])
         self.play(FadeIn(tags[2], shift=LEFT * 0.1), run_time=0.4)
         self.hold()
         self.wipe()

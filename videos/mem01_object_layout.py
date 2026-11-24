@@ -594,7 +594,7 @@ class Mem01ObjectLayout(Narrated):
         self.at(1)
         self.play(FadeIn(b2[1]), GrowFromEdge(b2[0], LEFT), run_time=0.7)
         self.play(FadeIn(b2[2]), run_time=0.4)
-        self.hold()
+        self.hold(after=2.75)
         self.wipe()
 
         # ================= compressed oops =================

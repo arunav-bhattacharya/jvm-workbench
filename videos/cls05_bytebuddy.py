@@ -243,7 +243,7 @@ class Cls05Bytebuddy(Narrated):
         runner = cls_box("class CueRunner", ["run(cue)      calls this.check(cue)", "check(cue)", "final stage()"], ACTOR,
                          row_colors={2: BAD}).move_to([0.6, 0.6, 0])
         lk = lock().next_to(runner[2][2], RIGHT, buff=0.25)
-        cue = vchip("LX-14", DESK, 24).move_to([-3.1, 1.6, 0])
+        cue = vchip("LX-14", DESK, 24).move_to([-3.6, 1.6, 0])
         noi = T("no interface anywhere", 26, GREY_A).next_to(runner, DOWN, buff=0.35)
         prx = VGroup(M("Proxy", 26, GREY_A), T("implements interfaces only", 26, GREY_A)).arrange(RIGHT, buff=0.2)
         prx.next_to(noi, DOWN, buff=0.35)
@@ -474,7 +474,7 @@ class Cls05Bytebuddy(Narrated):
         self.play(part(ol[2], "main stage").animate.set_color(ACTOR), run_time=0.5)
         self.hold()
 
-        lk = lock().next_to(base[2][2], RIGHT, buff=0.2)
+        lk = lock().next_to(base[0], RIGHT, buff=0.15).set_y(base[2][2].get_y())
         why = T("final: inherited, runs as written, no interceptor sees it", 24, BAD).move_to([0, 0.35, 0])
         fit(why, 12.4)
         self.say("why")

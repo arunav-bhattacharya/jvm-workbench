@@ -514,14 +514,14 @@ class Pat02Factory(Narrated):
         self.wipe()
 
         # ================= a choice that depends on data =================
-        sj = titled(code_block(["static Messenger of(Channel c) {", "    return switch (c) {   // no default",
-                                "        case SMS -> new SmsMessenger();", "        case EMAIL -> new EmailMessenger();",
-                                "        case FAKE -> new FakeMessenger();", "    };", "}"], 22, hl={"// no default": YELLOW_M}), "Java")
-        sk = titled(code_block(["fun messengerOf(c: Channel): Messenger =", "    when (c) {   // no else",
-                                "        Channel.SMS -> SmsMessenger()", "        Channel.EMAIL -> EmailMessenger()",
-                                "        Channel.FAKE -> FakeMessenger()", "    }"], 22, hl={"// no else": YELLOW_M}), "Kotlin")
-        s2g = VGroup(sj, sk).arrange(RIGHT, buff=0.6, aligned_edge=UP)
-        sw_f = min(1, 12.9 / s2g.width)
+        sj = titled(code_block(["static Messenger of(Channel c) {", "  return switch (c) {   // no default",
+                                "    case SMS -> new SmsMessenger();", "    case EMAIL -> new EmailMessenger();",
+                                "    case FAKE -> new FakeMessenger();", "  };", "}"], 22, hl={"// no default": YELLOW_M}), "Java")
+        sk = titled(code_block(["fun messengerOf(c: Channel): Messenger =", "  when (c) {   // no else",
+                                "    Channel.SMS -> SmsMessenger()", "    Channel.EMAIL -> EmailMessenger()",
+                                "    Channel.FAKE -> FakeMessenger()", "  }"], 22, hl={"// no else": YELLOW_M}), "Kotlin")
+        s2g = VGroup(sj, sk).arrange(RIGHT, buff=0.4, aligned_edge=UP)
+        sw_f = min(1, 13.0 / s2g.width)
         s2g.scale(sw_f).move_to([0, 3.25, 0], aligned_edge=UP)
         self.say("data")
         self.play(FadeIn(sj, shift=UP * 0.1), FadeIn(sk, shift=UP * 0.1), run_time=0.9)

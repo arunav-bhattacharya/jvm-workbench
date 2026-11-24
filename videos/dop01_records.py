@@ -654,7 +654,7 @@ class Dop01Records(Narrated):
         # ================= where the picture breaks: the stapled list =================
         cr = form("CRATE", [("branch", "NORTH"), ("titles", "see attached")], w=3.2).move_to([-4.3, 1.05, 0])
         crsl = sleeve(cr)
-        att = attached(["Dune", "Emma"], extra=0.4).move_to([-2.9, -0.85, 0])
+        att = attached(["Dune", "Emma"], extra=0.4).move_to([-2.9, -1.02, 0])
         att.set_z_index(-1)
         cab = cabinet().move_to([3.6, 0.55, 0])
         cab_l = M("HashSet sent", 24, GREY_A).next_to(cab, UP, buff=0.2)
@@ -714,7 +714,7 @@ class Dop01Records(Narrated):
         kfb = code_block(kfs, 22, hl={"List.copyOf": STAMP})
         kfbt = titled(kfb, "Kotlin: a data class can't reassign, so a factory copies")
         fixes = VGroup(fbt, kfbt).arrange(DOWN, aligned_edge=LEFT, buff=0.4)
-        fit(fixes, 9.4).move_to([0.9, 0.0, 0])
+        fit(fixes, 9.4).move_to([1.1, 0.0, 0])
         safe = term(["safe crate:         SafeCrate[branch=SOUTH, titles=[Dune, Emma]]"], 20, "ShallowDemo, real output")
         fit(safe, 9.6).move_to([0.9, -2.75, 0])
         self.play(FadeOut(cab), FadeOut(cab_l), FadeOut(ic), FadeOut(xm), FadeOut(out4),

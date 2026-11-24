@@ -328,6 +328,8 @@ class Perf01Tiers(Narrated):
         kt2 = M("    (words * 60 + 237) / 238", 22, GREY_A)
         src = VGroup(VGroup(T("Java", 20, GREY_B), jv, jv2).arrange(DOWN, aligned_edge=LEFT, buff=0.1),
                      VGroup(T("Kotlin", 20, GREY_B), kt, kt2).arrange(DOWN, aligned_edge=LEFT, buff=0.1)).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
+        ind = M("0123456789", 22).width / 10 * 4
+        jv2.shift(RIGHT * ind); kt2.shift(RIGHT * ind)
         fit(src, 8.6).move_to([-6.4, 2.2, 0], aligned_edge=LEFT)
         comp = T("javac, kotlinc", 22, GREY_B)
         bc_rows = ["0: lload_0", "1: ldc2_w  60", "4: lmul", "5: ldc2_w  237", "8: ladd", "9: ldc2_w  238",

@@ -111,7 +111,10 @@ def part(t, s, nth=0):
 
 
 def term(lines, size=22, title="output", color=GREY_A):
-    t = VGroup(*[M(l, size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    cw = M("0123456789", size).width / 10
+    t = VGroup(*[M(l.strip(), size, color) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    for i, l in enumerate(lines):  # Text drops leading spaces: indent by hand
+        t[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
     r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.5, height=t.height + 0.45).set_stroke(GREY_D, 2).set_fill("#101010", 1)
     t.move_to(r)
     h = T(title, 20, GREY_B).next_to(r, UP, buff=0.1).align_to(r, LEFT)
@@ -143,12 +146,12 @@ def part_box(name, color, w=3.2):
     return box(name, color, w=w, h=0.8, size=26)
 
 
-def sheet(n=3, s=1.0, gap=0.28):
+def sheet(n=3, s=1.0, gap=0.28, hbuff=0.25):
     t = T("ring me when the", 18, INK)
     t2 = T("fresh bread arrives", 18, INK)
     hd = VGroup(t, t2).arrange(DOWN, buff=0.06)
     lines = VGroup(*[Line(LEFT * 0.75, RIGHT * 0.75, stroke_width=2, color=GREY_D) for _ in range(n)]).arrange(DOWN, buff=gap)
-    body = VGroup(hd, lines).arrange(DOWN, buff=0.25)
+    body = VGroup(hd, lines).arrange(DOWN, buff=hbuff)
     r = Rectangle(width=body.width + 0.4, height=body.height + 0.4).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
     body.move_to(r)
     return VGroup(r, hd, lines).scale(s)
@@ -467,7 +470,7 @@ class Pat08ObserverCommand(Narrated):
         self.wipe()
 
         # ================= light moment: the grumpy chart =================
-        sht = sheet(3, 1.3, gap=0.5).move_to([-3.6, 0.5, 0])
+        sht = sheet(3, 1.3, gap=0.5, hbuff=0.5).move_to([-3.6, 0.5, 0])
         nm3 = VGroup(*[T(t, 20, INK).move_to(l.get_center() + UP * 0.17) for t, c, l in
                        zip(["stock view", "sales chart", "email"], [STOCK, CHART, MAILC], sht[2])])
         phone = T("click.", 30, BAD).next_to(sht, RIGHT, buff=0.4).match_y(nm3[1])

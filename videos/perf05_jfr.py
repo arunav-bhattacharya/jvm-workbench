@@ -438,7 +438,8 @@ class Perf05Jfr(Narrated):
         c1 = M("java -XX:StartFlightRecording:filename=rec.jfr,settings=profile -jar app.jar", 22, GREY_A)
         c2 = M("jcmd <pid> JFR.start name=reports settings=profile", 22, WHITE)
         o1 = M("Started recording 1. No limit specified, using maxsize=250MB as default.", 22, SAMP)
-        o2 = M("Use jcmd 30725 JFR.dump name=reports filename=FILEPATH to copy recording data to file.", 22, SAMP)
+        o2 = VGroup(M("Use jcmd 30725 JFR.dump name=reports filename=FILEPATH", 22, SAMP),
+                    M("to copy recording data to file.", 22, SAMP)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
         c3 = M("jcmd <pid> JFR.dump name=reports filename=reports.jfr", 22, WHITE)
         cmds = VGroup(c1, c2, o1, o2, c3).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
         c2.shift(DOWN * 0.35); o1.shift(DOWN * 0.35); o2.shift(DOWN * 0.35); c3.shift(DOWN * 0.55)

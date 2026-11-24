@@ -549,6 +549,7 @@ class Mem03References(Narrated):
         fit(u2, 12.4)
         self.say("joke")
         self.play(Create(um), FadeIn(u1), run_time=0.9)
+        self.at_text("starts to rain", lead=0.2)
         self.play(LaggedStart(*[FadeIn(d, shift=DOWN * 0.2) for d in drops], lag_ratio=0.15), um.animate.shift(DOWN * 3.0).set_opacity(0), run_time=1.4)
         self.at(1)
         self.play(FadeIn(u2, shift=UP * 0.1), run_time=0.6)
