@@ -612,7 +612,7 @@ class Cap3Bus(Narrated):
         rows.arrange(DOWN, aligned_edge=LEFT, buff=0.3)
         for r in rows:   # the type names in one column
             r[1].align_to(rows[1][1], LEFT)
-        rows.move_to([0, 1.2, 0])
+        rows.move_to([0, 0.95, 0])
         head = T("subscribe as wide as the job, and no wider", 32, CLERK).move_to([0, 2.9, 0])
         nxt = VGroup(M("ParcelEvent", 24, TRACK), T("also hears every event type added next year", 26, GREY_A)).arrange(RIGHT, buff=0.3)
         fit(nxt, 12.4).move_to([0, -1.6, 0])
