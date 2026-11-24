@@ -157,6 +157,14 @@ def part(t, s):
     return t[i:i + len(k)]
 
 
+def open_gap(t, s, d=0.08):
+    """Nudge the letters after part s of Text t right by d, so a box around s has room before them."""
+    k = re.sub(r"\s", "", s)
+    i = re.sub(r"\s", "", t.text).index(k)
+    t[i + len(k):].shift(RIGHT * d)
+    return t
+
+
 def lam_box(t, s, color):
     """A box around part s of Text t whose right edge sits halfway to the next letter, so it never touches it."""
     k = re.sub(r"\s", "", s)
@@ -297,6 +305,7 @@ class Kt01Inline(Narrated):
                          "    finally { println(\"$label took ...\") }",
                          "}",
                          "val ink = timedNotInline(\"ink\") { pages * 3 / 100 }"], 22, color=CODE)
+        open_gap(jv[5], "() -> pages * 3 / 100")
         jv.move_to([-5.6, 1.55, 0], aligned_edge=LEFT)
         kt.move_to([-5.6, -1.75, 0], aligned_edge=LEFT)
         jl = T("Java", 22, GREY_B).next_to(jv, UP, buff=0.2).align_to(jv, LEFT)
@@ -581,6 +590,7 @@ class Kt01Inline(Narrated):
 
         # ================= where the picture breaks: Java =================
         jc = M("long ink = InlineDemoKt.timed(\"from Java\", () -> 12_000L * 3 / 100);", 22, CODE)
+        open_gap(jc, "() -> 12_000L * 3 / 100")
         jc.move_to([0, 1.9, 0])
         fit(jc, 12.4)
         jcl = T("Java", 22, GREY_B).next_to(jc, UP, buff=0.2).align_to(jc, LEFT)
