@@ -293,57 +293,57 @@ In a 96 MB heap, the demo logged 22 of them in one run, and 30 in the next.
 And memory: those 8-byte references.
 
 74
-00:05:06.867 --> 00:05:09.346
+00:05:09.367 --> 00:05:11.846
 So the bill has a forwarding note too.
 
 75
-00:05:09.346 --> 00:05:11.108
+00:05:11.846 --> 00:05:13.608
 Short pauses move the work.
 
 76
-00:05:11.108 --> 00:05:12.479
+00:05:13.608 --> 00:05:14.979
 They don't remove it.
 
 77
-00:05:12.479 --> 00:05:13.784
+00:05:14.979 --> 00:05:16.284
 Check where it went.
 
 78
-00:05:14.700 --> 00:05:17.726
+00:05:17.200 --> 00:05:20.226
 So why doesn't your thread walk to the wrong shelf?
 
 79
-00:05:17.726 --> 00:05:22.057
+00:05:20.226 --> 00:05:24.557
 Every reference wears a color, and a barrier glances at it on every load.
 
 80
-00:05:22.057 --> 00:05:25.439
+00:05:24.557 --> 00:05:27.939
 A stale one gets fixed once, by the thread that found it.
 
 81
-00:05:25.439 --> 00:05:28.465
+00:05:27.939 --> 00:05:30.965
 The crew moves boxes, and the workers keep working.
 
 82
-00:05:29.367 --> 00:05:30.267
+00:05:31.867 --> 00:05:32.767
 Quick check.
 
 83
-00:05:30.267 --> 00:05:35.969
+00:05:32.767 --> 00:05:38.469
 Your service runs in a container with 2 CPUs, and it's busiest at lunchtime.
 
 84
-00:05:35.969 --> 00:05:38.069
+00:05:38.469 --> 00:05:40.569
 Are ZGC's short pauses free?
 
 85
-00:05:41.267 --> 00:05:41.498
+00:05:43.767 --> 00:05:43.998
 No.
 
 86
-00:05:41.498 --> 00:05:47.965
+00:05:43.998 --> 00:05:50.465
 ZGC's threads compete with your request threads exactly when the service is busiest.
 
 87
-00:05:47.965 --> 00:05:51.121
+00:05:50.465 --> 00:05:53.621
 Watch the CPU, and the allocation stalls.
