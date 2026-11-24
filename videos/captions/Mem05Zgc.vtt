@@ -1,349 +1,349 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:08.221
+00:00:02.700 --> 00:00:08.188
 Back in the warehouse, the last video's crew, G1, had one habit nobody could miss.
 
 2
-00:00:08.221 --> 00:00:15.717
+00:00:08.188 --> 00:00:15.684
 Every time it moved boxes, it called pens down, and every worker waited until the last box sat on its new shelf.
 
 3
-00:00:15.867 --> 00:00:18.808
+00:00:15.900 --> 00:00:18.841
 On a small floor, that takes a few milliseconds.
 
 4
-00:00:18.808 --> 00:00:24.691
+00:00:18.841 --> 00:00:24.724
 But the wait grows with the boxes still in use, and a cache of many gigabytes means a long wait.
 
 5
-00:00:25.600 --> 00:00:28.270
+00:00:25.633 --> 00:00:28.303
 Here's a question that's easy to be shy about.
 
 6
-00:00:28.270 --> 00:00:31.577
+00:00:28.303 --> 00:00:31.611
 Could the crew move boxes while the workers keep working?
 
 7
-00:00:31.577 --> 00:00:37.439
+00:00:31.611 --> 00:00:37.472
 And if it moves my object while my thread is using it, why doesn't my thread walk to the wrong shelf?
 
 8
-00:00:37.667 --> 00:00:41.867
+00:00:37.767 --> 00:00:41.967
 Moving furniture while people are still sitting on it sounds like a prank.
 
 9
-00:00:41.867 --> 00:00:44.251
+00:00:41.967 --> 00:00:44.351
 Let's see how a crew could do it politely.
 
 10
-00:00:45.133 --> 00:00:49.947
+00:00:45.267 --> 00:00:50.081
 Picture a crew that leaves a forwarding note each time it moves a box.
 
 11
-00:00:49.947 --> 00:00:51.942
+00:00:50.081 --> 00:00:52.075
 This box is now on shelf 812.
 
 12
-00:00:51.942 --> 00:00:58.337
+00:00:52.075 --> 00:00:58.471
 A worker who follows an old shelf number reads the note once, and corrects their own notepad.
 
 13
-00:00:59.267 --> 00:01:02.537
+00:00:59.400 --> 00:01:02.670
 But how does a worker know a shelf number might be old?
 
 14
-00:01:02.537 --> 00:01:05.986
+00:01:02.670 --> 00:01:06.119
 Every number on the notepad wears a small colored sticker.
 
 15
-00:01:05.986 --> 00:01:08.246
+00:01:06.119 --> 00:01:08.379
 The crew announces today's good color.
 
 16
-00:01:08.246 --> 00:01:11.219
+00:01:08.379 --> 00:01:11.352
 A number with any other color needs a second look.
 
 17
-00:01:11.400 --> 00:01:12.237
+00:01:11.567 --> 00:01:12.404
 Let's map it.
 
 18
-00:01:12.237 --> 00:01:13.460
+00:01:12.404 --> 00:01:13.627
 A box is an object.
 
 19
-00:01:13.460 --> 00:01:17.773
+00:01:13.627 --> 00:01:17.940
 A shelf number on the notepad is a reference, the object's address.
 
 20
-00:01:17.773 --> 00:01:22.022
+00:01:17.940 --> 00:01:22.189
 The sticker is a few extra bits inside every reference, its color.
 
 21
-00:01:22.022 --> 00:01:27.945
+00:01:22.189 --> 00:01:28.112
 And the second look is a few instructions after every load of a reference: the load barrier.
 
 22
-00:01:28.867 --> 00:01:30.935
+00:01:29.033 --> 00:01:31.102
 Here's the barrier, in spirit.
 
 23
-00:01:30.935 --> 00:01:32.934
+00:01:31.102 --> 00:01:33.101
 Your line loads cache.latest.
 
 24
-00:01:32.934 --> 00:01:36.037
+00:01:33.101 --> 00:01:36.204
 The barrier adds one test: is its color good?
 
 25
-00:01:36.037 --> 00:01:40.243
+00:01:36.204 --> 00:01:40.409
 Nearly always it is, and the cost is one test and one branch.
 
 26
-00:01:40.400 --> 00:01:43.747
+00:01:40.633 --> 00:01:43.980
 Now the crew changes the good color, and starts moving.
 
 27
-00:01:43.747 --> 00:01:45.755
+00:01:43.980 --> 00:01:45.988
 Your thread loads the same field.
 
 28
-00:01:45.755 --> 00:01:48.980
+00:01:45.988 --> 00:01:49.213
 Its color is old, so the barrier takes the slow path.
 
 29
-00:01:48.980 --> 00:01:57.195
+00:01:49.213 --> 00:01:57.428
 It finds the new address, moves the object itself if the crew hasn't got to it yet, and writes the fixed reference back into the field.
 
 30
-00:01:57.333 --> 00:02:00.057
+00:01:57.633 --> 00:02:00.357
 So, the next load from that same field.
 
 31
-00:02:00.057 --> 00:02:01.313
+00:02:00.357 --> 00:02:01.613
 What does it cost?
 
 32
-00:02:01.313 --> 00:02:02.431
+00:02:01.613 --> 00:02:02.731
 Pause and guess.
 
 33
-00:02:05.533 --> 00:02:09.087
+00:02:05.800 --> 00:02:09.354
 One test and one branch again, because the color is good now.
 
 34
-00:02:09.087 --> 00:02:13.632
+00:02:09.354 --> 00:02:13.899
 The worker read the forwarding note once, and fixed the shelf number for good.
 
 35
-00:02:14.533 --> 00:02:16.715
+00:02:14.800 --> 00:02:16.982
 The picture bends in two places.
 
 36
-00:02:16.715 --> 00:02:19.920
+00:02:16.982 --> 00:02:20.187
 ZGC doesn't leave its notes on the old shelves.
 
 37
-00:02:19.920 --> 00:02:27.353
+00:02:20.187 --> 00:02:27.620
 It keeps them in a small table beside each area it empties, so the old shelves can take new boxes right away.
 
 38
-00:02:27.533 --> 00:02:32.099
+00:02:27.833 --> 00:02:32.399
 And a real worker reads a note only after walking to an old shelf.
 
 39
-00:02:32.099 --> 00:02:37.979
+00:02:32.399 --> 00:02:38.279
 ZGC's check runs on every reference load, all day, whether a move is going on or not.
 
 40
-00:02:38.867 --> 00:02:40.640
+00:02:39.200 --> 00:02:40.974
 The colors need room.
 
 41
-00:02:40.640 --> 00:02:45.624
+00:02:40.974 --> 00:02:45.957
 So ZGC doesn't use lesson 1's compressed 4-byte references.
 
 42
-00:02:45.624 --> 00:02:47.567
+00:02:45.957 --> 00:02:47.900
 Each one takes 8 bytes.
 
 43
-00:02:47.567 --> 00:02:53.057
+00:02:47.900 --> 00:02:53.390
 The lesson's Thumbnail takes 40 bytes under G1, and 48 under ZGC.
 
 44
-00:02:53.057 --> 00:02:58.463
+00:02:53.390 --> 00:02:58.796
 The allocation counter agrees: 10,000 thumbnails, 480,000 bytes.
 
 45
-00:02:59.333 --> 00:03:08.991
+00:02:59.700 --> 00:03:09.357
 Now let's read one collection from the log: a JDK 25 run of the demo's load, on a busy 4-core machine.
 
 46
-00:03:08.991 --> 00:03:13.914
+00:03:09.357 --> 00:03:14.281
 A minor collection cleans only the young generation.
 
 47
-00:03:13.914 --> 00:03:18.553
+00:03:14.281 --> 00:03:18.920
 The last line says 852 MB down to 176, in 0.071s.
 
 48
-00:03:18.733 --> 00:03:21.185
+00:03:19.133 --> 00:03:21.585
 So how long were your threads stopped?
 
 49
-00:03:21.185 --> 00:03:22.798
+00:03:21.585 --> 00:03:23.198
 Seventy-one milliseconds?
 
 50
-00:03:22.798 --> 00:03:23.831
+00:03:23.198 --> 00:03:24.231
 Pause and guess.
 
 51
-00:03:26.933 --> 00:03:27.326
+00:03:27.300 --> 00:03:27.692
 No.
 
 52
-00:03:27.326 --> 00:03:36.086
+00:03:27.692 --> 00:03:36.453
 The 0.071s is the whole collection, and it ran beside your program.
 
 53
-00:03:36.086 --> 00:03:44.324
+00:03:36.453 --> 00:03:44.691
 The stops are the three Pause lines: 0.011, 0.015 and 0.020 ms.
 
 54
-00:03:44.324 --> 00:03:46.416
+00:03:44.691 --> 00:03:46.783
 Together, 0.046.
 
 55
-00:03:46.600 --> 00:03:52.222
+00:03:47.000 --> 00:03:52.622
 Seventy-one milliseconds of cleaning, and the workers lost less than a twentieth of one.
 
 56
-00:03:52.222 --> 00:03:54.585
+00:03:52.622 --> 00:03:54.985
 That's quicker than saying pens down.
 
 57
-00:03:54.585 --> 00:03:58.993
+00:03:54.985 --> 00:03:59.393
 So the point is: in a ZGC log, the collection time is not your pause.
 
 58
-00:03:59.867 --> 00:04:00.770
+00:04:00.300 --> 00:04:01.204
 Now the names.
 
 59
-00:04:00.770 --> 00:04:07.999
+00:04:01.204 --> 00:04:08.432
 ZGC, the Z Garbage Collector, does concurrent relocation: it moves live objects while your threads keep running.
 
 60
-00:04:07.999 --> 00:04:10.581
+00:04:08.432 --> 00:04:11.014
 The sticker is called a colored pointer.
 
 61
-00:04:10.581 --> 00:04:18.261
+00:04:11.014 --> 00:04:18.695
 The pauses only switch the crew from one step to the next, and the java manual says they don't depend on the heap size.
 
 62
-00:04:18.400 --> 00:04:23.041
+00:04:18.900 --> 00:04:23.541
 JDK 21 added generational ZGC as an option.
 
 63
-00:04:23.041 --> 00:04:29.516
+00:04:23.541 --> 00:04:30.016
 JDK 23 made it the default, and JDK 24 removed the old mode.
 
 64
-00:04:29.516 --> 00:04:34.804
+00:04:30.016 --> 00:04:35.304
 So on JDK 25, -XX:+UseZGC means generational ZGC.
 
 65
-00:04:35.733 --> 00:04:37.747
+00:04:36.233 --> 00:04:38.247
 So the pauses are nearly gone.
 
 66
-00:04:37.747 --> 00:04:38.753
+00:04:38.247 --> 00:04:39.253
 The work isn't.
 
 67
-00:04:38.753 --> 00:04:43.988
+00:04:39.253 --> 00:04:44.488
 Somebody still marks and moves every live box, and somebody runs that barrier.
 
 68
-00:04:44.133 --> 00:04:45.942
+00:04:44.700 --> 00:04:46.508
 The bill has three parts.
 
 69
-00:04:45.942 --> 00:04:48.907
+00:04:46.508 --> 00:04:49.474
 CPU: the crew's threads run beside yours.
 
 70
-00:04:48.907 --> 00:04:55.418
+00:04:49.474 --> 00:04:55.984
 Headroom: if the floor fills before the crew finishes, threads that want memory must wait.
 
 71
-00:04:55.418 --> 00:04:57.371
+00:04:55.984 --> 00:04:57.937
 That's an allocation stall.
 
 72
-00:04:57.371 --> 00:05:02.796
+00:04:57.937 --> 00:05:03.363
 In a 96 MB heap, the demo logged 22 of them in one run, and 30 in the next.
 
 73
-00:05:02.796 --> 00:05:05.400
+00:05:03.363 --> 00:05:05.967
 And memory: those 8-byte references.
 
 74
-00:05:08.867 --> 00:05:11.346
+00:05:09.367 --> 00:05:11.846
 So the bill has a forwarding note too.
 
 75
-00:05:11.346 --> 00:05:13.108
+00:05:11.846 --> 00:05:13.608
 Short pauses move the work.
 
 76
-00:05:13.108 --> 00:05:14.479
+00:05:13.608 --> 00:05:14.979
 They don't remove it.
 
 77
-00:05:14.479 --> 00:05:15.784
+00:05:14.979 --> 00:05:16.284
 Check where it went.
 
 78
-00:05:16.667 --> 00:05:19.693
+00:05:17.200 --> 00:05:20.226
 So why doesn't your thread walk to the wrong shelf?
 
 79
-00:05:19.693 --> 00:05:24.024
+00:05:20.226 --> 00:05:24.557
 Every reference wears a color, and a barrier glances at it on every load.
 
 80
-00:05:24.024 --> 00:05:27.406
+00:05:24.557 --> 00:05:27.939
 A stale one gets fixed once, by the thread that found it.
 
 81
-00:05:27.406 --> 00:05:30.432
+00:05:27.939 --> 00:05:30.965
 The crew moves boxes, and the workers keep working.
 
 82
-00:05:31.333 --> 00:05:32.234
+00:05:31.867 --> 00:05:32.767
 Quick check.
 
 83
-00:05:32.234 --> 00:05:37.935
+00:05:32.767 --> 00:05:38.469
 Your service runs in a container with 2 CPUs, and it's busiest at lunchtime.
 
 84
-00:05:37.935 --> 00:05:40.036
+00:05:38.469 --> 00:05:40.569
 Are ZGC's short pauses free?
 
 85
-00:05:43.267 --> 00:05:43.498
+00:05:43.767 --> 00:05:43.998
 No.
 
 86
-00:05:43.498 --> 00:05:49.965
+00:05:43.998 --> 00:05:50.465
 ZGC's threads compete with your request threads exactly when the service is busiest.
 
 87
-00:05:49.965 --> 00:05:53.121
+00:05:50.465 --> 00:05:53.621
 Watch the CPU, and the allocation stalls.
