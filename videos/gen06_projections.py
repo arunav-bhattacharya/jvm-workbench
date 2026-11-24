@@ -381,7 +381,7 @@ class Gen06Projections(Narrated):
         self.hold()
 
         same = T("the crate: unchanged", 24, BOX).next_to(cr, UP, buff=0.2)
-        hp2 = who(GREY_B, "next helper", 1.0, 20).move_to([-3.0, FL + 0.7, 0])
+        hp2 = who(GREY_B, "next helper", 1.0, 20).move_to([-3.2, FL + 0.7, 0])
         q2 = T("?", 36, YELLOW_M).next_to(hp2, UP, buff=0.15)
         self.say("story2")
         self.play(FadeOut(job), Indicate(cr[0], color=BOX, scale_factor=1.05), FadeIn(same), run_time=0.8)

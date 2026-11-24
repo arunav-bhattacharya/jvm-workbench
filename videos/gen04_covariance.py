@@ -358,7 +358,8 @@ class Gen04Covariance(Narrated):
         # ================= the substitution test on the dispenser =================
         FL = -2.0
         floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
-        dp = dispenser("Dispenser<Apple>", w=3.0).move_to([-3.0, FL + 1.5, 0])
+        dp = dispenser("Dispenser<Apple>", w=3.3).move_to([-3.0, FL + 1.5, 0])
+        dp[5].scale(1.1)
         code_p = who(BACK, "code that expects", 1.1, 20).move_to([3.0, FL + 0.75, 0])
         ex = M("Dispenser<Fruit>", 22, WHITE).next_to(code_p, DOWN, buff=0.06)
         moves = VGroup(T("what it can do:", 24, GREY_B), M("next()", 26, WHITE), T("that's all", 22, GREY_B)).arrange(DOWN, buff=0.15)
@@ -539,14 +540,14 @@ class Gen04Covariance(Narrated):
         self.hold()
         self.wipe()
 
-        dp = dispenser("apples", 0.7).move_to([-4.0, 0.2, 0])
+        dp = dispenser("apples", 0.7).move_to([-3.35, 0.2, 0])
         stick = VGroup(RoundedRectangle(corner_radius=0.08, width=0.8, height=0.4).set_stroke(OK, 2.5).set_fill(dim(OK, 0.4), 1), M("out", 22, WHITE))
         stick[1].move_to(stick[0])
         stick.rotate(-8 * DEGREES).move_to(dp[0].get_corner(UL) + RIGHT * 0.3 + DOWN * 0.25).set_z_index(5)
         kl = VGroup(T("Kotlin: the sticker on the machine, once", 24, OK), T("declaration-site variance", 24, GREY_A)).arrange(DOWN, buff=0.1)
         kl.next_to(dp, DOWN, buff=0.3)
-        ppl = VGroup(*[person(COUNTER, 0.8) for _ in range(3)]).arrange(RIGHT, buff=1.6).move_to([2.8, 0.0, 0])
-        notes = VGroup(*[paper(["? extends"], 20).next_to(p, UP, buff=0.1) for p in ppl[:2]])
+        ppl = VGroup(*[person(COUNTER, 0.8) for _ in range(3)]).arrange(RIGHT, buff=1.8).move_to([2.8, 0.0, 0])
+        notes = VGroup(*[paper(["? extends"], 22).next_to(p, UP, buff=0.1) for p in ppl[:2]])
         nope = tick(False, 0.16).next_to(ppl[2], UP, buff=0.2)
         jl = VGroup(T("Java: a note in every customer's pocket", 24, GREY_A), T("use-site variance", 24, GREY_A)).arrange(DOWN, buff=0.1)
         jl.move_to([2.8, -1.5, 0])
